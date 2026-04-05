@@ -1,9 +1,9 @@
 #![no_std]
 
-mod error;
+pub mod error;
 mod instructions;
-mod state;
-mod cpi;
+pub mod state;
+pub mod cpi;
 mod util;
 
 use pinocchio::{
