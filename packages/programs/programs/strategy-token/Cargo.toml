@@ -1,7 +1,7 @@
 [package]
 name = "strategy-token"
 version = "0.1.0"
-description = "Yields.so Strategy Token Program - mint tradeable shares tracking live portfolio value"
+description = "Yields.so Strategy Token Program — pinocchio + Beethoven"
 edition = "2021"
 
 [lib]
@@ -10,18 +10,10 @@ name = "strategy_token"
 
 [features]
 no-entrypoint = []
-no-idl = []
-no-log-ix-name = []
-cpi = ["no-entrypoint"]
 default = []
-idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-anchor-debug = []
-custom-heap = []
-custom-panic = []
-
-[lints]
-workspace = true
 
 [dependencies]
-anchor-lang = { version = "1.0.0", features = ["init-if-needed"] }
-anchor-spl = { version = "1.0.0", features = ["token", "associated_token", "metadata"] }
+pinocchio = { version = "0.10", default-features = false, features = ["cpi"] }
+beethoven = { git = "https://github.com/blueshift-gg/beethoven", features = ["kamino-deposit"] }
+# curve25519 needed for find_program_address on host (cargo check); on SBF uses syscalls
+solana-address = { version = "2.0", features = ["curve25519"] }
