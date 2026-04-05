@@ -69,6 +69,9 @@ pub fn process(
     util::assert_signer(creator)?;
     util::assert_writable(creator)?;
 
+    // Validate deposit_mint is owned by SPL Token program
+    util::assert_owned_by(deposit_mint, &cpi::spl_token::TOKEN_PROGRAM_ID)?;
+
     // ----------------------------------------------------------------
     // 3. Derive Strategy PDA
     // ----------------------------------------------------------------

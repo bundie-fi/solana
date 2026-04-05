@@ -76,7 +76,7 @@ pub fn process(
         high_water_mark,
         fee_bps,
         wallet_bump,
-        _authority_bytes,
+        authority_bytes,
         _name_bytes,
     ) = {
         let strat_data = strategy_acc.try_borrow()?;
@@ -122,6 +122,20 @@ pub fn process(
     };
 
     // ----------------------------------------------------------------
+    // 3b. Validate fee_receiver_ata owner matches strategy authority
+    // ----------------------------------------------------------------
+
+    {
+        let fee_ata_data = fee_receiver_ata.try_borrow()?;
+        // SPL token account: owner is at bytes 32..64
+        let fee_ata_owner: &[u8; 32] = fee_ata_data[32..64].try_into().unwrap();
+        util::assert_keys_equal(
+            unsafe { &*(fee_ata_owner as *const [u8; 32] as *const Address) },
+            unsafe { &*(authority_bytes.as_ref() as *const [u8] as *const [u8; 32] as *const Address) },
+        )?;
+    }
+
+    // ----------------------------------------------------------------
     // 4. Validate redeemer has enough shares
     // ----------------------------------------------------------------
 
@@ -151,19 +165,13 @@ pub fn process(
     // ----------------------------------------------------------------
 
     let fee: u64 = {
+        // HWM is stored as per-share (1e9 scaled), same scale as nav_per_share
         let nav_per_share_now = (current_nav as u128)
             .checked_mul(NAV_SCALE)
             .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?
             / (total_shares as u128);
 
-        let hwm_per_share = if high_water_mark > 0 {
-            (high_water_mark as u128)
-                .checked_mul(NAV_SCALE)
-                .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?
-                / (total_shares as u128)
-        } else {
-            0u128
-        };
+        let hwm_per_share = high_water_mark as u128; // already stored as per-share (1e9 scaled)
 
         if nav_per_share_now > hwm_per_share && fee_bps > 0 {
             let profit_per_share = nav_per_share_now - hwm_per_share;
@@ -245,9 +253,12 @@ pub fn process(
         Strategy::set_total_deposits(strat_data, new_deposits);
         Strategy::set_total_shares(strat_data, new_shares);
 
-        // Update high water mark if current NAV exceeds it
-        if new_nav > high_water_mark && new_shares > 0 {
-            Strategy::set_high_water_mark(strat_data, new_nav);
+        // Update high water mark (per-share, 1e9 scaled) if current exceeds it
+        if new_shares > 0 {
+            let nav_ps = (new_nav as u128 * 1_000_000_000 / new_shares as u128) as u64;
+            if nav_ps > high_water_mark {
+                Strategy::set_high_water_mark(strat_data, nav_ps);
+            }
         }
     }
 

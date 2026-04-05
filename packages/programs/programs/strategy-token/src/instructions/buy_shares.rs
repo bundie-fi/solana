@@ -37,7 +37,7 @@ pub fn process(
     // 2. Unpack accounts
     // ----------------------------------------------------------------
 
-    if accounts.len() < 10 {
+    if accounts.len() < 11 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
@@ -51,7 +51,8 @@ pub fn process(
     let token_program    = &accounts[7];
     let system_program   = &accounts[8];
     let _ata_program     = &accounts[9];
-    let remaining        = &accounts[10..];
+    let deposit_mint     = &accounts[10];
+    let remaining        = &accounts[11..];
 
     util::assert_signer(buyer)?;
     util::assert_writable(buyer)?;
@@ -127,6 +128,14 @@ pub fn process(
     };
 
     // ----------------------------------------------------------------
+    // 3b. Yield strategies require remaining accounts for Beethoven CPI
+    // ----------------------------------------------------------------
+
+    if strategy_type == STRATEGY_TYPE_YIELD && remaining.is_empty() {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    // ----------------------------------------------------------------
     // 4. Create buyer's share ATA if needed (idempotent)
     // ----------------------------------------------------------------
 
@@ -135,6 +144,19 @@ pub fn process(
         buyer_shares_ata,
         buyer,
         mint_acc,
+        system_program,
+        token_program,
+    )?;
+
+    // ----------------------------------------------------------------
+    // 4b. Create wallet's deposit token ATA if needed (idempotent)
+    // ----------------------------------------------------------------
+
+    cpi::associated_token::create_idempotent(
+        buyer,
+        wallet_token_ata,
+        wallet_acc,
+        deposit_mint,
         system_program,
         token_program,
     )?;
@@ -241,8 +263,10 @@ pub fn process(
         Strategy::set_current_nav(strat_data, new_nav);
         Strategy::set_total_shares(strat_data, new_total_shares);
 
+        // Set initial HWM as per-share (1e9 scaled) on first deposit
         if high_water_mark == 0 {
-            Strategy::set_high_water_mark(strat_data, new_nav);
+            let hwm = (new_nav as u128 * 1_000_000_000 / new_total_shares as u128) as u64;
+            Strategy::set_high_water_mark(strat_data, hwm);
         }
     }
 

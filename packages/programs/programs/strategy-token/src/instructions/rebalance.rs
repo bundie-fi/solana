@@ -37,6 +37,11 @@ pub fn process(
     if num_steps == 0 {
         return Err(ProgramError::InvalidInstructionData);
     }
+    // Single-step rebalance only for now; reject multi-step to prevent
+    // the loop-break mismatch from silently dropping steps.
+    if num_steps != 1 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
 
     // ----------------------------------------------------------------
     // 2. Unpack accounts

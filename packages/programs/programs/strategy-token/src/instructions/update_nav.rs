@@ -102,6 +102,11 @@ pub fn process(
 
     // ----------------------------------------------------------------
     // 5. Read portfolio value from wallet_token_ata
+    //
+    // TODO(C4): For yield strategies, this only reads the wallet ATA
+    // balance and does not account for tokens deposited into Kamino
+    // reserves. Full Kamino reserve exchange-rate read will be added
+    // during devnet integration so the NAV reflects lent assets too.
     // ----------------------------------------------------------------
 
     let portfolio_value = {
@@ -124,37 +129,32 @@ pub fn process(
     };
 
     // ----------------------------------------------------------------
-    // 7. TWAP calculation
+    // 7. TWAP calculation (EMA approach)
     // ----------------------------------------------------------------
 
     let slots_elapsed = current_slot.saturating_sub(twap_last_slot);
 
-    let new_accumulator = twap_accumulator
-        .checked_add(
-            (nav_per_share as u128)
-                .checked_mul(slots_elapsed as u128)
-                .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?,
-        )
-        .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?;
-
-    // total_elapsed since first snapshot (use slots from init to now)
-    let total_elapsed = current_slot.saturating_sub(
-        // first snapshot slot approximation: last_snapshot_slot - (snapshot_count * interval)
-        // simpler: use twap_window as cap
-        0, // We use min(total_elapsed, twap_window) below
-    );
-
-    let capped_elapsed = if total_elapsed > twap_window {
-        twap_window
-    } else {
-        total_elapsed
-    };
-
-    let twap_value: u64 = if capped_elapsed > 0 {
-        (new_accumulator / (capped_elapsed as u128)) as u64
+    // EMA: twap = (nav_per_share * weight + old_twap * complement) / twap_window
+    // weight = min(slots_elapsed, twap_window), complement = twap_window - weight
+    let old_twap = if twap_accumulator > 0 {
+        twap_accumulator as u64
     } else {
         nav_per_share
     };
+
+    let weight = slots_elapsed.min(twap_window);
+    let complement = twap_window.saturating_sub(weight);
+
+    let twap_value: u64 = if twap_window > 0 {
+        ((nav_per_share as u128 * weight as u128
+            + old_twap as u128 * complement as u128)
+            / twap_window as u128) as u64
+    } else {
+        nav_per_share
+    };
+
+    // Store current TWAP value in the accumulator field (repurposed as EMA state)
+    let new_accumulator = twap_value as u128;
 
     // ----------------------------------------------------------------
     // 8. Write NavOracle
@@ -180,9 +180,9 @@ pub fn process(
         Strategy::set_nav_twap_accumulator(strat_data, new_accumulator);
         Strategy::set_twap_last_slot(strat_data, current_slot);
 
-        // Update high water mark if portfolio value exceeds it
-        if portfolio_value > high_water_mark {
-            Strategy::set_high_water_mark(strat_data, portfolio_value);
+        // Update high water mark (per-share, 1e9 scaled) if current exceeds it
+        if total_shares > 0 && nav_per_share > high_water_mark {
+            Strategy::set_high_water_mark(strat_data, nav_per_share);
         }
     }
 
