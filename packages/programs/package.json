@@ -1,0 +1,18 @@
+{
+  "name": "@yields-so/programs",
+  "scripts": {
+    "build": "anchor build",
+    "test": "anchor test",
+    "deploy": "anchor deploy"
+  },
+  "devDependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/web3.js": "^1.98",
+    "@types/chai": "^4",
+    "@types/mocha": "^10",
+    "chai": "^4",
+    "mocha": "^10",
+    "ts-mocha": "^10",
+    "typescript": "^5.5"
+  }
+}
