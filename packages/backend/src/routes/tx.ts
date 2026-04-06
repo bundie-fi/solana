@@ -2,77 +2,134 @@ import { Hono } from "hono";
 
 export const tx = new Hono();
 
-type TxAction =
-  | "strategy_buy"
-  | "strategy_redeem"
-  | "prediction_buy"
-  | "prediction_sell";
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type TxType =
+  | "buy_shares"
+  | "redeem_shares"
+  | "buy_prediction"
+  | "sell_prediction";
 
 interface BuildTxRequest {
-  action: TxAction;
+  type: TxType;
   wallet: string;
-  params: Record<string, unknown>;
+  strategyAddress?: string;
+  marketAddress?: string;
+  amount?: number;
+  outcome?: "yes" | "no";
 }
 
 interface BuildTxResponse {
-  /** Base64-encoded serialized transaction */
   transaction: string;
-  /** Estimated SOL fee */
   estimatedFee: number;
-  /** Recent blockhash used */
-  blockhash: string;
 }
 
-// TODO: Build unsigned transaction based on action type:
-//   - strategy_buy: CPI into Strategy Token Program (mint shares)
-//   - strategy_redeem: CPI into Strategy Token Program (burn shares, withdraw)
-//   - prediction_buy: CPI into Prediction Market Program (buy YES/NO)
-//   - prediction_sell: CPI into Prediction Market Program (sell shares)
-// TODO: Attach recent blockhash, set fee payer to wallet
-// TODO: Return serialized unsigned tx for client-side signing
+interface SimulateRequest {
+  transaction: string;
+}
+
+interface SimulateResponse {
+  success: boolean;
+  logs: string[];
+  unitsConsumed: number;
+}
+
+interface BroadcastRequest {
+  signedTransaction: string;
+}
+
+interface BroadcastResponse {
+  txId: string;
+  slot: number;
+}
+
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+
+const MOCK_BASE64_TX =
+  "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhv2EhcGFja2VkX3R4X21vY2s=";
+
+function mockSignature(): string {
+  const chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let sig = "";
+  for (let i = 0; i < 88; i++) {
+    sig += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return sig;
+}
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
 tx.post("/build", async (c) => {
   const body = await c.req.json<BuildTxRequest>();
-  // TODO: Validate action, wallet pubkey, and action-specific params
+
+  if (!body.type || !body.wallet) {
+    return c.json({ error: "type and wallet are required" }, 400);
+  }
+
+  const validTypes: TxType[] = [
+    "buy_shares",
+    "redeem_shares",
+    "buy_prediction",
+    "sell_prediction",
+  ];
+  if (!validTypes.includes(body.type)) {
+    return c.json(
+      { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
+      400
+    );
+  }
 
   const response: BuildTxResponse = {
-    transaction: "",
-    estimatedFee: 0,
-    blockhash: "",
+    transaction: MOCK_BASE64_TX,
+    estimatedFee: 5000,
   };
 
-  return c.json(response, 501);
+  return c.json(response);
 });
 
-// TODO: Deserialize the transaction and run simulateTransaction via RPC
-// TODO: Return simulation logs, compute units consumed, and any errors
-// TODO: Check for common failures (insufficient balance, slippage exceeded)
 tx.post("/simulate", async (c) => {
-  const body = await c.req.json<{ transaction: string }>();
+  const body = await c.req.json<SimulateRequest>();
 
-  return c.json(
-    {
-      success: false,
-      logs: [],
-      computeUnits: 0,
-      error: "Not implemented",
-    },
-    501
-  );
+  if (!body.transaction) {
+    return c.json({ error: "transaction is required" }, 400);
+  }
+
+  const response: SimulateResponse = {
+    success: true,
+    logs: [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program log: Instruction: TransferChecked",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+      "Program log: Instruction: MintTo",
+      "Program log: Strategy shares minted successfully",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4500 of 200000 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+      "Program 11111111111111111111111111111111 consumed 150000 of 200000 compute units",
+      "Program 11111111111111111111111111111111 success",
+    ],
+    unitsConsumed: 150000,
+  };
+
+  return c.json(response);
 });
 
-// TODO: Accept a signed (base64) transaction from the client
-// TODO: Broadcast via sendRawTransaction with preflight checks
-// TODO: Confirm transaction using confirmTransaction with "confirmed" commitment
-// TODO: Return the transaction signature
 tx.post("/broadcast", async (c) => {
-  const body = await c.req.json<{ signedTransaction: string }>();
+  const body = await c.req.json<BroadcastRequest>();
 
-  return c.json(
-    {
-      success: false,
-      signature: "",
-      error: "Not implemented",
-    },
-    501
-  );
+  if (!body.signedTransaction) {
+    return c.json({ error: "signedTransaction is required" }, 400);
+  }
+
+  const response: BroadcastResponse = {
+    txId: `mock_signature_${mockSignature()}`,
+    slot: 123456789 + Math.floor(Math.random() * 10000),
+  };
+
+  return c.json(response);
 });
