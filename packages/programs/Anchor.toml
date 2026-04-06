@@ -1,16 +1,13 @@
 [toolchain]
-anchor_version = "0.31.1"
+anchor_version = "1.0.0"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-strategy_token = "STRTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-prediction_market = "PRDMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-[registry]
-url = "https://api.apr.dev"
+strategy_token = "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+prediction_market = "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
 
 [provider]
 cluster = "devnet"

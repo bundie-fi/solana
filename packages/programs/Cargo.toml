@@ -9,3 +9,6 @@ codegen-units = 1
 
 [profile.test]
 opt-level = 0
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow" }
