@@ -11,8 +11,8 @@ export const RPC_ENDPOINTS = {
 
 /** Program IDs — update after deployment */
 export const PROGRAM_IDS = {
-  strategyToken: new PublicKey('STRTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'),
-  predictionMarket: new PublicKey('PRDMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'),
+  strategyToken: new PublicKey('Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV'),
+  predictionMarket: new PublicKey('Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i'),
 } as const
 
 /** PDA seed prefixes */

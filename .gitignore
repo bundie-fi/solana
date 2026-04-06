@@ -13,6 +13,9 @@ out/
 .expo/
 *.keystore
 *.jks
+# Solana keypair files (contain private keys)
+*keypair*.json
+Y13*.json
 android/app/build/
 ios/build/
 ios/Pods/

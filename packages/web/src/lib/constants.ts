@@ -6,10 +6,10 @@ export const RPC_ENDPOINT =
 export const PROGRAM_IDS = {
   strategyToken: new PublicKey(
     process.env.NEXT_PUBLIC_STRATEGY_PROGRAM_ID ||
-      "11111111111111111111111111111111"
+      "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
   ),
   predictionMarket: new PublicKey(
     process.env.NEXT_PUBLIC_PREDICTION_PROGRAM_ID ||
-      "11111111111111111111111111111111"
+      "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
   ),
 } as const;

@@ -4,15 +4,15 @@ const rpcUrl = process.env.RPC_URL || "https://api.devnet.solana.com";
 
 export const connection = new Connection(rpcUrl, "confirmed");
 
-/** Strategy Token Program ID from env */
-export const strategyProgramId = process.env.STRATEGY_PROGRAM_ID
-  ? new PublicKey(process.env.STRATEGY_PROGRAM_ID)
-  : null;
+/** Strategy Token Program ID */
+export const strategyProgramId = new PublicKey(
+  process.env.STRATEGY_PROGRAM_ID || "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+);
 
-/** Prediction Market Program ID from env */
-export const predictionProgramId = process.env.PREDICTION_PROGRAM_ID
-  ? new PublicKey(process.env.PREDICTION_PROGRAM_ID)
-  : null;
+/** Prediction Market Program ID */
+export const predictionProgramId = new PublicKey(
+  process.env.PREDICTION_PROGRAM_ID || "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+);
 
 // TODO: Import IDL and create Program instances once Anchor workspace is built
 // export function getStrategyProgram(provider: AnchorProvider) { ... }
