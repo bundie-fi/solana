@@ -1,0 +1,21 @@
+[package]
+name = "prediction-market"
+version = "0.1.0"
+description = "Yields.so Prediction Market Program - LS-LMSR markets with oracle-free resolution"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "prediction_market"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31.1", features = ["token"] }
