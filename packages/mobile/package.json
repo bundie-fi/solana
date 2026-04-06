@@ -26,14 +26,21 @@
     "@solana/web3.js": "^1.98.0",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.1.0",
     "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "^2.1.0",
-    "nativewind": "^4.1.0",
-    "tailwindcss": "^3.4.0",
-    "seeker-sdk": "^1.0.0"
+    "nativewind": "5.0.0-preview.2",
+    "tailwindcss": "^4",
+    "react-native-css": "0.0.0-nightly.5ce6396",
+    "@tailwindcss/postcss": "^4",
+    "tailwind-merge": "^2",
+    "clsx": "^2",
+    "expo-image": "~2.0.0",
+    "seeker-sdk": "^0.2.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.0",
     "@types/react": "~18.3.0",
     "typescript": "~5.5.0",
     "eslint": "^9.0.0"
+  },
+  "resolutions": {
+    "lightningcss": "1.30.1"
   }
 }

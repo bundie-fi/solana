@@ -1,9 +1,11 @@
-import { View, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, ScrollView } from "@/tw";
 
 export default function PortfolioScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <View className="flex-1 px-4 pt-4">
         <Text className="text-2xl font-bold text-white mb-2">Portfolio</Text>
         <Text className="text-gray-400">
@@ -13,6 +15,6 @@ export default function PortfolioScreen() {
         {/* TODO: Your Earnings section (strategy shares) */}
         {/* TODO: Your Predictions section (market positions) */}
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }

@@ -1,12 +1,14 @@
-import { View, Text } from "react-native";
+import { View, Text, ScrollView } from "@/tw";
 import { useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function StrategyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <View className="flex-1 px-4 pt-4">
         <Text className="text-2xl font-bold text-white mb-2">Strategy Detail</Text>
         <Text className="text-gray-400">Strategy: {id}</Text>
@@ -16,6 +18,6 @@ export default function StrategyDetailScreen() {
         {/* TODO: "Earn with this strategy" button (gold) */}
         {/* TODO: Link to related prediction markets */}
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }
