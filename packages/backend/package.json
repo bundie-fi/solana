@@ -1,0 +1,25 @@
+{
+  "name": "@yields-so/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4",
+    "@hono/node-server": "^1",
+    "@solana/web3.js": "^1.98",
+    "@supabase/supabase-js": "^2",
+    "dotenv": "^16"
+  },
+  "devDependencies": {
+    "typescript": "^5.5",
+    "@types/node": "^22",
+    "tsx": "^4",
+    "vitest": "^2"
+  }
+}
