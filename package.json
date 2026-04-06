@@ -1,0 +1,25 @@
+{
+  "name": "@yields-so/v2",
+  "private": true,
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm --filter './packages/*' dev",
+    "build": "pnpm --filter './packages/*' build",
+    "lint": "pnpm --filter './packages/*' lint",
+    "clean": "pnpm --filter './packages/*' clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "eslint": "^9",
+    "prettier": "^3",
+    "typescript": "^5.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@solana/web3.js": "^1.98"
+    }
+  }
+}
