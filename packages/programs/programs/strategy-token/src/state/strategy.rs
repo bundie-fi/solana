@@ -1,5 +1,12 @@
 use anchor_lang::prelude::*;
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
+pub enum StrategyStatus {
+    Active,
+    Paused,
+    Closed,
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct Strategy {
@@ -9,6 +16,8 @@ pub struct Strategy {
     pub mint: Pubkey,
     /// Strategy portfolio wallet (PDA)
     pub wallet: Pubkey,
+    /// Protocol address the strategy routes to (e.g. Kamino)
+    pub protocol: Pubkey,
     /// Strategy name (max 32 bytes)
     #[max_len(32)]
     pub name: String,
@@ -20,12 +29,20 @@ pub struct Strategy {
     pub current_nav: u64,
     /// Total shares outstanding
     pub total_shares: u64,
+    /// Count of unique share holders
+    pub total_investors: u32,
+    /// High water mark for performance fee calculation (fees only on new profits)
+    pub high_water_mark: u64,
+    /// Minimum deposit amount in base units
+    pub min_deposit: u64,
     /// Last NAV update slot
     pub last_nav_slot: u64,
     /// TWAP accumulator for NAV
     pub nav_twap_accumulator: u128,
     /// TWAP last update slot
     pub twap_last_slot: u64,
+    /// Strategy status (Active, Paused, Closed)
+    pub status: StrategyStatus,
     /// Creation timestamp
     pub created_at: i64,
     /// Bump seed for PDA

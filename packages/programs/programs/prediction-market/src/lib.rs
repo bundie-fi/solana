@@ -6,8 +6,9 @@ pub mod state;
 pub mod math;
 
 use instructions::*;
+use state::*;
 
-declare_id!("PRDMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+declare_id!("Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i");
 
 #[program]
 pub mod prediction_market {
@@ -17,11 +18,14 @@ pub mod prediction_market {
     pub fn create_market(
         ctx: Context<CreateMarket>,
         question: String,
+        market_id: u64,
+        market_type: MarketType,
         threshold_bps: u64,
         resolution_slot: u64,
         initial_subsidy: u64,
+        fee_bps: u16,
     ) -> Result<()> {
-        instructions::create_market::handler(ctx, question, threshold_bps, resolution_slot, initial_subsidy)
+        instructions::create_market::handler(ctx, question, market_id, market_type, threshold_bps, resolution_slot, initial_subsidy, fee_bps)
     }
 
     /// Buy YES or NO shares using LS-LMSR pricing

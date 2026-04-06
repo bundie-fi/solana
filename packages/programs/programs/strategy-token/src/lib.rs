@@ -6,7 +6,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("STRTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+declare_id!("Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV");
 
 #[program]
 pub mod strategy_token {
@@ -17,8 +17,9 @@ pub mod strategy_token {
         ctx: Context<CreateStrategy>,
         name: String,
         fee_bps: u16,
+        min_deposit: u64,
     ) -> Result<()> {
-        instructions::create_strategy::handler(ctx, name, fee_bps)
+        instructions::create_strategy::handler(ctx, name, fee_bps, min_deposit)
     }
 
     /// Buy strategy shares by depositing capital

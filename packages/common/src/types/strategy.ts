@@ -1,3 +1,6 @@
+/** Strategy lifecycle status */
+export type StrategyStatus = 'active' | 'paused' | 'closed'
+
 /** On-chain strategy account data */
 export interface Strategy {
   /** Strategy PDA address */
@@ -8,6 +11,8 @@ export interface Strategy {
   mint: string
   /** Portfolio wallet PDA */
   wallet: string
+  /** Protocol address the strategy routes to (e.g. Kamino) */
+  protocol: string
   /** Strategy name */
   name: string
   /** Performance fee in basis points (e.g., 1000 = 10%) */
@@ -18,8 +23,16 @@ export interface Strategy {
   currentNav: bigint
   /** Total shares outstanding */
   totalShares: bigint
+  /** Count of unique share holders */
+  totalInvestors: number
+  /** High water mark for performance fee calculation */
+  highWaterMark: bigint
+  /** Minimum deposit amount in base units */
+  minDeposit: bigint
   /** Share price (currentNav / totalShares) */
   sharePrice: number
+  /** Strategy status */
+  status: StrategyStatus
   /** Creation timestamp */
   createdAt: number
 }
@@ -47,6 +60,10 @@ export interface StrategyDisplay extends Strategy {
 export interface CreateStrategyParams {
   name: string
   protocol: 'kamino' | 'marginfi' | 'jupiter-lend'
+  /** Protocol program address */
+  protocolAddress: string
   deposit: number
   feeBps: number
+  /** Minimum deposit amount in base units */
+  minDeposit: number
 }
