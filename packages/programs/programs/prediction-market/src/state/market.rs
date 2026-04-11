@@ -70,8 +70,10 @@ pub struct Market {
     pub resolved_at: Option<i64>,
     /// Bump seed for this market PDA
     pub bump: u8,
-    /// NAV per share at market creation time, for oracle-free resolution
+    /// NAV per share at market creation time for strategy A (oracle-free resolution)
     pub initial_nav_per_share: u64,
+    /// NAV per share at market creation time for strategy B (Relative markets only; 0 for Absolute)
+    pub initial_nav_per_share_b: u64,
     /// Bump seeds for PDA accounts owned by this market
     pub yes_mint_bump: u8,
     pub no_mint_bump: u8,

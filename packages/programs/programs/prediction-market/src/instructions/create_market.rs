@@ -75,12 +75,18 @@ pub fn handler(
     initial_subsidy: u64,
     fee_bps: u16,
     initial_nav_per_share: u64,
+    // NAV per share of strategy B at creation time. Pass 0 for Absolute markets.
+    initial_nav_per_share_b: u64,
 ) -> Result<()> {
     require!(question.len() <= 128, MarketError::QuestionTooLong);
     require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
 
     let strategy_b_key = ctx.accounts.strategy_b.key();
     let strategy_b = if market_type == MarketType::Relative {
+        require!(
+            initial_nav_per_share_b > 0,
+            MarketError::InvalidSubsidy // reusing — means "missing required param"
+        );
         Some(strategy_b_key)
     } else {
         None
@@ -111,6 +117,7 @@ pub fn handler(
     market.resolved_at = None;
     market.bump = ctx.bumps.market;
     market.initial_nav_per_share = initial_nav_per_share;
+    market.initial_nav_per_share_b = initial_nav_per_share_b;
     market.yes_mint_bump = ctx.bumps.yes_mint;
     market.no_mint_bump = ctx.bumps.no_mint;
     market.vault_bump = ctx.bumps.vault;
