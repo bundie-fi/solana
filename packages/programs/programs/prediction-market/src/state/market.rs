@@ -58,6 +58,8 @@ pub struct Market {
     pub fee_bps: u16,
     /// Market vault for collateral
     pub vault: Pubkey,
+    /// Collateral token mint (e.g. USDC)
+    pub collateral_mint: Pubkey,
     /// Winning outcome (set after resolution)
     pub outcome: Option<Outcome>,
     /// Market status

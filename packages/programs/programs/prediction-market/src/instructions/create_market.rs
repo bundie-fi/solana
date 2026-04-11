@@ -1,8 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
-};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::state::*;
 use crate::error::MarketError;
 
@@ -64,7 +61,6 @@ pub struct CreateMarket<'info> {
     pub no_mint: Account<'info, Mint>,
 
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
@@ -108,6 +104,7 @@ pub fn handler(
     market.total_volume = 0;
     market.fee_bps = fee_bps;
     market.vault = ctx.accounts.vault.key();
+    market.collateral_mint = ctx.accounts.collateral_mint.key();
     market.status = MarketStatus::Active;
     market.outcome = None;
     market.created_at = Clock::get()?.unix_timestamp;
