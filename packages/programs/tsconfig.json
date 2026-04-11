@@ -6,5 +6,5 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts", "scripts/**/*.ts"]
 }

@@ -16,28 +16,28 @@ pub struct BuyMarketShares<'info> {
         mut,
         constraint = market.status == MarketStatus::Active @ MarketError::MarketNotActive,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     #[account(
         mut,
         seeds = [b"yes_mint", market.key().as_ref()],
         bump = market.yes_mint_bump,
     )]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         seeds = [b"no_mint", market.key().as_ref()],
         bump = market.no_mint_bump,
     )]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         seeds = [b"vault", market.key().as_ref()],
         bump = market.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     /// Buyer's collateral (USDC) token account
     #[account(
@@ -45,7 +45,7 @@ pub struct BuyMarketShares<'info> {
         constraint = buyer_collateral.owner == buyer.key(),
         constraint = buyer_collateral.mint == market.collateral_mint,
     )]
-    pub buyer_collateral: Account<'info, TokenAccount>,
+    pub buyer_collateral: Box<Account<'info, TokenAccount>>,
 
     /// Buyer's YES ATA — created if needed
     #[account(
@@ -54,7 +54,7 @@ pub struct BuyMarketShares<'info> {
         associated_token::mint = yes_mint,
         associated_token::authority = buyer,
     )]
-    pub buyer_yes_ata: Account<'info, TokenAccount>,
+    pub buyer_yes_ata: Box<Account<'info, TokenAccount>>,
 
     /// Buyer's NO ATA — created if needed
     #[account(
@@ -63,7 +63,7 @@ pub struct BuyMarketShares<'info> {
         associated_token::mint = no_mint,
         associated_token::authority = buyer,
     )]
-    pub buyer_no_ata: Account<'info, TokenAccount>,
+    pub buyer_no_ata: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,

@@ -1,4 +1,6 @@
-#![no_std]
+// beethoven's transitive deps (solana-account-view -> solana-address -> curve25519-dalek)
+// pull in std, making #![no_std] + nostd_panic_handler incompatible. We keep pinocchio's
+// zero-copy account patterns but let std be linked normally.
 
 pub mod error;
 mod instructions;
@@ -13,8 +15,6 @@ use pinocchio::{
     ProgramResult,
 };
 
-pinocchio::no_allocator!();
-pinocchio::nostd_panic_handler!();
 pinocchio::program_entrypoint!(process_instruction);
 
 /// Strategy Token Program ID

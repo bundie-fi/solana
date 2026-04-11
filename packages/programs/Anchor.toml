@@ -6,7 +6,6 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-strategy_token = "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
 prediction_market = "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
 
 [provider]
@@ -14,4 +13,4 @@ cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

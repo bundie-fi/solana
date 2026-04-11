@@ -133,25 +133,29 @@ pub fn ln_fixed(x: u128) -> Option<i128> {
     }
 
     // Now val is in [SCALE/2, 2*SCALE).
-    // Compute ln(val) using ln(1 + y) where y = (val - SCALE) / SCALE.
-    // y is in [-0.5, 1.0), so the Taylor series converges reasonably.
-    //
-    // ln(1 + y) ≈ y - y²/2 + y³/3 - y⁴/4
-    //
-    // In fixed-point, y = val - SCALE (since val is already scaled).
+    // Use the identity: ln(x) = 2 * atanh((x-1)/(x+1))
+    // where z = (val - SCALE) / (val + SCALE) satisfies |z| ≤ 1/3.
+    // atanh(z) = z + z³/3 + z⁵/5 + z⁷/7 + ...
+    // With |z| ≤ 1/3, 4 terms gives < 0.03% error.
 
-    let y: i128 = val as i128 - ISCALE;
+    let num = (val as i128).checked_sub(ISCALE)?;
+    let den = (val as i128).checked_add(ISCALE)?;
+    // z = num/den, kept in fixed-point by multiplying num by ISCALE
+    let z = num.checked_mul(ISCALE)?.checked_div(den)?;
 
-    // y^2 / SCALE (keep in fixed-point)
-    let y2 = y.checked_mul(y)?.checked_div(ISCALE)?;
-    let y3 = y2.checked_mul(y)?.checked_div(ISCALE)?;
-    let y4 = y3.checked_mul(y)?.checked_div(ISCALE)?;
+    let z2 = z.checked_mul(z)?.checked_div(ISCALE)?;
+    let z3 = z2.checked_mul(z)?.checked_div(ISCALE)?;
+    let z5 = z3.checked_mul(z2)?.checked_div(ISCALE)?;
+    let z7 = z5.checked_mul(z2)?.checked_div(ISCALE)?;
 
-    // ln(1+y) ≈ y - y²/2 + y³/3 - y⁴/4
-    let ln_val = y
-        .checked_sub(y2.checked_div(2)?)?
-        .checked_add(y3.checked_div(3)?)?
-        .checked_sub(y4.checked_div(4)?)?;
+    // atanh(z) = z + z³/3 + z⁵/5 + z⁷/7
+    let atanh_z = z
+        .checked_add(z3.checked_div(3)?)?
+        .checked_add(z5.checked_div(5)?)?
+        .checked_add(z7.checked_div(7)?)?;
+
+    // ln(val/SCALE) = 2 * atanh(z)
+    let ln_val = atanh_z.checked_mul(2)?;
 
     // Final result: ln(x) = ln(val/SCALE)*SCALE + halvings * ln(2)
     ln_val.checked_add(halvings.checked_mul(LN2)?)
