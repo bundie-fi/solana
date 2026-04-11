@@ -1,5 +1,10 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
 use crate::state::*;
+use crate::error::MarketError;
 
 #[derive(Accounts)]
 #[instruction(question: String, market_id: u64)]
@@ -16,18 +21,52 @@ pub struct CreateMarket<'info> {
     )]
     pub market: Account<'info, Market>,
 
-    /// CHECK: The strategy account this market predicts on
+    /// CHECK: The strategy account this market predicts on. Caller validates.
     pub strategy: UncheckedAccount<'info>,
 
-    /// CHECK: Optional second strategy for Relative market type (can be SystemProgram for Absolute)
+    /// CHECK: Optional second strategy for Relative markets. Pass SystemProgram pubkey for Absolute.
     pub strategy_b: UncheckedAccount<'info>,
 
-    /// CHECK: Who provides initial liquidity subsidy
-    pub subsidy_provider: Signer<'info>,
+    /// USDC (or any SPL token) used as collateral
+    pub collateral_mint: Account<'info, Mint>,
 
-    // TODO: Add vault token account for collateral
+    /// Market vault — holds all collateral; authority is the market PDA
+    #[account(
+        init,
+        payer = creator,
+        seeds = [b"vault", market.key().as_ref()],
+        bump,
+        token::mint = collateral_mint,
+        token::authority = market,
+    )]
+    pub vault: Account<'info, TokenAccount>,
 
+    /// YES outcome mint — market PDA is mint authority
+    #[account(
+        init,
+        payer = creator,
+        seeds = [b"yes_mint", market.key().as_ref()],
+        bump,
+        mint::decimals = 6,
+        mint::authority = market,
+    )]
+    pub yes_mint: Account<'info, Mint>,
+
+    /// NO outcome mint — market PDA is mint authority
+    #[account(
+        init,
+        payer = creator,
+        seeds = [b"no_mint", market.key().as_ref()],
+        bump,
+        mint::decimals = 6,
+        mint::authority = market,
+    )]
+    pub no_mint: Account<'info, Mint>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn handler(
@@ -39,7 +78,11 @@ pub fn handler(
     resolution_slot: u64,
     initial_subsidy: u64,
     fee_bps: u16,
+    initial_nav_per_share: u64,
 ) -> Result<()> {
+    require!(question.len() <= 128, MarketError::QuestionTooLong);
+    require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
+
     let strategy_b_key = ctx.accounts.strategy_b.key();
     let strategy_b = if market_type == MarketType::Relative {
         Some(strategy_b_key)
@@ -51,7 +94,7 @@ pub fn handler(
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
     market.authority = ctx.accounts.creator.key();
-    market.subsidy_provider = ctx.accounts.subsidy_provider.key();
+    market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
     market.market_type = market_type;
     market.market_id = market_id;
@@ -64,10 +107,16 @@ pub fn handler(
     market.liquidity_param = initial_subsidy;
     market.total_volume = 0;
     market.fee_bps = fee_bps;
+    market.vault = ctx.accounts.vault.key();
     market.status = MarketStatus::Active;
     market.outcome = None;
     market.created_at = Clock::get()?.unix_timestamp;
     market.resolved_at = None;
     market.bump = ctx.bumps.market;
+    market.initial_nav_per_share = initial_nav_per_share;
+    market.yes_mint_bump = ctx.bumps.yes_mint;
+    market.no_mint_bump = ctx.bumps.no_mint;
+    market.vault_bump = ctx.bumps.vault;
+
     Ok(())
 }

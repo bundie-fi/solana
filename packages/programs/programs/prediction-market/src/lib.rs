@@ -24,8 +24,9 @@ pub mod prediction_market {
         resolution_slot: u64,
         initial_subsidy: u64,
         fee_bps: u16,
+        initial_nav_per_share: u64,
     ) -> Result<()> {
-        instructions::create_market::handler(ctx, question, market_id, market_type, threshold_bps, resolution_slot, initial_subsidy, fee_bps)
+        instructions::create_market::handler(ctx, question, market_id, market_type, threshold_bps, resolution_slot, initial_subsidy, fee_bps, initial_nav_per_share)
     }
 
     /// Buy YES or NO shares using LS-LMSR pricing
