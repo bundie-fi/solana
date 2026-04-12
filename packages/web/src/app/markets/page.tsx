@@ -1,4 +1,5 @@
 import { fetchStrategies, fetchMarkets } from '@/lib/chain'
+import { MarketCardInteractive } from '@/components/MarketCardInteractive'
 
 export const revalidate = 30 // revalidate every 30s (ISR)
 import { mockMarkets } from '@yields-so/common'
@@ -15,13 +16,14 @@ function PriceBar({ yesPrice }: { yesPrice: number }) {
   )
 }
 
-function MarketCard({ m }: { m: MarketDisplay }) {
+// Read-only card used for mock/preview markets (no interactivity needed)
+function MarketCardStatic({ m }: { m: MarketDisplay }) {
   const yesPct = Math.round(m.yesPrice * 100)
   const noPct  = Math.round(m.noPrice  * 100)
   const vol    = Number(m.totalVolume) / 1e6
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-5 hover:border-predict-purple/40 transition-colors">
+    <div className="rounded-xl border border-border bg-surface p-5">
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs px-2 py-0.5 rounded-full bg-predict-purple/10 text-predict-purple font-medium">
           {m.marketType === 'absolute' ? 'Performance' : 'Vs Match'}
@@ -68,7 +70,9 @@ export default async function MarketsPage() {
             <h2 className="text-sm font-medium text-green-400 uppercase tracking-wider">Live on devnet</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {liveMarkets.map(m => <MarketCard key={m.address} m={m} />)}
+            {liveMarkets.map(m => (
+              <MarketCardInteractive key={m.address} m={m} />
+            ))}
           </div>
         </section>
       )}
@@ -82,7 +86,7 @@ export default async function MarketsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {mockMarkets.map(m => (
             <div key={m.address} className="opacity-40">
-              <MarketCard m={m} />
+              <MarketCardStatic m={m} />
             </div>
           ))}
         </div>

@@ -43,6 +43,10 @@ export interface Market {
   totalVolume: bigint
   /** Market fee in basis points (e.g., 100 = 1%) */
   feeBps: number
+  /** Collateral mint (e.g. USDC) */
+  collateralMint?: string
+  /** Vault token account address */
+  vault?: string
   /** Market status */
   status: MarketStatus
   /** Winning outcome (if resolved) */

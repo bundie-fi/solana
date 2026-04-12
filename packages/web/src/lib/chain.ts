@@ -155,6 +155,14 @@ function deserializeMarket(address: string, data: Buffer): MarketDisplay | null 
 
 // ── Public fetch functions ────────────────────────────────────────────────────
 
+export async function fetchStrategy(address: string): Promise<StrategyDisplay | null> {
+  const conn = new Connection(RPC, 'confirmed')
+  const pubkey = new PublicKey(address)
+  const info = await conn.getAccountInfo(pubkey)
+  if (!info) return null
+  return deserializeStrategy(address, Buffer.from(info.data))
+}
+
 export async function fetchStrategies(): Promise<StrategyDisplay[]> {
   const conn = new Connection(RPC, 'confirmed')
 

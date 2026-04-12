@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { fetchStrategies } from '@/lib/chain'
 
 export const revalidate = 30 // revalidate every 30s (ISR)
@@ -70,7 +71,11 @@ export default async function DiscoverPage() {
             <h2 className="text-sm font-medium text-green-400 uppercase tracking-wider">Live on devnet</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {liveStrategies.map(s => <StrategyCard key={s.address} s={s} />)}
+            {liveStrategies.map(s => (
+              <Link key={s.address} href={`/strategy/${s.address}`} className="block">
+                <StrategyCard s={s} />
+              </Link>
+            ))}
           </div>
         </section>
       )}
