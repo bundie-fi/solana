@@ -48,9 +48,10 @@ HyperFrames' screenshot capture mode (auto-selected here because GSAP uses `requ
 npx hyperframes render --quality high --output renders/bundie-launch-v3.mp4
 
 # 2. Mux music (current Suno take: main drop is at track 48s, so offset 33s
-#    lands the drop on video 0:15 to match F5's terminal mint)
+#    lands the drop on video 0:15 to match F5's terminal mint).
+#    Audio fades mirror the F1 opening fade and F11 closing fade to cream.
 ffmpeg -y -i renders/bundie-launch-v3.mp4 -ss 33 -i assets/music.mp3 -t 57 \
-  -filter_complex "[1:a]afade=t=in:st=0:d=0.4[a]" \
+  -filter_complex "[1:a]afade=t=in:st=0:d=0.4,afade=t=out:st=56:d=1.0[a]" \
   -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest \
   renders/bundie-launch-v3-final.mp4
 ```

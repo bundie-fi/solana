@@ -7,7 +7,7 @@
       <div class="card c3"><span class="dot" style="background:#28A0F0"></span><span>Arbitrum yield</span></div>
     </div>
     <h1 class="hero">We built Bundie on EVM.</h1>
-    <div class="caption">ethereum · base · arbitrum · live today</div>
+    <div class="caption">live today</div>
   </div>
 </div>
 
@@ -106,14 +106,15 @@
   const tl = gsap.timeline({ paused: true });
   const root = '[data-composition-id="f1"] ';
 
-  tl.from('[data-composition-id="f1"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
-  tl.from(root + '.card.c1', { y: 60, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.15);
-  tl.from(root + '.card.c2', { y: 80, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.28);
-  tl.from(root + '.card.c3', { y: 100, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.40);
-  tl.from(root + '.hero', { y: 40, opacity: 0, duration: 0.7, ease: 'expo.out' }, 0.55);
-  tl.from(root + '.caption', { y: 16, opacity: 0, duration: 0.5, ease: 'power2.out' }, 0.85);
+  // Long opening fade — the video's entrance from cream canvas
+  tl.from('[data-composition-id="f1"]', { opacity: 0, duration: 0.9, ease: 'power2.out' }, 0);
+  tl.from(root + '.card.c1', { y: 60, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.35);
+  tl.from(root + '.card.c2', { y: 80, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.48);
+  tl.from(root + '.card.c3', { y: 100, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.60);
+  tl.from(root + '.hero', { y: 40, opacity: 0, duration: 0.7, ease: 'expo.out' }, 0.75);
+  tl.from(root + '.caption', { y: 16, opacity: 0, duration: 0.5, ease: 'power2.out' }, 1.05);
   // Gentle ambient parallax drift — keeps the scene alive through data-duration
-  tl.to(root + '.protostack', { y: -6, duration: 2.0, ease: 'sine.inOut' }, 1.35);
+  tl.to(root + '.protostack', { y: -6, duration: 1.8, ease: 'sine.inOut' }, 1.55);
 
   window.__timelines['f1'] = tl;
 })();

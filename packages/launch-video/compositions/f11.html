@@ -76,8 +76,10 @@
   tl.to(r + '.url-chip', { scale: 1.03, duration: 0.3, ease: 'power2.out', yoyo: true, repeat: 1 }, 1.8);
 
   // Gentle final hold — wordmark drifts up slightly through the outro for closure.
-  // This is allowed (F11 is the final scene per the transitions rule).
   tl.to(r + '.wordmark', { y: -6, duration: 1.4, ease: 'power1.out' }, 4.55);
+
+  // Long fade to cream at the end — the video's exit. Allowed on the final scene only.
+  tl.to('[data-composition-id="f11"]', { opacity: 0, duration: 1.0, ease: 'power2.in' }, 5.0);
 
   window.__timelines['f11'] = tl;
 })();
