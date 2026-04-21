@@ -1,0 +1,225 @@
+<template id="f7-template">
+<div data-composition-id="f7" data-start="0" data-duration="6.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="row">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="screen-head">
+              <span>Discover</span>
+              <div class="avatar"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Stable Compounder</div>
+              <div class="card-creator">by strategy-creator.sol</div>
+              <svg class="spark" width="100%" height="68" viewBox="0 0 220 56" preserveAspectRatio="none">
+                <path d="M 2 48 Q 30 42, 50 38 T 100 28 T 150 18 T 218 10" stroke="#c2570c" stroke-width="2.5" fill="none"/>
+                <path d="M 2 48 Q 30 42, 50 38 T 100 28 T 150 18 T 218 10 L 218 56 L 2 56 Z" fill="#c2570c" opacity="0.08"/>
+                <circle class="spark-dot" cx="218" cy="10" r="4" fill="#c2570c"/>
+              </svg>
+              <div class="stats">
+                <div><span class="k">est apy</span><strong>8.2%</strong></div>
+                <div><span class="k">tvl</span><strong>$12.4k</strong></div>
+                <div><span class="k">30d</span><strong class="amber">+4.1%</strong></div>
+              </div>
+            </div>
+            <div class="actions">
+              <div class="btn btn-back">Back</div>
+              <div class="btn btn-predict">Predict</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h2 class="caption">Back what you<br/><em>believe in</em>.</h2>
+    </div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f7"] {
+  width: 1920px;
+  height: 1080px;
+  background: #faf5ed;
+  color: #1a1814;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f7"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 80px 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+[data-composition-id="f7"] .row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 120px;
+  width: 100%;
+  height: 100%;
+  perspective: 1800px;
+}
+[data-composition-id="f7"] .phone-wrap {
+  flex-shrink: 0;
+}
+[data-composition-id="f7"] .phone {
+  width: 440px;
+  height: 900px;
+  background: #1a1814;
+  border-radius: 64px;
+  padding: 14px;
+  box-shadow: 0 40px 80px rgba(26, 24, 20, 0.22), 0 12px 24px rgba(26, 24, 20, 0.12);
+  position: relative;
+  transform: rotateY(12deg) rotateX(4deg);
+  transform-style: preserve-3d;
+}
+[data-composition-id="f7"] .notch {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44%;
+  height: 34px;
+  background: #1a1814;
+  border-radius: 0 0 22px 22px;
+  z-index: 5;
+}
+[data-composition-id="f7"] .screen {
+  background: #f4ecda;
+  border-radius: 52px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 70px 28px 28px;
+  box-sizing: border-box;
+}
+[data-composition-id="f7"] .screen-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  font-family: 'Instrument Serif', serif;
+  font-size: 30px;
+  color: #1a1814;
+}
+[data-composition-id="f7"] .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c2570c 0%, #6d28d9 100%);
+}
+[data-composition-id="f7"] .card {
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 26px;
+  box-shadow: 0 3px 10px rgba(26, 24, 20, 0.05);
+  margin-bottom: 18px;
+}
+[data-composition-id="f7"] .card-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: #1a1814;
+}
+[data-composition-id="f7"] .card-creator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: #8a8075;
+  margin-top: 4px;
+  margin-bottom: 22px;
+}
+[data-composition-id="f7"] .spark { display: block; margin-bottom: 4px; }
+[data-composition-id="f7"] .stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #e8dfc9;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+}
+[data-composition-id="f7"] .stats strong {
+  display: block;
+  font-family: 'Instrument Serif', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: #1a1814;
+  margin-top: 4px;
+}
+[data-composition-id="f7"] .stats .k {
+  color: #8a8075;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 13px;
+}
+[data-composition-id="f7"] .amber { color: #c2570c; }
+[data-composition-id="f7"] .actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 26px;
+}
+[data-composition-id="f7"] .btn {
+  flex: 1;
+  padding: 22px 0;
+  border-radius: 18px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  font-family: 'Figtree', sans-serif;
+}
+[data-composition-id="f7"] .btn-back {
+  background: #c2570c;
+  color: #ffffff;
+}
+[data-composition-id="f7"] .btn-predict {
+  background: #6d28d9;
+  color: #ffffff;
+}
+[data-composition-id="f7"] .caption {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 84px;
+  color: #4a433a;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  max-width: 640px;
+}
+[data-composition-id="f7"] .caption em {
+  font-style: italic;
+  color: #c2570c;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="f7"] ';
+
+  tl.from('[data-composition-id="f7"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+  tl.from(r + '.phone', { x: -120, opacity: 0, rotateY: 30, duration: 0.85, ease: 'power3.out' }, 0.2);
+  tl.from(r + '.caption', { x: 40, opacity: 0, duration: 0.75, ease: 'expo.out' }, 0.5);
+
+  // Button highlight — "Back" pulses once around 3s (aligning with mobile tap at 30.2s offset)
+  tl.to(r + '.btn-back', { scale: 1.04, boxShadow: '0 8px 22px rgba(194, 87, 12, 0.35)', duration: 0.28, ease: 'power2.out', yoyo: true, repeat: 1 }, 3.2);
+
+  // Spark dot pulses — finite repeats
+  const pulseDur = 1.4;
+  const pulseStart = 1.2;
+  const pulseRemain = 6 - pulseStart;
+  const halves = Math.max(2, Math.ceil(pulseRemain / (pulseDur / 2)));
+  tl.to(r + '.spark-dot', { scale: 1.4, transformOrigin: '218px 10px', duration: pulseDur / 2, ease: 'sine.inOut', yoyo: true, repeat: halves - 1 }, pulseStart);
+
+  window.__timelines['f7'] = tl;
+})();
+</script>
+</template>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Bundie · launch video</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Figtree:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #faf5ed;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Bundie launch video · 57s · 11 frames
+      Drop @ 0:15 (F5) · Impact @ 0:39.5 (F9) · Breakdown @ 0:45 (F10) · Outro @ 0:51 (F11)
+      Adjacent scenes alternate tracks for 0.4s crossfade overlap.
+      Music bed is a separate deliverable — see README.
+    -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="57"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div id="f1"  class="clip" data-composition-id="f1"  data-composition-src="compositions/f1.html"  data-start="0"  data-duration="3.4" data-track-index="1"></div>
+      <div id="f2"  class="clip" data-composition-id="f2"  data-composition-src="compositions/f2.html"  data-start="3"  data-duration="3.4" data-track-index="2"></div>
+      <div id="f3"  class="clip" data-composition-id="f3"  data-composition-src="compositions/f3.html"  data-start="6"  data-duration="3.4" data-track-index="1"></div>
+      <div id="f4"  class="clip" data-composition-id="f4"  data-composition-src="compositions/f4.html"  data-start="9"  data-duration="6.4" data-track-index="2"></div>
+      <div id="f5"  class="clip" data-composition-id="f5"  data-composition-src="compositions/f5.html"  data-start="15" data-duration="6.4" data-track-index="1"></div>
+      <div id="f6"  class="clip" data-composition-id="f6"  data-composition-src="compositions/f6.html"  data-start="21" data-duration="6.4" data-track-index="2"></div>
+      <div id="f7"  class="clip" data-composition-id="f7"  data-composition-src="compositions/f7.html"  data-start="27" data-duration="6.4" data-track-index="1"></div>
+      <div id="f8"  class="clip" data-composition-id="f8"  data-composition-src="compositions/f8.html"  data-start="33" data-duration="6.4" data-track-index="2"></div>
+      <div id="f9"  class="clip" data-composition-id="f9"  data-composition-src="compositions/f9.html"  data-start="39" data-duration="6.4" data-track-index="1"></div>
+      <div id="f10" class="clip" data-composition-id="f10" data-composition-src="compositions/f10.html" data-start="45" data-duration="6.4" data-track-index="2"></div>
+      <div id="f11" class="clip" data-composition-id="f11" data-composition-src="compositions/f11.html" data-start="51" data-duration="6"   data-track-index="1"></div>
+
+      <!-- Music bed — Suno-generated track. Plays first 57s of the mp3. -->
+      <audio
+        id="music"
+        data-start="0"
+        data-duration="57"
+        data-track-index="10"
+        src="assets/music.mp3"
+        data-volume="1"
+        preload="auto"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines['main'] = tl;
+    </script>
+  </body>
+</html>

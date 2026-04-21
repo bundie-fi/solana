@@ -1,0 +1,201 @@
+<template id="f8-template">
+<div data-composition-id="f8" data-start="0" data-duration="6.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="row">
+      <h2 class="caption">Predict on what<br/>you <em>don't</em>.</h2>
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="screen">
+            <div class="screen-head">
+              <span>Predict</span>
+              <div class="avatar"></div>
+            </div>
+            <div class="mcard">
+              <div class="q">Will <em>$CMPD</em> exceed<br/>8% APY in 30 days?</div>
+              <div class="yn-row">
+                <div class="yn yn-yes">yes <strong>$0.42</strong></div>
+                <div class="yn yn-no">no <strong>$0.58</strong></div>
+              </div>
+              <div class="meta">resolves from on-chain NAV</div>
+            </div>
+            <div class="other-markets">7 OTHER MARKETS OPEN</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f8"] {
+  width: 1920px;
+  height: 1080px;
+  background: #faf5ed;
+  color: #1a1814;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f8"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 80px 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+[data-composition-id="f8"] .row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 120px;
+  width: 100%;
+  height: 100%;
+  perspective: 1800px;
+}
+[data-composition-id="f8"] .caption {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 84px;
+  color: #4a433a;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  max-width: 640px;
+  text-align: right;
+}
+[data-composition-id="f8"] .caption em {
+  font-style: italic;
+  color: #6d28d9;
+}
+[data-composition-id="f8"] .phone-wrap {
+  flex-shrink: 0;
+}
+[data-composition-id="f8"] .phone {
+  width: 440px;
+  height: 900px;
+  background: #1a1814;
+  border-radius: 64px;
+  padding: 14px;
+  box-shadow: 0 40px 80px rgba(26, 24, 20, 0.22), 0 12px 24px rgba(26, 24, 20, 0.12);
+  position: relative;
+  transform: rotateY(-12deg) rotateX(4deg);
+  transform-style: preserve-3d;
+}
+[data-composition-id="f8"] .notch {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44%;
+  height: 34px;
+  background: #1a1814;
+  border-radius: 0 0 22px 22px;
+  z-index: 5;
+}
+[data-composition-id="f8"] .screen {
+  background: #f4ecda;
+  border-radius: 52px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 70px 28px 28px;
+  box-sizing: border-box;
+}
+[data-composition-id="f8"] .screen-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  font-family: 'Instrument Serif', serif;
+  font-size: 30px;
+  color: #1a1814;
+}
+[data-composition-id="f8"] .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c2570c 0%, #6d28d9 100%);
+}
+[data-composition-id="f8"] .mcard {
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 26px;
+  box-shadow: 0 3px 10px rgba(26, 24, 20, 0.05);
+}
+[data-composition-id="f8"] .q {
+  font-family: 'Instrument Serif', serif;
+  font-size: 28px;
+  line-height: 1.3;
+  color: #1a1814;
+  margin-bottom: 26px;
+}
+[data-composition-id="f8"] .q em { font-style: italic; color: #6d28d9; }
+[data-composition-id="f8"] .yn-row {
+  display: flex;
+  gap: 12px;
+}
+[data-composition-id="f8"] .yn {
+  flex: 1;
+  padding: 20px 0;
+  border-radius: 16px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+[data-composition-id="f8"] .yn-yes { background: #dcfce7; color: #15803d; }
+[data-composition-id="f8"] .yn-no { background: #fee2e2; color: #b91c1c; }
+[data-composition-id="f8"] .yn strong {
+  display: block;
+  font-family: 'Instrument Serif', serif;
+  font-size: 32px;
+  font-weight: 400;
+  margin-top: 4px;
+  letter-spacing: -0.01em;
+}
+[data-composition-id="f8"] .meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: #8a8075;
+  margin-top: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+[data-composition-id="f8"] .other-markets {
+  margin-top: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: #8a8075;
+  text-align: center;
+  letter-spacing: 0.12em;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="f8"] ';
+
+  tl.from('[data-composition-id="f8"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+  tl.from(r + '.phone', { x: 120, opacity: 0, rotateY: -30, duration: 0.85, ease: 'power3.out' }, 0.2);
+  tl.from(r + '.caption', { x: -40, opacity: 0, duration: 0.75, ease: 'expo.out' }, 0.5);
+
+  // "NO" side pulses once around 2.8s — teasing the ambivalence of a prediction market
+  tl.to(r + '.yn-no', { scale: 1.04, duration: 0.28, ease: 'power2.out', yoyo: true, repeat: 1 }, 2.8);
+  tl.to(r + '.yn-yes', { scale: 1.04, duration: 0.28, ease: 'power2.out', yoyo: true, repeat: 1 }, 3.6);
+  // Slow phone settle drift through the remainder — keeps scene alive to data-duration
+  tl.to(r + '.phone', { y: -6, duration: 2.2, ease: 'sine.inOut' }, 4.2);
+
+  window.__timelines['f8'] = tl;
+})();
+</script>
+</template>

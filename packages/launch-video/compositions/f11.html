@@ -1,0 +1,85 @@
+<template id="f11-template">
+<div data-composition-id="f11" data-start="0" data-duration="6" data-width="1920" data-height="1080">
+  <div class="stage">
+    <h1 class="hero">Join the waitlist.</h1>
+    <div class="url-chip">solana.bundie.fi</div>
+    <div class="wordmark"><em>Bundie</em></div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f11"] {
+  width: 1920px;
+  height: 1080px;
+  background: #faf5ed;
+  color: #1a1814;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f11"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 140px 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+  gap: 44px;
+}
+[data-composition-id="f11"] .hero {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 144px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #1a1814;
+}
+[data-composition-id="f11"] .url-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 56px;
+  font-weight: 500;
+  color: #1a1814;
+  padding: 24px 48px;
+  background: #f4ecda;
+  border-radius: 14px;
+  letter-spacing: -0.005em;
+  box-shadow: inset 0 0 0 1px #e8dfc9, 0 2px 8px rgba(26, 24, 20, 0.04);
+}
+[data-composition-id="f11"] .wordmark {
+  font-family: 'Instrument Serif', serif;
+  font-size: 60px;
+  color: #4a433a;
+  margin-top: 32px;
+}
+[data-composition-id="f11"] .wordmark em {
+  font-style: italic;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="f11"] ';
+
+  tl.from('[data-composition-id="f11"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+  // Outro rebuild — energetic but not frantic. Piano hits + kick return.
+  tl.from(r + '.hero', { y: 46, opacity: 0, duration: 0.75, ease: 'expo.out' }, 0.2);
+  tl.from(r + '.url-chip', { y: 28, opacity: 0, scale: 0.94, duration: 0.65, ease: 'back.out(1.4)' }, 0.55);
+  tl.from(r + '.wordmark', { opacity: 0, y: 16, duration: 0.6, ease: 'power2.out' }, 0.95);
+
+  // URL chip subtle pulse on the resolution chord at 51s (scene start) and piano C5 at 51.5s
+  tl.to(r + '.url-chip', { scale: 1.03, duration: 0.3, ease: 'power2.out', yoyo: true, repeat: 1 }, 1.8);
+
+  // Gentle final hold — wordmark drifts up slightly through the outro for closure.
+  // This is allowed (F11 is the final scene per the transitions rule).
+  tl.to(r + '.wordmark', { y: -6, duration: 1.4, ease: 'power1.out' }, 4.55);
+
+  window.__timelines['f11'] = tl;
+})();
+</script>
+</template>

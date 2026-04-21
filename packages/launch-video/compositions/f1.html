@@ -1,0 +1,121 @@
+<template id="f1-template">
+<div data-composition-id="f1" data-start="0" data-duration="3.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="protostack">
+      <div class="card c1"><span class="dot" style="background:#627EEA"></span><span>Ethereum yield</span></div>
+      <div class="card c2"><span class="dot" style="background:#0052FF"></span><span>Base yield</span></div>
+      <div class="card c3"><span class="dot" style="background:#28A0F0"></span><span>Arbitrum yield</span></div>
+    </div>
+    <h1 class="hero">We built Bundie on EVM.</h1>
+    <div class="caption">ethereum · base · arbitrum · live today</div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f1"] {
+  width: 1920px;
+  height: 1080px;
+  background: #faf5ed;
+  color: #1a1814;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f1"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 160px 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+  gap: 32px;
+}
+[data-composition-id="f1"] .protostack {
+  perspective: 1400px;
+  width: 560px;
+  height: 260px;
+  position: relative;
+  margin-bottom: 40px;
+}
+[data-composition-id="f1"] .card {
+  position: absolute;
+  width: 440px;
+  height: 96px;
+  left: 60px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e8dfc9;
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  gap: 20px;
+  font-family: 'Instrument Serif', serif;
+  font-size: 32px;
+  color: #1a1814;
+  box-shadow: 0 16px 36px rgba(26, 24, 20, 0.10), 0 4px 10px rgba(26, 24, 20, 0.05);
+}
+[data-composition-id="f1"] .card .dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+[data-composition-id="f1"] .card.c1 {
+  transform: translateY(-4px) rotateX(18deg) rotateY(-12deg);
+  top: 0;
+  z-index: 3;
+}
+[data-composition-id="f1"] .card.c2 {
+  transform: translateY(62px) rotateX(18deg) rotateY(-12deg);
+  top: 0;
+  z-index: 2;
+  opacity: 0.85;
+}
+[data-composition-id="f1"] .card.c3 {
+  transform: translateY(128px) rotateX(18deg) rotateY(-12deg);
+  top: 0;
+  z-index: 1;
+  opacity: 0.65;
+}
+[data-composition-id="f1"] .hero {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 128px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #1a1814;
+  max-width: 1400px;
+}
+[data-composition-id="f1"] .caption {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #4a433a;
+  margin-top: 8px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const root = '[data-composition-id="f1"] ';
+
+  tl.from('[data-composition-id="f1"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+  tl.from(root + '.card.c1', { y: 60, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.15);
+  tl.from(root + '.card.c2', { y: 80, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.28);
+  tl.from(root + '.card.c3', { y: 100, opacity: 0, duration: 0.7, ease: 'power3.out' }, 0.40);
+  tl.from(root + '.hero', { y: 40, opacity: 0, duration: 0.7, ease: 'expo.out' }, 0.55);
+  tl.from(root + '.caption', { y: 16, opacity: 0, duration: 0.5, ease: 'power2.out' }, 0.85);
+  // Gentle ambient parallax drift — keeps the scene alive through data-duration
+  tl.to(root + '.protostack', { y: -6, duration: 2.0, ease: 'sine.inOut' }, 1.35);
+
+  window.__timelines['f1'] = tl;
+})();
+</script>
+</template>

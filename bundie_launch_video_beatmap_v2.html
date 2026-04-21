@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bundie launch video · beat-sync map v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf5ed;
+    --cream-deep: #f4ecda;
+    --cream-line: #e8dfc9;
+    --ink: #1a1814;
+    --ink-soft: #4a433a;
+    --ink-muted: #8a8075;
+    --amber: #c2570c;
+    --amber-bg: #fef3c7;
+    --purple: #6d28d9;
+    --purple-bg: #ede9fe;
+    --green: #15803d;
+    --green-bg: #dcfce7;
+    --solana: #9945FF;
+    --bg: #211c17;
+    --stage-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 16px rgba(0,0,0,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Figtree', -apple-system, sans-serif;
+    background: var(--bg);
+    color: #e8dfc9;
+    min-height: 100vh;
+    padding: 32px 24px 64px;
+  }
+
+  .app { max-width: 1200px; margin: 0 auto; }
+
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(232,223,201,0.1);
+  }
+  .masthead h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .masthead h1 em { font-style: italic; color: var(--cream-line); opacity: 0.7; }
+  .masthead .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+  }
+
+  .hype-box {
+    background: linear-gradient(135deg, rgba(194, 87, 12, 0.12) 0%, rgba(109, 40, 217, 0.12) 100%);
+    border: 1px solid rgba(194, 87, 12, 0.3);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+  }
+  .hype-box .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    padding: 3px 8px;
+    background: rgba(194, 87, 12, 0.15);
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-weight: 700;
+  }
+  .hype-box p {
+    font-size: 13px;
+    line-height: 1.65;
+    color: #e8dfc9;
+    opacity: 0.88;
+  }
+  .hype-box p strong { color: var(--cream); opacity: 1; }
+
+  .score-wrap {
+    background: var(--cream);
+    border-radius: 6px;
+    padding: 32px 28px 24px;
+    box-shadow: var(--stage-shadow);
+    position: relative;
+  }
+  .score-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .score-head h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .score-head .tempo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .score-head .tempo strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  svg.score { width: 100%; height: auto; display: block; }
+
+  .audio-ctrls {
+    margin-top: 24px;
+    padding: 18px 20px;
+    background: var(--cream-deep);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .audio-ctrls button {
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Figtree', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .audio-ctrls button:hover:not(:disabled) { background: var(--ink-soft); }
+  .audio-ctrls button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .audio-ctrls button.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--cream-line);
+  }
+  .audio-ctrls button.secondary:hover:not(:disabled) { background: white; }
+  .audio-ctrls .audio-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .audio-ctrls .audio-hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-left: auto;
+    letter-spacing: 0.04em;
+  }
+
+  .section-head {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-weight: 400;
+    margin: 48px 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .section-head em { font-style: italic; color: var(--cream-line); opacity: 0.6; }
+
+  .notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .note {
+    background: rgba(250, 245, 237, 0.04);
+    border: 1px solid rgba(232,223,201,0.12);
+    border-left: 2px solid var(--cream-line);
+    border-radius: 4px;
+    padding: 14px 18px;
+  }
+  .note-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .note-idx {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--cream);
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .note-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.08em;
+  }
+  .note-what {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #faf5ed;
+    margin-bottom: 4px;
+    line-height: 1.35;
+  }
+  .note-how {
+    font-size: 12px;
+    line-height: 1.55;
+    opacity: 0.75;
+  }
+  .note.drop { border-left-color: var(--amber); }
+  .note.drop .note-idx { color: var(--amber); }
+  .note.impact { border-left-color: var(--purple); }
+  .note.impact .note-idx { color: var(--purple-light, #a78bfa); }
+
+  .fx-table {
+    background: rgba(250, 245, 237, 0.04);
+    border: 1px solid rgba(232,223,201,0.12);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .fx-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 2fr;
+    padding: 12px 20px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(232,223,201,0.08);
+    align-items: baseline;
+  }
+  .fx-row:last-child { border-bottom: none; }
+  .fx-row.head {
+    background: rgba(250, 245, 237, 0.06);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.55;
+  }
+  .fx-time {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cream);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .fx-name {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 15px;
+  }
+  .fx-desc { opacity: 0.75; line-height: 1.5; }
+
+  .delivs-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 16px;
+  }
+  .deliv {
+    background: rgba(250, 245, 237, 0.04);
+    border: 1px solid rgba(232,223,201,0.12);
+    border-radius: 6px;
+    padding: 24px 28px;
+  }
+  .deliv h3 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    font-weight: 400;
+    margin-bottom: 4px;
+  }
+  .deliv .deliv-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.5;
+    margin-bottom: 16px;
+  }
+  .deliv pre {
+    font-family: 'Figtree', sans-serif;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    opacity: 0.88;
+  }
+
+  .checklist { list-style: none; padding: 0; }
+  .checklist li {
+    padding: 10px 0 10px 28px;
+    position: relative;
+    font-size: 13px;
+    line-height: 1.55;
+    border-bottom: 1px dashed rgba(232,223,201,0.1);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before {
+    content: '□';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    color: var(--cream);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .checklist li strong { color: var(--cream); font-weight: 600; }
+
+  .foot {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(232,223,201,0.1);
+    font-size: 12px;
+    opacity: 0.5;
+    line-height: 1.7;
+  }
+  .foot strong { opacity: 0.8; }
+
+  @media (max-width: 720px) {
+    .masthead { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .hype-box { flex-direction: column; gap: 10px; }
+    .notes-grid { grid-template-columns: 1fr; }
+    .delivs-grid { grid-template-columns: 1fr; }
+    .fx-row { grid-template-columns: 70px 1fr; }
+    .fx-row .fx-desc { grid-column: 1 / -1; margin-top: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="masthead">
+    <h1>Beat-sync map <em>· hype mode · v2</em></h1>
+    <div class="meta">57 seconds · 19 bars at 80 BPM · two impact moments</div>
+  </div>
+
+  <div class="hype-box">
+    <div class="tag">v2 changes</div>
+    <p><strong>Kick now drops at F5 (0:15)</strong>, not F7 (0:27). The energy peak aligns with the product moment, the mint, not the UI reveal. <strong>Two impact moments</strong> instead of one: first drop at 0:15 on the $CMPD mint, second impact at 0:39.5 on the SETTLED badge. <strong>Breakdown at F10 (0:45 to 0:51)</strong> gives the Internet Capital Markets thesis line space to land. <strong>Outro rebuild at F11</strong> so the CTA lands energised, not contemplative. References shifted from Kiasmos / Jon Hopkins to ISOxo / RL Grime / Hamdi / Fred again.. Synthesised preview below is recalibrated for the new arrangement.</p>
+  </div>
+
+  <div class="score-wrap">
+    <div class="score-head">
+      <h2>Arrangement score</h2>
+      <div class="tempo"><strong>80</strong> bpm · <strong>19</strong> bars · <strong>57</strong>s · <strong>2</strong> drops</div>
+    </div>
+    <svg class="score" viewBox="0 0 1140 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="peakGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#c2570c" stop-opacity="0.75"/>
+          <stop offset="100%" stop-color="#c2570c" stop-opacity="0.4"/>
+        </linearGradient>
+      </defs>
+
+      <!-- time ruler bg -->
+      <rect x="90" y="0" width="1020" height="26" fill="#f4ecda"/>
+
+      <!-- time markers at every 6s -->
+      <g font-family="JetBrains Mono" font-size="9" fill="#8a8075" letter-spacing="0.08em">
+        <text x="90" y="17">0:00</text>
+        <text x="197" y="17">0:06</text>
+        <text x="304" y="17">0:12</text>
+        <text x="412" y="17">0:18</text>
+        <text x="519" y="17">0:24</text>
+        <text x="626" y="17">0:30</text>
+        <text x="734" y="17">0:36</text>
+        <text x="841" y="17">0:42</text>
+        <text x="948" y="17">0:48</text>
+        <text x="1055" y="17">0:54</text>
+      </g>
+
+      <!-- frame dividers -->
+      <g stroke="#e8dfc9" stroke-width="1" stroke-dasharray="2 3">
+        <line x1="143.7"  y1="26" x2="143.7"  y2="380"/>
+        <line x1="197.4"  y1="26" x2="197.4"  y2="380"/>
+        <line x1="251.1"  y1="26" x2="251.1"  y2="380"/>
+        <line x1="358.4"  y1="26" x2="358.4"  y2="380"/>
+        <line x1="465.8"  y1="26" x2="465.8"  y2="380"/>
+        <line x1="573.2"  y1="26" x2="573.2"  y2="380"/>
+        <line x1="680.5"  y1="26" x2="680.5"  y2="380"/>
+        <line x1="787.9"  y1="26" x2="787.9"  y2="380"/>
+        <line x1="895.3"  y1="26" x2="895.3"  y2="380"/>
+        <line x1="1002.6" y1="26" x2="1002.6" y2="380"/>
+      </g>
+
+      <!-- frame labels -->
+      <g font-family="JetBrains Mono" font-size="9" fill="#1a1814" font-weight="700" letter-spacing="0.06em">
+        <text x="116.8" y="40" text-anchor="middle">F1</text>
+        <text x="170.5" y="40" text-anchor="middle">F2</text>
+        <text x="224.2" y="40" text-anchor="middle">F3</text>
+        <text x="304.8" y="40" text-anchor="middle">F4</text>
+        <text x="412.1" y="40" text-anchor="middle" fill="#c2570c">F5 · DROP</text>
+        <text x="519.5" y="40" text-anchor="middle">F6</text>
+        <text x="626.9" y="40" text-anchor="middle">F7</text>
+        <text x="734.2" y="40" text-anchor="middle">F8</text>
+        <text x="841.6" y="40" text-anchor="middle" fill="#6d28d9">F9 · IMPACT</text>
+        <text x="948.9" y="40" text-anchor="middle">F10</text>
+        <text x="1056.3" y="40" text-anchor="middle">F11</text>
+      </g>
+
+      <!-- track separator baselines -->
+      <g stroke="#e8dfc9" stroke-width="1">
+        <line x1="0" y1="56" x2="1140" y2="56"/>
+        <line x1="0" y1="100" x2="1140" y2="100"/>
+        <line x1="0" y1="144" x2="1140" y2="144"/>
+        <line x1="0" y1="188" x2="1140" y2="188"/>
+        <line x1="0" y1="232" x2="1140" y2="232"/>
+        <line x1="0" y1="276" x2="1140" y2="276"/>
+        <line x1="0" y1="328" x2="1140" y2="328"/>
+      </g>
+
+      <!-- track labels -->
+      <g font-family="JetBrains Mono" font-size="10" fill="#4a433a" letter-spacing="0.1em">
+        <text x="10" y="80">PIANO</text>
+        <text x="10" y="124">PAD</text>
+        <text x="10" y="168">SUB BASS</text>
+        <text x="10" y="212">KICK</text>
+        <text x="10" y="256">ARP</text>
+        <text x="10" y="300">SOUND FX</text>
+      </g>
+
+      <!-- PIANO track (lane 56-100) - intro + outro -->
+      <rect x="90"    y="68" width="53.7"  height="24" fill="#1a1814" opacity="0.35" rx="2"/>
+      <rect x="143.7" y="68" width="53.7"  height="24" fill="#1a1814" opacity="0.55" rx="2"/>
+      <rect x="197.4" y="68" width="53.7"  height="24" fill="#1a1814" opacity="0.3" rx="2"/>
+      <rect x="1002.6" y="68" width="107.3" height="24" fill="#1a1814" opacity="0.7" rx="2"/>
+
+      <!-- PAD track (lane 100-144) - building through all of it -->
+      <rect x="90"    y="112" width="53.7" height="24" fill="#6d28d9" opacity="0.15" rx="2"/>
+      <rect x="143.7" y="112" width="53.7" height="24" fill="#6d28d9" opacity="0.25" rx="2"/>
+      <rect x="197.4" y="112" width="53.7" height="24" fill="#6d28d9" opacity="0.35" rx="2"/>
+      <rect x="251.1" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.5" rx="2"/>
+      <rect x="358.4" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.85" rx="2"/>
+      <rect x="465.8" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.85" rx="2"/>
+      <rect x="573.2" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.85" rx="2"/>
+      <rect x="680.5" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.8" rx="2"/>
+      <rect x="787.9" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.95" rx="2"/>
+      <rect x="895.3" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.5" rx="2"/>
+      <rect x="1002.6" y="112" width="107.3" height="24" fill="#6d28d9" opacity="0.85" rx="2"/>
+
+      <!-- SUB BASS track (lane 144-188) - enters at F5, sustained -->
+      <rect x="358.4" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.85" rx="2"/>
+      <rect x="465.8" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.85" rx="2"/>
+      <rect x="573.2" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.85" rx="2"/>
+      <rect x="680.5" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.8" rx="2"/>
+      <rect x="787.9" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.7" rx="2"/>
+      <rect x="895.3" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.4" rx="2"/>
+      <rect x="1002.6" y="156" width="107.3" height="24" fill="#9945FF" opacity="0.75" rx="2"/>
+
+      <!-- KICK track (lane 188-232) - F5 drop onwards -->
+      <!-- F5 4-on-floor at 80 BPM = 0.75s per beat. x = 90 + t * 17.89 -->
+      <g fill="#c2570c">
+        <!-- F5: 15-21s, 8 kicks -->
+        <circle cx="358.4" cy="210" r="3.5"/><circle cx="371.8" cy="210" r="3.5"/>
+        <circle cx="385.3" cy="210" r="3.5"/><circle cx="398.7" cy="210" r="3.5"/>
+        <circle cx="412.1" cy="210" r="3.5"/><circle cx="425.5" cy="210" r="3.5"/>
+        <circle cx="438.9" cy="210" r="3.5"/><circle cx="452.4" cy="210" r="3.5"/>
+        <!-- F6: 21-27s, 8 kicks -->
+        <circle cx="465.8" cy="210" r="3.5"/><circle cx="479.2" cy="210" r="3.5"/>
+        <circle cx="492.6" cy="210" r="3.5"/><circle cx="506.1" cy="210" r="3.5"/>
+        <circle cx="519.5" cy="210" r="3.5"/><circle cx="532.9" cy="210" r="3.5"/>
+        <circle cx="546.3" cy="210" r="3.5"/><circle cx="559.8" cy="210" r="3.5"/>
+        <!-- F7: 27-33s, 8 kicks -->
+        <circle cx="573.2" cy="210" r="3.5"/><circle cx="586.6" cy="210" r="3.5"/>
+        <circle cx="600.0" cy="210" r="3.5"/><circle cx="613.4" cy="210" r="3.5"/>
+        <circle cx="626.9" cy="210" r="3.5"/><circle cx="640.3" cy="210" r="3.5"/>
+        <circle cx="653.7" cy="210" r="3.5"/><circle cx="667.1" cy="210" r="3.5"/>
+        <!-- F8: 33-37.5s (drops out last 1.5s for build), 6 kicks -->
+        <circle cx="680.5" cy="210" r="3.5"/><circle cx="694.0" cy="210" r="3.5"/>
+        <circle cx="707.4" cy="210" r="3.5"/><circle cx="720.8" cy="210" r="3.5"/>
+        <circle cx="734.2" cy="210" r="3.5"/><circle cx="747.7" cy="210" r="3.5"/>
+      </g>
+      <!-- F9 half-time kicks -->
+      <g fill="#c2570c" opacity="0.55">
+        <circle cx="814.7" cy="210" r="3"/><circle cx="841.6" cy="210" r="3"/>
+        <circle cx="868.4" cy="210" r="3"/>
+      </g>
+      <!-- F11 outro kicks -->
+      <g fill="#c2570c">
+        <circle cx="1002.6" cy="210" r="3.5"/><circle cx="1016.0" cy="210" r="3.5"/>
+        <circle cx="1029.4" cy="210" r="3.5"/><circle cx="1042.9" cy="210" r="3.5"/>
+        <circle cx="1056.3" cy="210" r="3.5"/><circle cx="1069.7" cy="210" r="3.5"/>
+      </g>
+      <!-- underline on main drop section -->
+      <rect x="358.4" y="222" width="389.3" height="2" fill="#c2570c" opacity="0.35"/>
+
+      <!-- ARP track (lane 232-276) - F7 + first half F8 -->
+      <g fill="#fbbf24">
+        <!-- F7: 27-33s, 16th note pattern -->
+        <circle cx="573.2" cy="254" r="2.5"/><circle cx="579.9" cy="250" r="2.5"/>
+        <circle cx="586.6" cy="246" r="2.5"/><circle cx="593.3" cy="242" r="2.5"/>
+        <circle cx="600.0" cy="246" r="2.5"/><circle cx="606.7" cy="250" r="2.5"/>
+        <circle cx="613.4" cy="254" r="2.5"/><circle cx="620.1" cy="250" r="2.5"/>
+        <circle cx="626.9" cy="246" r="2.5"/><circle cx="633.6" cy="242" r="2.5"/>
+        <circle cx="640.3" cy="246" r="2.5"/><circle cx="647.0" cy="250" r="2.5"/>
+        <circle cx="653.7" cy="254" r="2.5"/><circle cx="660.4" cy="250" r="2.5"/>
+        <circle cx="667.1" cy="246" r="2.5"/><circle cx="673.8" cy="242" r="2.5"/>
+        <!-- F8 first half: 33-36s -->
+        <circle cx="680.5" cy="246" r="2.5"/><circle cx="687.2" cy="250" r="2.5"/>
+        <circle cx="694.0" cy="254" r="2.5"/><circle cx="700.7" cy="250" r="2.5"/>
+        <circle cx="707.4" cy="246" r="2.5"/><circle cx="714.1" cy="242" r="2.5"/>
+        <circle cx="720.8" cy="246" r="2.5"/><circle cx="727.5" cy="250" r="2.5"/>
+      </g>
+
+      <!-- SOUND FX track (lane 276-328) -->
+      <g>
+        <!-- Snare roll build F4 (13-15s) rising dots -->
+        <g fill="#15803d">
+          <circle cx="322.6" cy="302" r="1.8" opacity="0.3"/>
+          <circle cx="331.5" cy="302" r="2.0" opacity="0.4"/>
+          <circle cx="340.5" cy="302" r="2.3" opacity="0.5"/>
+          <circle cx="349.5" cy="302" r="2.6" opacity="0.7"/>
+          <circle cx="354.8" cy="302" r="2.9" opacity="0.85"/>
+        </g>
+        <!-- Keystrokes F5 15-18s cluster -->
+        <g fill="#15803d">
+          <circle cx="360.2" cy="302" r="3"/>
+          <circle cx="367.4" cy="302" r="3"/>
+          <circle cx="374.6" cy="302" r="3"/>
+          <circle cx="381.8" cy="302" r="3"/>
+          <circle cx="389.0" cy="302" r="3"/>
+          <circle cx="396.1" cy="302" r="3"/>
+          <circle cx="403.3" cy="302" r="3"/>
+        </g>
+        <!-- Chime on ✓ F5 at 18.5s -->
+        <circle cx="421.2" cy="302" r="5" fill="#15803d"/>
+        <circle cx="421.2" cy="302" r="10" fill="#15803d" fill-opacity="0.2"/>
+        <!-- Chord stab F6 at 21s (coin reveal) -->
+        <circle cx="465.8" cy="302" r="4" fill="#15803d"/>
+        <circle cx="465.8" cy="302" r="9" fill="#15803d" fill-opacity="0.2"/>
+        <!-- Tap on Back F7 at 30.2s -->
+        <circle cx="630.5" cy="302" r="4.5" fill="#15803d"/>
+        <!-- Snare roll build F8 (37.5-39s) rising dots -->
+        <g fill="#15803d">
+          <circle cx="761.1" cy="302" r="2.0" opacity="0.4"/>
+          <circle cx="768.3" cy="302" r="2.3" opacity="0.55"/>
+          <circle cx="775.5" cy="302" r="2.7" opacity="0.7"/>
+          <circle cx="782.7" cy="302" r="3.0" opacity="0.9"/>
+        </g>
+        <!-- SECOND IMPACT F9 at 39.5s - BIG -->
+        <circle cx="796.8" cy="302" r="7" fill="#6d28d9"/>
+        <circle cx="796.8" cy="302" r="14" fill="#6d28d9" fill-opacity="0.25"/>
+        <circle cx="796.8" cy="302" r="21" fill="#6d28d9" fill-opacity="0.12"/>
+        <!-- Resolution bloom F11 at 51s -->
+        <circle cx="1002.6" cy="302" r="5" fill="#15803d"/>
+        <circle cx="1002.6" cy="302" r="11" fill="#15803d" fill-opacity="0.2"/>
+      </g>
+
+      <!-- ENERGY curve - lane 328-380 - TWO peaks -->
+      <path d="
+        M 90 375
+        L 143.7 370
+        L 197.4 366
+        L 251.1 362
+        L 340 352
+        L 358.4 336
+        L 465.8 332
+        L 573.2 332
+        L 680.5 332
+        L 747.7 330
+        L 787.9 334
+        L 796.8 328
+        L 814.7 330
+        L 841.6 344
+        L 895.3 360
+        L 948.9 362
+        L 1002.6 358
+        L 1056.3 340
+        L 1109.8 332
+        L 1109.8 380
+        L 90 380 Z"
+        fill="url(#peakGrad)" opacity="0.6"/>
+      <path d="
+        M 90 375
+        L 143.7 370
+        L 197.4 366
+        L 251.1 362
+        L 340 352
+        L 358.4 336
+        L 465.8 332
+        L 573.2 332
+        L 680.5 332
+        L 747.7 330
+        L 787.9 334
+        L 796.8 328
+        L 814.7 330
+        L 841.6 344
+        L 895.3 360
+        L 948.9 362
+        L 1002.6 358
+        L 1056.3 340
+        L 1109.8 332"
+        stroke="#c2570c" stroke-width="1.5" fill="none"/>
+      <text x="10" y="358" font-family="JetBrains Mono" font-size="9" fill="#4a433a" letter-spacing="0.08em">ENERGY</text>
+
+      <!-- drop + impact markers -->
+      <circle cx="358.4" cy="336" r="3.5" fill="#c2570c"/>
+      <text x="358.4" y="324" font-family="JetBrains Mono" font-size="9" fill="#c2570c" text-anchor="middle" font-weight="700">DROP</text>
+      <circle cx="796.8" cy="328" r="3.5" fill="#6d28d9"/>
+      <text x="796.8" y="320" font-family="JetBrains Mono" font-size="9" fill="#6d28d9" text-anchor="middle" font-weight="700">IMPACT</text>
+
+      <!-- playhead -->
+      <line id="playhead" x1="90" y1="26" x2="90" y2="380" stroke="#1a1814" stroke-width="1.5" opacity="0"/>
+    </svg>
+
+    <div class="audio-ctrls">
+      <button id="btn-audio-play">▶ play beat map</button>
+      <button id="btn-audio-stop" class="secondary" disabled>■ stop</button>
+      <div class="audio-time" id="audio-time">00:00 / 00:57</div>
+      <div class="audio-hint">synthesised preview · pacing only, not final mix</div>
+    </div>
+  </div>
+
+  <h2 class="section-head">Frame-by-frame <em>music directions</em></h2>
+  <div class="notes-grid" id="notes-grid"></div>
+
+  <h2 class="section-head">Sound design <em>hits</em></h2>
+  <div class="fx-table">
+    <div class="fx-row head">
+      <div>time</div>
+      <div>event</div>
+      <div>character</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:13–0:15</div>
+      <div class="fx-name">Snare roll + filter rise</div>
+      <div class="fx-desc">The build into the drop. Snare roll accelerates from 8ths to 16ths to 32nds across two seconds, white noise filter sweeps upward in parallel. Cuts out at 0:14.95 for a 50ms gap of air before the kick lands, which is what makes the drop punch.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:15–0:18</div>
+      <div class="fx-name">Keystroke cluster</div>
+      <div class="fx-desc">Seven keystrokes sync to the terminal typing in F5. Layered over the kick drop so they feel like the agent is hammering the command as the beat lands. Mid-frequency click around 1.5 kHz, slight timing variation per keystroke.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:18.5</div>
+      <div class="fx-name">Confirmation chime</div>
+      <div class="fx-desc">On the ✓ in F5 when $CMPD mints. Short bell at ~1760 Hz (A6) with a second harmonic at 2637 Hz, about 900ms decay. Sits just off the beat so it reads as a separate event from the kick.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:21</div>
+      <div class="fx-name">Coin reveal stab</div>
+      <div class="fx-desc">A short major chord stab on the $CMPD coin appearing in F6. C-E-G voicing, 500ms total. This is diegetic punctuation that helps the coin reveal feel like an event, not just a cut.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:30.2</div>
+      <div class="fx-name">Mobile tap</div>
+      <div class="fx-desc">Tactile pop on the Back button in F7. Pitched sine dropping from 900 Hz to 400 Hz over 60ms, fast decay. Reads as physical rather than digital.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:37.5–0:39</div>
+      <div class="fx-name">Second snare roll build</div>
+      <div class="fx-desc">Ramps into the second impact. Kicks drop out, snare roll enters with rising intensity, filter sweep up. Shorter than the F4 build because viewers are already primed.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:39.5</div>
+      <div class="fx-name">IMPACT · settlement chord</div>
+      <div class="fx-desc">The second biggest moment in the track. Four-note major chord stab with bell harmonics on top, sustained for ~1.2 seconds. Lands exactly as the SETTLED badge lights up. This is the "bag secured" sonic payoff.</div>
+    </div>
+    <div class="fx-row">
+      <div class="fx-time">0:51</div>
+      <div class="fx-name">Resolution bloom</div>
+      <div class="fx-desc">Under the URL reveal in F11. Sustained major chord reentry, soft bell harmonic on top, kicks return with hats. Lets the CTA feel like arrival rather than fade-out.</div>
+    </div>
+  </div>
+
+  <h2 class="section-head">Production <em>deliverables</em></h2>
+  <div class="delivs-grid">
+    <div class="deliv">
+      <h3>Suno prompt · hype mode</h3>
+      <div class="deliv-sub">paste into suno · generate 5 · pick best</div>
+<pre>modern electronic instrumental, 57 seconds, 80 BPM with double-time hi-hats, hybrid tech house meets modern trap, trader-coded energy, driving and sophisticated
+
+structure:
+- 0:00 to 0:09  | sparse atmospheric intro, warm pad, low synth drone, single piano notes, no percussion
+- 0:09 to 0:15  | tension builds, filter rises on white noise, snare roll from 0:13, brief silence at 0:14.95 for air
+- 0:15 to 0:21  | FIRST DROP. Kick, 808 sub, hi-hats, pad opens. Full arrangement enters. Peak energy.
+- 0:21 to 0:27  | sustained groove through token reveal, short chord stab at 0:21, energy maintained
+- 0:27 to 0:33  | arpeggio lead enters over the kick pattern, fills high end, still full energy
+- 0:33 to 0:39  | second tension build. Arp continues first 3 seconds. Kick drops out at 0:37.5 for snare roll + sweep
+- 0:39 to 0:45  | SECOND IMPACT at 0:39.5. Big chord stab. Half-time kick pattern. Satisfying resolution feel.
+- 0:45 to 0:51  | breakdown. Pad and sub only, minimal percussion, room to breathe for a spoken line
+- 0:51 to 0:57  | outro rebuild. Kick returns four-on-floor, piano high note, resolution chord. Accomplished and energised.
+
+references: ISOxo, RL Grime "Core", Hamdi "Skanka", Fred again.. "Rumble", modern Skrillex productions, early Flume
+
+avoid: trailer cinematic epic, contemplative ambient, corporate uplifting, dubstep wobble, Ultra Music Festival mainstage cheese, tech explainer loops, generic hip-hop beats</pre>
+    </div>
+    <div class="deliv">
+      <h3>Validation checklist</h3>
+      <div class="deliv-sub">play candidate track over video v2 · tick each</div>
+      <ul class="checklist">
+        <li><strong>Opening 9 seconds</strong> have no percussion. Pad and piano only.</li>
+        <li><strong>Snare roll or filter build</strong> audible between 0:09 and 0:15.</li>
+        <li><strong>First kick lands at 0:15</strong>, within 0.3 seconds. The drop must line up with the terminal mint.</li>
+        <li><strong>Four-on-floor kick pattern</strong> sustains through 0:15 to 0:33 without dropping out.</li>
+        <li><strong>Arpeggio or lead melody enters around 0:27</strong> to F8 at 0:39.</li>
+        <li><strong>Second build between 0:33 and 0:39</strong>, with kick dropping out briefly.</li>
+        <li><strong>Second impact at 0:39.5</strong>, within 0.5 seconds. Must line up with SETTLED badge.</li>
+        <li><strong>Breakdown between 0:45 and 0:51</strong>. Significantly fewer elements than the drop.</li>
+        <li><strong>Final 6 seconds</strong> rebuild or sustain energy. Not a fade-out, not contemplative.</li>
+        <li><strong>Nothing sounds like</strong> a trailer riser, EDM mainstage drop, or corporate stock loop.</li>
+        <li><strong>Mix leaves headroom</strong> for keystroke, tap, chime, and impact FX to layer on top.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot">
+    <strong>How this gets used.</strong> Once a candidate Suno track passes the validation checklist, drop it under video v2 at native tempo. Sound design hits layer on top of the music bed as separate audio events, not baked into the track itself, so Junheng can adjust mobile screen timing without re-rendering audio. The synthesised preview above is intentionally ugly so nobody mistakes it for a finished mix. If Suno consistently refuses to produce a proper second impact at 0:39.5, try splitting the prompt: generate a 0:00-0:33 "drop A" section and a 0:33-0:57 "drop B plus outro" section separately, then stitch in an editor. Suno struggles with two-drop structures in a single generation.
+  </div>
+
+</div>
+
+<script>
+  const frameNotes = [
+    { idx: 'F1',  range: '0:00 – 0:03', what: 'Single piano note fades in. No percussion.',
+      how: 'Warm sustained C4 with slow attack. Low synth drone underneath. Sets the tone without revealing the genre. Viewer has no idea what kind of track this is yet.' },
+    { idx: 'F2',  range: '0:03 – 0:06', what: 'Piano continues, second note joins on "Solana".',
+      how: 'E4 layered over the C4. The harmonic shift is the musical acknowledgment of the chain reveal. Still no drums.' },
+    { idx: 'F3',  range: '0:06 – 0:09', what: 'Pad brightens. Tension starts accumulating.',
+      how: 'Warm analog pad swells. The viewer starts feeling that something is coming, even though nothing obvious has changed yet.' },
+    { idx: 'F4',  range: '0:09 – 0:15', what: 'Tension build. Snare roll and filter sweep rise into silence.',
+      how: 'White noise filter sweeps up across 4 seconds. Snare roll enters at 0:13, accelerates from 8ths to 16ths to 32nds. Crucially, everything STOPS at 0:14.95 for a 50ms gap of air. This silence is what makes the drop hit.' },
+    { idx: 'F5', range: '0:15 – 0:21', what: 'FIRST DROP. Kick, 808 sub, hi-hats, pad open up. Keystrokes layer in. Chime on ✓.', how: 'The single most important sync moment in the entire track. The first kick must be frame-accurate with the terminal completing the mint command. Keystrokes layer on top of the drop during the typing, then the confirmation chime at 0:18.5 on the ✓ line. This is where agent-builders lock in.', drop: true },
+    { idx: 'F6',  range: '0:21 – 0:27', what: 'Full arrangement sustains. Chord stab on the coin reveal at 0:21.',
+      how: 'Kicks continue, 808 sub sustains, pad holds. A short major chord stab (500ms) punctuates the coin appearing. This is the frame most people will screenshot and share, the music has to match its weight.' },
+    { idx: 'F7',  range: '0:27 – 0:33', what: 'Arpeggio lead enters over the kick. Tap on Back at 0:30.2.',
+      how: 'Rising 16th-note arp in the upper register fills the high end. Music feels like it climbs even though the groove stays the same. Mobile tap FX on the Back button sits in the mix without competing.' },
+    { idx: 'F8',  range: '0:33 – 0:39', what: 'Second tension build. Kick drops out last 1.5 seconds. Snare roll returns.',
+      how: 'Arp continues for the first three seconds. Then at 0:37.5 the kick drops out entirely, snare roll rebuilds, filter sweep ramps up. This is the setup for the second impact. The "air moment" is at 0:39.45 again, 50ms of silence.' },
+    { idx: 'F9', range: '0:39 – 0:45', what: 'SECOND IMPACT. Big chord stab at 0:39.5. Half-time kick pattern.', how: 'Four-note major chord stab sustains for 1.2 seconds on the SETTLED badge. Kicks return at half-time (every 1.5s) so the groove feels resolved rather than driving. This is the "bag secured" sonic moment. Second-biggest payoff in the whole track.', impact: true },
+    { idx: 'F10', range: '0:45 – 0:51', what: 'Breakdown. Pad and sub only. Room for the thesis line.',
+      how: 'Kicks out. Hats out. Arp out. Just sustained pad chord and low 808 underneath. Almost uncomfortable silence. The ICM thesis line lands in this space because there is nothing fighting it. Six long seconds of space.' },
+    { idx: 'F11', range: '0:51 – 0:57', what: 'Outro rebuild. Kick returns. Piano high note. Resolution chord.',
+      how: 'Full four-on-floor returns with hats. Piano plays C5 at 0:51.5 and G5 at 0:53. Resolution bloom chime sustains across the whole frame. Ends clean, not faded, leaving the viewer in a stable energised place. Zero contemplation.' }
+  ];
+
+  const notesGrid = document.getElementById('notes-grid');
+  frameNotes.forEach(n => {
+    const el = document.createElement('div');
+    let cls = 'note';
+    if (n.drop) cls += ' drop';
+    if (n.impact) cls += ' impact';
+    el.className = cls;
+    el.innerHTML = `
+      <div class="note-head">
+        <span class="note-idx">${n.idx}${n.drop ? ' · drop' : ''}${n.impact ? ' · impact' : ''}</span>
+        <span class="note-time">${n.range}</span>
+      </div>
+      <div class="note-what">${n.what}</div>
+      <div class="note-how">${n.how}</div>
+    `;
+    notesGrid.appendChild(el);
+  });
+
+  /* ================================================================== */
+  /*  Web Audio synthesis - hype mode                                   */
+  /* ================================================================== */
+  let ctx = null;
+  let masterGain = null;
+  let isPlaying = false;
+  let playStartTime = 0;
+  let activeNodes = [];
+  let playheadAnim = null;
+
+  const playhead = document.getElementById('playhead');
+  const btnPlay = document.getElementById('btn-audio-play');
+  const btnStop = document.getElementById('btn-audio-stop');
+  const timeEl = document.getElementById('audio-time');
+
+  function fmtTime(s) {
+    const m = String(Math.floor(s / 60)).padStart(2, '0');
+    const sec = String(Math.floor(s % 60)).padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  function ensureCtx() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0.5;
+      masterGain.connect(ctx.destination);
+    }
+  }
+
+  function trackNode(node) { activeNodes.push(node); }
+
+  function playPad(startT, dur, freq, vol = 0.1) {
+    const o1 = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    o1.type = 'sawtooth'; o2.type = 'sawtooth';
+    o1.frequency.value = freq; o2.frequency.value = freq * 1.007;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 1200; filt.Q.value = 0.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startT);
+    g.gain.linearRampToValueAtTime(vol, startT + Math.min(1.4, dur * 0.3));
+    g.gain.setValueAtTime(vol, startT + dur - Math.min(1.0, dur * 0.25));
+    g.gain.linearRampToValueAtTime(0, startT + dur);
+    o1.connect(filt); o2.connect(filt);
+    filt.connect(g); g.connect(masterGain);
+    o1.start(startT); o2.start(startT);
+    o1.stop(startT + dur); o2.stop(startT + dur);
+    trackNode(o1); trackNode(o2);
+  }
+
+  function playPiano(startT, dur, freq, vol = 0.12) {
+    const o = ctx.createOscillator();
+    o.type = 'triangle'; o.frequency.value = freq;
+    const o2 = ctx.createOscillator();
+    o2.type = 'sine'; o2.frequency.value = freq * 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startT);
+    g.gain.linearRampToValueAtTime(vol, startT + 0.06);
+    g.gain.exponentialRampToValueAtTime(vol * 0.3, startT + Math.min(1.5, dur * 0.5));
+    g.gain.linearRampToValueAtTime(0.0001, startT + dur);
+    const g2 = ctx.createGain();
+    g2.gain.value = vol * 0.2;
+    o.connect(g); o2.connect(g2); g2.connect(g);
+    g.connect(masterGain);
+    o.start(startT); o2.start(startT);
+    o.stop(startT + dur); o2.stop(startT + dur);
+    trackNode(o); trackNode(o2);
+  }
+
+  function playKick(startT, vol = 0.45) {
+    // Body
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.setValueAtTime(200, startT);
+    o.frequency.exponentialRampToValueAtTime(45, startT + 0.08);
+    g.gain.setValueAtTime(vol, startT);
+    g.gain.exponentialRampToValueAtTime(0.001, startT + 0.32);
+    o.connect(g); g.connect(masterGain);
+    o.start(startT); o.stop(startT + 0.32);
+    trackNode(o);
+
+    // Click layer
+    const clickLen = 0.008;
+    const clickBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * clickLen), ctx.sampleRate);
+    const d = clickBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (d.length * 0.15));
+    const click = ctx.createBufferSource();
+    click.buffer = clickBuf;
+    const cf = ctx.createBiquadFilter();
+    cf.type = 'bandpass'; cf.frequency.value = 3000;
+    const cg = ctx.createGain(); cg.gain.value = vol * 0.25;
+    click.connect(cf); cf.connect(cg); cg.connect(masterGain);
+    click.start(startT);
+    trackNode(click);
+  }
+
+  function play808Sub(startT, dur, freq = 50, vol = 0.22) {
+    const o = ctx.createOscillator();
+    o.type = 'sine'; o.frequency.value = freq;
+    const o2 = ctx.createOscillator();
+    o2.type = 'sine'; o2.frequency.value = freq * 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startT);
+    g.gain.linearRampToValueAtTime(vol, startT + 0.05);
+    g.gain.setValueAtTime(vol, startT + dur - 0.2);
+    g.gain.linearRampToValueAtTime(0, startT + dur);
+    const g2 = ctx.createGain();
+    g2.gain.value = vol * 0.12;
+    o.connect(g); o2.connect(g2); g2.connect(g);
+    g.connect(masterGain);
+    o.start(startT); o.stop(startT + dur);
+    o2.start(startT); o2.stop(startT + dur);
+    trackNode(o); trackNode(o2);
+  }
+
+  function playHihat(startT, vol = 0.06) {
+    const len = 0.03;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (d.length * 0.12));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'highpass'; filt.frequency.value = 7500;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(filt); filt.connect(g); g.connect(masterGain);
+    src.start(startT);
+    trackNode(src);
+  }
+
+  function playSnare(startT, vol = 0.15) {
+    // Noise body
+    const len = 0.12;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (d.length * 0.2));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass'; filt.frequency.value = 220; filt.Q.value = 1.5;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(filt); filt.connect(g); g.connect(masterGain);
+    src.start(startT);
+    trackNode(src);
+
+    // Tone snap
+    const o = ctx.createOscillator();
+    o.frequency.value = 190;
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(vol * 0.4, startT);
+    og.gain.exponentialRampToValueAtTime(0.001, startT + 0.06);
+    o.connect(og); og.connect(masterGain);
+    o.start(startT); o.stop(startT + 0.06);
+    trackNode(o);
+  }
+
+  function playSnareRoll(startT, endT, peakVol = 0.14) {
+    // Accelerating snare roll
+    const totalDur = endT - startT;
+    let hits = [];
+    // Divide into thirds: 8ths, 16ths, 32nds
+    const third = totalDur / 3;
+    for (let t = startT; t < startT + third; t += 0.3) hits.push(t);
+    for (let t = startT + third; t < startT + 2*third; t += 0.15) hits.push(t);
+    for (let t = startT + 2*third; t < endT; t += 0.075) hits.push(t);
+    hits.forEach((t, i) => {
+      const intensity = peakVol * (0.35 + 0.65 * (i / hits.length));
+      playSnare(t, intensity);
+    });
+  }
+
+  function playFilterSweep(startT, endT, vol = 0.1) {
+    const dur = endT - startT;
+    const bufLen = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random()*2-1) * 0.5;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(200, startT);
+    filt.frequency.exponentialRampToValueAtTime(10000, endT);
+    filt.Q.value = 1.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startT);
+    g.gain.linearRampToValueAtTime(vol, startT + dur * 0.4);
+    g.gain.linearRampToValueAtTime(0, endT);
+    src.connect(filt); filt.connect(g); g.connect(masterGain);
+    src.start(startT);
+    src.stop(endT);
+    trackNode(src);
+  }
+
+  function playChime(startT, freq, vol = 0.1, decay = 1.0) {
+    const o = ctx.createOscillator();
+    o.type = 'sine'; o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, startT);
+    g.gain.exponentialRampToValueAtTime(0.001, startT + decay);
+    o.connect(g); g.connect(masterGain);
+    o.start(startT); o.stop(startT + decay);
+    trackNode(o);
+  }
+
+  function playKey(startT, vol = 0.08) {
+    const len = 0.04;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i / (d.length * 0.3));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass'; filt.frequency.value = 1600; filt.Q.value = 3;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(filt); filt.connect(g); g.connect(masterGain);
+    src.start(startT);
+    trackNode(src);
+  }
+
+  function playTap(startT, vol = 0.14) {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(900, startT);
+    o.frequency.exponentialRampToValueAtTime(400, startT + 0.06);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, startT);
+    g.gain.exponentialRampToValueAtTime(0.001, startT + 0.12);
+    o.connect(g); g.connect(masterGain);
+    o.start(startT); o.stop(startT + 0.12);
+    trackNode(o);
+  }
+
+  function playChord(startT, dur, freqs, vol = 0.1) {
+    freqs.forEach(f => playPad(startT, dur, f, vol));
+  }
+
+  function playBigChordStab(startT, dur, freqs, vol = 0.14) {
+    // Saw chord with fast attack for stab feel
+    freqs.forEach(f => {
+      const o1 = ctx.createOscillator();
+      const o2 = ctx.createOscillator();
+      o1.type = 'sawtooth'; o2.type = 'sawtooth';
+      o1.frequency.value = f; o2.frequency.value = f * 1.01;
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass'; filt.frequency.value = 2500;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, startT);
+      g.gain.linearRampToValueAtTime(vol, startT + 0.02);
+      g.gain.setValueAtTime(vol, startT + dur * 0.4);
+      g.gain.linearRampToValueAtTime(0, startT + dur);
+      o1.connect(filt); o2.connect(filt);
+      filt.connect(g); g.connect(masterGain);
+      o1.start(startT); o2.start(startT);
+      o1.stop(startT + dur); o2.stop(startT + dur);
+      trackNode(o1); trackNode(o2);
+    });
+  }
+
+  /* Schedule the full 57-second hype beat map */
+  function scheduleBeatMap(t0) {
+    // Notes: C4=261.63, D4=293.66, E4=329.63, F4=349.23, G4=391.99, A4=440, B4=493.88, C5=523.25
+
+    // F1: 0-3s - piano fades in, subtle drone
+    playPiano(t0 + 0.5, 3.5, 261.63, 0.15);
+    playPad(t0 + 0, 9, 130.81, 0.04);
+
+    // F2: 3-6s - E4 joins
+    playPiano(t0 + 3, 3.5, 329.63, 0.13);
+
+    // F3: 6-9s - pad brightens
+    playPad(t0 + 6, 3, 220, 0.07);
+    playPad(t0 + 6, 3, 329.63, 0.06);
+
+    // F4: 9-15s TENSION BUILD
+    playPad(t0 + 9, 6, 220, 0.1);
+    playPad(t0 + 9, 6, 329.63, 0.08);
+    playFilterSweep(t0 + 11, t0 + 14.95, 0.1);
+    playSnareRoll(t0 + 13, t0 + 14.85, 0.14);
+    // Low impact boom just before drop
+    playKick(t0 + 14.2, 0.2);
+
+    // F5: 15-21s FIRST DROP
+    play808Sub(t0 + 15, 6, 50, 0.24);
+    playPad(t0 + 15, 6, 220, 0.13);
+    playPad(t0 + 15, 6, 329.63, 0.1);
+    // 4-on-floor kick at 80 BPM = 0.75s/beat
+    for (let t = 15; t < 21; t += 0.75) playKick(t0 + t, 0.45);
+    // Hi-hats on 8ths (double-time)
+    for (let t = 15.375; t < 21; t += 0.375) playHihat(t0 + t, 0.05);
+    // Keystrokes 15.1 to 17.6
+    [15.1, 15.55, 15.9, 16.3, 16.65, 17.05, 17.45].forEach(t => playKey(t0 + t, 0.08));
+    // Confirmation chime at 18.5 on ✓
+    playChime(t0 + 18.5, 1760, 0.12, 0.9);
+    playChime(t0 + 18.5, 2637, 0.06, 0.7);
+
+    // F6: 21-27s sustained groove + chord stab on coin reveal
+    play808Sub(t0 + 21, 6, 50, 0.24);
+    playPad(t0 + 21, 6, 220, 0.13);
+    playPad(t0 + 21, 6, 329.63, 0.1);
+    for (let t = 21; t < 27; t += 0.75) playKick(t0 + t, 0.45);
+    for (let t = 21.375; t < 27; t += 0.375) playHihat(t0 + t, 0.05);
+    // Short chord stab at 21
+    playBigChordStab(t0 + 21, 0.5, [523.25, 659.25, 783.99], 0.11);
+
+    // F7: 27-33s arpeggio enters + mobile tap
+    play808Sub(t0 + 27, 6, 50, 0.24);
+    playPad(t0 + 27, 6, 220, 0.13);
+    playPad(t0 + 27, 6, 329.63, 0.1);
+    for (let t = 27; t < 33; t += 0.75) playKick(t0 + t, 0.45);
+    for (let t = 27.375; t < 33; t += 0.375) playHihat(t0 + t, 0.05);
+    // Arpeggio: C5 E5 G5 C6 G5 E5 pattern
+    const arp = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25];
+    let arpIdx = 0;
+    for (let t = 27; t < 33; t += 0.375) {
+      playChime(t0 + t, arp[arpIdx % arp.length], 0.05, 0.3);
+      arpIdx++;
+    }
+    // Mobile tap at 30.2
+    playTap(t0 + 30.2, 0.14);
+
+    // F8: 33-39s second build (kick drops out last 1.5s)
+    play808Sub(t0 + 33, 6, 50, 0.22);
+    playPad(t0 + 33, 6, 220, 0.13);
+    playPad(t0 + 33, 6, 329.63, 0.1);
+    // Kicks drop out after 33-37.5
+    for (let t = 33; t < 37.5; t += 0.75) playKick(t0 + t, 0.45);
+    for (let t = 33.375; t < 37.5; t += 0.375) playHihat(t0 + t, 0.05);
+    // Arp continues first half
+    arpIdx = 0;
+    for (let t = 33; t < 36; t += 0.375) {
+      playChime(t0 + t, arp[arpIdx % arp.length], 0.05, 0.3);
+      arpIdx++;
+    }
+    // Snare roll + sweep build 37.5-39
+    playSnareRoll(t0 + 37.5, t0 + 38.9, 0.16);
+    playFilterSweep(t0 + 37.5, t0 + 38.95, 0.1);
+
+    // F9: 39-45s SECOND IMPACT
+    playPad(t0 + 39, 6, 220, 0.14);
+    playPad(t0 + 39, 6, 329.63, 0.11);
+    playPad(t0 + 39, 6, 391.99, 0.08);
+    play808Sub(t0 + 39, 6, 50, 0.22);
+    // BIG CHORD STAB at 39.5
+    playBigChordStab(t0 + 39.5, 1.2, [261.63, 329.63, 391.99, 523.25], 0.14);
+    playChime(t0 + 39.5, 1047, 0.16, 0.9);
+    playChime(t0 + 39.5, 1568, 0.12, 0.9);
+    playKick(t0 + 39.5, 0.5);
+    // Half-time kicks after impact
+    for (let t = 41; t < 45; t += 1.5) playKick(t0 + t, 0.35);
+    for (let t = 41; t < 45; t += 0.75) playHihat(t0 + t, 0.04);
+
+    // F10: 45-51s BREAKDOWN for thesis
+    playPad(t0 + 45, 6, 220, 0.13);
+    playPad(t0 + 45, 6, 329.63, 0.1);
+    playPad(t0 + 45, 6, 391.99, 0.08);
+    play808Sub(t0 + 45, 6, 50, 0.12);
+    // Very minimal percussion
+    for (let t = 45.5; t < 51; t += 1.5) playKick(t0 + t, 0.18);
+
+    // F11: 51-57s OUTRO rebuild
+    playChord(t0 + 51, 6, [261.63, 329.63, 391.99, 523.25], 0.11);
+    play808Sub(t0 + 51, 6, 50, 0.18);
+    // Kicks return 4-on-floor first 4.5s
+    for (let t = 51; t < 55.5; t += 0.75) playKick(t0 + t, 0.38);
+    for (let t = 51.375; t < 55.5; t += 0.375) playHihat(t0 + t, 0.05);
+    // Piano returns
+    playPiano(t0 + 51.5, 5, 523.25, 0.12);
+    playPiano(t0 + 53, 3, 783.99, 0.08);
+    // Resolution bloom
+    playChime(t0 + 51, 1568, 0.06, 4);
+    playChime(t0 + 51, 2093, 0.04, 4);
+  }
+
+  function startAudio() {
+    ensureCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    isPlaying = true;
+    playStartTime = ctx.currentTime;
+    scheduleBeatMap(ctx.currentTime + 0.05);
+    btnPlay.disabled = true;
+    btnStop.disabled = false;
+    playhead.setAttribute('opacity', '0.65');
+    animatePlayhead();
+  }
+
+  function stopAudio() {
+    isPlaying = false;
+    activeNodes.forEach(n => {
+      try { if (n.stop) n.stop(); } catch(e) {}
+    });
+    activeNodes = [];
+    btnPlay.disabled = false;
+    btnStop.disabled = true;
+    playhead.setAttribute('opacity', '0');
+    if (playheadAnim) cancelAnimationFrame(playheadAnim);
+    timeEl.textContent = '00:00 / 00:57';
+  }
+
+  function animatePlayhead() {
+    if (!isPlaying) return;
+    const elapsed = ctx.currentTime - playStartTime;
+    if (elapsed >= 57.2) {
+      stopAudio();
+      return;
+    }
+    const x = 90 + Math.min(elapsed, 57) * (1020 / 57);
+    playhead.setAttribute('x1', x);
+    playhead.setAttribute('x2', x);
+    timeEl.textContent = `${fmtTime(elapsed)} / 00:57`;
+    playheadAnim = requestAnimationFrame(animatePlayhead);
+  }
+
+  btnPlay.addEventListener('click', startAudio);
+  btnStop.addEventListener('click', stopAudio);
+</script>
+</body>
+</html>
