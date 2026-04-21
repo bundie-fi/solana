@@ -4,7 +4,7 @@
     "strict": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@yields-so/common": ["../common/src"]
+      "@bundie/common": ["../common/src"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]

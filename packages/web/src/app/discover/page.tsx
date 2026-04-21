@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { fetchStrategies } from '@/lib/chain'
 
 export const revalidate = 30 // revalidate every 30s (ISR)
-import { mockStrategies } from '@yields-so/common'
-import type { StrategyDisplay } from '@yields-so/common'
+import { mockStrategies } from '@bundie/common'
+import type { StrategyDisplay } from '@bundie/common'
 
 function StrategyCard({ s }: { s: StrategyDisplay }) {
   const apy = s.apy > 0 ? `${s.apy.toFixed(1)}%` : '—'

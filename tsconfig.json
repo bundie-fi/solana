@@ -13,8 +13,8 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@yields-so/common": ["packages/common/src"],
-      "@yields-so/common/*": ["packages/common/src/*"]
+      "@bundie/common": ["packages/common/src"],
+      "@bundie/common/*": ["packages/common/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "target", ".next", ".expo"]

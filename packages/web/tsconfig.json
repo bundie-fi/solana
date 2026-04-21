@@ -22,7 +22,7 @@
       "@/*": [
         "./src/*"
       ],
-      "@yields-so/common": [
+      "@bundie/common": [
         "../common/src"
       ]
     },

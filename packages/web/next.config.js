@@ -4,7 +4,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  transpilePackages: ["@yields-so/common"],
+  transpilePackages: ["@bundie/common"],
   // Public devnet config — baked in at build time (not secrets)
   env: {
     NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",

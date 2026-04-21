@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
-import type { MarketDisplay } from "@yields-so/common";
+import type { MarketDisplay } from "@bundie/common";
 import { PredictPanel } from "./PredictPanel";
 
 const PREDICTION_PROGRAM_ID = new PublicKey(

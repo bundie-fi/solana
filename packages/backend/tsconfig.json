@@ -4,8 +4,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@yields-so/common": ["../common/src"],
-      "@yields-so/common/*": ["../common/src/*"]
+      "@bundie/common": ["../common/src"],
+      "@bundie/common/*": ["../common/src/*"]
     }
   },
   "include": ["src"],

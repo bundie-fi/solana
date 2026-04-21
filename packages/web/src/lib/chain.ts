@@ -1,6 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js'
-import type { StrategyDisplay } from '@yields-so/common'
-import type { MarketDisplay } from '@yields-so/common'
+import type { StrategyDisplay } from '@bundie/common'
+import type { MarketDisplay } from '@bundie/common'
 
 const RPC = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://api.devnet.solana.com'
 

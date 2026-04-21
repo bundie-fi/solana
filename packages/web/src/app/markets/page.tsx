@@ -2,8 +2,8 @@ import { fetchStrategies, fetchMarkets } from '@/lib/chain'
 import { MarketCardInteractive } from '@/components/MarketCardInteractive'
 
 export const revalidate = 30 // revalidate every 30s (ISR)
-import { mockMarkets } from '@yields-so/common'
-import type { MarketDisplay } from '@yields-so/common'
+import { mockMarkets } from '@bundie/common'
+import type { MarketDisplay } from '@bundie/common'
 
 function PriceBar({ yesPrice }: { yesPrice: number }) {
   const yesPct = Math.round(yesPrice * 100)

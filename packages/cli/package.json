@@ -1,10 +1,10 @@
 {
-  "name": "@yields-so/cli",
+  "name": "@bundie/sol-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "yields-cli": "./dist/index.js"
+    "bundie-sol": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
