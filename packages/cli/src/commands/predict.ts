@@ -51,11 +51,14 @@ export async function predict(
   data.writeUInt8(outcome, 8);         // outcome enum u8
   data.writeBigUInt64LE(amount, 9);    // amount u64
 
+  // Creator self-exclusion (commit d01a271) requires passing the strategy
+  // account at slot 3 so the program can verify buyer != strategy.authority.
   const ix = new TransactionInstruction({
     programId: PM_PROGRAM,
     keys: [
       { pubkey: payer.publicKey,             isSigner: true,  isWritable: true  }, // buyer
       { pubkey: marketAddress,               isSigner: false, isWritable: true  }, // market
+      { pubkey: market.strategy,             isSigner: false, isWritable: false }, // strategy (pinocchio)
       { pubkey: yesMint,                     isSigner: false, isWritable: true  }, // yes_mint
       { pubkey: noMint,                      isSigner: false, isWritable: true  }, // no_mint
       { pubkey: vault,                       isSigner: false, isWritable: true  }, // vault

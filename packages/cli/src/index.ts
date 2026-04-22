@@ -6,12 +6,15 @@ import { createStrategy, DEVNET_USDC } from './commands/create-strategy.js';
 import { buyStrategyShares } from './commands/buy-shares.js';
 import { predict } from './commands/predict.js';
 import { printNav } from './commands/nav.js';
+import { createMarket } from './commands/create-market.js';
+import { resolveMarket } from './commands/resolve-market.js';
+import { listStrategies, formatStrategyTable } from './commands/list-strategies.js';
 
 const program = new Command();
 
 program
-  .name('yields-cli')
-  .description('Yields.so CLI — create strategies, earn, and predict on Solana devnet')
+  .name('bundie-sol')
+  .description('Bundie Solana CLI — agent surface for composing strategies, opening markets, and resolving outcomes on devnet')
   .version('0.1.0');
 
 // ─── Global options ──────────────────────────────────────────────────────────
@@ -125,6 +128,94 @@ program
 
     try {
       await printNav(conn, strategy);
+    } catch (e) {
+      console.error('\n✗ Error:', (e as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ─── create-market ───────────────────────────────────────────────────────────
+
+program
+  .command('create-market')
+  .description('Open a prediction market on an existing strategy (market-maker archetype)')
+  .requiredOption('--strategy <pubkey>', 'strategy the market predicts on')
+  .requiredOption('--question <text>', 'market question (max 128 chars)')
+  .requiredOption('--threshold-bps <bps>', 'APY threshold in basis points (e.g. 1000 = 10%)')
+  .option('--resolution-days <days>', 'days until the market can be resolved', '7')
+  .option('--initial-subsidy <usdc>', 'initial LS-LMSR liquidity subsidy in USDC', '10')
+  .option('--fee-bps <bps>', 'market trading fee in basis points', '100')
+  .option('--strategy-b <pubkey>', 'second strategy for Relative markets (optional)')
+  .action(async (opts, cmd) => {
+    const globalOpts = cmd.parent?.opts() ?? {};
+    const conn = getConnection(globalOpts.rpc);
+    const payer = loadKeypair(globalOpts.keypair);
+    const strategy = new PublicKey(opts.strategy);
+    const strategyB = opts.strategyB ? new PublicKey(opts.strategyB) : undefined;
+
+    // Convert days → absolute slot (Solana ≈ 400ms/slot → 216,000 slots/day).
+    // We read the current slot and add N * SLOTS_PER_DAY.
+    const SLOTS_PER_DAY = 216_000n;
+    const currentSlot = BigInt(await conn.getSlot('confirmed'));
+    const resolutionSlot = currentSlot + BigInt(opts.resolutionDays) * SLOTS_PER_DAY;
+
+    console.log(`\nOpening market on strategy ${opts.strategy}...\n`);
+
+    try {
+      await createMarket(conn, payer, {
+        strategy,
+        strategyB,
+        question: opts.question,
+        thresholdBps: parseInt(opts.thresholdBps, 10),
+        resolutionSlot,
+        initialSubsidy: parseFloat(opts.initialSubsidy),
+        feeBps: parseInt(opts.feeBps, 10),
+      });
+      console.log('\n✓ Market opened.');
+    } catch (e) {
+      console.error('\n✗ Error:', (e as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ─── resolve-market ──────────────────────────────────────────────────────────
+
+program
+  .command('resolve-market')
+  .description('Permissionlessly resolve a market after its resolution slot (reads strategy NAV via on-chain oracle)')
+  .requiredOption('--market <pubkey>', 'prediction market address')
+  .action(async (opts, cmd) => {
+    const globalOpts = cmd.parent?.opts() ?? {};
+    const conn = getConnection(globalOpts.rpc);
+    const payer = loadKeypair(globalOpts.keypair);
+    const market = new PublicKey(opts.market);
+
+    console.log(`\nResolving market ${opts.market}...\n`);
+
+    try {
+      const { outcome } = await resolveMarket(conn, payer, market);
+      console.log(`\n✓ Market resolved → ${outcome}.`);
+    } catch (e) {
+      console.error('\n✗ Error:', (e as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ─── list-strategies ─────────────────────────────────────────────────────────
+
+program
+  .command('list-strategies')
+  .description('List all on-chain strategies (agents use this to discover markets to open)')
+  .action(async (_opts, cmd) => {
+    const globalOpts = cmd.parent?.opts() ?? {};
+    const conn = getConnection(globalOpts.rpc);
+
+    try {
+      const strategies = await listStrategies(conn);
+      console.log();
+      console.log(formatStrategyTable(strategies));
+      console.log();
+      console.log(`(${strategies.length} strategies)`);
     } catch (e) {
       console.error('\n✗ Error:', (e as Error).message);
       process.exit(1);
