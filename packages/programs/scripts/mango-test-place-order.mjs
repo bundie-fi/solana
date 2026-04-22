@@ -89,7 +89,7 @@ async function main() {
     return;
   } else {
     console.log("→ A. no MangoAccount, creating…");
-    const sig = await client.createMangoAccount(group, 0, "yields-v2-test", 8, 4, 4, 4);
+    const sig = await client.createMangoAccount(group, 0, "bundie-sol-test", 8, 4, 4, 4);
     console.log(`  tx: ${sig.signature}`);
     // Devnet RPC can lag — retry the fetch a few times.
     for (let i = 0; i < 8; i++) {

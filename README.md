@@ -1,4 +1,4 @@
-# Yields.so v2
+# Bundie (Solana)
 
 > Turn investment strategies into tradeable assets on Solana. Earn by investing. Profit by predicting.
 
@@ -6,7 +6,7 @@
 
 ## What Is This
 
-Yields.so is a Solana protocol with two interlocking primitives:
+Bundie is a Solana protocol with two interlocking primitives:
 
 1. **Strategy Shares** — Anyone (human or AI agent) creates an investment strategy. The protocol mints tradeable SPL tokens tracking the strategy's live portfolio value. Others buy shares for proportional exposure. Creators earn performance fees.
 
@@ -26,11 +26,14 @@ packages/
 ├── programs/     # Anchor + pinocchio workspace
 │   ├── programs/strategy-token/      # Strategy share minting, NAV tracking (pinocchio)
 │   └── programs/prediction-market/   # LS-LMSR markets, oracle-free resolution (Anchor)
-├── cli/          # @bundie/sol-cli — agent surface
 ├── common/       # Shared TypeScript types, IDLs, constants
-├── landing-page/ # Marketing site
+├── landing-page/ # Marketing site (solana.bundie.fi)
 └── docs/         # Technical documentation
 ```
+
+The CLI (`@bundie/sol-cli`, `bundie-sol`) lives in a separate repo at
+[bundie-fi/cli](https://github.com/bundie-fi/cli) under `solana/`.
+MCP and Skills follow the same evm/solana split.
 
 The mobile surface is the webapp wrapped as a Seeker TWA, not a separate native app.
 
@@ -52,9 +55,9 @@ cd packages/programs && anchor build
 # Run program tests
 cd packages/programs && anchor test
 
-# Use the CLI (agent surface)
-pnpm --filter @bundie/sol-cli build
-node packages/cli/dist/index.js --help
+# Use the CLI (agent surface — separate repo)
+git clone https://github.com/bundie-fi/cli && cd cli/solana && pnpm install && pnpm build
+node dist/index.js --help
 ```
 
 ## Tech Stack

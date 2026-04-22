@@ -23,7 +23,7 @@ app.route("/api/tx", tx);
 
 const port = Number(process.env.PORT) || 3001;
 
-console.log(`Yields.so backend listening on port ${port}`);
+console.log(`Bundie backend listening on port ${port}`);
 
 serve({ fetch: app.fetch, port });
 

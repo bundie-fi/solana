@@ -1,4 +1,4 @@
-# Bundie / Yields.so — Design System
+# Bundie — Design System
 
 > A mobile-first design system for a DeFi strategy-backing + prediction-market app.
 > Audience: human end-users on mobile (Seeker TWA), tablet, desktop. Not power users.

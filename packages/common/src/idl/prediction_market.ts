@@ -10,7 +10,7 @@ export type PredictionMarket = {
     "name": "predictionMarket",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Yields.so Prediction Market Program - LS-LMSR markets with oracle-free resolution"
+    "description": "Bundie Prediction Market Program - LS-LMSR markets with oracle-free resolution"
   },
   "instructions": [
     {

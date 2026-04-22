@@ -59,3 +59,7 @@ coverage/
 # Local-only marketing artifacts (kept on disk, never tracked)
 packages/launch-video/
 packages/video/
+
+# Session artifacts (handoffs + superstack scratch)
+HANDOFF-*.md
+.superstack/

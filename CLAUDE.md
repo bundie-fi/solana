@@ -1,7 +1,7 @@
-# Yields.so v2
+# Bundie (Solana)
 
 ## What Is This
-Yields.so is a Solana protocol that lets anyone launch an investment strategy as a tradeable asset, so others can earn by investing in it, and everyone can profit from predicting which strategies will outperform.
+Bundie is a Solana protocol that lets anyone launch an investment strategy as a tradeable asset, so others can earn by investing in it, and everyone can profit from predicting which strategies will outperform.
 
 Two core primitives:
 1. **Strategy Token Program** — Mint tradeable shares tracking live portfolio value via Beethoven/Kamino
