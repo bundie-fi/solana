@@ -274,7 +274,7 @@ export default function Home() {
       <section className="final-cta">
         <div className="wrap">
           <h2 className="section">
-            Join the Solana <em>waitlist.</em>
+            Join the <em>waitlist.</em>
           </h2>
           <WaitlistForm variant="final" />
         </div>
