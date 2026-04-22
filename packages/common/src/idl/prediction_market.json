@@ -1,0 +1,1097 @@
+{
+  "address": "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i",
+  "metadata": {
+    "name": "prediction_market",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Yields.so Prediction Market Program - LS-LMSR markets with oracle-free resolution"
+  },
+  "instructions": [
+    {
+      "name": "buy_shares",
+      "docs": [
+        "Buy YES or NO shares using LS-LMSR pricing"
+      ],
+      "discriminator": [
+        40,
+        239,
+        138,
+        154,
+        8,
+        37,
+        106,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "strategy",
+          "docs": [
+            "The Strategy account this market predicts on. Pinocchio-owned, so",
+            "we validate manually: discriminator + address equality to market.strategy,",
+            "then check the authority field against the buyer."
+          ]
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buyer_collateral",
+          "docs": [
+            "Buyer's collateral (USDC) token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "buyer_yes_ata",
+          "docs": [
+            "Buyer's YES ATA — created if needed"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "yes_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "buyer_no_ata",
+          "docs": [
+            "Buyer's NO ATA — created if needed"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "no_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "outcome",
+          "type": {
+            "defined": {
+              "name": "Outcome"
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_market",
+      "docs": [
+        "Create a new prediction market on a strategy's performance"
+      ],
+      "discriminator": [
+        103,
+        226,
+        97,
+        235,
+        200,
+        188,
+        251,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "strategy"
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "strategy"
+        },
+        {
+          "name": "strategy_b"
+        },
+        {
+          "name": "collateral_mint",
+          "docs": [
+            "USDC (or any SPL token) used as collateral"
+          ]
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Market vault — holds all collateral; authority is the market PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yes_mint",
+          "docs": [
+            "YES outcome mint — market PDA is mint authority"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "no_mint",
+          "docs": [
+            "NO outcome mint — market PDA is mint authority"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "question",
+          "type": "string"
+        },
+        {
+          "name": "market_id",
+          "type": "u64"
+        },
+        {
+          "name": "market_type",
+          "type": {
+            "defined": {
+              "name": "MarketType"
+            }
+          }
+        },
+        {
+          "name": "threshold_bps",
+          "type": "u64"
+        },
+        {
+          "name": "resolution_slot",
+          "type": "u64"
+        },
+        {
+          "name": "initial_subsidy",
+          "type": "u64"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "initial_nav_per_share",
+          "type": "u64"
+        },
+        {
+          "name": "initial_nav_per_share_b",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "redeem",
+      "docs": [
+        "Redeem winning shares for payout"
+      ],
+      "discriminator": [
+        184,
+        12,
+        86,
+        149,
+        70,
+        196,
+        97,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "redeemer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "winner_mint",
+          "docs": [
+            "The winning outcome mint (YES or NO — caller passes the correct one)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "redeemer_shares",
+          "docs": [
+            "Redeemer's token account holding their winning shares (burned here)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "redeemer_collateral",
+          "docs": [
+            "Redeemer's collateral token account (receives USDC payout)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Market vault — source of payout; authority is the market PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve",
+      "docs": [
+        "Resolve market using strategy's on-chain NAV (oracle-free)"
+      ],
+      "discriminator": [
+        246,
+        150,
+        236,
+        206,
+        108,
+        63,
+        58,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "resolver",
+          "docs": [
+            "Anyone can trigger resolution (permissionless)"
+          ],
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "nav_oracle",
+          "docs": [
+            "NavOracle for strategy A.",
+            "PDA seeds (strategy-token): [\"nav_oracle\", market.strategy].",
+            "Validated in handler: discriminator + strategy key."
+          ]
+        },
+        {
+          "name": "nav_oracle_b",
+          "docs": [
+            "NavOracle for strategy B (Relative markets only).",
+            "Pass SystemProgram id for Absolute markets — ignored and not validated."
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "sell_shares",
+      "docs": [
+        "Sell YES or NO shares back to the market"
+      ],
+      "discriminator": [
+        184,
+        164,
+        169,
+        16,
+        231,
+        158,
+        199,
+        196
+      ],
+      "accounts": [
+        {
+          "name": "seller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome_mint",
+          "docs": [
+            "The outcome mint being sold (YES or NO).",
+            "Key verified against PDA in handler."
+          ],
+          "writable": true
+        },
+        {
+          "name": "seller_shares",
+          "docs": [
+            "Seller's token account holding the shares to sell (burned here)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "seller_collateral",
+          "docs": [
+            "Seller's collateral token account (receives payout)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "Market vault — source of payout; authority is the market PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "outcome",
+          "type": {
+            "defined": {
+              "name": "Outcome"
+            }
+          }
+        },
+        {
+          "name": "shares",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "QuestionTooLong",
+      "msg": "Question too long (max 128 chars)"
+    },
+    {
+      "code": 6001,
+      "name": "MarketNotActive",
+      "msg": "Market is not active"
+    },
+    {
+      "code": 6002,
+      "name": "ResolutionNotReached",
+      "msg": "Market has not reached resolution slot"
+    },
+    {
+      "code": 6003,
+      "name": "AlreadyResolved",
+      "msg": "Market already resolved"
+    },
+    {
+      "code": 6004,
+      "name": "NoOutcome",
+      "msg": "No winning outcome set"
+    },
+    {
+      "code": 6005,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares to sell or redeem"
+    },
+    {
+      "code": 6006,
+      "name": "MathOverflow",
+      "msg": "LS-LMSR calculation overflow"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidSubsidy",
+      "msg": "Invalid initial subsidy amount"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidOracle",
+      "msg": "NavOracle account has invalid discriminator or strategy mismatch"
+    },
+    {
+      "code": 6009,
+      "name": "InsufficientSnapshots",
+      "msg": "NavOracle has no snapshots yet; call update_nav first"
+    },
+    {
+      "code": 6010,
+      "name": "WrongOutcomeMint",
+      "msg": "Wrong outcome token mint provided for redemption"
+    },
+    {
+      "code": 6011,
+      "name": "CreatorCannotPredictOnOwnStrategy",
+      "msg": "Strategy creator cannot take positions on their own strategy's market"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidStrategyAccount",
+      "msg": "Strategy account has invalid discriminator or is too small"
+    },
+    {
+      "code": 6013,
+      "name": "WrongStrategyForMarket",
+      "msg": "Strategy account does not match the market's strategy"
+    }
+  ],
+  "types": [
+    {
+      "name": "Market",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "strategy",
+            "docs": [
+              "Strategy this market predicts on"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "strategy_b",
+            "docs": [
+              "Second strategy for Relative market type matchups (None for Absolute)"
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "Market creator"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "subsidy_provider",
+            "docs": [
+              "Who provided initial liquidity subsidy"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "question",
+            "docs": [
+              "Question text (max 128 bytes)"
+            ],
+            "type": "string"
+          },
+          {
+            "name": "market_type",
+            "docs": [
+              "Market type (Absolute or Relative)"
+            ],
+            "type": {
+              "defined": {
+                "name": "MarketType"
+              }
+            }
+          },
+          {
+            "name": "market_id",
+            "docs": [
+              "Sequential market ID (used in PDA seeds)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "threshold_bps",
+            "docs": [
+              "APY threshold in basis points for resolution"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "resolution_slot",
+            "docs": [
+              "Slot at which market can be resolved"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_shares",
+            "docs": [
+              "YES shares outstanding"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_shares",
+            "docs": [
+              "NO shares outstanding"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_yes_cost",
+            "docs": [
+              "Total cost basis paid for YES shares"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_no_cost",
+            "docs": [
+              "Total cost basis paid for NO shares"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "liquidity_param",
+            "docs": [
+              "LS-LMSR liquidity parameter (alpha)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_volume",
+            "docs": [
+              "Total volume traded"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fee_bps",
+            "docs": [
+              "Market fee in basis points (e.g., 100 = 1%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "Market vault for collateral"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "docs": [
+              "Collateral token mint (e.g. USDC)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "outcome",
+            "docs": [
+              "Winning outcome (set after resolution)"
+            ],
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "Outcome"
+                }
+              }
+            }
+          },
+          {
+            "name": "status",
+            "docs": [
+              "Market status"
+            ],
+            "type": {
+              "defined": {
+                "name": "MarketStatus"
+              }
+            }
+          },
+          {
+            "name": "created_at",
+            "docs": [
+              "Creation timestamp"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "resolved_at",
+            "docs": [
+              "Resolution timestamp (if resolved)"
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump seed for this market PDA"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "initial_nav_per_share",
+            "docs": [
+              "NAV per share at market creation time for strategy A (oracle-free resolution)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initial_nav_per_share_b",
+            "docs": [
+              "NAV per share at market creation time for strategy B (Relative markets only; 0 for Absolute)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_mint_bump",
+            "docs": [
+              "Bump seeds for PDA accounts owned by this market"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "no_mint_bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Resolved"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketType",
+      "docs": [
+        "Absolute: \"will strategy exceed X% APY?\"",
+        "Relative: \"will strategy A outperform strategy B?\""
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Absolute"
+          },
+          {
+            "name": "Relative"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Outcome",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Yes"
+          },
+          {
+            "name": "No"
+          }
+        ]
+      }
+    }
+  ]
+}
