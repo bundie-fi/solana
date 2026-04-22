@@ -26,12 +26,16 @@ import { strategyPDA, walletPDA, navOraclePDA, encodeName } from '../pda.js';
 
 const ST_PROGRAM = PROGRAM_IDS.strategyToken;
 
-/** Known protocol program IDs */
+/** Known protocol program IDs (mainnet + devnet share these) */
 const PROTOCOL_MAP: Record<string, string> = {
-  kamino:    'KLend2g3cP87fffoy8q1mQqGKjrL823wfeB2iBygTsOW',
-  marginfi:  'MFv2hWf31Z9kbCa1snEPdcgp7d7GbLD2rqARC3Bv3HU',
+  kamino:    'KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD',
+  marginfi:  'MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA',
   jupiter:   'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 };
+
+/** On-chain strategy_type discriminator. Must match state::strategy in the pinocchio program. */
+export const STRATEGY_TYPE_YIELD = 0;
+export const STRATEGY_TYPE_AGENT = 1;
 
 /** Devnet USDC mint (Circle) */
 export const DEVNET_USDC = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
@@ -43,6 +47,8 @@ export interface CreateStrategyOptions {
   deposit: number;
   minDeposit: number;
   usdcMint: string;
+  /** 'yield' (0) routes deposits through Beethoven CPI; 'agent' (1) keeps funds in the wallet PDA. */
+  strategyType?: 'yield' | 'agent';
   keypair?: string;
   rpc?: string;
 }
@@ -53,6 +59,7 @@ export async function createStrategy(
   opts: CreateStrategyOptions,
 ): Promise<{ strategyAddress: PublicKey; mintAddress: PublicKey }> {
   const { name, protocol, feeBps, deposit, minDeposit, usdcMint } = opts;
+  const strategyType = opts.strategyType === 'agent' ? STRATEGY_TYPE_AGENT : STRATEGY_TYPE_YIELD;
 
   // Resolve protocol address
   const protocolKey = new PublicKey(
@@ -72,11 +79,11 @@ export async function createStrategy(
   const mintKp = Keypair.generate();
 
   // ── Build create_strategy instruction ──
-  // data layout: [disc=0, strategy_type=1 (AGENT), fee_bps u16le, min_deposit u64le, name[32]]
+  // data layout: [disc=0, strategy_type u8, fee_bps u16le, min_deposit u64le, name[32]]
   const ixData = Buffer.allocUnsafe(1 + 1 + 2 + 8 + 32);
   let off = 0;
   ixData.writeUInt8(0, off++);                             // disc: instruction 0
-  ixData.writeUInt8(1, off++);                             // strategy_type: 1 = AGENT
+  ixData.writeUInt8(strategyType, off++);                  // strategy_type: 0 = YIELD, 1 = AGENT
   ixData.writeUInt16LE(feeBps, off); off += 2;             // fee_bps
   ixData.writeBigUInt64LE(BigInt(minDeposit * 1_000_000), off); off += 8; // min_deposit (USDC base units)
   name32.copy(ixData, off);                                // name [u8; 32]

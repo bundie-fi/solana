@@ -1,6 +1,6 @@
 {
   "name": "@bundie/sol-cli",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Bundie Solana CLI — agent interface for composing strategies, opening prediction markets, and resolving on Solana devnet",
   "type": "module",
   "bin": {

@@ -31,6 +31,7 @@ program
   .command('create-strategy')
   .description('Create a new investment strategy and optionally make an initial deposit')
   .requiredOption('--name <name>', 'strategy name (max 32 chars)')
+  .option('--type <yield|agent>', 'yield routes deposits via Beethoven CPI; agent keeps funds in wallet PDA', 'yield')
   .option('--protocol <name|pubkey>', 'protocol name or address (kamino, marginfi, jupiter)', 'kamino')
   .option('--fee-bps <bps>', 'performance fee in basis points (e.g. 1000 = 10%)', '1000')
   .option('--deposit <usdc>', 'initial USDC deposit amount', '0')
@@ -46,12 +47,13 @@ program
 
     try {
       await createStrategy(conn, payer, {
-        name:       opts.name,
-        protocol:   opts.protocol,
-        feeBps:     parseInt(opts.feeBps, 10),
-        deposit:    parseFloat(opts.deposit),
-        minDeposit: parseFloat(opts.minDeposit),
-        usdcMint:   opts.usdcMint,
+        name:         opts.name,
+        protocol:     opts.protocol,
+        feeBps:       parseInt(opts.feeBps, 10),
+        deposit:      parseFloat(opts.deposit),
+        minDeposit:   parseFloat(opts.minDeposit),
+        usdcMint:     opts.usdcMint,
+        strategyType: opts.type === 'agent' ? 'agent' : 'yield',
       });
       console.log('\n✓ Strategy created successfully.');
     } catch (e) {
