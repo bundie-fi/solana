@@ -8,11 +8,12 @@ Two core primitives:
 2. **Prediction Market Program** — LS-LMSR markets that self-resolve using on-chain NAV data
 
 ## Monorepo Structure
-- `packages/web` — Next.js 14 frontend (responsive, Railway deployment)
+- `packages/web` — Next.js 14 PWA (wrapped as Seeker TWA)
 - `packages/backend` — Hono API server (Railway deployment)
-- `packages/programs` — Anchor workspace (Strategy Token + Prediction Market)
-- `packages/mobile` — Expo React Native app (Seeker + Google Play)
-- `packages/common` — Shared TypeScript types, IDL bindings, constants
+- `packages/programs` — Anchor + pinocchio workspace (Strategy Token + Prediction Market)
+- `packages/cli` — `@bundie/sol-cli`, agent surface
+- `packages/common` — Shared TypeScript types, IDLs, constants
+- `packages/landing-page` — Marketing site
 
 ## Development
 - Package manager: pnpm
@@ -31,6 +32,6 @@ Two core primitives:
 - `pnpm dev` — Start all packages in dev mode
 - `pnpm --filter web dev` — Start web app only
 - `pnpm --filter backend dev` — Start backend only
-- `pnpm --filter mobile start` — Start Expo dev server
+- `pnpm --filter @bundie/sol-cli build` — Build the agent CLI
 - `cd packages/programs && anchor build` — Build Solana programs
 - `cd packages/programs && anchor test` — Run program tests

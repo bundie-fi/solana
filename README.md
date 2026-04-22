@@ -21,15 +21,18 @@ Three ways to earn:
 
 ```
 packages/
-├── web/          # Next.js 14 frontend — responsive, Railway deployment
-├── backend/      # Hono API server — shared by web + mobile
-├── programs/     # Anchor workspace
-│   ├── programs/strategy-token/      # Strategy share minting, NAV tracking
-│   └── programs/prediction-market/   # LS-LMSR markets, oracle-free resolution
-├── mobile/       # Expo React Native — Seeker phone + Google Play
-├── common/       # Shared TypeScript types, IDL bindings, constants
+├── web/          # Next.js 14 PWA (wraps as Seeker TWA)
+├── backend/      # Hono API server
+├── programs/     # Anchor + pinocchio workspace
+│   ├── programs/strategy-token/      # Strategy share minting, NAV tracking (pinocchio)
+│   └── programs/prediction-market/   # LS-LMSR markets, oracle-free resolution (Anchor)
+├── cli/          # @bundie/sol-cli — agent surface
+├── common/       # Shared TypeScript types, IDLs, constants
+├── landing-page/ # Marketing site
 └── docs/         # Technical documentation
 ```
+
+The mobile surface is the webapp wrapped as a Seeker TWA, not a separate native app.
 
 ## Quick Start
 
@@ -43,26 +46,26 @@ pnpm --filter web dev
 # Start backend (port 3001)
 pnpm --filter backend dev
 
-# Start mobile app
-pnpm --filter mobile start
-
 # Build Solana programs
 cd packages/programs && anchor build
 
 # Run program tests
 cd packages/programs && anchor test
+
+# Use the CLI (agent surface)
+pnpm --filter @bundie/sol-cli build
+node packages/cli/dist/index.js --help
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend (Web) | Next.js 14, Tailwind CSS, Wallet Adapter |
-| Frontend (Mobile) | Expo, React Native, NativeWind, Solana Mobile Wallet Adapter |
+| Frontend | Next.js 14 PWA, Tailwind CSS, Wallet Adapter, Seeker TWA |
 | Backend | Hono, Supabase |
-| Smart Contracts | Anchor 0.31.1, Rust |
+| Smart Contracts | Anchor 0.31.1 (prediction-market) + pinocchio (strategy-token) |
 | Protocols | Beethoven CPI → Kamino (lending) |
-| Deployment | Railway (web + backend + Supabase) |
+| Deployment | Railway |
 | Network | Solana Devnet |
 
 ## Team
@@ -71,7 +74,7 @@ cd packages/programs && anchor test
 |--------|------|------|
 | **Yudhi** | Team Lead | Strategy Token Program, Beethoven integration, NAV oracle, CLI, Agent SKILLS |
 | **Sean** | Engineer | Prediction Market Program, LS-LMSR, tx wiring |
-| **Junheng** | Engineer | All screens (web + mobile), wallet integration, polish |
+| **Junheng** | Engineer | Webapp, wallet integration, polish, PWA/TWA wrap |
 
 ## Key Design Decisions
 
@@ -87,7 +90,6 @@ Copy `.env.example` files in each package:
 ```bash
 cp packages/web/.env.example packages/web/.env.local
 cp packages/backend/.env.example packages/backend/.env
-cp packages/mobile/.env.example packages/mobile/.env
 ```
 
 ## License

@@ -15,7 +15,7 @@ idl-build = []
 
 [dependencies]
 pinocchio = { version = "0.10", default-features = false, features = ["cpi"] }
-beethoven = { git = "https://github.com/blueshift-gg/beethoven", features = ["kamino-deposit"] }
+beethoven = { git = "https://github.com/blueshift-gg/beethoven", rev = "e3ac957069a5b003d8fd3213c1e4494d13c904c5", features = ["kamino-deposit"] }
 # curve25519 needed for find_program_address on host (cargo check); on SBF uses syscalls.
 # no_std is not used here (beethoven's deps pull in std), so this is safe on all targets.
 solana-address = { version = "2.0", features = ["curve25519"] }
