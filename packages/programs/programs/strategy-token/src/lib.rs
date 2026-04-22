@@ -39,6 +39,7 @@ pub fn process_instruction(
         2 => instructions::redeem_shares::process(program_id, accounts, rest),
         3 => instructions::update_nav::process(program_id, accounts, rest),
         4 => instructions::rebalance::process(program_id, accounts, rest),
+        5 => instructions::snapshot_positions::process(program_id, accounts, rest),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

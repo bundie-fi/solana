@@ -3,3 +3,4 @@ pub mod buy_shares;
 pub mod redeem_shares;
 pub mod update_nav;
 pub mod rebalance;
+pub mod snapshot_positions;
