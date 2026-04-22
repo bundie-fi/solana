@@ -15,7 +15,30 @@ idl-build = []
 
 [dependencies]
 pinocchio = { version = "0.10", default-features = false, features = ["cpi"] }
-beethoven = { path = "../../../beethoven", features = ["kamino-deposit", "mango-perps"] }
+beethoven = { path = "../../../beethoven", features = [
+    # Deposit (lending / vaults) — all four are filled in upstream Beethoven
+    "kamino-deposit",
+    "jupiter-deposit",
+    "drift-deposit",
+    "marginfi-deposit",
+    # Perps (derivatives) — Mango v4 today; Drift / Adrena slot in here later
+    "mango-perps",
+    # Swap (DEX routing) — all 14 protocols in the Beethoven crate tree
+    "raydium-cpmm-swap",  # devnet pools confirmed
+    "manifest-swap",      # devnet markets confirmed
+    "aldrin-swap",
+    "aldrin_v2-swap",
+    "futarchy-swap",
+    "gamma-swap",
+    "hadron-swap",
+    "heaven-swap",
+    "omnipair-swap",
+    "perena-swap",
+    "scale_amm-swap",
+    "scale_vmm-swap",
+    "solfi-swap",
+    "solfi_v2-swap",
+] }
 # curve25519 needed for find_program_address on host (cargo check); on SBF uses syscalls.
 # no_std is not used here (beethoven's deps pull in std), so this is safe on all targets.
 solana-address = { version = "2.0", features = ["curve25519"] }
