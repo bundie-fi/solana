@@ -3,7 +3,9 @@
 
 # Intermediate renders (regenerable via `npx hyperframes render`)
 renders/draft-*.mp4
-renders/f1-test.mp4
+renders/v4-draft.mp4
 renders/bundie-launch-v3.mp4
+renders/bundie-launch-v4.mp4
+renders/f1-test.mp4
 renders/audio-test*.mp4
 renders/test-*.mp4

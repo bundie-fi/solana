@@ -1,0 +1,246 @@
+<template id="s6-template">
+<div data-composition-id="s6" data-start="0" data-duration="4.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <h2 class="headline">Back <em>anything</em>.</h2>
+
+    <div class="search-row">
+      <div class="cli-pill">
+        <span class="cli-prompt">›</span>
+        <span class="cli-text"></span>
+        <span class="cli-cursor"></span>
+      </div>
+    </div>
+
+    <div class="trending">
+      <div class="trending-head">
+        <span class="t-label">TRENDING STRATEGIES</span>
+        <span class="t-badge">LIVE</span>
+      </div>
+      <div class="t-rows">
+        <div class="t-row r1">
+          <span class="t-rank">01</span>
+          <span class="t-name">Stable Compounder</span>
+          <span class="t-ticker">$CMPD</span>
+          <svg class="t-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+            <path d="M 2 18 L 16 16 L 30 14 L 44 11 L 58 9 L 72 6 L 86 4 L 98 2" stroke="#7de0a4" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="t-change up">+8.2%</span>
+        </div>
+        <div class="t-row r2">
+          <span class="t-rank">02</span>
+          <span class="t-name">Delta Neutral</span>
+          <span class="t-ticker">$DELT</span>
+          <svg class="t-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+            <path d="M 2 14 L 16 13 L 30 12 L 44 10 L 58 9 L 72 8 L 86 7 L 98 6" stroke="#7de0a4" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="t-change up">+4.1%</span>
+        </div>
+        <div class="t-row r3">
+          <span class="t-rank">03</span>
+          <span class="t-name">Yield Farm</span>
+          <span class="t-ticker">$FARM</span>
+          <svg class="t-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+            <path d="M 2 8 L 16 10 L 30 11 L 44 14 L 58 16 L 72 18 L 86 19 L 98 20" stroke="#f87171" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="t-change down">−2.2%</span>
+        </div>
+        <div class="t-row r4">
+          <span class="t-rank">04</span>
+          <span class="t-name">Aggressive Vault</span>
+          <span class="t-ticker">$AGGR</span>
+          <svg class="t-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+            <path d="M 2 14 L 16 11 L 30 14 L 44 9 L 58 12 L 72 7 L 86 10 L 98 5" stroke="#7de0a4" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="t-change up">+6.5%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="s6"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f6f3ee;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="s6"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 80px 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  box-sizing: border-box;
+}
+[data-composition-id="s6"] .headline {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 96px;
+  letter-spacing: -0.02em;
+  color: #f6f3ee;
+  text-align: center;
+}
+[data-composition-id="s6"] .headline em {
+  font-style: italic;
+  color: #e28646;
+}
+[data-composition-id="s6"] .search-row {
+  width: 820px;
+  display: flex;
+  justify-content: center;
+}
+[data-composition-id="s6"] .cli-pill {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 32px;
+  background: #1a1814;
+  border: 1px solid rgba(226,134,70,0.35);
+  border-radius: 999px;
+  box-shadow: 0 0 36px rgba(226,134,70,0.18);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  color: #f6f3ee;
+  width: 100%;
+}
+[data-composition-id="s6"] .cli-prompt {
+  color: #e28646;
+  font-weight: 700;
+}
+[data-composition-id="s6"] .cli-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+[data-composition-id="s6"] .cli-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  background: #f6f3ee;
+  vertical-align: middle;
+}
+
+[data-composition-id="s6"] .trending {
+  width: 960px;
+  background: #1a1814;
+  border: 1px solid rgba(246,243,238,0.08);
+  border-radius: 18px;
+  padding: 28px 32px;
+  opacity: 0;
+}
+[data-composition-id="s6"] .trending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(246,243,238,0.06);
+}
+[data-composition-id="s6"] .t-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: rgba(246,243,238,0.55);
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+[data-composition-id="s6"] .t-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(125,224,164,0.14);
+  color: #7de0a4;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+[data-composition-id="s6"] .t-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+[data-composition-id="s6"] .t-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 120px 120px 90px;
+  gap: 24px;
+  align-items: center;
+  padding: 10px 0;
+}
+[data-composition-id="s6"] .t-rank {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  color: rgba(246,243,238,0.4);
+  font-weight: 700;
+}
+[data-composition-id="s6"] .t-name {
+  font-family: 'Instrument Serif', serif;
+  font-size: 28px;
+  color: #f6f3ee;
+  letter-spacing: -0.01em;
+}
+[data-composition-id="s6"] .t-ticker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e28646;
+  letter-spacing: 0.04em;
+}
+[data-composition-id="s6"] .t-spark {
+  width: 100%;
+  height: 24px;
+}
+[data-composition-id="s6"] .t-change {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+[data-composition-id="s6"] .t-change.up { color: #7de0a4; }
+[data-composition-id="s6"] .t-change.down { color: #f87171; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="s6"] ';
+
+  tl.from('[data-composition-id="s6"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+  tl.from(r + '.headline', { opacity: 0, filter: 'blur(24px)', duration: 0.6, ease: 'power2.out' }, 0.15);
+  tl.from(r + '.cli-pill', { x: 160, opacity: 0, duration: 0.5, ease: 'power3.out' }, 0.45);
+
+  // Type command
+  const typed = { n: 0 };
+  const target = 'Back Stable Compounder · $100 USDC';
+  tl.to(typed, {
+    n: target.length,
+    duration: 1.3,
+    ease: 'none',
+    onUpdate: function () {
+      const el = document.querySelector('[data-composition-id="s6"] .cli-text');
+      if (el) el.textContent = target.slice(0, Math.floor(typed.n));
+    }
+  }, 1.0);
+
+  // Cursor blink
+  tl.fromTo(r + '.cli-cursor',
+    { opacity: 1 },
+    { opacity: 0, duration: 0.5, ease: 'steps(1)', yoyo: true, repeat: 5 },
+    0.5);
+
+  // Trending dashboard reveals
+  tl.to(r + '.trending', { opacity: 1, duration: 0.5, ease: 'power2.out' }, 2.3);
+  tl.from(r + '.t-row', { y: 24, opacity: 0, duration: 0.4, ease: 'power3.out', stagger: 0.1 }, 2.5);
+
+  window.__timelines['s6'] = tl;
+})();
+</script>
+</template>

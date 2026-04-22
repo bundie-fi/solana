@@ -1,62 +1,52 @@
-# Bundie · Launch Video
+# Bundie · Launch Video (v4 · dark editorial)
 
-HyperFrames composition of the 57-second launch video described in `/bundie_launch_video_v3.html` (treatment) and `/bundie_launch_video_beatmap_v2.html` (beatmap). Rendered to `renders/`.
+37-second capability demo in the dark Bundie-Solana brand. Replaces the earlier 57s cream story-mode video. Structure inspired by lana.ai's visual DNA (Lana-style blur-to-focus text, glowing pill UI, wireframe selection brackets) but adapted to Bundie's own palette and primitives.
 
 ## Structure
 
-- `index.html` — root composition, 1920x1080, 57s, 11 frames stitched with alternating-track crossfades.
-- `compositions/f1.html` … `compositions/f11.html` — per-scene sub-compositions.
-- `DESIGN.md` — canonical palette, typography, motion rules.
+| # | Time | Scene | Content |
+| -- | ----- | ----- | ------- |
+| S1 | 0–4s | intro | "Most products give you *yield*." |
+| S2 | 4–10s | prompt → answer | Glowing CLI types `bundie compose stable-compounder` → laptop reveals → "Bundie gives you *markets*" headline + strategy card with NAV chart |
+| S3 | 10–12s | composition graph | `$CMPD` branches to Kamino 42% · marginfi 35% · Drift 23% (left) and 12.4k TVL · 8% APY market · 30d NAV (right) |
+| S4 | 12–16s | Any · X morph | "Any · *strategy*" (3D $CMPD coin) → "Any · *market*" (prediction card) inside wireframe brackets |
+| S5 | 16–18s | italics montage | "*Strategies*" → "*Markets*" giant italic serif, floating dashboard cards behind |
+| S6 | 18–22s | back anything | "Back *anything*" + CLI types "Back Stable Compounder · $100 USDC" + trending strategies list |
+| S7 | 22–25s | open markets | "Open *markets*" stats (24 markets · 3,847 predictions · $89k volume) + top strategies leaderboard + "And *spot* the winners" |
+| S8 | 25–27s | plain language | "Settled from *on-chain* data." breath frame |
+| S9 | 27–29s | execution | Back UI panel with cursor + tap ring on the amber Back button |
+| S10 | 29–32s | **rhythm reveal** | "Launch. Back. Predict." tricolon + "Every strategy is a *market*." |
+| S11 | 32–37s | logo lockup | Rabbit mark + "Bundie" italic wordmark + `solana.bundie.fi`, fades to black |
 
-## Scene Timing (matches beatmap v2)
+**Audio drop lands at S10 completion (video 0:31)** — the "Launch. Back. Predict." verbal payoff.
 
-| # | Frame                                         | Time         | Beatmap cue       |
-| -- | -------------------------------------------- | ------------ | ----------------- |
-| F1 | EVM protocol stack — "We built Bundie on EVM" | 0:00–0:03    | Piano fades in    |
-| F2 | Amber "1" — "Yield, bundled in one click"     | 0:03–0:06    | E4 piano joins    |
-| F3 | LIVE · MAINNET — "It's already shipping"     | 0:06–0:09    | Pad brightens     |
-| F4 | Isometric wallet — "every strategy lives in one wallet" | 0:09–0:15 | Tension build    |
-| F5 | 3D terminal mint — "So we went to Solana"    | 0:15–0:21    | **DROP**          |
-| F6 | $CMPD coin — "every strategy is a capital market" | 0:21–0:27 | Chord stab     |
-| F7 | Phone L tilt — "Back what you believe in"     | 0:27–0:33    | Arp + mobile tap  |
-| F8 | Phone R tilt — "Predict on what you don't"   | 0:33–0:39    | Second build      |
-| F9 | $CMPD day 30 panel — "Settled by the strategy itself" | 0:39–0:45 | **IMPACT**   |
-| F10 | ICM thesis — "Internet Capital Markets for DeFi strategies" | 0:45–0:51 | Breakdown    |
-| F11 | Waitlist CTA — "solana.bundie.fi" + wordmark | 0:51–0:57    | Outro rebuild     |
-
-## Commands
+## Render commands
 
 ```bash
 cd packages/launch-video
 
-npx hyperframes lint                                       # 0 errors, 0 warnings
-npx hyperframes preview                                    # live preview
-npx hyperframes render --quality draft                    # fast iteration
-npx hyperframes render --quality high --output renders/final.mp4
+npx hyperframes lint
+npx hyperframes render --fps 24 --quality high --output renders/bundie-launch-v4.mp4
 ```
 
-## Music
+## Audio mux
 
-Suno-generated track lives at `assets/music.mp3`. The `<audio>` clip is already wired in `index.html`.
-
-### Rendering with audio
-
-HyperFrames' screenshot capture mode (auto-selected here because GSAP uses `requestAnimationFrame` internally) drops the audio track from the muxed output — even though the compile step reports `audioCount: 1`. Workaround: mux audio manually with ffmpeg after the HyperFrames render:
+HyperFrames' screenshot capture mode (auto-selected because GSAP uses `requestAnimationFrame`) drops the audio track from the muxed output. Workaround — mux post-render with ffmpeg:
 
 ```bash
-# 1. Render video
-npx hyperframes render --quality high --output renders/bundie-launch-v3.mp4
-
-# 2. Mux music (current Suno take: main drop is at track 48s, so offset 33s
-#    lands the drop on video 0:15 to match F5's terminal mint).
-#    Audio fades mirror the F1 opening fade and F11 closing fade to cream.
-ffmpeg -y -i renders/bundie-launch-v3.mp4 -ss 33 -i assets/music.mp3 -t 57 \
-  -filter_complex "[1:a]afade=t=in:st=0:d=0.4,afade=t=out:st=56:d=1.0[a]" \
+ffmpeg -y -i renders/bundie-launch-v4.mp4 -ss 17 -i assets/music.mp3 -t 37 \
+  -filter_complex "[1:a]afade=t=in:st=0:d=0.9,afade=t=out:st=36:d=1.0[a]" \
   -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest \
-  renders/bundie-launch-v3-final.mp4
+  renders/bundie-launch-v4-final.mp4
 ```
 
-If a future Suno take has its drop at a different track position, find it with:
+`-ss 17` offsets the Suno track so its main drop (at track 48s) lands on video 0:31 — where "Launch. Back. Predict." completes. A natural −23.87 dB quiet moment at 0:30 acts as the 50ms-air-gap before the drop.
+
+Fade-in (0.9s) matches S1's opening fade from black; fade-out (1.0s) matches S11's fade to black.
+
+### Re-aligning for a different Suno take
+
+RMS-detect the drop:
 
 ```bash
 ffmpeg -hide_banner -loglevel error -i assets/music.mp3 \
@@ -64,12 +54,12 @@ ffmpeg -hide_banner -loglevel error -i assets/music.mp3 \
   -f null - | awk '/pts_time:/ { t=$NF; getline; sub(/.*=/,"",$0); sub(/pts_time:/,"",t); printf "%3ds: %7.2f dB\n", t, $0 }'
 ```
 
-The big RMS jump (≈+10 dB across 1s) is the drop. Offset = `drop_second - 15`.
+The big RMS jump (≈+10 dB across 1s) is the drop. Offset = `drop_second - 31`.
 
-### Sound-design hits (separate layer)
+## Design reference
 
-If adding them later: keystroke cluster F5, confirmation chime 0:18.5, coin reveal stab 0:21, mobile tap 0:30.2, SETTLED impact 0:39.5, resolution bloom 0:51 — see the beatmap v2 FX table for details.
+See `DESIGN.md`. Palette derives from `packages/landing-page/brand.md` (Bundie's own Solana surface — not Lana's). Three motion primitives: blur-to-focus text, glowing pill UI with amber halo, wireframe selection brackets around 3D objects.
 
-## Why this is HyperFrames and not Remotion
+## Final deliverable
 
-`packages/video/` already contains a Remotion implementation of an earlier launch video with a different narrative (Hook → Problem → Pain → Visceral → Leaderboard → Prediction → etc.). This package implements the newer v3 story-mode treatment (EVM → turn → Solana → primitives → settled → thesis → CTA) as HyperFrames per user request.
+`renders/bundie-launch-v4-final.mp4` — 1920×1080, 24fps, 37s, h264 + AAC stereo 192k.

@@ -1,0 +1,93 @@
+<template id="s11-template">
+<div data-composition-id="s11" data-start="0" data-duration="5" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="lockup">
+      <img class="mark" src="assets/bundie-mark.png" alt="Bundie" crossorigin="anonymous"/>
+      <div class="wordmark"><em>Bundie</em></div>
+    </div>
+    <div class="url-chip">solana.bundie.fi</div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="s11"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f6f3ee;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="s11"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+  box-sizing: border-box;
+  text-align: center;
+}
+[data-composition-id="s11"] .lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+[data-composition-id="s11"] .mark {
+  width: 260px;
+  height: auto;
+  filter: drop-shadow(0 0 40px rgba(226,134,70,0.25));
+}
+[data-composition-id="s11"] .wordmark {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 140px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #f6f3ee;
+}
+[data-composition-id="s11"] .wordmark em {
+  font-style: italic;
+}
+[data-composition-id="s11"] .url-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 40px;
+  font-weight: 500;
+  color: #f6f3ee;
+  padding: 18px 36px;
+  background: #121110;
+  border: 1px solid rgba(246,243,238,0.12);
+  border-radius: 12px;
+  letter-spacing: -0.005em;
+  box-shadow: 0 0 40px rgba(226,134,70,0.18);
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="s11"] ';
+
+  tl.from('[data-composition-id="s11"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+
+  // Logo enters
+  tl.from(r + '.mark', { scale: 0.7, opacity: 0, duration: 0.7, ease: 'back.out(1.6)' }, 0.15);
+  tl.from(r + '.wordmark', { opacity: 0, filter: 'blur(20px)', y: 16, duration: 0.6, ease: 'power2.out' }, 0.55);
+  tl.from(r + '.url-chip', { opacity: 0, y: 24, scale: 0.95, duration: 0.6, ease: 'back.out(1.4)' }, 0.95);
+
+  // Subtle mark breath
+  tl.to(r + '.mark', { scale: 1.03, duration: 1.6, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 1.4);
+
+  // Final fade to black — allowed on the final scene
+  tl.to('[data-composition-id="s11"]', { opacity: 0, duration: 1.0, ease: 'power2.in' }, 4.0);
+
+  window.__timelines['s11'] = tl;
+})();
+</script>
+</template>

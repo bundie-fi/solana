@@ -1,0 +1,69 @@
+<template id="s8-template">
+<div data-composition-id="s8" data-start="0" data-duration="2.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <h1 class="hero">Settled from <em>on-chain</em> data.</h1>
+    <div class="caption">no oracles · no manual resolution</div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="s8"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f6f3ee;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="s8"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  box-sizing: border-box;
+  text-align: center;
+}
+[data-composition-id="s8"] .hero {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 120px;
+  letter-spacing: -0.018em;
+  line-height: 1.08;
+  color: #f6f3ee;
+}
+[data-composition-id="s8"] .hero em {
+  font-style: italic;
+  color: #e28646;
+}
+[data-composition-id="s8"] .caption {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(246,243,238,0.55);
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="s8"] ';
+
+  tl.from('[data-composition-id="s8"]', { opacity: 0, duration: 0.35, ease: 'power2.out' }, 0);
+  tl.from(r + '.hero', { opacity: 0, filter: 'blur(28px)', y: 12, duration: 0.75, ease: 'power2.out' }, 0.15);
+  tl.from(r + '.caption', { opacity: 0, y: 12, duration: 0.5, ease: 'power2.out' }, 0.8);
+
+  // Subtle hero breath
+  tl.to(r + '.hero', { letterSpacing: '-0.014em', duration: 1.3, ease: 'sine.inOut' }, 1.15);
+
+  window.__timelines['s8'] = tl;
+})();
+</script>
+</template>

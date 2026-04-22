@@ -18,47 +18,38 @@
         width: 1920px;
         height: 1080px;
         overflow: hidden;
-        background: #faf5ed;
+        background: #0a0908;
       }
     </style>
   </head>
   <body>
     <!--
-      Bundie launch video · 57s · 11 frames
-      Drop @ 0:15 (F5) · Impact @ 0:39.5 (F9) · Breakdown @ 0:45 (F10) · Outro @ 0:51 (F11)
-      Adjacent scenes alternate tracks for 0.4s crossfade overlap.
-      Music bed is a separate deliverable — see README.
+      Bundie launch video · 37s · 11 sub-compositions · 24fps
+      Dark editorial Bundie-Solana brand (#0a0908 base, amber-glow italics).
+      Scene timing: S1(0-4.4) · S2(4-10.4) · S3(10-12.4) · S4(12-16.4) · S5(16-18.4)
+                    S6(18-22.4) · S7(22-25.4) · S8(25-27.4) · S9(27-29.4) · S10(29-32.4) · S11(32-37)
+      Alternating tracks for 0.4s crossfade overlap.
+      Music mux post-render — drop aligned to S10 rhythm reveal.
     -->
     <div
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="57"
+      data-duration="37"
       data-width="1920"
       data-height="1080"
     >
-      <div id="f1"  class="clip" data-composition-id="f1"  data-composition-src="compositions/f1.html"  data-start="0"  data-duration="3.4" data-track-index="1"></div>
-      <div id="f2"  class="clip" data-composition-id="f2"  data-composition-src="compositions/f2.html"  data-start="3"  data-duration="3.4" data-track-index="2"></div>
-      <div id="f3"  class="clip" data-composition-id="f3"  data-composition-src="compositions/f3.html"  data-start="6"  data-duration="3.4" data-track-index="1"></div>
-      <div id="f4"  class="clip" data-composition-id="f4"  data-composition-src="compositions/f4.html"  data-start="9"  data-duration="6.4" data-track-index="2"></div>
-      <div id="f5"  class="clip" data-composition-id="f5"  data-composition-src="compositions/f5.html"  data-start="15" data-duration="6.4" data-track-index="1"></div>
-      <div id="f6"  class="clip" data-composition-id="f6"  data-composition-src="compositions/f6.html"  data-start="21" data-duration="6.4" data-track-index="2"></div>
-      <div id="f7"  class="clip" data-composition-id="f7"  data-composition-src="compositions/f7.html"  data-start="27" data-duration="6.4" data-track-index="1"></div>
-      <div id="f8"  class="clip" data-composition-id="f8"  data-composition-src="compositions/f8.html"  data-start="33" data-duration="6.4" data-track-index="2"></div>
-      <div id="f9"  class="clip" data-composition-id="f9"  data-composition-src="compositions/f9.html"  data-start="39" data-duration="6.4" data-track-index="1"></div>
-      <div id="f10" class="clip" data-composition-id="f10" data-composition-src="compositions/f10.html" data-start="45" data-duration="6.4" data-track-index="2"></div>
-      <div id="f11" class="clip" data-composition-id="f11" data-composition-src="compositions/f11.html" data-start="51" data-duration="6"   data-track-index="1"></div>
-
-      <!-- Music bed — Suno-generated track. Plays first 57s of the mp3. -->
-      <audio
-        id="music"
-        data-start="0"
-        data-duration="57"
-        data-track-index="10"
-        src="assets/music.mp3"
-        data-volume="1"
-        preload="auto"
-      ></audio>
+      <div id="s1"  class="clip" data-composition-id="s1"  data-composition-src="compositions/s1-intro.html"       data-start="0"  data-duration="4.4" data-track-index="1"></div>
+      <div id="s2"  class="clip" data-composition-id="s2"  data-composition-src="compositions/s2-prompt.html"      data-start="4"  data-duration="6.4" data-track-index="2"></div>
+      <div id="s3"  class="clip" data-composition-id="s3"  data-composition-src="compositions/s3-graph.html"       data-start="10" data-duration="2.4" data-track-index="1"></div>
+      <div id="s4"  class="clip" data-composition-id="s4"  data-composition-src="compositions/s4-any.html"         data-start="12" data-duration="4.4" data-track-index="2"></div>
+      <div id="s5"  class="clip" data-composition-id="s5"  data-composition-src="compositions/s5-montage.html"     data-start="16" data-duration="2.4" data-track-index="1"></div>
+      <div id="s6"  class="clip" data-composition-id="s6"  data-composition-src="compositions/s6-back.html"        data-start="18" data-duration="4.4" data-track-index="2"></div>
+      <div id="s7"  class="clip" data-composition-id="s7"  data-composition-src="compositions/s7-leaderboard.html" data-start="22" data-duration="3.4" data-track-index="1"></div>
+      <div id="s8"  class="clip" data-composition-id="s8"  data-composition-src="compositions/s8-plain.html"       data-start="25" data-duration="2.4" data-track-index="2"></div>
+      <div id="s9"  class="clip" data-composition-id="s9"  data-composition-src="compositions/s9-execution.html"   data-start="27" data-duration="2.4" data-track-index="1"></div>
+      <div id="s10" class="clip" data-composition-id="s10" data-composition-src="compositions/s10-rhythm.html"     data-start="29" data-duration="3.4" data-track-index="2"></div>
+      <div id="s11" class="clip" data-composition-id="s11" data-composition-src="compositions/s11-logo.html"       data-start="32" data-duration="5"   data-track-index="1"></div>
     </div>
 
     <script>

@@ -1,0 +1,326 @@
+<template id="s2-template">
+<div data-composition-id="s2" data-start="0" data-duration="6.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <h1 class="headline">Bundie gives you <em>markets</em>.</h1>
+
+    <div class="laptop">
+      <div class="laptop-chrome">
+        <span class="chrome-dot"></span>
+        <span class="chrome-dot"></span>
+        <span class="chrome-dot"></span>
+        <span class="chrome-url">~/bundie</span>
+      </div>
+
+      <div class="laptop-screen">
+        <div class="cli-pill">
+          <span class="cli-prompt">›</span>
+          <span class="cli-text"></span>
+          <span class="cli-cursor"></span>
+          <span class="cli-submit">⏎</span>
+        </div>
+
+        <div class="result-card">
+          <div class="result-head">
+            <span class="dot-amber"></span>
+            <span class="handle">strategy-creator.sol</span>
+            <span class="pill live">COMPOSED</span>
+          </div>
+          <div class="result-title">Stable Compounder <span class="ticker">$CMPD</span></div>
+
+          <svg class="nav-chart" viewBox="0 0 540 140" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="s2-navfill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#e28646" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#e28646" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="nav-line" d="M 4 108 L 60 102 L 120 96 L 180 88 L 240 80 L 300 68 L 360 58 L 420 46 L 480 36 L 530 22"
+                  stroke="#e28646" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="nav-fill" d="M 4 108 L 60 102 L 120 96 L 180 88 L 240 80 L 300 68 L 360 58 L 420 46 L 480 36 L 530 22 L 530 140 L 4 140 Z"
+                  fill="url(#s2-navfill)"/>
+            <text x="524" y="14" font-family="JetBrains Mono, monospace" font-size="12" fill="#e28646" text-anchor="end" font-weight="700">+8.2% APY</text>
+          </svg>
+
+          <div class="nav-meta">
+            <span><span class="k">asset</span>USDC</span>
+            <span><span class="k">protocol</span>kamino</span>
+            <span><span class="k">nav</span><strong>$1.0824</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="s2"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f6f3ee;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="s2"] .stage {
+  width: 100%;
+  height: 100%;
+  padding: 60px 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  box-sizing: border-box;
+}
+[data-composition-id="s2"] .headline {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 88px;
+  line-height: 1.1;
+  color: #f6f3ee;
+  letter-spacing: -0.015em;
+  text-align: center;
+  opacity: 0;
+  filter: blur(24px);
+}
+[data-composition-id="s2"] .headline em {
+  font-style: italic;
+  color: #e28646;
+}
+
+[data-composition-id="s2"] .laptop {
+  width: 1280px;
+  background: #1a1814;
+  border-radius: 22px;
+  padding: 0;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(246,243,238,0.06);
+  transform: perspective(2400px) rotateX(6deg);
+  transform-origin: center top;
+}
+[data-composition-id="s2"] .laptop-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-bottom: 1px solid rgba(246,243,238,0.06);
+  opacity: 0;
+}
+[data-composition-id="s2"] .chrome-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #2a2520;
+}
+[data-composition-id="s2"] .chrome-url {
+  margin-left: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: rgba(246,243,238,0.4);
+  letter-spacing: 0.05em;
+}
+[data-composition-id="s2"] .laptop-screen {
+  padding: 44px;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  background: #121110;
+}
+
+[data-composition-id="s2"] .cli-pill {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 32px;
+  background: #1a1814;
+  border: 1px solid rgba(226,134,70,0.35);
+  border-radius: 999px;
+  box-shadow: 0 0 40px rgba(226,134,70,0.18), inset 0 0 0 1px rgba(226,134,70,0.08);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 26px;
+  color: #f6f3ee;
+}
+[data-composition-id="s2"] .cli-prompt {
+  color: #9945FF;
+  font-weight: 700;
+}
+[data-composition-id="s2"] .cli-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+[data-composition-id="s2"] .cli-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  background: #f6f3ee;
+  vertical-align: middle;
+}
+[data-composition-id="s2"] .cli-submit {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e28646;
+  color: #0a0908;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Figtree', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  box-shadow: 0 0 0 0 rgba(226,134,70,0.5);
+}
+
+[data-composition-id="s2"] .result-card {
+  background: #1a1814;
+  border: 1px solid rgba(246,243,238,0.08);
+  border-radius: 18px;
+  padding: 28px 32px;
+  opacity: 0;
+  transform: translateY(40px);
+}
+[data-composition-id="s2"] .result-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: rgba(246,243,238,0.72);
+}
+[data-composition-id="s2"] .dot-amber {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c2570c;
+}
+[data-composition-id="s2"] .handle {
+  color: #f6f3ee;
+}
+[data-composition-id="s2"] .pill {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+[data-composition-id="s2"] .pill.live {
+  background: rgba(125,224,164,0.14);
+  color: #7de0a4;
+}
+[data-composition-id="s2"] .result-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 44px;
+  color: #f6f3ee;
+  letter-spacing: -0.01em;
+  margin-bottom: 18px;
+}
+[data-composition-id="s2"] .ticker {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #e28646;
+  margin-left: 16px;
+  vertical-align: middle;
+}
+[data-composition-id="s2"] .nav-chart {
+  display: block;
+  width: 100%;
+  height: 140px;
+  margin-bottom: 18px;
+}
+[data-composition-id="s2"] .nav-meta {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 18px;
+  border-top: 1px solid rgba(246,243,238,0.06);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: #f6f3ee;
+}
+[data-composition-id="s2"] .nav-meta .k {
+  display: block;
+  color: rgba(246,243,238,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+[data-composition-id="s2"] .nav-meta strong {
+  font-family: 'Instrument Serif', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #7de0a4;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="s2"] ';
+
+  tl.from('[data-composition-id="s2"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+
+  // Beat 5-7 (0.2-2.5s within scene): CLI pill materializes, types command
+  tl.from(r + '.cli-pill',
+    { x: -120, opacity: 0, scale: 0.92, duration: 0.55, ease: 'power3.out' },
+    0.2);
+
+  // Typing animation via a proxy object + onUpdate
+  const cliTextEl = () => document.querySelector('[data-composition-id="s2"] .cli-text');
+  const typed = { n: 0 };
+  const target = 'bundie compose stable-compounder';
+  tl.to(typed, {
+    n: target.length,
+    duration: 1.4,
+    ease: 'none',
+    onUpdate: function () {
+      const el = cliTextEl();
+      if (el) el.textContent = target.slice(0, Math.floor(typed.n));
+    }
+  }, 0.9);
+
+  // Submit pulse
+  tl.to(r + '.cli-submit',
+    { boxShadow: '0 0 0 30px rgba(226,134,70,0)', scale: 1.08, duration: 0.35, ease: 'power2.out' },
+    2.35);
+  tl.to(r + '.cli-submit',
+    { scale: 1, duration: 0.2, ease: 'power2.in' },
+    2.7);
+
+  // Beat 8 (2.5-3.5s): laptop chrome reveals, headline arrives above
+  tl.to(r + '.laptop-chrome',
+    { opacity: 1, duration: 0.5, ease: 'power2.out' },
+    2.7);
+  tl.to(r + '.headline',
+    { opacity: 1, filter: 'blur(0px)', duration: 0.75, ease: 'power2.out' },
+    2.9);
+
+  // Beat 9-10 (3.5-6s): result card materializes with chart draw
+  tl.to(r + '.result-card',
+    { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' },
+    3.6);
+
+  tl.fromTo(r + '.nav-line',
+    { strokeDasharray: 600, strokeDashoffset: 600 },
+    { strokeDashoffset: 0, duration: 1.2, ease: 'power2.out' },
+    4.0);
+  tl.from(r + '.nav-fill', { opacity: 0, duration: 1.2, ease: 'power2.out' }, 4.0);
+
+  // Ambient CLI cursor blink — finite repeats
+  tl.fromTo(r + '.cli-cursor',
+    { opacity: 1 },
+    { opacity: 0, duration: 0.5, ease: 'steps(1)', yoyo: true, repeat: 9 },
+    0.3);
+
+  // Keep timeline alive through data-duration
+  tl.to(r + '.result-card', { y: -4, duration: 1.5, ease: 'sine.inOut' }, 5.2);
+
+  window.__timelines['s2'] = tl;
+})();
+</script>
+</template>

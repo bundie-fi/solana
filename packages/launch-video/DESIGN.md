@@ -1,63 +1,88 @@
-# Bundie · Launch video · Design
+# Bundie · Launch video · Design (v4 · dark editorial)
 
 ## Style Prompt
 
-Editorial-trader aesthetic. Warm cream canvas, deep ink type, Instrument Serif headlines paired with JetBrains Mono detail work. Motion is confident and kinetic — not cinematic, not corporate. Reads as a serious crypto product ships-fast, not as an EDM drop reel. Every scene builds on the last; the narrative turns on the terminal mint at 0:15 (drop) and the settled proof at 0:39.5 (impact).
+Dark editorial product demo. Near-black canvas, cream ink, amber-glow italics for emphasis, purple + Solana violet as chain/market accents, live-green for positive states. Every beat follows one pattern: **clean sans for the setup, bold italic serif for the punchline word.** No other colors. No gradients in type. 3D objects (the `$CMPD` coin, the prediction-market card) are the only places where object color appears.
+
+Visual rhythm is demo-mode, not story-mode: a capability stream that ends with the verbal payoff `"Launch. Back. Predict."`
 
 ## Canvas
 
-- 1920x1080, 30 fps
-- Background: cream `#faf5ed` (NOT dark)
-- Runtime: 57 seconds, 11 frames
+- 1920×1080, **24 fps** (matches the reference pacing)
+- Background: `#0a0908` (near-black, NOT cream)
+- Runtime: **37 seconds, 11 sub-compositions**
 
 ## Colors
 
-| Role            | Hex       | Usage                                                                   |
-| --------------- | --------- | ----------------------------------------------------------------------- |
-| `--cream`       | `#faf5ed` | Stage background, type on dark                                          |
-| `--cream-deep` | `#f4ecda` | Secondary surfaces, URL chip                                            |
-| `--cream-line` | `#e8dfc9` | Borders, dividers                                                       |
-| `--ink`         | `#1a1814` | Hero type                                                               |
-| `--ink-soft`   | `#4a433a` | Secondary type                                                          |
-| `--ink-muted`  | `#8a8075` | Mono captions, micro-copy                                               |
-| `--amber`       | `#c2570c` | Earn mode · Back primitive · DROP signal                                |
-| `--amber-light`| `#fbbf24` | Coin highlights, arp accents                                            |
-| `--purple`      | `#6d28d9` | Predict mode · ICM thesis · IMPACT signal                               |
-| `--purple-light`| `#a78bfa` | Purple accents                                                          |
-| `--green`       | `#15803d` | Live/settled/OK states                                                  |
-| `--solana`      | `#9945FF` | Solana chain callouts                                                   |
-| `--solana-2`   | `#14F195` | Solana gradient tail                                                    |
+Source of truth: `packages/landing-page/brand.md`. Kept identical here.
 
-Gold/amber = Earn. Purple = Predict. Never swap.
+| Token         | Hex                 | Usage                                                     |
+| ------------- | ------------------- | --------------------------------------------------------- |
+| `--bg`        | `#0a0908`           | Base canvas                                               |
+| `--bg-raised` | `#121110`           | Cards, panels, laptop screen                              |
+| `--ink`       | `#f6f3ee`           | Primary type                                              |
+| `--ink-2`     | `rgba(246,243,238,0.72)` | Body / secondary                                      |
+| `--ink-3`     | `rgba(246,243,238,0.52)` | Eyebrows, meta, timestamps                            |
+| `--amber`     | `#c2570c`           | Back primitive, earn mode                                 |
+| `--amber-glow`| `#e28646`           | Italic display accents, hero highlight                    |
+| `--purple`    | `#6d28d9`           | Predict primitive, market-maker agent                     |
+| `--violet`    | `#9945FF`           | Solana chain accent (sparingly)                           |
+| `--live`      | `#7de0a4`           | Positive values, live indicators, CLI ok states           |
 
 ## Typography
 
-- **Instrument Serif** — hero headlines, scene copy, wordmark. Italics carry emphasis.
-- **JetBrains Mono** — timestamps, captions, terminal, stats, tags. Letter-spacing ~0.08–0.14em, uppercase for micro-labels.
-- **Figtree** — body UI, button labels.
+- **Instrument Serif** — display headlines, italic emphasis. Italic rendered in `--amber-glow`.
+- **Figtree** — UI + body.
+- **JetBrains Mono** — CLI, timestamps, ticker tags, handles, stats.
 
-Hero sizes at 1920x1080: 128–180px serif for single-line heroes, 96–120px for two-line, 28–32px mono captions.
+Hero size range at 1920×1080: 160–220px for hero single words ("Most", "Any", "Strategies"), 96–120px for two-line headlines, 28–32px for mono labels.
 
-## Motion Rules
+## The three motion primitives
 
-- Entrances: `gsap.from()` lifting 40–80px with `power3.out` or `expo.out`, 0.5–0.8s. Offset first tween by 0.15–0.25s.
-- Scene transitions: beat-locked crossfade at frame boundaries. No jump cuts. The DROP at 0:15 and IMPACT at 0:39.5 land on scene-entry frames.
-- Vary easing across entrances within a scene — at least 3 eases per scene.
-- Coin/hero elements idle-bob 3.2s ease-in-out sine; terminal cursor blinks 1s square.
-- No `repeat: -1`. All loops use calculated finite repeats.
+Stolen from Lana but adapted to our palette. Every effect in the video uses one of these.
+
+1. **Blur-to-focus text** — `filter: blur(24px)` → `blur(0)` over 0.5–0.7s with opacity 0→1. Ease: `power2.out`. Used for every headline entrance.
+2. **Glowing pill UI with light-streak entry** — a rounded-pill bg `#121110` with a 1px cream border and a faint amber-glow shadow `0 0 24px rgba(226,134,70,0.25)`. Enters from off-screen left or right with a thin amber streak drawn in via CSS gradient + transform.
+3. **Wireframe selection brackets around 3D objects** — four L-shaped corner marks in cream at 1.5px stroke, enclosing a 3D SVG object (coin, market card). The "Any · X" template uses this.
+
+## The "Any · X" template
+
+Two lines of the same grammatical shape, each with a morph between them:
+
+```
+Any · strategy     (3D $CMPD coin inside wireframe brackets)
+Any · market       (3D prediction card inside wireframe brackets)
+```
+
+The morph between the two objects is a crossfade + scale, not a geometric tween. The brackets stay; the content inside swaps.
+
+## The rhythm reveal
+
+Three verbs, each on its own beat, each separated by a period. Maps to the three Bundie primitives — agents **launch** strategies, humans **back** them, humans **predict** on them.
+
+```
+Launch.
+Launch. Back.
+Launch. Back. Predict.
+```
+
+Each beat adds the next word. Total reveal takes ~2 seconds; the last word lands on the audio drop.
 
 ## Voice (copy)
 
-Short. Declarative. Trader-coded, not hype-coded. "Yield, bundled in one click." not "The future of DeFi starts here." Italics carry the emotional word ("shipping", "one wallet", "believe in").
+From `brand.md`:
+
+- Short, declarative, active voice.
+- No em dashes; use periods, commas, or colons.
+- Never use "Internet Capital Markets" in this video — replaced with **"Every strategy is a market."**
+- Don't name internal tooling (Beethoven, etc.).
 
 ## What NOT to Do
 
-- No trailer cinematic epic (Hans-Zimmer risers, slow reveals)
-- No EDM mainstage cheese or dubstep wobble visuals
-- No corporate uplifting pastels — stay in the cream/ink/amber/purple lane
-- No dark glossy backgrounds with neon gradients — this video lives on cream
-- No full-screen linear gradients on the cream canvas (banding); use radial or solid+localised glow
-- No generic tech-explainer loops or stock-footage feel
-- No emoji in copy, no gradient wash text
-- Never jump-cut between scenes — always animate
-- Never animate an exit before a transition fires (transition IS the exit, except final scene)
+- No cream canvas (that's the primary Bundie brand, not the Solana surface).
+- No gradient text, no multi-stop hero fills.
+- No emerald-mint (Lana's palette). Stay in Bundie's dark amber+purple+violet world.
+- No jump cuts between scenes. Every transition uses blur-to-focus or opacity crossfade on overlapping tracks.
+- No fade-out exits on non-final scenes — transitions handle exits.
+- No `repeat: -1`. All loops finite per HyperFrames contract.
+- Absolutely never use "Internet Capital Markets" — the whole point of this iteration is that it's unclear.
