@@ -284,12 +284,10 @@ use beethoven_core::DepositInit;
 
 /// Anchor disc for `init_user_metadata`. From klend-sdk codegen
 /// (@kamino-finance/klend-sdk v7.3.22 initUserMetadata.js).
-pub const INIT_USER_METADATA_DISCRIMINATOR: [u8; 8] =
-    [117, 169, 176, 69, 197, 23, 15, 162];
+pub const INIT_USER_METADATA_DISCRIMINATOR: [u8; 8] = [117, 169, 176, 69, 197, 23, 15, 162];
 
 /// Anchor disc for `init_obligation`. From klend-sdk codegen.
-pub const INIT_OBLIGATION_DISCRIMINATOR: [u8; 8] =
-    [251, 10, 231, 76, 27, 11, 159, 96];
+pub const INIT_OBLIGATION_DISCRIMINATOR: [u8; 8] = [251, 10, 231, 76, 27, 11, 159, 96];
 
 pub struct KaminoInitAccounts<'info> {
     pub kamino_lending_program: &'info AccountView,
@@ -309,19 +307,8 @@ impl<'info> TryFrom<&'info [AccountView]> for KaminoInitAccounts<'info> {
     type Error = ProgramError;
 
     fn try_from(accounts: &'info [AccountView]) -> Result<Self, Self::Error> {
-        let [
-            kamino_lending_program,
-            owner,
-            fee_payer,
-            user_metadata,
-            referrer_user_metadata,
-            lending_market,
-            obligation,
-            seed1_account,
-            seed2_account,
-            rent,
-            system_program,
-        ] = accounts
+        let [kamino_lending_program, owner, fee_payer, user_metadata, referrer_user_metadata, lending_market, obligation, seed1_account, seed2_account, rent, system_program] =
+            accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
         };
@@ -344,10 +331,7 @@ impl<'info> TryFrom<&'info [AccountView]> for KaminoInitAccounts<'info> {
 impl<'info> DepositInit<'info> for Kamino {
     type Accounts = KaminoInitAccounts<'info>;
 
-    fn init_signed(
-        ctx: &Self::Accounts,
-        signer_seeds: &[Signer],
-    ) -> ProgramResult {
+    fn init_signed(ctx: &Self::Accounts, signer_seeds: &[Signer]) -> ProgramResult {
         // ─── 1. init_user_metadata ──────────────────────────────────────
         // Account roles (from klend-sdk initUserMetadata.js):
         //   owner                   role=2  readonly signer

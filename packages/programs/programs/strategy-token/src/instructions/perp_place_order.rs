@@ -32,15 +32,15 @@ use pinocchio::{
     ProgramResult,
 };
 
-use crate::{error, state::strategy::{Strategy, STATUS_ACTIVE}, util};
+use crate::{
+    error,
+    state::strategy::{Strategy, STATUS_ACTIVE},
+    util,
+};
 
 const DATA_LEN: usize = 44;
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -48,9 +48,9 @@ pub fn process(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let authority    = &accounts[0];
+    let authority = &accounts[0];
     let strategy_acc = &accounts[1];
-    let remaining    = &accounts[2..];
+    let remaining = &accounts[2..];
 
     util::assert_signer(authority)?;
     util::assert_writable(strategy_acc)?;
@@ -71,10 +71,9 @@ pub fn process(
             return Err(error::err(error::ERROR_STRATEGY_NOT_ACTIVE));
         }
         let stored_authority = Strategy::authority(&strat_data);
-        util::assert_keys_equal(
-            authority.address(),
-            unsafe { &*(stored_authority as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(authority.address(), unsafe {
+            &*(stored_authority as *const [u8; 32] as *const Address)
+        })?;
 
         Strategy::wallet_bump(&strat_data)
     };
@@ -88,10 +87,22 @@ pub fn process(
     ];
 
     let mut buf: [MaybeUninit<Seed>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
     ];
     let len = wallet_seeds.len();
     for i in 0..len {
@@ -102,15 +113,15 @@ pub fn process(
 
     // ── Decode data + dispatch via beethoven ─────────────────────────────
     let order_data = beethoven::PerpsData::Mango(beethoven::mango::MangoPlaceOrderData {
-        side:             data[0],
-        price_lots:       i64::from_le_bytes(data[1..9].try_into().unwrap()),
-        max_base_lots:    i64::from_le_bytes(data[9..17].try_into().unwrap()),
-        max_quote_lots:   i64::from_le_bytes(data[17..25].try_into().unwrap()),
-        client_order_id:  u64::from_le_bytes(data[25..33].try_into().unwrap()),
-        order_type:       data[33],
-        reduce_only:      data[34] != 0,
+        side: data[0],
+        price_lots: i64::from_le_bytes(data[1..9].try_into().unwrap()),
+        max_base_lots: i64::from_le_bytes(data[9..17].try_into().unwrap()),
+        max_quote_lots: i64::from_le_bytes(data[17..25].try_into().unwrap()),
+        client_order_id: u64::from_le_bytes(data[25..33].try_into().unwrap()),
+        order_type: data[33],
+        reduce_only: data[34] != 0,
         expiry_timestamp: u64::from_le_bytes(data[35..43].try_into().unwrap()),
-        limit:            data[43],
+        limit: data[43],
     });
 
     let perps_ctx = beethoven::try_from_perps_context(remaining)?;

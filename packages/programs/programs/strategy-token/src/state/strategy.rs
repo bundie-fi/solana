@@ -46,8 +46,7 @@ impl Strategy {
 
     #[inline(always)]
     pub fn set_discriminator(data: &mut [u8]) {
-        data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8]
-            .copy_from_slice(&STRATEGY_DISCRIMINATOR);
+        data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8].copy_from_slice(&STRATEGY_DISCRIMINATOR);
     }
 
     // ---------- authority (Pubkey, 32 bytes) ----------
@@ -90,7 +89,9 @@ impl Strategy {
 
     #[inline(always)]
     pub fn deposit_mint(data: &[u8]) -> &[u8; 32] {
-        data[OFF_DEPOSIT_MINT..OFF_DEPOSIT_MINT + 32].try_into().unwrap()
+        data[OFF_DEPOSIT_MINT..OFF_DEPOSIT_MINT + 32]
+            .try_into()
+            .unwrap()
     }
 
     #[inline(always)]
@@ -174,7 +175,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn total_deposits(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_TOTAL_DEPOSITS..OFF_TOTAL_DEPOSITS + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_TOTAL_DEPOSITS..OFF_TOTAL_DEPOSITS + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -186,7 +191,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn current_nav(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_CURRENT_NAV..OFF_CURRENT_NAV + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_CURRENT_NAV..OFF_CURRENT_NAV + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -198,7 +207,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn total_shares(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_TOTAL_SHARES..OFF_TOTAL_SHARES + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_TOTAL_SHARES..OFF_TOTAL_SHARES + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -210,7 +223,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn total_investors(data: &[u8]) -> u32 {
-        u32::from_le_bytes(data[OFF_TOTAL_INVESTORS..OFF_TOTAL_INVESTORS + 4].try_into().unwrap())
+        u32::from_le_bytes(
+            data[OFF_TOTAL_INVESTORS..OFF_TOTAL_INVESTORS + 4]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -222,7 +239,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn high_water_mark(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_HIGH_WATER_MARK..OFF_HIGH_WATER_MARK + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_HIGH_WATER_MARK..OFF_HIGH_WATER_MARK + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -234,7 +255,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn min_deposit(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_MIN_DEPOSIT..OFF_MIN_DEPOSIT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_MIN_DEPOSIT..OFF_MIN_DEPOSIT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -246,7 +271,11 @@ impl Strategy {
 
     #[inline(always)]
     pub fn last_nav_slot(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_LAST_NAV_SLOT..OFF_LAST_NAV_SLOT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_LAST_NAV_SLOT..OFF_LAST_NAV_SLOT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -258,19 +287,28 @@ impl Strategy {
 
     #[inline(always)]
     pub fn nav_twap_accumulator(data: &[u8]) -> u128 {
-        u128::from_le_bytes(data[OFF_NAV_TWAP_ACCUMULATOR..OFF_NAV_TWAP_ACCUMULATOR + 16].try_into().unwrap())
+        u128::from_le_bytes(
+            data[OFF_NAV_TWAP_ACCUMULATOR..OFF_NAV_TWAP_ACCUMULATOR + 16]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
     pub fn set_nav_twap_accumulator(data: &mut [u8], v: u128) {
-        data[OFF_NAV_TWAP_ACCUMULATOR..OFF_NAV_TWAP_ACCUMULATOR + 16].copy_from_slice(&v.to_le_bytes());
+        data[OFF_NAV_TWAP_ACCUMULATOR..OFF_NAV_TWAP_ACCUMULATOR + 16]
+            .copy_from_slice(&v.to_le_bytes());
     }
 
     // ---------- twap_last_slot (u64) ----------
 
     #[inline(always)]
     pub fn twap_last_slot(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_TWAP_LAST_SLOT..OFF_TWAP_LAST_SLOT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_TWAP_LAST_SLOT..OFF_TWAP_LAST_SLOT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]

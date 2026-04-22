@@ -7,22 +7,14 @@ use pinocchio::{
 };
 
 use crate::{
-    cpi,
-    error,
-    state::{
-        nav_oracle::NavOracle,
-        strategy::Strategy,
-    },
+    cpi, error,
+    state::{nav_oracle::NavOracle, strategy::Strategy},
     util,
 };
 
 const NAV_SCALE: u128 = 1_000_000_000;
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Unpack accounts
     // ----------------------------------------------------------------
@@ -31,9 +23,9 @@ pub fn process(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let cranker          = &accounts[0];
-    let strategy_acc     = &accounts[1];
-    let nav_oracle_acc   = &accounts[2];
+    let cranker = &accounts[0];
+    let strategy_acc = &accounts[1];
+    let nav_oracle_acc = &accounts[2];
     let wallet_token_ata = &accounts[3];
 
     util::assert_signer(cranker)?;
@@ -146,8 +138,7 @@ pub fn process(
     let complement = twap_window.saturating_sub(weight);
 
     let twap_value: u64 = if twap_window > 0 {
-        ((nav_per_share as u128 * weight as u128
-            + old_twap as u128 * complement as u128)
+        ((nav_per_share as u128 * weight as u128 + old_twap as u128 * complement as u128)
             / twap_window as u128) as u64
     } else {
         nav_per_share

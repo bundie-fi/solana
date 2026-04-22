@@ -1,7 +1,7 @@
+use crate::error::MarketError;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
-use crate::state::*;
-use crate::error::MarketError;
 
 #[derive(Accounts)]
 pub struct RedeemWinnings<'info> {

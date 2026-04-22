@@ -10,8 +10,7 @@ use pinocchio::{
 
 /// System Program ID (all zeros)
 pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
 /// Build seeds into a `MaybeUninit` array and return a `Signer`.
@@ -21,10 +20,22 @@ pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
 #[inline(always)]
 fn build_signer<'a>(signer_seeds: &[&'a [u8]]) -> ([MaybeUninit<Seed<'a>>; 16], usize) {
     let mut buf: [MaybeUninit<Seed<'a>>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
     ];
     let len = signer_seeds.len().min(16);
     for i in 0..len {
@@ -68,9 +79,7 @@ pub fn create_account<'a>(
     } else {
         let (buf, len) = build_signer(signer_seeds);
         // SAFETY: we initialized exactly `len` elements above
-        let seeds = unsafe {
-            core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len)
-        };
+        let seeds = unsafe { core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len) };
         let signer = Signer::from(seeds);
         invoke_signed::<2>(&instruction, &[payer, new_account], &[signer])
     }
@@ -104,9 +113,7 @@ pub fn transfer<'a>(
     } else {
         let (buf, len) = build_signer(signer_seeds);
         // SAFETY: we initialized exactly `len` elements above
-        let seeds = unsafe {
-            core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len)
-        };
+        let seeds = unsafe { core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len) };
         let signer = Signer::from(seeds);
         invoke_signed::<2>(&instruction, &[from, to], &[signer])
     }

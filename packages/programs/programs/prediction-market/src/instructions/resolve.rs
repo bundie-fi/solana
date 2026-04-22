@@ -1,13 +1,13 @@
-use anchor_lang::prelude::*;
-use crate::state::*;
 use crate::error::MarketError;
+use crate::state::*;
+use anchor_lang::prelude::*;
 
 /// NavOracle discriminator — must match strategy-token/src/state/nav_oracle.rs
 const NAV_ORACLE_DISCRIMINATOR: [u8; 8] = [0xa1, 0x4e, 0x73, 0x20, 0xbc, 0x44, 0x61, 0x05];
 
 /// Field byte offsets within the NavOracle account data
-const OFF_ORACLE_STRATEGY: usize = 8;   // Pubkey (32 bytes)
-const OFF_ORACLE_TWAP: usize = 48;      // twap_value u64 (8 bytes)
+const OFF_ORACLE_STRATEGY: usize = 8; // Pubkey (32 bytes)
+const OFF_ORACLE_TWAP: usize = 48; // twap_value u64 (8 bytes)
 const OFF_ORACLE_SNAPSHOTS: usize = 56; // snapshot_count u64 (8 bytes)
 
 const NAV_ORACLE_MIN_LEN: usize = 89;
@@ -40,15 +40,11 @@ pub struct ResolveMarket<'info> {
 }
 
 /// Read and validate a NavOracle account, returning (twap, snapshot_count, strategy_key).
-fn read_oracle(
-    oracle: &UncheckedAccount,
-    expected_strategy: &Pubkey,
-) -> Result<(u64, u64)> {
+fn read_oracle(oracle: &UncheckedAccount, expected_strategy: &Pubkey) -> Result<(u64, u64)> {
     let data = oracle.try_borrow_data()?;
 
     require!(
-        data.len() >= NAV_ORACLE_MIN_LEN
-            && data[0..8] == NAV_ORACLE_DISCRIMINATOR,
+        data.len() >= NAV_ORACLE_MIN_LEN && data[0..8] == NAV_ORACLE_DISCRIMINATOR,
         MarketError::InvalidOracle
     );
 
@@ -61,10 +57,14 @@ fn read_oracle(
     );
 
     let twap = u64::from_le_bytes(
-        data[OFF_ORACLE_TWAP..OFF_ORACLE_TWAP + 8].try_into().unwrap(),
+        data[OFF_ORACLE_TWAP..OFF_ORACLE_TWAP + 8]
+            .try_into()
+            .unwrap(),
     );
     let snapshots = u64::from_le_bytes(
-        data[OFF_ORACLE_SNAPSHOTS..OFF_ORACLE_SNAPSHOTS + 8].try_into().unwrap(),
+        data[OFF_ORACLE_SNAPSHOTS..OFF_ORACLE_SNAPSHOTS + 8]
+            .try_into()
+            .unwrap(),
     );
 
     require!(snapshots > 0, MarketError::InsufficientSnapshots);
@@ -94,10 +94,7 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
         // ── Absolute ──────────────────────────────────────────────────────────
         // YES if strategy A's annualized APY >= threshold_bps.
         MarketType::Absolute => {
-            let (twap_a, _) = read_oracle(
-                &ctx.accounts.nav_oracle,
-                &ctx.accounts.market.strategy,
-            )?;
+            let (twap_a, _) = read_oracle(&ctx.accounts.nav_oracle, &ctx.accounts.market.strategy)?;
 
             let initial_a = ctx.accounts.market.initial_nav_per_share;
             let apy_bps = annualized_growth_bps(twap_a, initial_a, elapsed_secs);
@@ -123,17 +120,14 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
         // Growth is measured as (twap - initial_nav) / initial_nav so that
         // strategies starting at different share prices are compared fairly.
         MarketType::Relative => {
-            let strategy_b = ctx.accounts.market.strategy_b
+            let strategy_b = ctx
+                .accounts
+                .market
+                .strategy_b
                 .ok_or(MarketError::InvalidOracle)?;
 
-            let (twap_a, _) = read_oracle(
-                &ctx.accounts.nav_oracle,
-                &ctx.accounts.market.strategy,
-            )?;
-            let (twap_b, _) = read_oracle(
-                &ctx.accounts.nav_oracle_b,
-                &strategy_b,
-            )?;
+            let (twap_a, _) = read_oracle(&ctx.accounts.nav_oracle, &ctx.accounts.market.strategy)?;
+            let (twap_b, _) = read_oracle(&ctx.accounts.nav_oracle_b, &strategy_b)?;
 
             let initial_a = ctx.accounts.market.initial_nav_per_share;
             let initial_b = ctx.accounts.market.initial_nav_per_share_b;

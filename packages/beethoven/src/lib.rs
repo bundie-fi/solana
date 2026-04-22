@@ -2,12 +2,12 @@
 
 // Re-export core traits
 pub use beethoven_core::{Deposit, DepositInit, Perps, Swap};
-#[cfg(feature = "mango-perps")]
-pub use beethoven_perps_mango as mango;
 #[cfg(feature = "drift-deposit")]
 pub use beethoven_deposit_drift as drift;
 #[cfg(feature = "jupiter-deposit")]
 pub use beethoven_deposit_jupiter as jupiter;
+#[cfg(feature = "mango-perps")]
+pub use beethoven_perps_mango as mango;
 // Re-export protocol crates under feature flags
 #[cfg(feature = "kamino-deposit")]
 pub use beethoven_deposit_kamino as kamino;

@@ -27,8 +27,7 @@ impl NavOracle {
 
     #[inline(always)]
     pub fn set_discriminator(data: &mut [u8]) {
-        data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8]
-            .copy_from_slice(&NAV_ORACLE_DISCRIMINATOR);
+        data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8].copy_from_slice(&NAV_ORACLE_DISCRIMINATOR);
     }
 
     // ---------- strategy (Pubkey, 32 bytes) ----------
@@ -47,7 +46,11 @@ impl NavOracle {
 
     #[inline(always)]
     pub fn nav_per_share(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_NAV_PER_SHARE..OFF_NAV_PER_SHARE + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_NAV_PER_SHARE..OFF_NAV_PER_SHARE + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -71,7 +74,11 @@ impl NavOracle {
 
     #[inline(always)]
     pub fn snapshot_count(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_SNAPSHOT_COUNT..OFF_SNAPSHOT_COUNT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_SNAPSHOT_COUNT..OFF_SNAPSHOT_COUNT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -83,7 +90,11 @@ impl NavOracle {
 
     #[inline(always)]
     pub fn last_snapshot_slot(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_LAST_SNAPSHOT_SLOT..OFF_LAST_SNAPSHOT_SLOT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_LAST_SNAPSHOT_SLOT..OFF_LAST_SNAPSHOT_SLOT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -95,19 +106,28 @@ impl NavOracle {
 
     #[inline(always)]
     pub fn min_snapshot_interval(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_MIN_SNAPSHOT_INTERVAL..OFF_MIN_SNAPSHOT_INTERVAL + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_MIN_SNAPSHOT_INTERVAL..OFF_MIN_SNAPSHOT_INTERVAL + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
     pub fn set_min_snapshot_interval(data: &mut [u8], v: u64) {
-        data[OFF_MIN_SNAPSHOT_INTERVAL..OFF_MIN_SNAPSHOT_INTERVAL + 8].copy_from_slice(&v.to_le_bytes());
+        data[OFF_MIN_SNAPSHOT_INTERVAL..OFF_MIN_SNAPSHOT_INTERVAL + 8]
+            .copy_from_slice(&v.to_le_bytes());
     }
 
     // ---------- twap_window (u64) ----------
 
     #[inline(always)]
     pub fn twap_window(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_TWAP_WINDOW..OFF_TWAP_WINDOW + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_TWAP_WINDOW..OFF_TWAP_WINDOW + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]

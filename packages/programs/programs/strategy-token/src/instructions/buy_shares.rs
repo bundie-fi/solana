@@ -9,17 +9,12 @@ use pinocchio::{
 };
 
 use crate::{
-    cpi,
-    error,
+    cpi, error,
     state::strategy::{Strategy, STATUS_ACTIVE, STRATEGY_TYPE_YIELD},
     util,
 };
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Parse instruction data: amount (u64 LE, 8 bytes)
     // ----------------------------------------------------------------
@@ -41,18 +36,18 @@ pub fn process(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let buyer            = &accounts[0];
-    let strategy_acc     = &accounts[1];
-    let mint_acc         = &accounts[2];
+    let buyer = &accounts[0];
+    let strategy_acc = &accounts[1];
+    let mint_acc = &accounts[2];
     let buyer_shares_ata = &accounts[3];
-    let wallet_acc       = &accounts[4];
+    let wallet_acc = &accounts[4];
     let wallet_token_ata = &accounts[5];
-    let buyer_token_ata  = &accounts[6];
-    let token_program    = &accounts[7];
-    let system_program   = &accounts[8];
-    let _ata_program     = &accounts[9];
-    let deposit_mint     = &accounts[10];
-    let remaining        = &accounts[11..];
+    let buyer_token_ata = &accounts[6];
+    let token_program = &accounts[7];
+    let system_program = &accounts[8];
+    let _ata_program = &accounts[9];
+    let deposit_mint = &accounts[10];
+    let remaining = &accounts[11..];
 
     util::assert_signer(buyer)?;
     util::assert_writable(buyer)?;
@@ -97,17 +92,15 @@ pub fn process(
 
         // Verify mint matches the strategy's mint
         let strategy_mint = Strategy::mint(&strat_data);
-        util::assert_keys_equal(
-            mint_acc.address(),
-            unsafe { &*(strategy_mint as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(mint_acc.address(), unsafe {
+            &*(strategy_mint as *const [u8; 32] as *const Address)
+        })?;
 
         // Verify wallet matches the strategy's wallet
         let strategy_wallet = Strategy::wallet(&strat_data);
-        util::assert_keys_equal(
-            wallet_acc.address(),
-            unsafe { &*(strategy_wallet as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(wallet_acc.address(), unsafe {
+            &*(strategy_wallet as *const [u8; 32] as *const Address)
+        })?;
 
         let mut auth = [0u8; 32];
         auth.copy_from_slice(Strategy::authority(&strat_data));
@@ -166,13 +159,7 @@ pub fn process(
     // ----------------------------------------------------------------
 
     // buyer signs directly (not a PDA), so empty signer_seeds
-    cpi::spl_token::transfer(
-        buyer_token_ata,
-        wallet_token_ata,
-        buyer,
-        amount,
-        &[],
-    )?;
+    cpi::spl_token::transfer(buyer_token_ata, wallet_token_ata, buyer, amount, &[])?;
 
     // ----------------------------------------------------------------
     // 6. Beethoven deposit for YIELD strategies
@@ -189,10 +176,22 @@ pub fn process(
 
         // Build the Signer from wallet seeds
         let mut buf: [MaybeUninit<Seed>; 16] = [
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
         ];
         let len = wallet_seeds.len();
         for i in 0..len {
@@ -203,7 +202,12 @@ pub fn process(
 
         let deposit_ctx = beethoven::try_from_deposit_context(remaining)?;
         let (deposit_data, _) = deposit_ctx.try_from_deposit_data(&[])?;
-        <beethoven::DepositContext as beethoven::Deposit>::deposit_signed(&deposit_ctx, amount, &deposit_data, &[signer])?;
+        <beethoven::DepositContext as beethoven::Deposit>::deposit_signed(
+            &deposit_ctx,
+            amount,
+            &deposit_data,
+            &[signer],
+        )?;
     }
 
     // ----------------------------------------------------------------
@@ -215,9 +219,11 @@ pub fn process(
         amount
     } else {
         // Proportional: shares = amount * total_shares / current_nav
-        let numerator = (amount as u128).checked_mul(total_shares as u128)
+        let numerator = (amount as u128)
+            .checked_mul(total_shares as u128)
             .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?;
-        let shares_128 = numerator.checked_div(current_nav as u128)
+        let shares_128 = numerator
+            .checked_div(current_nav as u128)
             .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?;
         if shares_128 > u64::MAX as u128 {
             return Err(error::err(error::ERROR_NAV_OVERFLOW));
@@ -239,7 +245,12 @@ pub fn process(
         buyer_shares_ata,
         strategy_acc,
         shares_to_mint,
-        &[b"strategy", &authority_bytes, &name_bytes, &strategy_bump_slice],
+        &[
+            b"strategy",
+            &authority_bytes,
+            &name_bytes,
+            &strategy_bump_slice,
+        ],
     )?;
 
     // ----------------------------------------------------------------

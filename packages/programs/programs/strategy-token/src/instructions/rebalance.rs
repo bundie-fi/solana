@@ -9,8 +9,7 @@ use pinocchio::{
 };
 
 use crate::{
-    cpi,
-    error,
+    cpi, error,
     state::strategy::{Strategy, STATUS_ACTIVE},
     util,
 };
@@ -20,11 +19,7 @@ const ACTION_DEPOSIT: u8 = 0;
 const ACTION_WITHDRAW: u8 = 1;
 const ACTION_SWAP: u8 = 2;
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Parse instruction data
     // ----------------------------------------------------------------
@@ -51,9 +46,9 @@ pub fn process(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let authority    = &accounts[0];
+    let authority = &accounts[0];
     let strategy_acc = &accounts[1];
-    let remaining    = &accounts[2..];
+    let remaining = &accounts[2..];
 
     util::assert_signer(authority)?;
     util::assert_writable(strategy_acc)?;
@@ -78,10 +73,9 @@ pub fn process(
 
         // Verify authority matches
         let stored_authority = Strategy::authority(&strat_data);
-        util::assert_keys_equal(
-            authority.address(),
-            unsafe { &*(stored_authority as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(authority.address(), unsafe {
+            &*(stored_authority as *const [u8; 32] as *const Address)
+        })?;
 
         Strategy::wallet_bump(&strat_data)
     };
@@ -122,10 +116,22 @@ pub fn process(
         // (not in a helper fn) ensures the Signer's seed-slice pointer
         // stays valid through the CPI. See init_position.rs / buy_shares.rs.
         let mut buf: [MaybeUninit<Seed>; 16] = [
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
         ];
         let len = wallet_seeds.len();
         for i in 0..len {

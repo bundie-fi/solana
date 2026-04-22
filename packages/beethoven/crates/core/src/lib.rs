@@ -69,10 +69,7 @@ pub trait DepositInit<'info> {
     type Accounts;
 
     /// Run the setup CPI with PDA signing capability
-    fn init_signed(
-        ctx: &Self::Accounts,
-        signer_seeds: &[Signer],
-    ) -> ProgramResult;
+    fn init_signed(ctx: &Self::Accounts, signer_seeds: &[Signer]) -> ProgramResult;
 
     /// Run the setup CPI without signing (user is direct signer)
     fn init(ctx: &Self::Accounts) -> ProgramResult;

@@ -10,18 +10,30 @@ use pinocchio::{
 
 /// SPL Token Program ID
 pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array([
-    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172,
-    28, 180, 133, 237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237,
+    95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ]);
 
 /// Build seeds into a `MaybeUninit` array. Supports up to 16 seed components.
 #[inline(always)]
 fn build_signer<'a>(signer_seeds: &[&'a [u8]]) -> ([MaybeUninit<Seed<'a>>; 16], usize) {
     let mut buf: [MaybeUninit<Seed<'a>>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
     ];
     let len = signer_seeds.len().min(16);
     for i in 0..len {
@@ -105,7 +117,11 @@ pub fn mint_to<'a>(
         let (buf, len) = build_signer(signer_seeds);
         let seeds = unsafe { core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len) };
         let signer = Signer::from(seeds);
-        invoke_signed::<3>(&instruction, &[mint, destination, mint_authority], &[signer])
+        invoke_signed::<3>(
+            &instruction,
+            &[mint, destination, mint_authority],
+            &[signer],
+        )
     }
 }
 

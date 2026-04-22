@@ -2,27 +2,20 @@
 // pull in std, making #![no_std] + nostd_panic_handler incompatible. We keep pinocchio's
 // zero-copy account patterns but let std be linked normally.
 
+pub mod cpi;
 pub mod error;
 mod instructions;
 pub mod state;
-pub mod cpi;
 mod util;
 
-use pinocchio::{
-    error::ProgramError,
-    address::Address,
-    account::AccountView,
-    ProgramResult,
-};
+use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 
 pinocchio::program_entrypoint!(process_instruction);
 
 /// Strategy Token Program ID
 pub const ID: Address = Address::new_from_array([
-    7, 241, 15, 8, 33, 84, 211, 43,
-    197, 41, 205, 236, 235, 230, 21, 118,
-    161, 71, 101, 255, 213, 205, 62, 233,
-    196, 171, 67, 154, 183, 193, 236, 12,
+    7, 241, 15, 8, 33, 84, 211, 43, 197, 41, 205, 236, 235, 230, 21, 118, 161, 71, 101, 255, 213,
+    205, 62, 233, 196, 171, 67, 154, 183, 193, 236, 12,
 ]);
 
 pub fn process_instruction(

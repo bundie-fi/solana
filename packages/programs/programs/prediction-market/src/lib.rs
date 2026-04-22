@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 pub mod error;
 pub mod instructions;
-pub mod state;
 pub mod math;
+pub mod state;
 
 use instructions::*;
 use state::*;
@@ -27,15 +27,22 @@ pub mod prediction_market {
         initial_nav_per_share: u64,
         initial_nav_per_share_b: u64,
     ) -> Result<()> {
-        instructions::create_market::handler(ctx, question, market_id, market_type, threshold_bps, resolution_slot, initial_subsidy, fee_bps, initial_nav_per_share, initial_nav_per_share_b)
+        instructions::create_market::handler(
+            ctx,
+            question,
+            market_id,
+            market_type,
+            threshold_bps,
+            resolution_slot,
+            initial_subsidy,
+            fee_bps,
+            initial_nav_per_share,
+            initial_nav_per_share_b,
+        )
     }
 
     /// Buy YES or NO shares using LS-LMSR pricing
-    pub fn buy_shares(
-        ctx: Context<BuyMarketShares>,
-        outcome: Outcome,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn buy_shares(ctx: Context<BuyMarketShares>, outcome: Outcome, amount: u64) -> Result<()> {
         instructions::buy_shares::handler(ctx, outcome, amount)
     }
 

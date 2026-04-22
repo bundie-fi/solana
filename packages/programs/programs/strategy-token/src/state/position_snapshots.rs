@@ -20,15 +20,15 @@ pub const MIN_SNAPSHOT_INTERVAL_SLOTS: u64 = 216_000;
 // Field offsets
 const OFF_DISCRIMINATOR: usize = 0;
 const OFF_STRATEGY: usize = 8;
-const OFF_SNAPSHOT_AT: usize = 40;          // i64, unix timestamp
-const OFF_SNAPSHOT_SLOT: usize = 48;        // u64, solana slot
-const OFF_PROTOCOL: usize = 56;             // Pubkey
-const OFF_RESERVE: usize = 88;              // Pubkey
-const OFF_PORTFOLIO_VALUE: usize = 120;     // u64, USDC base units
-const OFF_TOTAL_SHARES: usize = 128;        // u64
-const OFF_NAV_PER_SHARE: usize = 136;       // u64, 1e9-scaled
-const OFF_HIGH_WATER_MARK: usize = 144;     // u64, 1e9-scaled
-const OFF_SNAPSHOT_COUNT: usize = 152;      // u64
+const OFF_SNAPSHOT_AT: usize = 40; // i64, unix timestamp
+const OFF_SNAPSHOT_SLOT: usize = 48; // u64, solana slot
+const OFF_PROTOCOL: usize = 56; // Pubkey
+const OFF_RESERVE: usize = 88; // Pubkey
+const OFF_PORTFOLIO_VALUE: usize = 120; // u64, USDC base units
+const OFF_TOTAL_SHARES: usize = 128; // u64
+const OFF_NAV_PER_SHARE: usize = 136; // u64, 1e9-scaled
+const OFF_HIGH_WATER_MARK: usize = 144; // u64, 1e9-scaled
+const OFF_SNAPSHOT_COUNT: usize = 152; // u64
 const OFF_BUMP: usize = 160;
 
 pub struct PositionSnapshots;
@@ -36,7 +36,8 @@ pub struct PositionSnapshots;
 impl PositionSnapshots {
     #[inline(always)]
     pub fn check_discriminator(data: &[u8]) -> bool {
-        data.len() >= 8 && data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8] == POSITION_SNAPSHOTS_DISCRIMINATOR
+        data.len() >= 8
+            && data[OFF_DISCRIMINATOR..OFF_DISCRIMINATOR + 8] == POSITION_SNAPSHOTS_DISCRIMINATOR
     }
 
     #[inline(always)]
@@ -57,7 +58,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn snapshot_at(data: &[u8]) -> i64 {
-        i64::from_le_bytes(data[OFF_SNAPSHOT_AT..OFF_SNAPSHOT_AT + 8].try_into().unwrap())
+        i64::from_le_bytes(
+            data[OFF_SNAPSHOT_AT..OFF_SNAPSHOT_AT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -67,7 +72,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn snapshot_slot(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_SNAPSHOT_SLOT..OFF_SNAPSHOT_SLOT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_SNAPSHOT_SLOT..OFF_SNAPSHOT_SLOT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -97,7 +106,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn portfolio_value(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_PORTFOLIO_VALUE..OFF_PORTFOLIO_VALUE + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_PORTFOLIO_VALUE..OFF_PORTFOLIO_VALUE + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -107,7 +120,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn total_shares(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_TOTAL_SHARES..OFF_TOTAL_SHARES + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_TOTAL_SHARES..OFF_TOTAL_SHARES + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -117,7 +134,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn nav_per_share(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_NAV_PER_SHARE..OFF_NAV_PER_SHARE + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_NAV_PER_SHARE..OFF_NAV_PER_SHARE + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -127,7 +148,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn high_water_mark(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_HIGH_WATER_MARK..OFF_HIGH_WATER_MARK + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_HIGH_WATER_MARK..OFF_HIGH_WATER_MARK + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]
@@ -137,7 +162,11 @@ impl PositionSnapshots {
 
     #[inline(always)]
     pub fn snapshot_count(data: &[u8]) -> u64 {
-        u64::from_le_bytes(data[OFF_SNAPSHOT_COUNT..OFF_SNAPSHOT_COUNT + 8].try_into().unwrap())
+        u64::from_le_bytes(
+            data[OFF_SNAPSHOT_COUNT..OFF_SNAPSHOT_COUNT + 8]
+                .try_into()
+                .unwrap(),
+        )
     }
 
     #[inline(always)]

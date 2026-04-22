@@ -854,10 +854,7 @@ mod deposit_init_ctx {
     impl<'info> DepositInit<'info> for DepositInitContext<'info> {
         type Accounts = Self;
 
-        fn init_signed(
-            ctx: &Self::Accounts,
-            signer_seeds: &[Signer],
-        ) -> ProgramResult {
+        fn init_signed(ctx: &Self::Accounts, signer_seeds: &[Signer]) -> ProgramResult {
             match ctx {
                 #[cfg(feature = "kamino-deposit")]
                 DepositInitContext::Kamino(accounts) => {

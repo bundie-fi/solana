@@ -63,10 +63,11 @@ fn test_proportional_shares_nav_halved() {
 fn test_shares_large_values() {
     // 1B USDC (6 decimals) with 1B shares at NAV = 1.1B
     let shares = calc_shares(
-        1_000_000_000_000, // 1M USDC
+        1_000_000_000_000,     // 1M USDC
         1_000_000_000_000_000, // 1B shares (9 decimals)
-        1_100_000_000_000, // 1.1M USDC NAV
-    ).unwrap();
+        1_100_000_000_000,     // 1.1M USDC NAV
+    )
+    .unwrap();
     // Expected: 1M * 1B / 1.1M = ~909,090,909,090,909
     assert_eq!(shares, 909_090_909_090_909);
 }
@@ -239,12 +240,7 @@ fn test_fee_after_hwm_updated() {
 // =========================================================================
 
 /// Replicates TWAP EMA from update_nav.rs
-fn calc_twap_ema(
-    nav_per_share: u64,
-    old_twap: u64,
-    slots_elapsed: u64,
-    twap_window: u64,
-) -> u64 {
+fn calc_twap_ema(nav_per_share: u64, old_twap: u64, slots_elapsed: u64, twap_window: u64) -> u64 {
     if twap_window == 0 {
         return nav_per_share;
     }
@@ -303,7 +299,13 @@ fn test_twap_converges_over_multiple_updates() {
     let diff = if twap > nav { twap - nav } else { nav - twap };
     // With 300/9000 step ratio, convergence is ~95% after 3 windows. Allow 5% tolerance.
     let tolerance = (nav as f64 * 0.05) as u64;
-    assert!(diff < tolerance, "TWAP {} should be within 5% of NAV {}, diff={}", twap, nav, diff);
+    assert!(
+        diff < tolerance,
+        "TWAP {} should be within 5% of NAV {}, diff={}",
+        twap,
+        nav,
+        diff
+    );
 }
 
 #[test]

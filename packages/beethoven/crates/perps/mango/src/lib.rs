@@ -29,19 +29,15 @@ use {
 /// Mango v4 program ID (same on mainnet/testnet/devnet).
 /// `4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg`
 pub const MANGO_V4_PROGRAM_ID: Address = Address::new_from_array([
-    0x31, 0xd8, 0xe1, 0x7d, 0xde, 0x0f, 0x59, 0xc1,
-    0x8e, 0x07, 0x5b, 0x98, 0xca, 0x9d, 0x6b, 0x65,
-    0xc8, 0xfa, 0x24, 0xed, 0x50, 0x6d, 0x20, 0x6c,
-    0x5e, 0xbe, 0x3c, 0x18, 0x0f, 0x02, 0x37, 0x7f,
+    0x31, 0xd8, 0xe1, 0x7d, 0xde, 0x0f, 0x59, 0xc1, 0x8e, 0x07, 0x5b, 0x98, 0xca, 0x9d, 0x6b, 0x65,
+    0xc8, 0xfa, 0x24, 0xed, 0x50, 0x6d, 0x20, 0x6c, 0x5e, 0xbe, 0x3c, 0x18, 0x0f, 0x02, 0x37, 0x7f,
 ]);
 
 /// Anchor disc for `perp_place_order`. sha256("global:perp_place_order")[..8].
-pub const PERP_PLACE_ORDER_DISCRIMINATOR: [u8; 8] =
-    [189, 196, 225, 201, 114, 172, 25, 166];
+pub const PERP_PLACE_ORDER_DISCRIMINATOR: [u8; 8] = [189, 196, 225, 201, 114, 172, 25, 166];
 
 /// Anchor disc for `perp_place_order_v2` (extra `selfTradeBehavior` arg).
-pub const PERP_PLACE_ORDER_V2_DISCRIMINATOR: [u8; 8] =
-    [232, 224, 154, 78, 158, 184, 6, 219];
+pub const PERP_PLACE_ORDER_V2_DISCRIMINATOR: [u8; 8] = [232, 224, 154, 78, 158, 184, 6, 219];
 
 /// Total ix data length for `perp_place_order` (v1):
 /// 8 (disc) + 1 (side) + 8 + 8 + 8 (price/base/quote lots) + 8 (client_id)
@@ -84,18 +80,8 @@ impl<'info> TryFrom<&'info [AccountView]> for MangoPlaceOrderAccounts<'info> {
     type Error = ProgramError;
 
     fn try_from(accounts: &'info [AccountView]) -> Result<Self, Self::Error> {
-        let [
-            mango_program,
-            group,
-            mango_account,
-            owner,
-            perp_market,
-            bids,
-            asks,
-            event_queue,
-            oracle,
-            health_remaining_accounts @ ..,
-        ] = accounts
+        let [mango_program, group, mango_account, owner, perp_market, bids, asks, event_queue, oracle, health_remaining_accounts @ ..] =
+            accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
         };
@@ -164,14 +150,38 @@ impl<'info> Perps<'info> for Mango {
         let mut accounts_buf = MaybeUninit::<[InstructionAccount; N]>::uninit();
         let accounts_ptr = accounts_buf.as_mut_ptr() as *mut InstructionAccount;
         unsafe {
-            core::ptr::write(accounts_ptr.add(0), InstructionAccount::readonly(ctx.group.address()));
-            core::ptr::write(accounts_ptr.add(1), InstructionAccount::writable(ctx.mango_account.address()));
-            core::ptr::write(accounts_ptr.add(2), InstructionAccount::readonly_signer(ctx.owner.address()));
-            core::ptr::write(accounts_ptr.add(3), InstructionAccount::writable(ctx.perp_market.address()));
-            core::ptr::write(accounts_ptr.add(4), InstructionAccount::writable(ctx.bids.address()));
-            core::ptr::write(accounts_ptr.add(5), InstructionAccount::writable(ctx.asks.address()));
-            core::ptr::write(accounts_ptr.add(6), InstructionAccount::writable(ctx.event_queue.address()));
-            core::ptr::write(accounts_ptr.add(7), InstructionAccount::readonly(ctx.oracle.address()));
+            core::ptr::write(
+                accounts_ptr.add(0),
+                InstructionAccount::readonly(ctx.group.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(1),
+                InstructionAccount::writable(ctx.mango_account.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(2),
+                InstructionAccount::readonly_signer(ctx.owner.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(3),
+                InstructionAccount::writable(ctx.perp_market.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(4),
+                InstructionAccount::writable(ctx.bids.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(5),
+                InstructionAccount::writable(ctx.asks.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(6),
+                InstructionAccount::writable(ctx.event_queue.address()),
+            );
+            core::ptr::write(
+                accounts_ptr.add(7),
+                InstructionAccount::readonly(ctx.oracle.address()),
+            );
             for (i, acc) in ctx.health_remaining_accounts.iter().enumerate() {
                 core::ptr::write(
                     accounts_ptr.add(FIXED_CPI_ACCOUNTS + i),
@@ -180,8 +190,9 @@ impl<'info> Perps<'info> for Mango {
             }
         }
         let accounts_len = FIXED_CPI_ACCOUNTS + ctx.health_remaining_accounts.len();
-        let accounts_slice =
-            unsafe { core::slice::from_raw_parts(accounts_ptr as *const InstructionAccount, accounts_len) };
+        let accounts_slice = unsafe {
+            core::slice::from_raw_parts(accounts_ptr as *const InstructionAccount, accounts_len)
+        };
 
         // ── account_infos (parallel array of AccountView refs) ───────────
         // Unused trailing slots are filled with duplicates of `ctx.group`
@@ -222,10 +233,7 @@ impl<'info> Perps<'info> for Mango {
         invoke_signed(&ix, &infos_buf, signer_seeds)
     }
 
-    fn place_order(
-        ctx: &Self::Accounts,
-        data: &Self::Data,
-    ) -> ProgramResult {
+    fn place_order(ctx: &Self::Accounts, data: &Self::Data) -> ProgramResult {
         Self::place_order_signed(ctx, data, &[])
     }
 }

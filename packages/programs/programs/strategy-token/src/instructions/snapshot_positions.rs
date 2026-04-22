@@ -24,22 +24,17 @@ use pinocchio::{
 };
 
 use crate::{
-    cpi,
-    error,
+    cpi, error,
     state::{
         position_snapshots::{
-            PositionSnapshots, POSITION_SNAPSHOTS_LEN, MIN_SNAPSHOT_INTERVAL_SLOTS,
+            PositionSnapshots, MIN_SNAPSHOT_INTERVAL_SLOTS, POSITION_SNAPSHOTS_LEN,
         },
         strategy::Strategy,
     },
     util,
 };
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Unpack accounts
     // ----------------------------------------------------------------
@@ -48,9 +43,9 @@ pub fn process(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let keeper       = &accounts[0];
+    let keeper = &accounts[0];
     let strategy_acc = &accounts[1];
-    let snapshots    = &accounts[2];
+    let snapshots = &accounts[2];
     // accounts[3] = system_program (unused here, required by create_account CPI)
 
     util::assert_signer(keeper)?;

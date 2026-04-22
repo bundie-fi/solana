@@ -1,8 +1,8 @@
+use crate::error::MarketError;
+use crate::math::lmsr;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
-use crate::state::*;
-use crate::math::lmsr;
-use crate::error::MarketError;
 
 #[derive(Accounts)]
 pub struct SellMarketShares<'info> {
@@ -155,15 +155,24 @@ pub fn handler(ctx: Context<SellMarketShares>, outcome: Outcome, shares: u64) ->
     let market = &mut ctx.accounts.market;
     match outcome {
         Outcome::Yes => {
-            market.yes_shares = market.yes_shares.checked_sub(shares).ok_or(MarketError::MathOverflow)?;
+            market.yes_shares = market
+                .yes_shares
+                .checked_sub(shares)
+                .ok_or(MarketError::MathOverflow)?;
             market.total_yes_cost = market.total_yes_cost.saturating_sub(gross_payout);
         }
         Outcome::No => {
-            market.no_shares = market.no_shares.checked_sub(shares).ok_or(MarketError::MathOverflow)?;
+            market.no_shares = market
+                .no_shares
+                .checked_sub(shares)
+                .ok_or(MarketError::MathOverflow)?;
             market.total_no_cost = market.total_no_cost.saturating_sub(gross_payout);
         }
     }
-    market.total_volume = market.total_volume.checked_add(gross_payout).ok_or(MarketError::MathOverflow)?;
+    market.total_volume = market
+        .total_volume
+        .checked_add(gross_payout)
+        .ok_or(MarketError::MathOverflow)?;
 
     msg!(
         "sell_shares: outcome={}, shares={}, gross={}, fee={}, net={}",

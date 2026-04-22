@@ -1,5 +1,5 @@
-use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 use crate::error;
+use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 #[inline(always)]
 pub fn assert_signer(account: &AccountView) -> Result<(), ProgramError> {

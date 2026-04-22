@@ -6,11 +6,10 @@ use pinocchio::{
     ProgramResult,
 };
 
-
 /// Associated Token Account Program ID: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
 pub const ASSOCIATED_TOKEN_PROGRAM_ID: Address = Address::new_from_array([
-    140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131,
-    11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89,
+    140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19, 153, 218,
+    255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89,
 ]);
 
 /// Create Associated Token Account (idempotent variant, ix byte = 1).

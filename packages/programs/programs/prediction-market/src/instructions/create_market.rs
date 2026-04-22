@@ -1,7 +1,7 @@
+use crate::error::MarketError;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use crate::state::*;
-use crate::error::MarketError;
 
 #[derive(Accounts)]
 #[instruction(question: String, market_id: u64)]

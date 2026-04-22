@@ -7,11 +7,12 @@ use pinocchio::{
 };
 
 use crate::{
-    cpi,
-    error,
+    cpi, error,
     state::{
-        nav_oracle::{NavOracle, NAV_ORACLE_LEN, DEFAULT_MIN_SNAPSHOT_INTERVAL, DEFAULT_TWAP_WINDOW},
-        strategy::{Strategy, STRATEGY_LEN, STATUS_ACTIVE},
+        nav_oracle::{
+            NavOracle, DEFAULT_MIN_SNAPSHOT_INTERVAL, DEFAULT_TWAP_WINDOW, NAV_ORACLE_LEN,
+        },
+        strategy::{Strategy, STATUS_ACTIVE, STRATEGY_LEN},
     },
     util,
 };
@@ -22,11 +23,7 @@ const MINT_SIZE: usize = 82;
 /// Mint decimals for strategy share tokens.
 const SHARE_DECIMALS: u8 = 9;
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Parse & validate instruction data
     // ----------------------------------------------------------------
@@ -54,14 +51,14 @@ pub fn process(
     // 2. Unpack accounts
     // ----------------------------------------------------------------
 
-    let creator      = &accounts[0];
+    let creator = &accounts[0];
     let strategy_acc = &accounts[1];
-    let mint_acc     = &accounts[2];
-    let wallet_acc   = &accounts[3];
-    let nav_oracle   = &accounts[4];
+    let mint_acc = &accounts[2];
+    let wallet_acc = &accounts[3];
+    let nav_oracle = &accounts[4];
     let deposit_mint = &accounts[5];
-    let protocol     = &accounts[6];
-    let reserve      = &accounts[7];
+    let protocol = &accounts[6];
+    let reserve = &accounts[7];
     // accounts[8]  = token_program
     // accounts[9]  = system_program
     // accounts[10] = rent_sysvar
@@ -86,20 +83,16 @@ pub fn process(
     // 4. Derive Wallet PDA (not created, just store bump)
     // ----------------------------------------------------------------
 
-    let (wallet_address, wallet_bump) = Address::find_program_address(
-        &[b"wallet", strategy_address.as_ref()],
-        program_id,
-    );
+    let (wallet_address, wallet_bump) =
+        Address::find_program_address(&[b"wallet", strategy_address.as_ref()], program_id);
     util::assert_keys_equal(wallet_acc.address(), &wallet_address)?;
 
     // ----------------------------------------------------------------
     // 5. Derive NavOracle PDA
     // ----------------------------------------------------------------
 
-    let (nav_address, nav_bump) = Address::find_program_address(
-        &[b"nav", strategy_address.as_ref()],
-        program_id,
-    );
+    let (nav_address, nav_bump) =
+        Address::find_program_address(&[b"nav", strategy_address.as_ref()], program_id);
     util::assert_keys_equal(nav_oracle.address(), &nav_address)?;
 
     // ----------------------------------------------------------------
@@ -122,7 +115,12 @@ pub fn process(
         strategy_lamports,
         STRATEGY_LEN as u64,
         program_id,
-        &[b"strategy", creator.address().as_ref(), &name, &strategy_bump_slice],
+        &[
+            b"strategy",
+            creator.address().as_ref(),
+            &name,
+            &strategy_bump_slice,
+        ],
     )?;
 
     // ----------------------------------------------------------------
@@ -145,9 +143,9 @@ pub fn process(
     cpi::spl_token::init_mint2(
         mint_acc,
         SHARE_DECIMALS,
-        &strategy_address,   // mint authority
-        None,                // no freeze authority
-        &[],                 // no PDA signing needed for InitMint2
+        &strategy_address, // mint authority
+        None,              // no freeze authority
+        &[],               // no PDA signing needed for InitMint2
     )?;
 
     // ----------------------------------------------------------------
@@ -179,8 +177,14 @@ pub fn process(
         Strategy::set_discriminator(strat_data);
         Strategy::set_authority(strat_data, creator.address().as_ref().try_into().unwrap());
         Strategy::set_mint(strat_data, mint_acc.address().as_ref().try_into().unwrap());
-        Strategy::set_wallet(strat_data, wallet_acc.address().as_ref().try_into().unwrap());
-        Strategy::set_deposit_mint(strat_data, deposit_mint.address().as_ref().try_into().unwrap());
+        Strategy::set_wallet(
+            strat_data,
+            wallet_acc.address().as_ref().try_into().unwrap(),
+        );
+        Strategy::set_deposit_mint(
+            strat_data,
+            deposit_mint.address().as_ref().try_into().unwrap(),
+        );
         Strategy::set_protocol(strat_data, protocol.address().as_ref().try_into().unwrap());
         Strategy::set_reserve(strat_data, reserve.address().as_ref().try_into().unwrap());
         Strategy::set_name(strat_data, &name);
@@ -208,7 +212,10 @@ pub fn process(
     {
         let oracle_data = unsafe { nav_oracle.borrow_unchecked_mut() };
         NavOracle::set_discriminator(oracle_data);
-        NavOracle::set_strategy(oracle_data, strategy_acc.address().as_ref().try_into().unwrap());
+        NavOracle::set_strategy(
+            oracle_data,
+            strategy_acc.address().as_ref().try_into().unwrap(),
+        );
         NavOracle::set_nav_per_share(oracle_data, 0);
         NavOracle::set_twap_value(oracle_data, 0);
         NavOracle::set_snapshot_count(oracle_data, 0);

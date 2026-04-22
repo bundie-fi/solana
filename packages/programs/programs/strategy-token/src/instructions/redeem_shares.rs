@@ -1,24 +1,14 @@
-use pinocchio::{
-    account::AccountView,
-    address::Address,
-    error::ProgramError,
-    ProgramResult,
-};
+use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 
 use crate::{
-    cpi,
-    error,
+    cpi, error,
     state::strategy::{Strategy, STATUS_ACTIVE, STRATEGY_TYPE_YIELD},
     util,
 };
 
 const NAV_SCALE: u128 = 1_000_000_000;
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Parse instruction data: shares (u64 LE, 8 bytes)
     // ----------------------------------------------------------------
@@ -40,17 +30,17 @@ pub fn process(
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let redeemer          = &accounts[0];
-    let strategy_acc      = &accounts[1];
-    let mint_acc          = &accounts[2];
-    let redeemer_shares   = &accounts[3];
-    let wallet_acc        = &accounts[4];
-    let wallet_token_ata  = &accounts[5];
-    let redeemer_token    = &accounts[6];
-    let fee_receiver_ata  = &accounts[7];
-    let _token_program    = &accounts[8];
-    let _system_program   = &accounts[9];
-    let remaining         = &accounts[10..];
+    let redeemer = &accounts[0];
+    let strategy_acc = &accounts[1];
+    let mint_acc = &accounts[2];
+    let redeemer_shares = &accounts[3];
+    let wallet_acc = &accounts[4];
+    let wallet_token_ata = &accounts[5];
+    let redeemer_token = &accounts[6];
+    let fee_receiver_ata = &accounts[7];
+    let _token_program = &accounts[8];
+    let _system_program = &accounts[9];
+    let remaining = &accounts[10..];
 
     util::assert_signer(redeemer)?;
     util::assert_writable(redeemer)?;
@@ -91,17 +81,15 @@ pub fn process(
 
         // Verify mint matches
         let strategy_mint = Strategy::mint(&strat_data);
-        util::assert_keys_equal(
-            mint_acc.address(),
-            unsafe { &*(strategy_mint as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(mint_acc.address(), unsafe {
+            &*(strategy_mint as *const [u8; 32] as *const Address)
+        })?;
 
         // Verify wallet matches
         let strategy_wallet = Strategy::wallet(&strat_data);
-        util::assert_keys_equal(
-            wallet_acc.address(),
-            unsafe { &*(strategy_wallet as *const [u8; 32] as *const Address) },
-        )?;
+        util::assert_keys_equal(wallet_acc.address(), unsafe {
+            &*(strategy_wallet as *const [u8; 32] as *const Address)
+        })?;
 
         let mut auth = [0u8; 32];
         auth.copy_from_slice(Strategy::authority(&strat_data));
@@ -131,7 +119,9 @@ pub fn process(
         let fee_ata_owner: &[u8; 32] = fee_ata_data[32..64].try_into().unwrap();
         util::assert_keys_equal(
             unsafe { &*(fee_ata_owner as *const [u8; 32] as *const Address) },
-            unsafe { &*(authority_bytes.as_ref() as *const [u8] as *const [u8; 32] as *const Address) },
+            unsafe {
+                &*(authority_bytes.as_ref() as *const [u8] as *const [u8; 32] as *const Address)
+            },
         )?;
     }
 

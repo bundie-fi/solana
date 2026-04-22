@@ -1,11 +1,11 @@
+use crate::error::MarketError;
+use crate::math::lmsr;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
 };
-use crate::state::*;
-use crate::math::lmsr;
-use crate::error::MarketError;
 
 /// Strategy discriminator — must match strategy-token/src/state/strategy.rs
 const STRATEGY_DISCRIMINATOR: [u8; 8] = [0xd0, 0x82, 0x35, 0xce, 0x9a, 0x7f, 0x5b, 0x11];
@@ -92,15 +92,11 @@ pub struct BuyMarketShares<'info> {
 /// Strategy account. Address-equality check against the pinocchio Strategy
 /// account's stored authority field — a creator with a second wallet can still
 /// bypass this, which is a known limitation documented in the v5 spec.
-fn check_not_strategy_creator(
-    strategy: &UncheckedAccount,
-    buyer: &Pubkey,
-) -> Result<()> {
+fn check_not_strategy_creator(strategy: &UncheckedAccount, buyer: &Pubkey) -> Result<()> {
     let data = strategy.try_borrow_data()?;
 
     require!(
-        data.len() >= STRATEGY_AUTH_MIN_LEN
-            && data[0..8] == STRATEGY_DISCRIMINATOR,
+        data.len() >= STRATEGY_AUTH_MIN_LEN && data[0..8] == STRATEGY_DISCRIMINATOR,
         MarketError::InvalidStrategyAccount
     );
 
@@ -133,21 +129,31 @@ pub fn handler(ctx: Context<BuyMarketShares>, outcome: Outcome, amount: u64) -> 
             market.liquidity_param,
             outcome == Outcome::Yes,
             amount,
-        ).ok_or(MarketError::MathOverflow)?;
+        )
+        .ok_or(MarketError::MathOverflow)?;
 
         // 2. Apply protocol fee
         let fee = (cost as u128)
             .checked_mul(market.fee_bps as u128)
             .ok_or(MarketError::MathOverflow)?
             / 10_000;
-        let total_cost = cost.checked_add(fee as u64).ok_or(MarketError::MathOverflow)?;
+        let total_cost = cost
+            .checked_add(fee as u64)
+            .ok_or(MarketError::MathOverflow)?;
 
         require!(
             ctx.accounts.buyer_collateral.amount >= total_cost,
             MarketError::InsufficientShares
         );
 
-        (cost, fee, total_cost, market.strategy, market.market_id.to_le_bytes(), market.bump)
+        (
+            cost,
+            fee,
+            total_cost,
+            market.strategy,
+            market.market_id.to_le_bytes(),
+            market.bump,
+        )
     };
 
     // 3. Transfer collateral from buyer to vault
@@ -182,9 +188,18 @@ pub fn handler(ctx: Context<BuyMarketShares>, outcome: Outcome, amount: u64) -> 
             );
             token::mint_to(mint_ctx, amount)?;
             let market = &mut ctx.accounts.market;
-            market.yes_shares = market.yes_shares.checked_add(amount).ok_or(MarketError::MathOverflow)?;
-            market.total_yes_cost = market.total_yes_cost.checked_add(total_cost).ok_or(MarketError::MathOverflow)?;
-            market.total_volume = market.total_volume.checked_add(total_cost).ok_or(MarketError::MathOverflow)?;
+            market.yes_shares = market
+                .yes_shares
+                .checked_add(amount)
+                .ok_or(MarketError::MathOverflow)?;
+            market.total_yes_cost = market
+                .total_yes_cost
+                .checked_add(total_cost)
+                .ok_or(MarketError::MathOverflow)?;
+            market.total_volume = market
+                .total_volume
+                .checked_add(total_cost)
+                .ok_or(MarketError::MathOverflow)?;
         }
         Outcome::No => {
             let mint_ctx = CpiContext::new_with_signer(
@@ -198,9 +213,18 @@ pub fn handler(ctx: Context<BuyMarketShares>, outcome: Outcome, amount: u64) -> 
             );
             token::mint_to(mint_ctx, amount)?;
             let market = &mut ctx.accounts.market;
-            market.no_shares = market.no_shares.checked_add(amount).ok_or(MarketError::MathOverflow)?;
-            market.total_no_cost = market.total_no_cost.checked_add(total_cost).ok_or(MarketError::MathOverflow)?;
-            market.total_volume = market.total_volume.checked_add(total_cost).ok_or(MarketError::MathOverflow)?;
+            market.no_shares = market
+                .no_shares
+                .checked_add(amount)
+                .ok_or(MarketError::MathOverflow)?;
+            market.total_no_cost = market
+                .total_no_cost
+                .checked_add(total_cost)
+                .ok_or(MarketError::MathOverflow)?;
+            market.total_volume = market
+                .total_volume
+                .checked_add(total_cost)
+                .ok_or(MarketError::MathOverflow)?;
         }
     }
 

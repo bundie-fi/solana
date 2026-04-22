@@ -30,18 +30,14 @@ use pinocchio::{
 
 use crate::{error, state::strategy::Strategy, util};
 
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    let authority    = &accounts[0];
+    let authority = &accounts[0];
     let strategy_acc = &accounts[1];
-    let remaining    = &accounts[2..];
+    let remaining = &accounts[2..];
 
     util::assert_signer(authority)?;
     util::assert_writable(authority)?;
@@ -72,10 +68,22 @@ pub fn process(
     ];
 
     let mut buf: [MaybeUninit<Seed>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
     ];
     let len = wallet_seeds.len();
     for i in 0..len {
@@ -85,10 +93,7 @@ pub fn process(
     let signer = Signer::from(seeds);
 
     let init_ctx = beethoven::try_from_deposit_init_context(remaining)?;
-    <beethoven::DepositInitContext as beethoven::DepositInit>::init_signed(
-        &init_ctx,
-        &[signer],
-    )?;
+    <beethoven::DepositInitContext as beethoven::DepositInit>::init_signed(&init_ctx, &[signer])?;
 
     Ok(())
 }

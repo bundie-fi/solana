@@ -177,12 +177,7 @@ pub fn ln_fixed(x: u128) -> Option<i128> {
 ///
 /// # Returns
 /// The liquidity parameter b (unscaled, in token base units)
-pub fn calculate_b(
-    yes_shares: u64,
-    no_shares: u64,
-    alpha: u64,
-    initial_subsidy: u64,
-) -> u64 {
+pub fn calculate_b(yes_shares: u64, no_shares: u64, alpha: u64, initial_subsidy: u64) -> u64 {
     let total = yes_shares as u128 + no_shares as u128;
     let b = (alpha as u128 * total) / SCALE;
     // Minimum b from initial subsidy to ensure liquidity at start
@@ -254,12 +249,8 @@ pub fn calculate_cost(
 /// Returns C(q) in token base units (unscaled).
 fn lmsr_cost_fn(q_yes: i128, q_no: i128, b: i128) -> Option<i128> {
     // a = q_yes * SCALE / b  (fixed-point representation of q_yes/b)
-    let a = (q_yes as i128)
-        .checked_mul(ISCALE)?
-        .checked_div(b)?;
-    let b_val = (q_no as i128)
-        .checked_mul(ISCALE)?
-        .checked_div(b)?;
+    let a = (q_yes as i128).checked_mul(ISCALE)?.checked_div(b)?;
+    let b_val = (q_no as i128).checked_mul(ISCALE)?.checked_div(b)?;
 
     // log-sum-exp: max(a, b_val) + ln(1 + e^(-|a - b_val|))
     let m = std::cmp::max(a, b_val);
@@ -277,9 +268,7 @@ fn lmsr_cost_fn(q_yes: i128, q_no: i128, b: i128) -> Option<i128> {
     let log_sum_exp = m.checked_add(ln_inner)?;
 
     // C(q) = b * log_sum_exp / SCALE  (convert back from fixed-point to base units)
-    let cost = b
-        .checked_mul(log_sum_exp)?
-        .checked_div(ISCALE)?;
+    let cost = b.checked_mul(log_sum_exp)?.checked_div(ISCALE)?;
 
     Some(cost)
 }
@@ -323,9 +312,7 @@ pub fn calculate_price(
     };
 
     // delta_scaled = delta * SCALE / b (fixed-point exponent)
-    let delta_scaled = delta
-        .checked_mul(ISCALE)?
-        .checked_div(b)?;
+    let delta_scaled = delta.checked_mul(ISCALE)?.checked_div(b)?;
 
     // e^(delta_scaled) in fixed-point
     let exp_val = exp_fixed(delta_scaled)?;
@@ -352,7 +339,11 @@ mod tests {
 
     /// Helper: absolute difference
     fn abs_diff(a: u64, b: u64) -> u64 {
-        if a > b { a - b } else { b - a }
+        if a > b {
+            a - b
+        } else {
+            b - a
+        }
     }
 
     // ---- exp_fixed tests ----
@@ -370,8 +361,17 @@ mod tests {
         let result = exp_fixed(ISCALE).unwrap();
         let expected: u128 = 2_718_281_828;
         // Taylor 5th order is approximate; allow ~0.5% error
-        let diff = if result > expected { result - expected } else { expected - result };
-        assert!(diff < 15_000_000, "exp(1) = {}, expected ~{}", result, expected);
+        let diff = if result > expected {
+            result - expected
+        } else {
+            expected - result
+        };
+        assert!(
+            diff < 15_000_000,
+            "exp(1) = {}, expected ~{}",
+            result,
+            expected
+        );
     }
 
     #[test]
@@ -379,8 +379,17 @@ mod tests {
         // e^(-1) ≈ 0.36788 * 1e9
         let result = exp_fixed(-ISCALE).unwrap();
         let expected: u128 = 367_879_441;
-        let diff = if result > expected { result - expected } else { expected - result };
-        assert!(diff < 15_000_000, "exp(-1) = {}, expected ~{}", result, expected);
+        let diff = if result > expected {
+            result - expected
+        } else {
+            expected - result
+        };
+        assert!(
+            diff < 15_000_000,
+            "exp(-1) = {}, expected ~{}",
+            result,
+            expected
+        );
     }
 
     #[test]
@@ -413,7 +422,12 @@ mod tests {
         let e_fp: u128 = 2_718_281_828;
         let result = ln_fixed(e_fp).unwrap();
         let diff = (result - ISCALE).abs();
-        assert!(diff < 50_000_000, "ln(e) = {}, expected ~{}", result, ISCALE);
+        assert!(
+            diff < 50_000_000,
+            "ln(e) = {}, expected ~{}",
+            result,
+            ISCALE
+        );
     }
 
     #[test]
@@ -474,11 +488,18 @@ mod tests {
         let p_yes = calculate_price(700, 300, b, true).unwrap();
         let p_no = calculate_price(700, 300, b, false).unwrap();
         let sum = p_yes as u128 + p_no as u128;
-        let diff = if sum > SCALE { sum - SCALE } else { SCALE - sum };
+        let diff = if sum > SCALE {
+            sum - SCALE
+        } else {
+            SCALE - sum
+        };
         assert!(
             diff < TOLERANCE as u128,
             "p_yes({}) + p_no({}) = {}, expected ~{}",
-            p_yes, p_no, sum, SCALE
+            p_yes,
+            p_no,
+            sum,
+            SCALE
         );
     }
 
@@ -491,7 +512,8 @@ mod tests {
         assert!(
             p_yes_heavy > p_balanced,
             "p_yes with more YES shares ({}) should be > balanced ({})",
-            p_yes_heavy, p_balanced
+            p_yes_heavy,
+            p_balanced
         );
     }
 
@@ -532,7 +554,8 @@ mod tests {
         assert!(
             price_after > price_before,
             "YES price after buying YES ({}) should exceed before ({})",
-            price_after, price_before
+            price_after,
+            price_before
         );
     }
 
@@ -545,7 +568,8 @@ mod tests {
         assert!(
             abs_diff(cost_yes, cost_no) < 2,
             "Symmetric costs should match: yes={}, no={}",
-            cost_yes, cost_no
+            cost_yes,
+            cost_no
         );
     }
 
@@ -575,7 +599,8 @@ mod tests {
         assert!(
             cost_large > cost_small,
             "Larger purchase ({}) should cost more than smaller ({})",
-            cost_large, cost_small
+            cost_large,
+            cost_small
         );
     }
 }

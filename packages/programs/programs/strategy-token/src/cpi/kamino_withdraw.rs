@@ -10,10 +10,8 @@ use pinocchio::{
 
 /// Kamino Lending Program ID — "KLend2g3cP87ber8p32LuJLuLPzCvXN4KcKr2S8MQek"
 pub const KAMINO_LEND_PROGRAM_ID: Address = Address::new_from_array([
-    4, 178, 172, 177, 18, 88, 204, 227,
-    104, 40, 231, 185, 142, 34, 138, 255,
-    142, 0, 105, 130, 80, 238, 67, 233,
-    41, 97, 82, 244, 251, 32, 82, 185,
+    4, 178, 172, 177, 18, 88, 204, 227, 104, 40, 231, 185, 142, 34, 138, 255, 142, 0, 105, 130, 80,
+    238, 67, 233, 41, 97, 82, 244, 251, 32, 82, 185,
 ]);
 
 /// Discriminator for withdraw_obligation_collateral_and_redeem_reserve_collateral
@@ -23,10 +21,22 @@ const WITHDRAW_DISCRIMINATOR: [u8; 8] = [149, 158, 41, 178, 5, 199, 132, 135];
 #[inline(always)]
 fn build_signer<'a>(signer_seeds: &[&'a [u8]]) -> ([MaybeUninit<Seed<'a>>; 16], usize) {
     let mut buf: [MaybeUninit<Seed<'a>>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
+        MaybeUninit::uninit(),
     ];
     let len = signer_seeds.len().min(16);
     for i in 0..len {
@@ -66,20 +76,20 @@ pub fn withdraw_signed(
     // [12] liquidity_token_program
     // [13] instruction_sysvar_account
     let ix_accounts = [
-        InstructionAccount::writable_signer(accounts[0].address()),  // owner (wallet PDA)
-        InstructionAccount::writable(accounts[1].address()),         // obligation
-        InstructionAccount::readonly(accounts[2].address()),         // lending_market
-        InstructionAccount::readonly(accounts[3].address()),         // lending_market_authority
-        InstructionAccount::writable(accounts[4].address()),         // reserve
-        InstructionAccount::readonly(accounts[5].address()),         // reserve_liquidity_mint
-        InstructionAccount::writable(accounts[6].address()),         // reserve_liquidity_supply
-        InstructionAccount::writable(accounts[7].address()),         // reserve_collateral_mint
-        InstructionAccount::writable(accounts[8].address()),         // reserve_destination_deposit_collateral
-        InstructionAccount::writable(accounts[9].address()),         // user_source_liquidity
-        InstructionAccount::writable(accounts[10].address()),        // placeholder_user_destination_collateral
-        InstructionAccount::readonly(accounts[11].address()),        // collateral_token_program
-        InstructionAccount::readonly(accounts[12].address()),        // liquidity_token_program
-        InstructionAccount::readonly(accounts[13].address()),        // instruction_sysvar_account
+        InstructionAccount::writable_signer(accounts[0].address()), // owner (wallet PDA)
+        InstructionAccount::writable(accounts[1].address()),        // obligation
+        InstructionAccount::readonly(accounts[2].address()),        // lending_market
+        InstructionAccount::readonly(accounts[3].address()),        // lending_market_authority
+        InstructionAccount::writable(accounts[4].address()),        // reserve
+        InstructionAccount::readonly(accounts[5].address()),        // reserve_liquidity_mint
+        InstructionAccount::writable(accounts[6].address()),        // reserve_liquidity_supply
+        InstructionAccount::writable(accounts[7].address()),        // reserve_collateral_mint
+        InstructionAccount::writable(accounts[8].address()), // reserve_destination_deposit_collateral
+        InstructionAccount::writable(accounts[9].address()), // user_source_liquidity
+        InstructionAccount::writable(accounts[10].address()), // placeholder_user_destination_collateral
+        InstructionAccount::readonly(accounts[11].address()), // collateral_token_program
+        InstructionAccount::readonly(accounts[12].address()), // liquidity_token_program
+        InstructionAccount::readonly(accounts[13].address()), // instruction_sysvar_account
     ];
 
     let instruction = InstructionView {
@@ -95,10 +105,20 @@ pub fn withdraw_signed(
     invoke_signed::<14>(
         &instruction,
         &[
-            &accounts[0], &accounts[1], &accounts[2], &accounts[3],
-            &accounts[4], &accounts[5], &accounts[6], &accounts[7],
-            &accounts[8], &accounts[9], &accounts[10], &accounts[11],
-            &accounts[12], &accounts[13],
+            &accounts[0],
+            &accounts[1],
+            &accounts[2],
+            &accounts[3],
+            &accounts[4],
+            &accounts[5],
+            &accounts[6],
+            &accounts[7],
+            &accounts[8],
+            &accounts[9],
+            &accounts[10],
+            &accounts[11],
+            &accounts[12],
+            &accounts[13],
         ],
         &[signer],
     )
