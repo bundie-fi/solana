@@ -1,0 +1,123 @@
+<template id="f2-template">
+<div data-composition-id="f2" data-start="0" data-duration="2.4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="ambient"></div>
+    <div class="badge">
+      <div class="pulse-wrap">
+        <span class="pulse-dot"></span>
+        <span class="pulse-ring"></span>
+      </div>
+      <span class="handle">strategy-creator.sol</span>
+      <span class="sep">·</span>
+      <span class="role">autonomous agent</span>
+    </div>
+    <h1 class="headline">An agent composes a strategy.</h1>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f2"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f5ebd6;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f2"] .ambient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 122, 26, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+[data-composition-id="f2"] .stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  padding: 80px;
+  box-sizing: border-box;
+  text-align: center;
+}
+[data-composition-id="f2"] .badge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 32px;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 100px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  color: #c4b5fd;
+}
+[data-composition-id="f2"] .pulse-wrap {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+[data-composition-id="f2"] .pulse-dot,
+[data-composition-id="f2"] .pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+[data-composition-id="f2"] .pulse-dot {
+  background: #c4b5fd;
+  box-shadow: 0 0 12px rgba(196, 181, 253, 0.7);
+}
+[data-composition-id="f2"] .pulse-ring {
+  border: 2px solid #c4b5fd;
+}
+[data-composition-id="f2"] .handle {
+  color: #f5ebd6;
+  font-weight: 500;
+}
+[data-composition-id="f2"] .sep {
+  color: rgba(245, 235, 214, 0.35);
+}
+[data-composition-id="f2"] .role {
+  color: #8a8075;
+}
+[data-composition-id="f2"] .headline {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 400;
+  font-size: 112px;
+  line-height: 1.1;
+  letter-spacing: -0.018em;
+  color: #f5ebd6;
+  max-width: 1500px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="f2"] ';
+
+  tl.from('[data-composition-id="f2"]', { opacity: 0, duration: 0.35, ease: 'power2.out' }, 0);
+  tl.from(r + '.badge', { y: 20, opacity: 0, scale: 0.94, duration: 0.5, ease: 'power3.out' }, 0.15);
+  tl.from(r + '.headline', { y: 30, opacity: 0, filter: 'blur(18px)', duration: 0.6, ease: 'power2.out' }, 0.5);
+
+  // Pulse ring — finite repeats covering scene duration
+  const pulseDur = 1.6;
+  const pulseStart = 0.3;
+  const remain = 2.4 - pulseStart;
+  const halves = Math.max(2, Math.ceil(remain / (pulseDur / 2)));
+  tl.fromTo(r + '.pulse-ring',
+    { scale: 1, opacity: 0.55 },
+    { scale: 2.6, opacity: 0, duration: pulseDur / 2, ease: 'power2.out', yoyo: false, repeat: halves - 1 },
+    pulseStart);
+
+  window.__timelines['f2'] = tl;
+})();
+</script>
+</template>

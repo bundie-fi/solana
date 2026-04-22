@@ -1,0 +1,110 @@
+<template id="f10-template">
+<div data-composition-id="f10" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+  <div class="stage">
+    <div class="ambient"></div>
+    <img class="bunny" src="assets/bundie-mark.png" alt="Bundie" crossorigin="anonymous"/>
+    <div class="wordmark"><em>Bundie</em></div>
+    <div class="cta">join the waitlist</div>
+    <div class="url">solana.bundie.fi</div>
+  </div>
+</div>
+
+<style>
+[data-composition-id="f10"] {
+  width: 1920px;
+  height: 1080px;
+  background: #0a0908;
+  color: #f5ebd6;
+  font-family: 'Figtree', -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+[data-composition-id="f10"] .ambient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255, 122, 26, 0.1) 0%, transparent 55%);
+  pointer-events: none;
+}
+[data-composition-id="f10"] .stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 80px;
+  box-sizing: border-box;
+  text-align: center;
+}
+[data-composition-id="f10"] .bunny {
+  width: 220px;
+  height: auto;
+  filter: drop-shadow(0 0 40px rgba(255, 122, 26, 0.22));
+  margin-bottom: 12px;
+}
+[data-composition-id="f10"] .wordmark {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 140px;
+  line-height: 1;
+  color: #f5ebd6;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+[data-composition-id="f10"] .wordmark em {
+  font-style: italic;
+}
+[data-composition-id="f10"] .cta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  color: #8a8075;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+[data-composition-id="f10"] .url {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 40px;
+  color: #ffa860;
+  background: rgba(255, 122, 26, 0.08);
+  border: 1px solid rgba(255, 122, 26, 0.35);
+  padding: 20px 44px;
+  border-radius: 100px;
+  box-shadow: 0 0 40px rgba(255, 122, 26, 0.22);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  const r = '[data-composition-id="f10"] ';
+
+  tl.from('[data-composition-id="f10"]', { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
+
+  // Logo sequence
+  tl.from(r + '.bunny', { scale: 0.7, opacity: 0, duration: 0.6, ease: 'back.out(1.5)' }, 0.15);
+  tl.from(r + '.wordmark', { opacity: 0, filter: 'blur(18px)', y: 14, duration: 0.55, ease: 'power2.out' }, 0.5);
+  tl.from(r + '.cta', { opacity: 0, y: 10, duration: 0.4, ease: 'power2.out' }, 0.85);
+  tl.from(r + '.url', { opacity: 0, y: 16, scale: 0.95, duration: 0.55, ease: 'back.out(1.4)' }, 1.05);
+
+  // Subtle URL glow pulse
+  tl.to(r + '.url',
+    { boxShadow: '0 0 60px rgba(255, 122, 26, 0.35)', duration: 1.2, ease: 'sine.inOut', yoyo: true, repeat: 1 },
+    1.7);
+
+  // Subtle bunny breath
+  tl.to(r + '.bunny', { scale: 1.03, duration: 1.5, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 1.3);
+
+  // Final fade to black — allowed on the final scene (held long so viewer can read URL)
+  tl.to('[data-composition-id="f10"]', { opacity: 0, duration: 0.9, ease: 'power2.in' }, 3.1);
+
+  window.__timelines['f10'] = tl;
+})();
+</script>
+</template>

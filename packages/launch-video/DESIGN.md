@@ -1,88 +1,102 @@
-# Bundie · Launch video · Design (v4 · dark editorial)
+# Bundie · Launch video · Design (v5 · 30s tightened)
 
 ## Style Prompt
 
-Dark editorial product demo. Near-black canvas, cream ink, amber-glow italics for emphasis, purple + Solana violet as chain/market accents, live-green for positive states. Every beat follows one pattern: **clean sans for the setup, bold italic serif for the punchline word.** No other colors. No gradients in type. 3D objects (the `$CMPD` coin, the prediction-market card) are the only places where object color appears.
+Dark editorial product demo tightened for Twitter autoplay. 30 seconds total, 10 frames, no dead beats, no fake metrics. Opens with a 1.5-second hook that gets the scroll-or-stay decision done, moves the "Launch. Back. Predict." triad to the middle so the second half demonstrates each verb rather than recaps them, and ends on a bunny + waitlist CTA.
 
-Visual rhythm is demo-mode, not story-mode: a capability stream that ends with the verbal payoff `"Launch. Back. Predict."`
+Visual DNA: single-color world (deep near-black canvas, warm cream type, vibrant amber-glow italics), bold italic serif for every punchline word, glowing amber pill UI for the CLI moment, product-UI cards with real-looking inputs and data.
 
 ## Canvas
 
-- 1920×1080, **24 fps** (matches the reference pacing)
-- Background: `#0a0908` (near-black, NOT cream)
-- Runtime: **37 seconds, 11 sub-compositions**
+- 1920×1080, **24 fps**
+- Background: `#0a0908` with a faint radial amber ambient glow
+- Runtime: **30 seconds, 10 sub-compositions**
 
-## Colors
+## Colors (v5 palette)
 
-Source of truth: `packages/landing-page/brand.md`. Kept identical here.
+Shifted from v4 for a warmer, more vibrant feel. v4 used the Solana landing brand hex; v5 bumps amber from `#c2570c` → `#ff7a1a` for stronger on-dark contrast and switches cream from `#f6f3ee` → `#f5ebd6` (slightly warmer).
 
-| Token         | Hex                 | Usage                                                     |
-| ------------- | ------------------- | --------------------------------------------------------- |
-| `--bg`        | `#0a0908`           | Base canvas                                               |
-| `--bg-raised` | `#121110`           | Cards, panels, laptop screen                              |
-| `--ink`       | `#f6f3ee`           | Primary type                                              |
-| `--ink-2`     | `rgba(246,243,238,0.72)` | Body / secondary                                      |
-| `--ink-3`     | `rgba(246,243,238,0.52)` | Eyebrows, meta, timestamps                            |
-| `--amber`     | `#c2570c`           | Back primitive, earn mode                                 |
-| `--amber-glow`| `#e28646`           | Italic display accents, hero highlight                    |
-| `--purple`    | `#6d28d9`           | Predict primitive, market-maker agent                     |
-| `--violet`    | `#9945FF`           | Solana chain accent (sparingly)                           |
-| `--live`      | `#7de0a4`           | Positive values, live indicators, CLI ok states           |
+| Token            | Hex                       | Usage                                        |
+| ---------------- | ------------------------- | -------------------------------------------- |
+| `--bg-deep`      | `#0a0908`                 | Base canvas                                  |
+| `--bg-card`      | `#14110d`                 | Product UI cards, terminal                   |
+| `--bg-panel`     | `#1c1814`                 | Raised panels                                |
+| `--line`         | `rgba(232,223,201,0.10)`  | Dividers                                     |
+| `--line-strong`  | `rgba(232,223,201,0.20)`  | Card borders                                 |
+| `--text`         | `#f5ebd6`                 | Primary type                                 |
+| `--text-soft`    | `#c9bfa6`                 | Body, secondary                              |
+| `--text-muted`   | `#8a8075`                 | Mono captions, micro-copy                    |
+| `--amber`        | `#ff7a1a`                 | Back primitive button, accent                |
+| `--amber-bright` | `#ffa860`                 | Italic display accents, hero highlight       |
+| `--amber-glow`   | `rgba(255,122,26,0.4)`    | Button shadow, CLI glow                      |
+| `--purple`       | `#a78bfa`                 | Agent handle, predict primitive              |
+| `--purple-bright`| `#c4b5fd`                 | Triad "Predict" verb                         |
+| `--green`        | `#4ade80`                 | Live/settled states, positive values         |
+| `--red`          | `#f87171`                 | Predict NO option, negative values           |
 
 ## Typography
 
-- **Instrument Serif** — display headlines, italic emphasis. Italic rendered in `--amber-glow`.
-- **Figtree** — UI + body.
-- **JetBrains Mono** — CLI, timestamps, ticker tags, handles, stats.
+- **Instrument Serif** — display headlines, italic emphasis (amber-bright), card titles.
+- **JetBrains Mono** — CLI, timestamps, tickers, badges, handles.
+- **Figtree** — body, button labels.
 
-Hero size range at 1920×1080: 160–220px for hero single words ("Most", "Any", "Strategies"), 96–120px for two-line headlines, 28–32px for mono labels.
+Hero sizes at 1920×1080: 180–260px for single-word reveals, 96–120px for two-line headlines, 22–28px for mono labels.
 
-## The three motion primitives
+## Structure
 
-Stolen from Lana but adapted to our palette. Every effect in the video uses one of these.
+| # | Time | Scene | Beat |
+| -- | ----- | ----- | ------- |
+| F1 | 0–3s | opening hook | "Yield is *step one*." + brand/chain label |
+| F2 | 3–5s | agent context | "strategy-creator.sol · autonomous agent" badge + "An agent composes a strategy." |
+| F3 | 5–8s | terminal command | Glowing amber CLI types `bundie compose stable-compounder` |
+| F4 | 8–11s | composed reveal | "Composed." + strategy card with USDC/Kamino/NAV metadata |
+| F5 | 11–14s | hero coin | 3D $CMPD coin + "Now it's a *tradeable asset*." |
+| F6 | 14–17s | triad reveal | "Launch. Back. Predict." + "three ways to earn · one market" |
+| F7 | 17–20s | back flow | Back card with USDC input + $CMPD output + amber Back button |
+| F8 | 20–23s | predict market | YES/NO market + "settles from on-chain NAV · no oracle" |
+| F9 | 23–26s | settle proof | Day 30 settled chart + "+8.7% APY" + YES payouts auto-sent |
+| F10 | 26–30s | end card | Bunny + "Bundie" wordmark + "join the waitlist" + URL chip |
 
-1. **Blur-to-focus text** — `filter: blur(24px)` → `blur(0)` over 0.5–0.7s with opacity 0→1. Ease: `power2.out`. Used for every headline entrance.
-2. **Glowing pill UI with light-streak entry** — a rounded-pill bg `#121110` with a 1px cream border and a faint amber-glow shadow `0 0 24px rgba(226,134,70,0.25)`. Enters from off-screen left or right with a thin amber streak drawn in via CSS gradient + transform.
-3. **Wireframe selection brackets around 3D objects** — four L-shaped corner marks in cream at 1.5px stroke, enclosing a 3D SVG object (coin, market card). The "Any · X" template uses this.
+## Motion Primitives
 
-## The "Any · X" template
+1. **Blur-to-focus text** — `filter: blur(24px)` → `blur(0)` over 0.5–0.7s. Used for every headline entrance.
+2. **Glowing amber pill UI** — CLI input with `box-shadow: 0 0 24px rgba(255,122,26,0.4)`. Enters with a brief scale-in.
+3. **Product-UI cards** — rounded `#14110d` cards with 1px cream-alpha borders, materialize via y+opacity.
+4. **Animated chart draw** — stroke-dashoffset from full length to 0 over 1.2s.
+5. **Tap ring** — radial expansion from 0 scale to 7-8x with opacity fade, over 0.55s, for button confirmation.
 
-Two lines of the same grammatical shape, each with a morph between them:
+## Rhythm Reveal (F6)
 
 ```
-Any · strategy     (3D $CMPD coin inside wireframe brackets)
-Any · market       (3D prediction card inside wireframe brackets)
-```
-
-The morph between the two objects is a crossfade + scale, not a geometric tween. The brackets stay; the content inside swaps.
-
-## The rhythm reveal
-
-Three verbs, each on its own beat, each separated by a period. Maps to the three Bundie primitives — agents **launch** strategies, humans **back** them, humans **predict** on them.
-
-```
-Launch.
-Launch. Back.
 Launch. Back. Predict.
 ```
 
-Each beat adds the next word. Total reveal takes ~2 seconds; the last word lands on the audio drop.
+- **Launch** (amber-bright) — what agents do
+- **Back** (amber-bright) — what humans do to strategies they trust
+- **Predict** (purple-bright) — what humans do on strategies they don't
+
+Subtitle below: `three ways to earn · one market`
+
+## Audio
+
+Drop lands on F3 terminal command (video 0:08), not the triad reveal. The command execution IS the payoff beat — agent autonomously minted a real asset. The triad and subsequent primitive demos play over sustained peak energy.
+
+Suno track drop is at track second 48. Offset `-ss 40` so track 48s lands on video 8s.
 
 ## Voice (copy)
 
-From `brand.md`:
-
-- Short, declarative, active voice.
-- No em dashes; use periods, commas, or colons.
-- Never use "Internet Capital Markets" in this video — replaced with **"Every strategy is a market."**
-- Don't name internal tooling (Beethoven, etc.).
+- One italic word per amber moment: *step one*, *tradeable asset*, *Stable Compounder*, *$CMPD*.
+- Periods only on full sentences.
+- Never "Internet Capital Markets" or the old cryptic "Any · X" layout.
+- No fake metrics — pre-launch product showing live numbers ("24 markets · 3,847 predictions") reads as misleading. Scale is implied by UI polish.
 
 ## What NOT to Do
 
-- No cream canvas (that's the primary Bundie brand, not the Solana surface).
-- No gradient text, no multi-stop hero fills.
-- No emerald-mint (Lana's palette). Stay in Bundie's dark amber+purple+violet world.
-- No jump cuts between scenes. Every transition uses blur-to-focus or opacity crossfade on overlapping tracks.
+- No cream canvas — this is the dark Solana surface.
+- No fake live counts. No "3,847 predictions" etc. The waitlist viewer would check and see zero.
+- No separate "Settled from on-chain data" text frame — fold that label into F8 and F9 card footers where it's contextual.
+- No two sequential end frames (bunny then wordmark). Single end card only.
+- No gradient text or multi-stop hero fills.
+- No jump cuts between scenes — every transition uses blur-to-focus or opacity crossfade.
 - No fade-out exits on non-final scenes — transitions handle exits.
 - No `repeat: -1`. All loops finite per HyperFrames contract.
-- Absolutely never use "Internet Capital Markets" — the whole point of this iteration is that it's unclear.
