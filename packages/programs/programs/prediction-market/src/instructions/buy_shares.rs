@@ -7,6 +7,15 @@ use crate::state::*;
 use crate::math::lmsr;
 use crate::error::MarketError;
 
+/// Strategy discriminator — must match strategy-token/src/state/strategy.rs
+const STRATEGY_DISCRIMINATOR: [u8; 8] = [0xd0, 0x82, 0x35, 0xce, 0x9a, 0x7f, 0x5b, 0x11];
+
+/// Byte offset of `authority` (Pubkey, 32 bytes) within the Strategy account.
+const OFF_STRATEGY_AUTHORITY: usize = 8;
+
+/// Minimum bytes needed to read the authority field (disc + 32).
+const STRATEGY_AUTH_MIN_LEN: usize = 40;
+
 #[derive(Accounts)]
 pub struct BuyMarketShares<'info> {
     #[account(mut)]
@@ -17,6 +26,15 @@ pub struct BuyMarketShares<'info> {
         constraint = market.status == MarketStatus::Active @ MarketError::MarketNotActive,
     )]
     pub market: Box<Account<'info, Market>>,
+
+    /// The Strategy account this market predicts on. Pinocchio-owned, so
+    /// we validate manually: discriminator + address equality to market.strategy,
+    /// then check the authority field against the buyer.
+    /// CHECK: Manual validation in handler (see check_not_strategy_creator).
+    #[account(
+        constraint = strategy.key() == market.strategy @ MarketError::WrongStrategyForMarket,
+    )]
+    pub strategy: UncheckedAccount<'info>,
 
     #[account(
         mut,
@@ -70,8 +88,40 @@ pub struct BuyMarketShares<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Reject the tx if the buyer is the creator (`authority`) of the underlying
+/// Strategy account. Address-equality check against the pinocchio Strategy
+/// account's stored authority field — a creator with a second wallet can still
+/// bypass this, which is a known limitation documented in the v5 spec.
+fn check_not_strategy_creator(
+    strategy: &UncheckedAccount,
+    buyer: &Pubkey,
+) -> Result<()> {
+    let data = strategy.try_borrow_data()?;
+
+    require!(
+        data.len() >= STRATEGY_AUTH_MIN_LEN
+            && data[0..8] == STRATEGY_DISCRIMINATOR,
+        MarketError::InvalidStrategyAccount
+    );
+
+    let creator: [u8; 32] = data[OFF_STRATEGY_AUTHORITY..OFF_STRATEGY_AUTHORITY + 32]
+        .try_into()
+        .unwrap();
+
+    require!(
+        creator != buyer.to_bytes(),
+        MarketError::CreatorCannotPredictOnOwnStrategy
+    );
+
+    Ok(())
+}
+
 pub fn handler(ctx: Context<BuyMarketShares>, outcome: Outcome, amount: u64) -> Result<()> {
     require!(amount > 0, MarketError::InsufficientShares);
+
+    // 0. Creator self-exclusion: strategy's on-chain creator cannot take
+    //    prediction-market positions against their own strategy.
+    check_not_strategy_creator(&ctx.accounts.strategy, &ctx.accounts.buyer.key())?;
 
     // 1. Calculate LS-LMSR cost — extract values first to avoid borrow conflicts later
     let (cost, fee, total_cost, market_strategy, market_id_bytes, market_bump) = {

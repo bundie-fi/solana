@@ -24,4 +24,10 @@ pub enum MarketError {
     InsufficientSnapshots,
     #[msg("Wrong outcome token mint provided for redemption")]
     WrongOutcomeMint,
+    #[msg("Strategy creator cannot take positions on their own strategy's market")]
+    CreatorCannotPredictOnOwnStrategy,
+    #[msg("Strategy account has invalid discriminator or is too small")]
+    InvalidStrategyAccount,
+    #[msg("Strategy account does not match the market's strategy")]
+    WrongStrategyForMarket,
 }
