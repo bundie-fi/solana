@@ -2,8 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Root tokens — kept as CSS variables so non-Tailwind code paths can read
+   them, and so we can flip light/dark later without touching components.
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #0a0a0f;
+  --surface: #141420;
+  --surface-raised: #1a1a28;
+  --border: #1e1e2e;
+  --border-hover: #2a2a3d;
+  --text-primary: #e6e6f0;
+  --text-secondary: #b0b0c4;
+  --text-tertiary: #8888a3;
+  --gold: #d4a853;
+  --purple: #a78bfa;
+  --success: #34d399;
+  --danger: #f87171;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
 body {
-  background-color: #0a0a0f;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+/* Tabular numerics on any element tagged .nums — used for money, APY, prices */
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Reduce-motion: collapse to opacity-only 120ms */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+  }
 }
 
 /* Custom scrollbar */
@@ -11,22 +54,28 @@ body {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0a0a0f;
+  background: var(--bg);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #1e1e2e;
+  background: var(--border);
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #2e2e3e;
+  background: var(--border-hover);
 }
-
-/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1e1e2e #0a0a0f;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+/* Focus ring defaults — reserved for brand-coloured affordances */
+:focus-visible {
+  outline: none;
+}
+.focus-gold:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(212, 168, 83, 0.6);
+}
+.focus-purple:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(167, 139, 250, 0.6);
 }
