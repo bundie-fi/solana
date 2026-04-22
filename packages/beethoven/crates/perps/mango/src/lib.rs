@@ -25,8 +25,13 @@ pub const MANGO_V4_PROGRAM_ID: Address = Address::new_from_array([
 ]);
 
 /// Anchor discriminator for `perp_place_order`.
-/// sha256("global:perp_place_order")[..8]. Placeholder — verify before CPI.
-pub const PERP_PLACE_ORDER_DISCRIMINATOR: [u8; 8] = [0; 8];
+/// sha256("global:perp_place_order")[..8].
+pub const PERP_PLACE_ORDER_DISCRIMINATOR: [u8; 8] =
+    [189, 196, 225, 201, 114, 172, 25, 166];
+
+/// Anchor discriminator for `perp_place_order_v2` (newer variant).
+pub const PERP_PLACE_ORDER_V2_DISCRIMINATOR: [u8; 8] =
+    [232, 224, 154, 78, 158, 184, 6, 219];
 
 pub struct Mango;
 
@@ -113,10 +118,22 @@ impl<'info> Perps<'info> for Mango {
         _data: &Self::Data,
         _signer_seeds: &[Signer],
     ) -> ProgramResult {
-        // TODO: build PerpPlaceOrder instruction data (disc + borsh-encoded args),
-        // assemble InstructionView with the 8 account refs (program account is
-        // `mango_program`, other 8 are the instruction accounts),
-        // invoke_signed with `signer_seeds`.
+        // Scaffold — intentional no-op until validated.
+        //
+        // Unlike Kamino where klend-sdk @codegen gave us exact account roles
+        // and arg layouts, Mango v4's IDL isn't vendored here yet. Enabling
+        // this CPI without an end-to-end devnet run risks account-order or
+        // serialization drift.
+        //
+        // Gate: write `packages/programs/scripts/mango-test-place-order.mjs`
+        // (analogue of kamino-test-deposit.mjs) using @blockworks-foundation/mango-v4
+        // as a build-time resolver. Confirm a live devnet PerpPlaceOrder
+        // succeeds, capture the account list + borsh layout, then port here
+        // with the same pattern Kamino's deposit_signed + init_signed use
+        // (InstructionAccount refs + InstructionView + invoke_signed).
+        //
+        // Discriminators are correct (see PERP_PLACE_ORDER_DISCRIMINATOR).
+        // Account struct is a best-guess skeleton and may need reordering.
         Err(ProgramError::Custom(0xDEAD_BEE1))
     }
 

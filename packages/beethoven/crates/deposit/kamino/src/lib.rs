@@ -282,13 +282,14 @@ impl<'info> Deposit<'info> for Kamino {
 
 use beethoven_core::DepositInit;
 
-/// Anchor disc for `init_user_metadata`. sha256("global:init_user_metadata")[..8].
-/// Placeholder — verify from klend codegen before enabling.
-pub const INIT_USER_METADATA_DISCRIMINATOR: [u8; 8] = [0; 8];
+/// Anchor disc for `init_user_metadata`. From klend-sdk codegen
+/// (@kamino-finance/klend-sdk v7.3.22 initUserMetadata.js).
+pub const INIT_USER_METADATA_DISCRIMINATOR: [u8; 8] =
+    [117, 169, 176, 69, 197, 23, 15, 162];
 
-/// Anchor disc for `init_obligation`. sha256("global:init_obligation")[..8].
-/// Placeholder — verify before enabling.
-pub const INIT_OBLIGATION_DISCRIMINATOR: [u8; 8] = [0; 8];
+/// Anchor disc for `init_obligation`. From klend-sdk codegen.
+pub const INIT_OBLIGATION_DISCRIMINATOR: [u8; 8] =
+    [251, 10, 231, 76, 27, 11, 159, 96];
 
 pub struct KaminoInitAccounts<'info> {
     pub kamino_lending_program: &'info AccountView,
@@ -344,17 +345,94 @@ impl<'info> DepositInit<'info> for Kamino {
     type Accounts = KaminoInitAccounts<'info>;
 
     fn init_signed(
-        _ctx: &Self::Accounts,
-        _signer_seeds: &[Signer],
+        ctx: &Self::Accounts,
+        signer_seeds: &[Signer],
     ) -> ProgramResult {
-        // TODO: two sequential CPIs:
-        //   1) init_user_metadata(accounts=[owner, fee_payer, user_metadata,
-        //      referrer_user_metadata, rent, system_program], data=disc + user_lookup_table(32))
-        //   2) init_obligation(accounts=[obligation_owner=owner, fee_payer, obligation,
-        //      lending_market, seed1, seed2, owner_user_metadata=user_metadata, rent,
-        //      system_program], data=disc + InitObligationArgs(tag:u8=0, id:u8=0))
-        // Both invoked with the wrapping program's PDA signer seeds.
-        Err(ProgramError::Custom(0xDEAD_BEE2))
+        // ─── 1. init_user_metadata ──────────────────────────────────────
+        // Account roles (from klend-sdk initUserMetadata.js):
+        //   owner                   role=2  readonly signer
+        //   fee_payer               role=3  writable signer
+        //   user_metadata           role=1  writable
+        //   referrer_user_metadata  role=0  readonly  (or program placeholder)
+        //   rent                    role=0  readonly
+        //   system_program          role=0  readonly
+        let accounts_um = [
+            InstructionAccount::readonly_signer(ctx.owner.address()),
+            InstructionAccount::writable_signer(ctx.fee_payer.address()),
+            InstructionAccount::writable(ctx.user_metadata.address()),
+            InstructionAccount::readonly(ctx.referrer_user_metadata.address()),
+            InstructionAccount::readonly(ctx.rent.address()),
+            InstructionAccount::readonly(ctx.system_program.address()),
+        ];
+        let infos_um = [
+            ctx.owner,
+            ctx.fee_payer,
+            ctx.user_metadata,
+            ctx.referrer_user_metadata,
+            ctx.rent,
+            ctx.system_program,
+        ];
+
+        // Data: disc(8) + user_lookup_table: Pubkey (32).
+        // We pass default pubkey (0u8 * 32) — no address-lookup-table.
+        let mut data_um = [0u8; 40];
+        data_um[..8].copy_from_slice(&INIT_USER_METADATA_DISCRIMINATOR);
+
+        let ix_um = InstructionView {
+            program_id: &KAMINO_LEND_PROGRAM_ID,
+            accounts: &accounts_um,
+            data: &data_um,
+        };
+        invoke_signed(&ix_um, &infos_um, signer_seeds)?;
+
+        // ─── 2. init_obligation ─────────────────────────────────────────
+        // Account roles (from klend-sdk initObligation.js):
+        //   obligation_owner        role=2  readonly signer
+        //   fee_payer               role=3  writable signer
+        //   obligation              role=1  writable
+        //   lending_market          role=0  readonly
+        //   seed1_account           role=0  readonly
+        //   seed2_account           role=0  readonly
+        //   owner_user_metadata     role=0  readonly
+        //   rent                    role=0  readonly
+        //   system_program          role=0  readonly
+        let accounts_obl = [
+            InstructionAccount::readonly_signer(ctx.owner.address()),
+            InstructionAccount::writable_signer(ctx.fee_payer.address()),
+            InstructionAccount::writable(ctx.obligation.address()),
+            InstructionAccount::readonly(ctx.lending_market.address()),
+            InstructionAccount::readonly(ctx.seed1_account.address()),
+            InstructionAccount::readonly(ctx.seed2_account.address()),
+            InstructionAccount::readonly(ctx.user_metadata.address()),
+            InstructionAccount::readonly(ctx.rent.address()),
+            InstructionAccount::readonly(ctx.system_program.address()),
+        ];
+        let infos_obl = [
+            ctx.owner,
+            ctx.fee_payer,
+            ctx.obligation,
+            ctx.lending_market,
+            ctx.seed1_account,
+            ctx.seed2_account,
+            ctx.user_metadata,
+            ctx.rent,
+            ctx.system_program,
+        ];
+
+        // Data: disc(8) + InitObligationArgs { tag: u8, id: u8 }.
+        // tag=0 (Vanilla), id=0 — matches VanillaObligation in klend-sdk.
+        let mut data_obl = [0u8; 10];
+        data_obl[..8].copy_from_slice(&INIT_OBLIGATION_DISCRIMINATOR);
+        // data_obl[8] = 0 (tag), data_obl[9] = 0 (id) — already zeroed
+
+        let ix_obl = InstructionView {
+            program_id: &KAMINO_LEND_PROGRAM_ID,
+            accounts: &accounts_obl,
+            data: &data_obl,
+        };
+        invoke_signed(&ix_obl, &infos_obl, signer_seeds)?;
+
+        Ok(())
     }
 
     fn init(ctx: &Self::Accounts) -> ProgramResult {
