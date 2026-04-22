@@ -202,7 +202,7 @@ h2.section em { font-style: italic; color: var(--amber-3); }
 /* ---------- Hero ------------------------------------------------------- */
 section.hero {
   position: relative;
-  padding: clamp(80px, 12vw, 160px) 0 clamp(96px, 12vw, 160px);
+  padding: clamp(64px, 8vw, 112px) 0 clamp(64px, 8vw, 112px);
   text-align: center;
   overflow: hidden;
 }
@@ -221,7 +221,7 @@ section.hero .wrap { position: relative; z-index: 2; }
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--amber-3);
-  margin-bottom: 36px;
+  margin-bottom: 24px;
   white-space: nowrap;
 }
 .hero-badge .dot {
@@ -232,18 +232,18 @@ section.hero .wrap { position: relative; z-index: 2; }
 
 .hero-sub {
   max-width: 580px;
-  margin: 36px auto 0;
+  margin: 24px auto 0;
   font-size: 18px;
   line-height: 1.55;
   color: var(--ink-2);
 }
 .hero-sub p { margin: 0; }
-.hero-sub p + p { margin-top: 12px; }
+.hero-sub p + p { margin-top: 8px; }
 
 /* ---------- Waitlist pill form ---------------------------------------- */
 .hero-form {
   max-width: 460px;
-  margin: 44px auto 0;
+  margin: 28px auto 0;
 }
 .hero-form .row {
   display: flex;
@@ -313,11 +313,11 @@ section.hero .wrap { position: relative; z-index: 2; }
 /* ---------- Sections --------------------------------------------------- */
 section.content {
   position: relative;
-  padding: clamp(96px, 11vw, 156px) 0;
+  padding: clamp(56px, 6vw, 88px) 0;
 }
 .section-head {
   text-align: center;
-  margin-bottom: clamp(48px, 6vw, 80px);
+  margin-bottom: clamp(32px, 4vw, 56px);
 }
 .section-head .eyebrow { margin-bottom: 20px; display: inline-block; }
 
@@ -382,7 +382,7 @@ section.content {
   display: grid;
   grid-template-columns: 88px 1fr;
   gap: 28px;
-  padding: 36px 0;
+  padding: 24px 0;
   border-top: 1px solid var(--line);
   align-items: start;
 }
@@ -602,7 +602,7 @@ section.content {
 .spark .fill { fill: rgba(125, 224, 164, 0.12); stroke: none; }
 
 .preview-caption {
-  margin: 48px auto 0;
+  margin: 32px auto 0;
   text-align: center;
   font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
   font-style: italic;
@@ -1041,7 +1041,7 @@ section.content {
 .aw-phone-caption { text-align: center; }
 
 .aw-flow {
-  margin: 48px auto 0;
+  margin: 32px auto 0;
   max-width: 1120px;
   display: flex;
   align-items: center;
@@ -1090,10 +1090,10 @@ section.content {
 /* Final CTA */
 .final-cta {
   text-align: center;
-  padding: clamp(100px, 12vw, 160px) 0;
+  padding: clamp(72px, 8vw, 112px) 0;
   position: relative;
 }
-.final-cta h2 { max-width: 720px; margin: 0 auto 40px; }
+.final-cta h2 { max-width: 720px; margin: 0 auto 32px; }
 .final-cta .hero-form { max-width: 520px; }
 .final-cta .hero-form input { font-size: 16px; }
 .final-cta .hero-form .row { padding: 7px; }
