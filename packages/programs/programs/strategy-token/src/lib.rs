@@ -41,6 +41,7 @@ pub fn process_instruction(
         4 => instructions::rebalance::process(program_id, accounts, rest),
         5 => instructions::snapshot_positions::process(program_id, accounts, rest),
         6 => instructions::init_position::process(program_id, accounts, rest),
+        7 => instructions::perp_place_order::process(program_id, accounts, rest),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
