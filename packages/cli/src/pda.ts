@@ -28,6 +28,14 @@ export function navOraclePDA(strategy: PublicKey): [PublicKey, number] {
   );
 }
 
+/** position_snapshots PDA: seeds = ["position_snapshots", strategy] */
+export function positionSnapshotsPDA(strategy: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('position_snapshots'), strategy.toBuffer()],
+    ST,
+  );
+}
+
 /** market PDA: seeds = ["market", strategy, market_id_le8] */
 export function marketPDA(strategy: PublicKey, marketId: bigint): [PublicKey, number] {
   const idBuf = Buffer.allocUnsafe(8);

@@ -9,6 +9,8 @@ import { printNav } from './commands/nav.js';
 import { createMarket } from './commands/create-market.js';
 import { resolveMarket } from './commands/resolve-market.js';
 import { listStrategies, formatStrategyTable } from './commands/list-strategies.js';
+import { snapshotPositions } from './commands/snapshot-positions.js';
+import { printSnapshot } from './commands/get-snapshot.js';
 
 const program = new Command();
 
@@ -216,6 +218,48 @@ program
       console.log(formatStrategyTable(strategies));
       console.log();
       console.log(`(${strategies.length} strategies)`);
+    } catch (e) {
+      console.error('\n✗ Error:', (e as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ─── snapshot-positions ──────────────────────────────────────────────────────
+
+program
+  .command('snapshot-positions')
+  .description('Write a 24h-lagged composition snapshot for a strategy (keeper archetype)')
+  .requiredOption('--strategy <pubkey>', 'strategy to snapshot')
+  .action(async (opts, cmd) => {
+    const globalOpts = cmd.parent?.opts() ?? {};
+    const conn = getConnection(globalOpts.rpc);
+    const payer = loadKeypair(globalOpts.keypair);
+    const strategy = new PublicKey(opts.strategy);
+
+    console.log(`\nSnapshotting strategy ${opts.strategy}...\n`);
+
+    try {
+      await snapshotPositions(conn, payer, strategy);
+      console.log('\n✓ Snapshot written.');
+    } catch (e) {
+      console.error('\n✗ Error:', (e as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ─── get-snapshot ────────────────────────────────────────────────────────────
+
+program
+  .command('get-snapshot')
+  .description("Read a strategy's most recent position snapshot")
+  .requiredOption('--strategy <pubkey>', 'strategy address')
+  .action(async (opts, cmd) => {
+    const globalOpts = cmd.parent?.opts() ?? {};
+    const conn = getConnection(globalOpts.rpc);
+    const strategy = new PublicKey(opts.strategy);
+
+    try {
+      await printSnapshot(conn, strategy);
     } catch (e) {
       console.error('\n✗ Error:', (e as Error).message);
       process.exit(1);
