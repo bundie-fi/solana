@@ -290,7 +290,6 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "beethoven"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "beethoven-deposit-drift",
@@ -320,7 +319,6 @@ dependencies = [
 [[package]]
 name = "beethoven-core"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "solana-instruction-view",
  "solana-program-error",
@@ -329,7 +327,6 @@ dependencies = [
 [[package]]
 name = "beethoven-deposit-drift"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -341,7 +338,6 @@ dependencies = [
 [[package]]
 name = "beethoven-deposit-jupiter"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -353,7 +349,6 @@ dependencies = [
 [[package]]
 name = "beethoven-deposit-kamino"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -365,7 +360,6 @@ dependencies = [
 [[package]]
 name = "beethoven-deposit-marginfi"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -377,7 +371,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-aldrin"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -389,7 +382,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-aldrin-v2"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -401,7 +393,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-futarchy"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -413,7 +404,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-gamma"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -425,7 +415,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-hadron"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -437,7 +426,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-heaven"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -449,7 +437,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-manifest"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -461,7 +448,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-omnipair"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -473,7 +459,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-perena"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -485,7 +470,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-raydium-cpmm"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -497,7 +481,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-scale-amm"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -509,7 +492,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-scale-vmm"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -521,7 +503,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-solfi"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
@@ -533,7 +514,6 @@ dependencies = [
 [[package]]
 name = "beethoven-swap-solfi-v2"
 version = "0.0.1"
-source = "git+https://github.com/blueshift-gg/beethoven?rev=e3ac957069a5b003d8fd3213c1e4494d13c904c5#e3ac957069a5b003d8fd3213c1e4494d13c904c5"
 dependencies = [
  "beethoven-core",
  "solana-account-view",
