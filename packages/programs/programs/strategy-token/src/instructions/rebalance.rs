@@ -118,11 +118,24 @@ pub fn process(
         let amount = u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap());
         cursor += 8;
 
+        // Inline MaybeUninit signer — keeping `buf` in this stack frame
+        // (not in a helper fn) ensures the Signer's seed-slice pointer
+        // stays valid through the CPI. See init_position.rs / buy_shares.rs.
+        let mut buf: [MaybeUninit<Seed>; 16] = [
+            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+            MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
+        ];
+        let len = wallet_seeds.len();
+        for i in 0..len {
+            buf[i].write(Seed::from(wallet_seeds[i]));
+        }
+        let seeds = unsafe { core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len) };
+        let signer = Signer::from(seeds);
+
         match action {
             ACTION_DEPOSIT => {
-                // Build signer for wallet PDA
-                let signer = build_signer(wallet_seeds);
-
                 let deposit_ctx = beethoven::try_from_deposit_context(remaining)?;
                 let (deposit_data, _) = deposit_ctx.try_from_deposit_data(&[])?;
                 <beethoven::DepositContext as beethoven::Deposit>::deposit_signed(
@@ -144,8 +157,6 @@ pub fn process(
                 }
                 let min_out = u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap());
                 cursor += 8;
-
-                let signer = build_signer(wallet_seeds);
 
                 let (swap_ctx, _rest) = beethoven::try_from_swap_context(remaining)?;
                 let (swap_data, _) = swap_ctx.try_from_swap_data(&[])?;
@@ -169,22 +180,4 @@ pub fn process(
     }
 
     Ok(())
-}
-
-/// Build a `Signer` from a slice of seed byte slices using `MaybeUninit`.
-/// Supports up to 16 seed components.
-#[inline(always)]
-fn build_signer<'a>(seeds: &[&'a [u8]]) -> Signer<'a, 'a> {
-    let mut buf: [MaybeUninit<Seed<'a>>; 16] = [
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-        MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(), MaybeUninit::uninit(),
-    ];
-    let len = seeds.len().min(16);
-    for i in 0..len {
-        buf[i].write(Seed::from(seeds[i]));
-    }
-    let seed_slice = unsafe { core::slice::from_raw_parts(buf.as_ptr() as *const Seed<'_>, len) };
-    Signer::from(seed_slice)
 }
