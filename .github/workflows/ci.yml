@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Rust: Anchor prediction-market build + SBF build for both programs ─────
+  rust:
+    name: Rust — cargo build + build-sbf
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/programs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/programs/target
+          key: cargo-${{ hashFiles('packages/programs/Cargo.lock') }}
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: true
+        # clippy gate is warn-only for now — there are pre-existing ambiguous
+        # glob re-export warnings. Flip to blocking after those are resolved.
+
+      - name: cargo build (dev)
+        run: cargo build -p prediction-market
+
+      - name: Install Solana tooling (for SBF build)
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v1.18.17/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: cargo build-sbf — prediction-market
+        run: cargo build-sbf --manifest-path programs/prediction-market/Cargo.toml
+
+      - name: cargo build-sbf — strategy-token
+        run: cargo build-sbf --manifest-path programs/strategy-token/Cargo.toml
+
+  # ─── TypeScript: typecheck across CLI + common ──────────────────────────────
+  typescript:
+    name: TypeScript — typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: typecheck @bundie/common
+        run: pnpm --filter @bundie/common typecheck
+
+      - name: build @bundie/sol-cli
+        run: pnpm --filter @bundie/sol-cli build
+
+      # Webapp + backend are allowed to break during hackathon polish — gate
+      # them in a follow-up PR once the surface stabilizes.
+      - name: webapp build (non-blocking)
+        run: pnpm --filter @bundie/web build || true
+        continue-on-error: true
