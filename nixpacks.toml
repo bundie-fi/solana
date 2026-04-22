@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+cmds = ["npm install -g pnpm@10"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+dependsOn = ["setup"]
+
+[phases.build]
+cmds = ["pnpm --filter @bundie/web build"]
+dependsOn = ["install"]
+
+[start]
+cmd = "node packages/web/.next/standalone/server.js"
