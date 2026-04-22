@@ -1,0 +1,524 @@
+use {
+    base64::{engine::general_purpose::STANDARD, Engine as _},
+    litesvm::LiteSVM,
+    mollusk_svm::{program::keyed_account_for_system_program, result::ProgramResult, Mollusk},
+    solana_account::Account,
+    solana_address::{address, Address},
+    solana_instruction::{AccountMeta, Instruction},
+    solana_keypair::Keypair,
+    solana_program_option::COption,
+    solana_program_pack::Pack,
+    solana_rent::Rent,
+    solana_signer::Signer,
+    solana_transaction::Transaction,
+    spl_token_interface::state::{Account as TokenAccount, AccountState, Mint},
+    std::str::FromStr,
+};
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+pub const TEST_PROGRAM_ID: Address = Address::new_from_array([0x01; 32]);
+pub const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+pub const TOKEN_2022_PROGRAM_ID: Address = address!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+// Protocol program IDs (for detection)
+pub const KAMINO_PROGRAM_ID: Address = address!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
+pub const JUPITER_PROGRAM_ID: Address = address!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+pub const PERENA_PROGRAM_ID: Address = address!("NUMERUNsFCP3kuNmWZuXtm1AaQCPj9uw6Guv2Ekoi5P");
+pub const SOLFI_PROGRAM_ID: Address = address!("SoLFiHG9TfgtdUXUjWAxi3LtvYuFyDLVhBWxdMZxyCe");
+pub const GAMMA_PROGRAM_ID: Address = address!("GAMMA7meSFWaBXF25oSUgmGRwaW6sCMFLmBNiMSdbHVT");
+pub const MANIFEST_PROGRAM_ID: Address = address!("MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms");
+pub const OMNIPAIR_PROGRAM_ID: Address = address!("omnixgS8fnqHfCcTGKWj6JtKjzpJZ1Y5y9pyFkQDkYE");
+pub const HADRON_PROGRAM_ID: Address = address!("Q72w4coozA552keKDdeeh2EyQw32qfMFsHPu6cbatom");
+pub const RAYDIUM_CPMM_PROGRAM_ID: Address =
+    address!("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");
+pub const SYSTEM_PROGRAM_ID: Address = address!("11111111111111111111111111111111");
+pub const BPF_LOADER: Address = address!("BPFLoader2111111111111111111111111111111111");
+
+pub mod discriminator {
+    pub const DEPOSIT: u8 = 0;
+    pub const SWAP: u8 = 1;
+    pub const MULTI_SWAP: u8 = 2;
+}
+
+// =============================================================================
+// SVM Setup
+// =============================================================================
+
+pub fn setup_svm() -> LiteSVM {
+    LiteSVM::new()
+}
+
+pub fn setup_svm_with_program(program_bytes: &[u8]) -> LiteSVM {
+    let mut svm = LiteSVM::new();
+    let _ = svm.add_program(TEST_PROGRAM_ID, program_bytes);
+    svm
+}
+
+// =============================================================================
+// Mollusk Setup
+// =============================================================================
+
+pub fn setup_mollusk_with_programs(
+    beethoven_bytes: &[u8],
+    additional_programs: &[(Address, &[u8])],
+) -> Mollusk {
+    let mut mollusk = Mollusk::default();
+    mollusk.add_program_with_loader_and_elf(&TEST_PROGRAM_ID, &BPF_LOADER, beethoven_bytes);
+
+    for (program_id, bytes) in additional_programs {
+        mollusk.add_program_with_loader_and_elf(program_id, &BPF_LOADER, bytes);
+    }
+
+    // Add the SPL Token program
+    mollusk_svm_programs_token::token::add_program(&mut mollusk);
+
+    mollusk
+}
+
+pub fn get_mollusk_system_program() -> (Address, Account) {
+    keyed_account_for_system_program()
+}
+
+pub fn get_mollusk_token_program() -> (Address, Account) {
+    mollusk_svm_programs_token::token::keyed_account()
+}
+
+pub fn create_mollusk_program_account(program_bytes: &[u8]) -> Account {
+    Account {
+        lamports: 1,
+        data: program_bytes.to_vec(),
+        owner: BPF_LOADER,
+        executable: true,
+        rent_epoch: 0,
+    }
+}
+
+/// Verify mollusk result is successful and return resulting accounts
+pub fn assert_mollusk_success(result: &mollusk_svm::result::InstructionResult) {
+    match &result.program_result {
+        ProgramResult::Success => {}
+        ProgramResult::Failure(e) => {
+            panic!(
+                "Mollusk execution failed: {:?}. Compute units: {}",
+                e, result.compute_units_consumed
+            );
+        }
+        ProgramResult::UnknownError(e) => {
+            panic!(
+                "Mollusk unknown error: {:?}. Compute units: {}",
+                e, result.compute_units_consumed
+            );
+        }
+    }
+}
+
+// =============================================================================
+// Token Program Helpers
+// =============================================================================
+
+/// Create an Account for a Mint
+pub fn create_account_for_mint(mint_data: Mint) -> Account {
+    let mut data = vec![0u8; Mint::LEN];
+    Mint::pack(mint_data, &mut data).unwrap();
+
+    Account {
+        lamports: Rent::default().minimum_balance(Mint::LEN),
+        data,
+        owner: TOKEN_PROGRAM_ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Create an Account for a Token Account
+pub fn create_account_for_token_account(token_account_data: TokenAccount) -> Account {
+    let mut data = vec![0u8; TokenAccount::LEN];
+    TokenAccount::pack(token_account_data, &mut data).unwrap();
+
+    Account {
+        lamports: Rent::default().minimum_balance(TokenAccount::LEN),
+        data,
+        owner: TOKEN_PROGRAM_ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Create and set a token account in the SVM
+pub fn create_token_account(
+    svm: &mut LiteSVM,
+    owner: &Address,
+    mint: &Address,
+    amount: u64,
+) -> Address {
+    let pubkey = Keypair::new().pubkey();
+    let account = create_account_for_token_account(TokenAccount {
+        mint: *mint,
+        owner: *owner,
+        amount,
+        delegate: COption::None,
+        state: AccountState::Initialized,
+        is_native: COption::None,
+        delegated_amount: 0,
+        close_authority: COption::None,
+    });
+    svm.set_account(pubkey, account).unwrap();
+    pubkey
+}
+
+/// Create and set a token account at a specific address
+pub fn create_token_account_at(
+    svm: &mut LiteSVM,
+    pubkey: Address,
+    owner: &Address,
+    mint: &Address,
+    amount: u64,
+) {
+    let account = create_account_for_token_account(TokenAccount {
+        mint: *mint,
+        owner: *owner,
+        amount,
+        delegate: COption::None,
+        state: AccountState::Initialized,
+        is_native: COption::None,
+        delegated_amount: 0,
+        close_authority: COption::None,
+    });
+    svm.set_account(pubkey, account).unwrap();
+}
+
+/// Create and set a mint in the SVM
+pub fn create_mint(svm: &mut LiteSVM, mint_authority: &Address, decimals: u8) -> Address {
+    let pubkey = Keypair::new().pubkey();
+    let account = create_account_for_mint(Mint {
+        mint_authority: COption::Some(*mint_authority),
+        supply: 0,
+        decimals,
+        is_initialized: true,
+        freeze_authority: COption::None,
+    });
+    svm.set_account(pubkey, account).unwrap();
+    pubkey
+}
+
+/// Create and set a mint at a specific address
+pub fn create_mint_at(
+    svm: &mut LiteSVM,
+    pubkey: Address,
+    mint_authority: &Address,
+    decimals: u8,
+    supply: u64,
+) {
+    let account = create_account_for_mint(Mint {
+        mint_authority: COption::Some(*mint_authority),
+        supply,
+        decimals,
+        is_initialized: true,
+        freeze_authority: COption::None,
+    });
+    svm.set_account(pubkey, account).unwrap();
+}
+
+// =============================================================================
+// Mock Protocol Account Helpers
+// =============================================================================
+
+pub fn create_program_account(svm: &mut LiteSVM, program_id: Address) {
+    svm.set_account(
+        program_id,
+        Account {
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
+            owner: solana_sdk_ids::bpf_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        },
+    )
+    .unwrap();
+}
+
+pub fn create_mock_account(svm: &mut LiteSVM, owner: &Address, data: Vec<u8>) -> Address {
+    let pubkey = Keypair::new().pubkey();
+    svm.set_account(
+        pubkey,
+        Account {
+            lamports: Rent::default().minimum_balance(data.len()),
+            data,
+            owner: *owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .unwrap();
+    pubkey
+}
+
+pub fn create_mock_account_at(svm: &mut LiteSVM, pubkey: Address, owner: &Address, data: Vec<u8>) {
+    svm.set_account(
+        pubkey,
+        Account {
+            lamports: Rent::default().minimum_balance(data.len()),
+            data,
+            owner: *owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .unwrap();
+}
+
+// =============================================================================
+// Instruction Builders
+// =============================================================================
+
+pub fn build_deposit_instruction(
+    accounts: Vec<AccountMeta>,
+    amount: u64,
+    extra_data: &[u8],
+) -> Instruction {
+    let mut data = vec![discriminator::DEPOSIT];
+    data.extend_from_slice(&amount.to_le_bytes());
+    data.extend_from_slice(extra_data);
+
+    Instruction {
+        program_id: TEST_PROGRAM_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn build_swap_instruction(
+    accounts: Vec<AccountMeta>,
+    in_amount: u64,
+    min_out_amount: u64,
+    extra_data: &[u8],
+) -> Instruction {
+    let mut data = vec![discriminator::SWAP];
+    data.extend_from_slice(&in_amount.to_le_bytes());
+    data.extend_from_slice(&min_out_amount.to_le_bytes());
+    data.extend_from_slice(extra_data);
+
+    Instruction {
+        program_id: TEST_PROGRAM_ID,
+        accounts,
+        data,
+    }
+}
+
+pub struct SwapLeg {
+    pub accounts: Vec<AccountMeta>,
+    pub in_amount: u64,
+    pub min_out_amount: u64,
+    pub extra_data: Vec<u8>,
+}
+
+pub fn build_multi_swap_instruction(legs: Vec<SwapLeg>) -> Instruction {
+    let mut data = vec![discriminator::MULTI_SWAP, legs.len() as u8];
+    let mut all_accounts = Vec::new();
+
+    for leg in &legs {
+        data.extend_from_slice(&leg.in_amount.to_le_bytes());
+        data.extend_from_slice(&leg.min_out_amount.to_le_bytes());
+        data.extend_from_slice(&leg.extra_data);
+        all_accounts.extend(leg.accounts.clone());
+    }
+
+    Instruction {
+        program_id: TEST_PROGRAM_ID,
+        accounts: all_accounts,
+        data,
+    }
+}
+
+// =============================================================================
+// Transaction Helpers
+// =============================================================================
+
+pub fn send_transaction(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    instruction: Instruction,
+) -> Result<u64, String> {
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[payer],
+        svm.latest_blockhash(),
+    );
+
+    match svm.send_transaction(tx) {
+        Ok(meta) => {
+            for log in &meta.logs {
+                println!("{}", log);
+            }
+            println!("Compute units consumed: {}", meta.compute_units_consumed);
+            Ok(meta.compute_units_consumed)
+        }
+        Err(e) => {
+            for log in &e.meta.logs {
+                println!("{}", log);
+            }
+            Err(format!("{:?}", e.err))
+        }
+    }
+}
+
+pub fn send_transaction_with_signers(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    signers: &[&Keypair],
+    instruction: Instruction,
+) -> Result<u64, String> {
+    let mut all_signers: Vec<&Keypair> = vec![payer];
+    all_signers.extend(signers);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &all_signers,
+        svm.latest_blockhash(),
+    );
+
+    match svm.send_transaction(tx) {
+        Ok(meta) => {
+            for log in &meta.logs {
+                println!("{}", log);
+            }
+            println!("Compute units consumed: {}", meta.compute_units_consumed);
+            Ok(meta.compute_units_consumed)
+        }
+        Err(e) => {
+            for log in &e.meta.logs {
+                println!("{}", log);
+            }
+            Err(format!("{:?}", e.err))
+        }
+    }
+}
+
+// =============================================================================
+// Fixture Loading
+// =============================================================================
+
+pub fn load_fixture_bytes(path: &str) -> Vec<u8> {
+    std::fs::read(path).unwrap_or_else(|_| panic!("Failed to read fixture: {}", path))
+}
+
+pub fn load_fixture_account(path: &str, owner: &Address) -> Account {
+    let data = load_fixture_bytes(path);
+    Account {
+        lamports: Rent::default().minimum_balance(data.len()),
+        data,
+        owner: *owner,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Load a JSON fixture exported by `solana account --output json-compact`
+/// Returns (pubkey, Account)
+pub fn load_json_fixture(path: &str) -> (Address, Account) {
+    let contents = std::fs::read_to_string(path)
+        .unwrap_or_else(|_| panic!("Failed to read fixture: {}", path));
+    let json: serde_json::Value = serde_json::from_str(&contents)
+        .unwrap_or_else(|_| panic!("Failed to parse JSON: {}", path));
+
+    let pubkey_str = json["pubkey"].as_str().expect("Missing pubkey field");
+    let pubkey = Address::from_str(pubkey_str).expect("Invalid pubkey");
+
+    let account_json = &json["account"];
+    let lamports = account_json["lamports"].as_u64().expect("Missing lamports");
+    let owner_str = account_json["owner"].as_str().expect("Missing owner");
+    let owner = Address::from_str(owner_str).expect("Invalid owner pubkey");
+    let executable = account_json["executable"].as_bool().unwrap_or(false);
+
+    let data_array = account_json["data"].as_array().expect("Missing data array");
+    let data_b64 = data_array[0].as_str().expect("Missing data string");
+    let data = STANDARD
+        .decode(data_b64)
+        .expect("Failed to decode base64 data");
+
+    (
+        pubkey,
+        Account {
+            lamports,
+            data,
+            owner,
+            executable,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Load JSON fixture and set it in the SVM
+pub fn load_and_set_json_fixture(svm: &mut LiteSVM, path: &str) -> Address {
+    let (pubkey, account) = load_json_fixture(path);
+    svm.set_account(pubkey, account).unwrap();
+    pubkey
+}
+
+/// Load and deploy a program from .so file
+pub fn load_program(svm: &mut LiteSVM, program_id: Address, so_path: &str) {
+    let program_bytes = load_fixture_bytes(so_path);
+    let _ = svm.add_program(program_id, &program_bytes);
+}
+
+// =============================================================================
+// Shared Test Utilities
+// =============================================================================
+
+pub fn get_token_balance(svm: &LiteSVM, token_account: &Address) -> u64 {
+    let account = svm
+        .get_account(token_account)
+        .expect("Token account not found");
+    TokenAccount::unpack(&account.data)
+        .expect("Failed to unpack token account")
+        .amount
+}
+
+pub fn get_rpc_url() -> String {
+    std::env::var("RPC_URL").unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string())
+}
+
+pub fn common_fixtures_dir() -> String {
+    format!("{}/fixtures/common", env!("CARGO_MANIFEST_DIR"))
+}
+
+pub fn gamma_fixtures_dir() -> String {
+    format!("{}/fixtures/swap/gamma", env!("CARGO_MANIFEST_DIR"))
+}
+
+pub fn manifest_fixtures_dir() -> String {
+    format!("{}/fixtures/swap/manifest", env!("CARGO_MANIFEST_DIR"))
+}
+
+pub fn omnipair_fixtures_dir() -> String {
+    format!("{}/fixtures/swap/omnipair", env!("CARGO_MANIFEST_DIR"))
+}
+
+pub fn hadron_fixtures_dir() -> String {
+    format!("{}/fixtures/swap/hadron", env!("CARGO_MANIFEST_DIR"))
+}
+
+pub fn raydium_cpmm_fixtures_dir() -> String {
+    format!("{}/fixtures/swap/raydium-cpmm", env!("CARGO_MANIFEST_DIR"))
+}
+
+#[cfg(feature = "upstream-bpf")]
+pub fn beethoven_program_path() -> String {
+    format!(
+        "{}/target/bpfel-unknown-none/release/libbeethoven_test.so",
+        env!("CARGO_MANIFEST_DIR")
+    )
+}
+
+#[cfg(not(feature = "upstream-bpf"))]
+pub fn beethoven_program_path() -> String {
+    format!(
+        "{}/target/deploy/beethoven_test.so",
+        env!("CARGO_MANIFEST_DIR")
+    )
+}

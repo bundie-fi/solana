@@ -1,0 +1,10 @@
+[package]
+name = "beethoven-core"
+description = "Core traits for Beethoven - Swap and Deposit"
+version = "0.0.1"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+solana-instruction-view = { version = "1.0.0", features = ["cpi"] }
+solana-program-error = "3.0.0"
