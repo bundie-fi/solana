@@ -48,8 +48,14 @@ jobs:
         run: cargo build -p prediction-market
 
       - name: Install Solana tooling (for SBF build)
+        # release.solana.com is dead — Anza took over distribution. Pin to
+        # the same Agave version we use locally (3.1.12). The `set -euo pipefail`
+        # + explicit curl-then-sh makes a fetch failure fail the step instead
+        # of silently producing an empty installer script.
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v1.18.17/install)"
+          set -euo pipefail
+          curl --retry 3 --retry-delay 5 -sSfL https://release.anza.xyz/v3.1.12/install -o /tmp/anza-install.sh
+          sh /tmp/anza-install.sh
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: cargo build-sbf — prediction-market
