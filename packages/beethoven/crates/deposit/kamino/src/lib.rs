@@ -269,3 +269,95 @@ impl<'info> Deposit<'info> for Kamino {
         Self::deposit_signed(ctx, amount, data, &[])
     }
 }
+
+// ─── DepositInit: init_user_metadata + init_obligation ─────────────────────
+//
+// Scaffold. Lets a wrapping program (e.g. strategy-token) create the
+// Kamino UserMetadata + Obligation PDAs owned by its wallet PDA, so the
+// subsequent Deposit CPI has valid per-user state to land into.
+//
+// CPI data for both ixs is stubbed — the CLI-side resolver (analogue of
+// kamino-test-deposit.mjs) will produce the verified bytes, then this
+// impl gets filled in alongside a pinocchio dispatch entry in strategy-token.
+
+use beethoven_core::DepositInit;
+
+/// Anchor disc for `init_user_metadata`. sha256("global:init_user_metadata")[..8].
+/// Placeholder — verify from klend codegen before enabling.
+pub const INIT_USER_METADATA_DISCRIMINATOR: [u8; 8] = [0; 8];
+
+/// Anchor disc for `init_obligation`. sha256("global:init_obligation")[..8].
+/// Placeholder — verify before enabling.
+pub const INIT_OBLIGATION_DISCRIMINATOR: [u8; 8] = [0; 8];
+
+pub struct KaminoInitAccounts<'info> {
+    pub kamino_lending_program: &'info AccountView,
+    pub owner: &'info AccountView,
+    pub fee_payer: &'info AccountView,
+    pub user_metadata: &'info AccountView,
+    pub referrer_user_metadata: &'info AccountView,
+    pub lending_market: &'info AccountView,
+    pub obligation: &'info AccountView,
+    pub seed1_account: &'info AccountView,
+    pub seed2_account: &'info AccountView,
+    pub rent: &'info AccountView,
+    pub system_program: &'info AccountView,
+}
+
+impl<'info> TryFrom<&'info [AccountView]> for KaminoInitAccounts<'info> {
+    type Error = ProgramError;
+
+    fn try_from(accounts: &'info [AccountView]) -> Result<Self, Self::Error> {
+        let [
+            kamino_lending_program,
+            owner,
+            fee_payer,
+            user_metadata,
+            referrer_user_metadata,
+            lending_market,
+            obligation,
+            seed1_account,
+            seed2_account,
+            rent,
+            system_program,
+        ] = accounts
+        else {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        };
+        Ok(KaminoInitAccounts {
+            kamino_lending_program,
+            owner,
+            fee_payer,
+            user_metadata,
+            referrer_user_metadata,
+            lending_market,
+            obligation,
+            seed1_account,
+            seed2_account,
+            rent,
+            system_program,
+        })
+    }
+}
+
+impl<'info> DepositInit<'info> for Kamino {
+    type Accounts = KaminoInitAccounts<'info>;
+
+    fn init_signed(
+        _ctx: &Self::Accounts,
+        _signer_seeds: &[Signer],
+    ) -> ProgramResult {
+        // TODO: two sequential CPIs:
+        //   1) init_user_metadata(accounts=[owner, fee_payer, user_metadata,
+        //      referrer_user_metadata, rent, system_program], data=disc + user_lookup_table(32))
+        //   2) init_obligation(accounts=[obligation_owner=owner, fee_payer, obligation,
+        //      lending_market, seed1, seed2, owner_user_metadata=user_metadata, rent,
+        //      system_program], data=disc + InitObligationArgs(tag:u8=0, id:u8=0))
+        // Both invoked with the wrapping program's PDA signer seeds.
+        Err(ProgramError::Custom(0xDEAD_BEE2))
+    }
+
+    fn init(ctx: &Self::Accounts) -> ProgramResult {
+        Self::init_signed(ctx, &[])
+    }
+}

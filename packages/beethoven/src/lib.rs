@@ -1,7 +1,9 @@
 #![no_std]
 
 // Re-export core traits
-pub use beethoven_core::{Deposit, Swap};
+pub use beethoven_core::{Deposit, DepositInit, Perps, Swap};
+#[cfg(feature = "mango-perps")]
+pub use beethoven_perps_mango as mango;
 #[cfg(feature = "drift-deposit")]
 pub use beethoven_deposit_drift as drift;
 #[cfg(feature = "jupiter-deposit")]

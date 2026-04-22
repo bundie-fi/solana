@@ -29,12 +29,16 @@ swap = [
     "hadron-swap",
     "raydium-cpmm-swap",
 ]
+perps = ["mango-perps"]
 
 # Deposit protocols
 kamino-deposit = ["dep:beethoven-deposit-kamino"]
 jupiter-deposit = ["dep:beethoven-deposit-jupiter"]
 drift-deposit = ["dep:beethoven-deposit-drift"]
 marginfi-deposit = ["dep:beethoven-deposit-marginfi"]
+
+# Perps protocols
+mango-perps = ["dep:beethoven-perps-mango"]
 
 # Swap protocols
 perena-swap = ["dep:beethoven-swap-perena"]
@@ -78,6 +82,7 @@ beethoven-swap-scale-vmm = { path = "crates/swap/scale-vmm", optional = true }
 beethoven-swap-omnipair = { path = "crates/swap/omnipair", optional = true }
 beethoven-swap-hadron = { path = "crates/swap/hadron", optional = true }
 beethoven-swap-raydium-cpmm = { path = "crates/swap/raydium-cpmm", optional = true }
+beethoven-perps-mango = { path = "crates/perps/mango", optional = true }
 
 [workspace]
 members = [
@@ -100,6 +105,7 @@ members = [
     "crates/swap/omnipair",
     "crates/swap/hadron",
     "crates/swap/raydium-cpmm",
+    "crates/perps/mango",
     "program-test",
     "crates/client",
 ]

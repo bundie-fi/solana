@@ -760,3 +760,134 @@ pub fn try_from_deposit_context<'info>(
 
     Err(ProgramError::InvalidAccountData)
 }
+
+// ─── Perps context ────────────────────────────────────────────────────────
+//
+// Mirrors the Swap/Deposit pattern for perpetual-futures operations.
+// Today only Mango v4 is implemented; Jupiter Perps / Adrena / Parcl
+// variants plug in here the same way. The entire block is cfg-gated on
+// "any perps protocol enabled" so builds without a perps feature simply
+// omit PerpsContext + its dispatcher (strategy-token picks it up only
+// when built with a perps feature on).
+#[cfg(any(feature = "mango-perps"))]
+pub use perps_ctx::*;
+
+#[cfg(any(feature = "mango-perps"))]
+mod perps_ctx {
+    use super::*;
+    use crate::Perps;
+
+    pub enum PerpsContext<'info> {
+        #[cfg(feature = "mango-perps")]
+        Mango(crate::mango::MangoPlaceOrderAccounts<'info>),
+    }
+
+    pub enum PerpsData {
+        #[cfg(feature = "mango-perps")]
+        Mango(crate::mango::MangoPlaceOrderData),
+    }
+
+    impl<'info> Perps<'info> for PerpsContext<'info> {
+        type Accounts = Self;
+        type Data = PerpsData;
+
+        fn place_order_signed(
+            ctx: &Self::Accounts,
+            data: &Self::Data,
+            signer_seeds: &[Signer],
+        ) -> ProgramResult {
+            match (ctx, data) {
+                #[cfg(feature = "mango-perps")]
+                (PerpsContext::Mango(accounts), PerpsData::Mango(d)) => {
+                    crate::mango::Mango::place_order_signed(accounts, d, signer_seeds)
+                }
+                #[allow(unreachable_patterns)]
+                _ => Err(ProgramError::InvalidAccountData),
+            }
+        }
+
+        fn place_order(ctx: &Self::Accounts, data: &Self::Data) -> ProgramResult {
+            Self::place_order_signed(ctx, data, &[])
+        }
+    }
+
+    /// Detect the perps protocol from the first remaining account and return
+    /// a typed context. Strategy-token feeds the `remaining_accounts` slice in
+    /// directly — first account is always the target program id.
+    pub fn try_from_perps_context<'info>(
+        accounts: &'info [AccountView],
+    ) -> Result<PerpsContext<'info>, ProgramError> {
+        let detector_account = accounts.first().ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+        #[cfg(feature = "mango-perps")]
+        if address_eq(
+            detector_account.address(),
+            &crate::mango::MANGO_V4_PROGRAM_ID,
+        ) {
+            let ctx = crate::mango::MangoPlaceOrderAccounts::try_from(accounts)?;
+            return Ok(PerpsContext::Mango(ctx));
+        }
+
+        let _ = detector_account;
+        Err(ProgramError::InvalidAccountData)
+    }
+}
+
+// ─── DepositInit context ──────────────────────────────────────────────────
+//
+// For protocols whose deposit path needs a per-user state account
+// (obligation, metadata, margin account) created once before any deposit.
+// Gated on "any deposit-init-capable protocol enabled" (today: kamino).
+#[cfg(any(feature = "kamino-deposit"))]
+pub use deposit_init_ctx::*;
+
+#[cfg(any(feature = "kamino-deposit"))]
+mod deposit_init_ctx {
+    use super::*;
+    use crate::DepositInit;
+
+    pub enum DepositInitContext<'info> {
+        #[cfg(feature = "kamino-deposit")]
+        Kamino(crate::kamino::KaminoInitAccounts<'info>),
+    }
+
+    impl<'info> DepositInit<'info> for DepositInitContext<'info> {
+        type Accounts = Self;
+
+        fn init_signed(
+            ctx: &Self::Accounts,
+            signer_seeds: &[Signer],
+        ) -> ProgramResult {
+            match ctx {
+                #[cfg(feature = "kamino-deposit")]
+                DepositInitContext::Kamino(accounts) => {
+                    crate::kamino::Kamino::init_signed(accounts, signer_seeds)
+                }
+                #[allow(unreachable_patterns)]
+                _ => Err(ProgramError::InvalidAccountData),
+            }
+        }
+
+        fn init(ctx: &Self::Accounts) -> ProgramResult {
+            Self::init_signed(ctx, &[])
+        }
+    }
+
+    pub fn try_from_deposit_init_context<'info>(
+        accounts: &'info [AccountView],
+    ) -> Result<DepositInitContext<'info>, ProgramError> {
+        let detector_account = accounts.first().ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+        #[cfg(feature = "kamino-deposit")]
+        if address_eq(
+            detector_account.address(),
+            &crate::kamino::KAMINO_LEND_PROGRAM_ID,
+        ) {
+            let ctx = crate::kamino::KaminoInitAccounts::try_from(accounts)?;
+            return Ok(DepositInitContext::Kamino(ctx));
+        }
+
+        let _ = detector_account;
+        Err(ProgramError::InvalidAccountData)
+    }
+}
