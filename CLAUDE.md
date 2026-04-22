@@ -11,9 +11,12 @@ Two core primitives:
 - `packages/web` — Next.js 14 PWA (wrapped as Seeker TWA)
 - `packages/backend` — Hono API server (Railway deployment)
 - `packages/programs` — Anchor + pinocchio workspace (Strategy Token + Prediction Market)
-- `packages/cli` — `@bundie/sol-cli`, agent surface
+- `packages/beethoven` — Local fork of blueshift-gg/beethoven with our resolvers
 - `packages/common` — Shared TypeScript types, IDLs, constants
 - `packages/landing-page` — Marketing site
+
+CLI lives in a separate repo at `../bundie-fi/cli/solana/` (`@bundie/sol-cli`,
+prepare-only). MCP and Skills repos follow the same evm/solana split.
 
 ## Development
 - Package manager: pnpm
