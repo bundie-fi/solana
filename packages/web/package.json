@@ -19,6 +19,7 @@
     "@solana/wallet-adapter-wallets": "^0.19",
     "@solana/wallet-adapter-base": "^0.9",
     "@solana/spl-name-service": "^0.2.1",
+    "@solana/spl-token": "^0.4.14",
     "tailwindcss": "^3.4"
   },
   "devDependencies": {
