@@ -8,7 +8,11 @@
     "probe:drift": "tsx scripts/probes/probe-drift-spotmarket.ts",
     "probe:marginfi": "tsx scripts/probes/probe-marginfi-bank.ts",
     "probe:marinade": "tsx scripts/probes/probe-marinade-state.ts",
-    "probe:kamino": "tsx scripts/probes/probe-kamino-reserve.ts"
+    "probe:kamino": "tsx scripts/probes/probe-kamino-reserve.ts",
+    "chaos:setup": "tsx scripts/chaos-sim/src/index.ts setup",
+    "chaos:fund": "tsx scripts/chaos-sim/src/index.ts fund",
+    "chaos:run": "tsx scripts/chaos-sim/src/index.ts run",
+    "chaos:doctor": "tsx scripts/chaos-sim/src/index.ts doctor"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
@@ -18,6 +22,7 @@
     "@kamino-finance/klend-sdk": "^7.3.22",
     "@marinade.finance/marinade-ts-sdk": "^5.0.18",
     "@openbook-dex/openbook-v2": "^0.2.10",
+    "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.98",
     "@types/chai": "^4",
     "@types/mocha": "^10",
