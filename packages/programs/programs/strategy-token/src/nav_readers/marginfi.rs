@@ -42,8 +42,8 @@
 //! - owner-check `state_accs[0]` (must be marginfi)
 //! - owner-check every aux Bank — skip-on-fail rather than error
 //! - length-check before slicing
-//! - hard cap on liability shares: only Deposit-side value is summed,
-//!   liabilities ignored (TODO(NAV-MARGINFI-LIABILITY))
+//! - net NAV = Σ(asset_value) − Σ(liability_value), saturating at 0 so an
+//!   over-leveraged account doesn't wrap into a huge u64
 //!
 //! ## Offsets
 //!
@@ -97,6 +97,7 @@ const ACCOUNT_MIN_LEN: usize =
 const BALANCE_OFFSET_ACTIVE: usize = 0;
 const BALANCE_OFFSET_BANK_PK: usize = 1;
 const BALANCE_OFFSET_ASSET_SHARES: usize = 40;
+const BALANCE_OFFSET_LIABILITY_SHARES: usize = 56;
 
 // ─── Bank layout ──────────────────────────────────────────────────────────
 //
@@ -115,12 +116,15 @@ const BALANCE_OFFSET_ASSET_SHARES: usize = 40;
 // then byte-walk to verify the I80F48 lands at offset 88.
 const BANK_OFFSET_MINT: usize = 8;
 // Verified live against mainnet Bank `HKHvcCZKJzWPycqQdgCCT5oxt7GWdbPHrg9HSdxpdsEL`
-// (USDC) on 2026-04-23 — value @ 80 reads as a sane I80F48 close to 1.0; value
-// @ 88 returns ~1.84e19 garbage (would massively overvalue positions).
-// `_pad0[7]` lives AFTER mint_decimals + group:Pubkey, pushing asset_share_value
-// to disk offset 80 (not 88 as a naive sequential layout would suggest).
+// (USDC) on 2026-04-23:
+//   @80  = 1.337187 (I80F48) → asset_share_value (deposit appreciation)
+//   @96  = 1.559244 (I80F48) → liability_share_value (borrow > deposit ✓)
+// `_pad0[7]` lives AFTER mint_decimals + group:Pubkey, pushing
+// asset_share_value to disk offset 80 (not 88 as naive sequential layout
+// would suggest); liability_share_value follows 16 bytes later at 96.
 const BANK_OFFSET_ASSET_SHARE_VALUE: usize = 80;
-const BANK_MIN_LEN: usize = BANK_OFFSET_ASSET_SHARE_VALUE + 16;
+const BANK_OFFSET_LIABILITY_SHARE_VALUE: usize = 96;
+const BANK_MIN_LEN: usize = BANK_OFFSET_LIABILITY_SHARE_VALUE + 16;
 
 /// I80F48 fractional bits — multiplying two I80F48s and shifting right
 /// by this brings the result back into I80F48 magnitude (i.e. directly
@@ -164,7 +168,8 @@ impl PositionReader for MarginfiAccountReader {
 
         let aux = &state_accs[1..];
 
-        let mut total_usdc: u128 = 0;
+        let mut total_assets: u128 = 0;
+        let mut total_liabilities: u128 = 0;
 
         for slot in 0..ACCOUNT_NUM_BALANCES {
             let base = ACCOUNT_OFFSET_BALANCES + slot * ACCOUNT_BALANCE_SIZE;
@@ -186,21 +191,27 @@ impl PositionReader for MarginfiAccountReader {
                     .try_into()
                     .map_err(|_| ProgramError::InvalidAccountData)?,
             );
-            if asset_shares <= 0 {
-                // Pure-borrow position — see TODO(NAV-MARGINFI-LIABILITY).
+            let liability_shares = i128::from_le_bytes(
+                acc_data[base + BALANCE_OFFSET_LIABILITY_SHARES
+                    ..base + BALANCE_OFFSET_LIABILITY_SHARES + 16]
+                    .try_into()
+                    .map_err(|_| ProgramError::InvalidAccountData)?,
+            );
+            // Empty slot — neither side has shares.
+            if asset_shares <= 0 && liability_shares <= 0 {
                 continue;
             }
-            let asset_shares = asset_shares as u128;
 
-            // Find the matching Bank in `aux` by address. Filter again
-            // for USDC mint to enforce the realistic-scope path.
-            let mut matched_value: Option<u128> = None;
+            // Find the matching Bank in `aux` by address. Filter for USDC
+            // mint to enforce the realistic-scope path.
+            let mut asset_value: u128 = 0;
+            let mut liability_value: u128 = 0;
+            let mut matched = false;
             for bank_acc in aux.iter() {
                 if bank_acc.address().as_array() != &bank_pk {
                     continue;
                 }
                 if !bank_acc.owned_by(&MARGINFI_PROGRAM_ID) {
-                    // Wrong-owner aux — skip rather than error.
                     continue;
                 }
                 let bank_data = bank_acc.try_borrow()?;
@@ -212,38 +223,60 @@ impl PositionReader for MarginfiAccountReader {
                     .map_err(|_| ProgramError::InvalidAccountData)?;
                 if mint_bytes != *USDC_MINT.as_array() {
                     // TODO(NAV-MARGINFI-MULTI-ASSET): handle non-USDC
-                    // banks via Pyth conversion.
+                    // banks via Pyth conversion. Needs a per-bank oracle
+                    // binding (read bank.oracle Pubkey, match aux Pyth).
                     break;
                 }
-                let asset_share_value = i128::from_le_bytes(
-                    bank_data[BANK_OFFSET_ASSET_SHARE_VALUE..BANK_OFFSET_ASSET_SHARE_VALUE + 16]
-                        .try_into()
-                        .map_err(|_| ProgramError::InvalidAccountData)?,
-                );
-                if asset_share_value <= 0 {
-                    break;
-                }
-                let asset_share_value = asset_share_value as u128;
 
-                // (shares * share_value) >> 48 ≈ token base units.
-                let product = asset_shares
-                    .checked_mul(asset_share_value)
-                    .ok_or(ProgramError::ArithmeticOverflow)?;
-                matched_value = Some(product >> I80F48_FRAC_BITS);
+                if asset_shares > 0 {
+                    let asset_share_value = i128::from_le_bytes(
+                        bank_data
+                            [BANK_OFFSET_ASSET_SHARE_VALUE..BANK_OFFSET_ASSET_SHARE_VALUE + 16]
+                            .try_into()
+                            .map_err(|_| ProgramError::InvalidAccountData)?,
+                    );
+                    if asset_share_value > 0 {
+                        let product = (asset_shares as u128)
+                            .checked_mul(asset_share_value as u128)
+                            .ok_or(ProgramError::ArithmeticOverflow)?;
+                        asset_value = product >> I80F48_FRAC_BITS;
+                    }
+                }
+                if liability_shares > 0 {
+                    let liability_share_value = i128::from_le_bytes(
+                        bank_data[BANK_OFFSET_LIABILITY_SHARE_VALUE
+                            ..BANK_OFFSET_LIABILITY_SHARE_VALUE + 16]
+                            .try_into()
+                            .map_err(|_| ProgramError::InvalidAccountData)?,
+                    );
+                    if liability_share_value > 0 {
+                        let product = (liability_shares as u128)
+                            .checked_mul(liability_share_value as u128)
+                            .ok_or(ProgramError::ArithmeticOverflow)?;
+                        liability_value = product >> I80F48_FRAC_BITS;
+                    }
+                }
+                matched = true;
                 break;
             }
 
-            if let Some(v) = matched_value {
-                total_usdc = total_usdc
-                    .checked_add(v)
+            if matched {
+                total_assets = total_assets
+                    .checked_add(asset_value)
+                    .ok_or(ProgramError::ArithmeticOverflow)?;
+                total_liabilities = total_liabilities
+                    .checked_add(liability_value)
                     .ok_or(ProgramError::ArithmeticOverflow)?;
             }
             // else: bank for this balance not in aux — skip silently.
         }
 
-        if total_usdc > u64::MAX as u128 {
+        // Net NAV = assets − liabilities, saturating at 0 to avoid wrapping
+        // an over-leveraged account into a huge u64.
+        let net = total_assets.saturating_sub(total_liabilities);
+        if net > u64::MAX as u128 {
             return Err(ProgramError::ArithmeticOverflow);
         }
-        Ok(total_usdc as u64)
+        Ok(net as u64)
     }
 }

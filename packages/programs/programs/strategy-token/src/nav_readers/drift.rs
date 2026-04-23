@@ -90,34 +90,43 @@ const SPOT_POSITION_OFFSET_MARKET_INDEX: usize = 32;
 const SPOT_POSITION_OFFSET_BALANCE_TYPE: usize = 34;
 
 const SPOT_BALANCE_TYPE_DEPOSIT: u8 = 0;
+const SPOT_BALANCE_TYPE_BORROW: u8 = 1;
 
 // ─── SpotMarket account layout ────────────────────────────────────────────
 //
-// SpotMarket is large (~776 B). Fields we need:
+// SpotMarket is 776 B. Fields we need (verified against mainnet USDC
+// market_index=0 and SOL market_index=1, working backward from
+// `MARKET_INDEX_OFFSET = 684` per drift-labs/protocol-v2 `impl Size for SpotMarket`):
 //
-//     ~8..40     pubkey:                       Pubkey
-//     ~40..72    oracle:                       Pubkey
-//     ~72..104   mint:                         Pubkey
-//     ...        (vault, history, etc.)
-//     ~432..448  cumulative_deposit_interest:  u128 (Q precision = 1e10)
-//     ~448..464  cumulative_borrow_interest:   u128
+//     8..40       pubkey:                       Pubkey
+//     40..72      oracle:                       Pubkey
+//     72..104     mint:                         Pubkey
+//     ...
+//     416..432    total_spot_fee:               u128
+//     432..448    deposit_balance:              u128
+//     448..464    borrow_balance:               u128
+//     464..480    cumulative_deposit_interest:  u128 (Q1e10)  ← USE THIS
+//     480..496    cumulative_borrow_interest:   u128 (Q1e10)
+//     496..512    total_social_loss:            u128
+//     ...
+//     680..684    decimals:                     u32
+//     684..686    market_index:                 u16
 //
-// TODO(NAV-DRIFT-OFFSET): the exact byte offsets for `mint` and
-// `cumulative_deposit_interest` MUST be verified against a live
-// SpotMarket PDA. The numbers below are from inspection of
-// drift-labs/protocol-v2 master and are correct for v2.x as of Apr 2026,
-// but Drift has re-laid this struct out before. Use:
+// Verified 2026-04-23 against mainnet USDC SpotMarket
+// (`6gMq3mRCKf8aP3ttTyYhuijVZ2LGi14oDsBbkgubfLB3`):
+//   @464 = 12_024_851_424 → 1.2025x deposit
+//   @480 = 13_992_308_800 → 1.3992x borrow  (borrow > deposit ✓)
+// And mainnet SOL SpotMarket: @464 = 1.0961x deposit, @480 = 1.2338x borrow ✓.
 //
-//     solana account <USDC_SPOT_MARKET_PDA> --output json
-//
-// then byte-walk to confirm. If the offsets shift, only the two consts
-// below need to change.
+// HISTORY: prior commits had this set to 432 (read `total_spot_fee` as junk)
+// then 480 (read `cumulative_borrow_interest` instead of deposit, inflating
+// NAV by ~16% on every Drift read). Both wrong. The probe at
+// packages/programs/scripts/probes/probe-drift-spotmarket.ts now asserts
+// `value@464 < value@480` so this can't silently regress.
 const SPOT_MARKET_OFFSET_MINT: usize = 72;
-// Verified live against devnet SpotMarket `6gMq3mRCKf8aP3ttTyYhuijVZ2LGi14oDsBbkgubfLB3`
-// (and 8 sibling markets) on 2026-04-23 — values @ 480 read as ~1.0–1.13 in
-// Q1e10 (sane); values @ 432 are `total_spot_fee` (junk for this purpose).
-const SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST: usize = 480;
-const SPOT_MARKET_MIN_LEN: usize = SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST + 16;
+const SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST: usize = 464;
+const SPOT_MARKET_OFFSET_CUMULATIVE_BORROW_INTEREST: usize = 480;
+const SPOT_MARKET_MIN_LEN: usize = SPOT_MARKET_OFFSET_CUMULATIVE_BORROW_INTEREST + 16;
 
 /// Drift's `SPOT_CUMULATIVE_INTEREST_PRECISION` = 10^10. `scaled_balance`
 /// is in `SPOT_BALANCE_PRECISION` (10^9) and `cumulative_deposit_interest`
@@ -172,10 +181,12 @@ impl PositionReader for DriftUserReader {
         let aux = &state_accs[1..];
 
         // Walk the 8 spot position slots. Skip empty (scaled_balance == 0)
-        // and non-Deposit (balance_type != 0). For each surviving slot,
-        // find the matching SpotMarket in `aux` whose `mint == USDC_MINT`,
-        // then convert.
-        let mut total_usdc: u128 = 0;
+        // and unknown balance types. For each surviving slot, find the
+        // matching USDC SpotMarket in `aux` and convert; deposits add,
+        // borrows subtract (saturating at 0 to avoid wrapping).
+        // Non-USDC positions are skipped — see TODO(NAV-DRIFT-MULTI-ASSET).
+        let mut total_assets: u128 = 0;
+        let mut total_liabilities: u128 = 0;
 
         for slot in 0..USER_NUM_SPOT_POSITIONS {
             let base = USER_OFFSET_SPOT_POSITIONS + slot * USER_SPOT_POSITION_SIZE;
@@ -190,10 +201,9 @@ impl PositionReader for DriftUserReader {
             }
 
             let balance_type = user_data[base + SPOT_POSITION_OFFSET_BALANCE_TYPE];
-            if balance_type != SPOT_BALANCE_TYPE_DEPOSIT {
-                // TODO(NAV-DRIFT-MULTI-ASSET): also handle Borrow as a
-                // negative leg once we trust multi-asset valuation. For
-                // now, skip — a deposit-only strategy stays accurate.
+            let is_deposit = balance_type == SPOT_BALANCE_TYPE_DEPOSIT;
+            let is_borrow = balance_type == SPOT_BALANCE_TYPE_BORROW;
+            if !is_deposit && !is_borrow {
                 continue;
             }
 
@@ -203,20 +213,13 @@ impl PositionReader for DriftUserReader {
                     .try_into()
                     .map_err(|_| ProgramError::InvalidAccountData)?,
             );
-
-            // Find the matching SpotMarket aux acc by USDC mint check.
-            // We don't actually need the market_index value here — we
-            // identify the right aux by mint — but we keep it around so
-            // future multi-asset code can route by market_index.
+            // Aux is matched by mint (USDC), not market_index — kept here
+            // for future multi-asset routing by market_index.
             let _ = market_index;
 
             let mut matched_value: Option<u128> = None;
             for spot_market_acc in aux.iter() {
                 if !spot_market_acc.owned_by(&DRIFT_PROGRAM_ID) {
-                    // Wrong-owner aux acc — skip rather than error so a
-                    // misconfigured leg doesn't take down the whole NAV
-                    // refresh. The owner-check on `User` above is the
-                    // primary guarantee.
                     continue;
                 }
                 let market_data = spot_market_acc.try_borrow()?;
@@ -230,35 +233,43 @@ impl PositionReader for DriftUserReader {
                 if mint_bytes != *USDC_MINT.as_array() {
                     continue;
                 }
-                let cumulative_deposit_interest = u128::from_le_bytes(
-                    market_data[SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST
-                        ..SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST + 16]
+                // Pick the deposit or borrow rate based on position type.
+                let interest_offset = if is_deposit {
+                    SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST
+                } else {
+                    SPOT_MARKET_OFFSET_CUMULATIVE_BORROW_INTEREST
+                };
+                let cumulative_interest = u128::from_le_bytes(
+                    market_data[interest_offset..interest_offset + 16]
                         .try_into()
                         .map_err(|_| ProgramError::InvalidAccountData)?,
                 );
-
-                // value (in USDC base units) =
-                //     scaled_balance * cumulative_deposit_interest / DRIFT_USDC_DIVISOR
                 let numerator = (scaled_balance as u128)
-                    .checked_mul(cumulative_deposit_interest)
+                    .checked_mul(cumulative_interest)
                     .ok_or(ProgramError::ArithmeticOverflow)?;
                 matched_value = Some(numerator / DRIFT_USDC_DIVISOR);
                 break;
             }
 
             if let Some(v) = matched_value {
-                total_usdc = total_usdc
-                    .checked_add(v)
-                    .ok_or(ProgramError::ArithmeticOverflow)?;
+                if is_deposit {
+                    total_assets = total_assets
+                        .checked_add(v)
+                        .ok_or(ProgramError::ArithmeticOverflow)?;
+                } else {
+                    total_liabilities = total_liabilities
+                        .checked_add(v)
+                        .ok_or(ProgramError::ArithmeticOverflow)?;
+                }
             }
-            // else: USDC SpotMarket aux not provided for this position →
-            // silently skip. A future strict mode could turn this into
-            // an error.
+            // else: USDC SpotMarket aux not supplied → silent skip.
         }
 
-        if total_usdc > u64::MAX as u128 {
+        // Net NAV = assets − liabilities, saturating at 0.
+        let net = total_assets.saturating_sub(total_liabilities);
+        if net > u64::MAX as u128 {
             return Err(ProgramError::ArithmeticOverflow);
         }
-        Ok(total_usdc as u64)
+        Ok(net as u64)
     }
 }
