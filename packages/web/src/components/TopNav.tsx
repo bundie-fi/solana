@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +14,7 @@ const LINKS: { href: string; label: string }[] = [
 /**
  * Minimal top navigation. Mounted from the root layout so every route shares
  * the same header. Active route gets the amber underline; rest sit muted.
+ * Wordmark + mark mirror the landing-page brand at packages/landing-page/.
  */
 export function TopNav() {
   const pathname = usePathname();
@@ -25,9 +27,19 @@ export function TopNav() {
       >
         <Link
           href="/discover"
-          className="font-serif text-xl text-neutral-900 hover:text-amber-400 transition-colors duration-180"
+          className="inline-flex items-center gap-2.5 group"
         >
-          <em>Bundie</em>
+          <Image
+            src="/assets/bundie-mark-white.png"
+            alt=""
+            width={28}
+            height={28}
+            priority
+            className="rounded-sm"
+          />
+          <span className="font-serif text-xl text-neutral-900 group-hover:text-amber-400 transition-colors duration-180">
+            <em>Bundie</em>
+          </span>
         </Link>
 
         <ul className="flex items-center gap-1 overflow-x-auto">
