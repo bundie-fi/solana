@@ -29,6 +29,7 @@ beethoven = { path = "../../../beethoven", features = [
     # Perps (derivatives)
     "mango-perps",
     "zeta-perps",  # devnet ✓ — futures + options, cross-margin
+    "drift-perps", # devnet ✓ — Drift v2 perps (place_perp_order)
     # Swap (DEX routing) — original 14 + 8 new (4 Raydium + Orca + 2 Meteora + 2 CLOBs)
     "raydium-cpmm-swap",        # mainnet pools
     "raydium-cpmm-devnet-swap", # devnet variant (different program ID)

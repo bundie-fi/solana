@@ -1193,10 +1193,18 @@ pub fn try_from_deposit_context<'info>(
 // Mango v4 + Zeta wired today; Drift Perps / Adrena slot in here the same
 // way. The entire block is cfg-gated on "any perps protocol enabled" so
 // builds without a perps feature simply omit PerpsContext + its dispatcher.
-#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
+#[cfg(any(
+    feature = "mango-perps",
+    feature = "zeta-perps",
+    feature = "drift-perps"
+))]
 pub use perps_ctx::*;
 
-#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
+#[cfg(any(
+    feature = "mango-perps",
+    feature = "zeta-perps",
+    feature = "drift-perps"
+))]
 mod perps_ctx {
     use super::*;
     use crate::Perps;
@@ -1206,6 +1214,8 @@ mod perps_ctx {
         Mango(crate::mango::MangoPlaceOrderAccounts<'info>),
         #[cfg(feature = "zeta-perps")]
         Zeta(crate::zeta::ZetaPlacePerpOrderAccounts<'info>),
+        #[cfg(feature = "drift-perps")]
+        Drift(crate::drift_perps::DriftPlacePerpOrderAccounts<'info>),
     }
 
     pub enum PerpsData {
@@ -1213,6 +1223,8 @@ mod perps_ctx {
         Mango(crate::mango::MangoPlaceOrderData),
         #[cfg(feature = "zeta-perps")]
         Zeta(crate::zeta::ZetaPlacePerpOrderData),
+        #[cfg(feature = "drift-perps")]
+        Drift(crate::drift_perps::DriftPlacePerpOrderData),
     }
 
     impl<'info> Perps<'info> for PerpsContext<'info> {
@@ -1232,6 +1244,10 @@ mod perps_ctx {
                 #[cfg(feature = "zeta-perps")]
                 (PerpsContext::Zeta(accounts), PerpsData::Zeta(d)) => {
                     crate::zeta::Zeta::place_order_signed(accounts, d, signer_seeds)
+                }
+                #[cfg(feature = "drift-perps")]
+                (PerpsContext::Drift(accounts), PerpsData::Drift(d)) => {
+                    crate::drift_perps::Drift::place_order_signed(accounts, d, signer_seeds)
                 }
                 #[allow(unreachable_patterns)]
                 _ => Err(ProgramError::InvalidAccountData),
@@ -1264,6 +1280,15 @@ mod perps_ctx {
         if address_eq(detector_account.address(), &crate::zeta::ZETA_PROGRAM_ID) {
             let ctx = crate::zeta::ZetaPlacePerpOrderAccounts::try_from(accounts)?;
             return Ok(PerpsContext::Zeta(ctx));
+        }
+
+        #[cfg(feature = "drift-perps")]
+        if address_eq(
+            detector_account.address(),
+            &crate::drift_perps::DRIFT_PROGRAM_ID,
+        ) {
+            let ctx = crate::drift_perps::DriftPlacePerpOrderAccounts::try_from(accounts)?;
+            return Ok(PerpsContext::Drift(ctx));
         }
 
         let _ = detector_account;

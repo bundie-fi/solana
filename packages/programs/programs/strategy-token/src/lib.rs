@@ -50,6 +50,7 @@ pub fn process_instruction(
         5 => instructions::snapshot_positions::process(program_id, accounts, rest),
         6 => instructions::init_position::process(program_id, accounts, rest),
         7 => instructions::perp_place_order::process(program_id, accounts, rest),
+        8 => instructions::perp_open::process(program_id, accounts, rest),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
