@@ -1,3 +1,46 @@
+//! update_nav — refresh the strategy's NAV oracle.
+//!
+//! ──────────────────────────────────────────────────────────────────────────
+//! Wire format
+//! ──────────────────────────────────────────────────────────────────────────
+//!
+//! Instruction discriminator: byte `3` (set in `lib.rs::process_instruction`).
+//! After the discriminator is stripped, this handler receives `_data` =
+//!
+//!     []                                            ← legacy / no positions
+//!   | [num_positions: u8,                           ← extended
+//!      protocol_tag: u8 × num_positions]
+//!
+//! Backwards compatibility: if `data` is empty, OR if `num_positions == 0`,
+//! behaviour is identical to the pre-C4 implementation — only the wallet
+//! quote-token ATA is read into `portfolio_value`. This keeps the path
+//! valid for strategies with no deployed legs and lets keepers upgrade
+//! their submission format on their own schedule.
+//!
+//! Protocol tags (see `nav_readers::PROTOCOL_TAG_*`):
+//!     0 = Kamino     (position_acc = Kamino Reserve account)
+//!     1 = Marinade   (position_acc = Marinade State PDA)
+//!     2 = Drift      (position_acc = Drift User account)         — stub
+//!     3 = Marginfi   (position_acc = MarginfiAccount)            — stub
+//!
+//! Account layout (after the 4 fixed accounts):
+//!
+//!     [0] cranker (signer)
+//!     [1] strategy (writable, program-owned)
+//!     [2] nav_oracle (writable, program-owned)
+//!     [3] wallet_token_ata (idle quote-token)
+//!     [4..] for each position i in 0..num_positions:
+//!             [4 + 2*i + 0] holding_acc      — SPL token account whose
+//!                                              `amount` is the per-protocol
+//!                                              balance (cToken / mSOL / lp)
+//!             [4 + 2*i + 1] exchange_rate_acc — protocol-owned account
+//!                                              whose bytes encode the
+//!                                              exchange rate
+//!
+//! `num_positions` MUST equal `(accounts.len() - 4) / 2`. A mismatch (odd
+//! account count, or wrong tag count) is a `NotEnoughAccountKeys` error to
+//! catch keeper bugs early rather than silently mis-pricing.
+
 use pinocchio::{
     account::AccountView,
     address::Address,
@@ -8,13 +51,18 @@ use pinocchio::{
 
 use crate::{
     cpi, error,
+    nav_readers::{
+        drift::DriftUserReader, kamino::KaminoReserveReader, marginfi::MarginfiAccountReader,
+        marinade::MarinadeStateReader, PositionReader, PROTOCOL_TAG_DRIFT, PROTOCOL_TAG_KAMINO,
+        PROTOCOL_TAG_MARGINFI, PROTOCOL_TAG_MARINADE,
+    },
     state::{nav_oracle::NavOracle, strategy::Strategy},
     util,
 };
 
 const NAV_SCALE: u128 = 1_000_000_000;
 
-pub fn process(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
+pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
     // 1. Unpack accounts
     // ----------------------------------------------------------------
@@ -93,18 +141,66 @@ pub fn process(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> 
     }
 
     // ----------------------------------------------------------------
-    // 5. Read portfolio value from wallet_token_ata
-    //
-    // TODO(C4): For yield strategies, this only reads the wallet ATA
-    // balance and does not account for tokens deposited into Kamino
-    // reserves. Full Kamino reserve exchange-rate read will be added
-    // during devnet integration so the NAV reflects lent assets too.
+    // 5. Read portfolio value
+    //   = idle wallet ATA balance
+    //   + Σ (per-position exchange-rate read of deployed holdings)
+    // See module-level wire-format doc for the data + remaining-accounts
+    // layout.
     // ----------------------------------------------------------------
 
-    let portfolio_value = {
+    let mut portfolio_value: u64 = {
         let ata_data = wallet_token_ata.try_borrow()?;
         cpi::spl_token::read_token_amount(&ata_data)
     };
+
+    // Parse `num_positions` and the protocol-tag list out of `data`.
+    // Empty data → 0 positions (backwards-compatible fallback).
+    let (num_positions, tags) = if data.is_empty() {
+        (0usize, &data[..])
+    } else {
+        let n = data[0] as usize;
+        if data.len() < 1 + n {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        (n, &data[1..1 + n])
+    };
+
+    let remaining = &accounts[4..];
+    if remaining.len() != num_positions * 2 {
+        // Either the keeper claimed more positions than they passed
+        // accounts for, or vice-versa. Refuse rather than risk
+        // silently dropping a deployed leg from NAV.
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    for i in 0..num_positions {
+        let tag = tags[i];
+        let holding_acc = &remaining[2 * i];
+        let position_acc = &remaining[2 * i + 1];
+
+        let holding_amount = {
+            let h_data = holding_acc.try_borrow()?;
+            cpi::spl_token::read_token_amount(&h_data)
+        };
+
+        let leg_value = match tag {
+            PROTOCOL_TAG_KAMINO => {
+                KaminoReserveReader::value_in_quote(position_acc, holding_amount)?
+            }
+            PROTOCOL_TAG_MARINADE => {
+                MarinadeStateReader::value_in_quote(position_acc, holding_amount)?
+            }
+            PROTOCOL_TAG_DRIFT => DriftUserReader::value_in_quote(position_acc, holding_amount)?,
+            PROTOCOL_TAG_MARGINFI => {
+                MarginfiAccountReader::value_in_quote(position_acc, holding_amount)?
+            }
+            _ => return Err(error::err(error::ERROR_INVALID_PROTOCOL)),
+        };
+
+        portfolio_value = portfolio_value
+            .checked_add(leg_value)
+            .ok_or(error::err(error::ERROR_NAV_OVERFLOW))?;
+    }
 
     // ----------------------------------------------------------------
     // 6. Compute nav_per_share

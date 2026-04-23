@@ -5,6 +5,7 @@
 pub mod cpi;
 pub mod error;
 mod instructions;
+pub mod nav_readers;
 pub mod state;
 mod util;
 

@@ -162,7 +162,7 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
                     return Err(ProgramError::InvalidInstructionData);
                 }
                 let min_out = u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap());
-                cursor += 8;
+                let _ = cursor; // single-step rebalance: no further reads, suppress unused-write warning
 
                 let (swap_ctx, _rest) = beethoven::try_from_swap_context(remaining)?;
                 let (swap_data, _) = swap_ctx.try_from_swap_data(&[])?;
