@@ -1,0 +1,38 @@
+# Bundie x Zerion — example policy file
+#
+# DENY-by-default: a swap proceeds only if EVERY enabled policy returns allow.
+# Each policy has an `id` (must match the keys in src/bundie/policies.js
+# POLICY_REGISTRY) and a `config` object specific to that policy.
+#
+# Edit this file to point at your own strategy + mint allowlist before running:
+#   zerion-bundie watch --policies examples/bundie/policies.yaml
+
+policies:
+  - id: chain_lock
+    config:
+      allowed_chains: [solana]
+
+  - id: spend_limit
+    config:
+      max_notional_usd_per_rebalance: 25
+      max_notional_usd_per_day: 100
+
+  - id: asset_whitelist
+    config:
+      allowed_mints:
+        - So11111111111111111111111111111111111111112
+        - EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+        - mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So
+
+  - id: expiry
+    config:
+      max_age_days: 7
+
+  - id: nav_divergence
+    config:
+      max_drop_pct: 5
+      window_minutes: 30
+
+# Optional: explicit timestamp (ms) the agent was armed. If omitted, expiry
+# uses the loop start time.
+# armed_at_ms: 1745000000000

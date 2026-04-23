@@ -1,0 +1,62 @@
+{
+  "name": "@bundie/zerion-agent",
+  "version": "0.0.1-poc",
+  "private": true,
+  "description": "Bundie x Zerion track — strategy rebalance agent on top of zerion-ai. Forked from zerion-cli.",
+  "author": "Bundie (fork of Zerion)",
+  "type": "module",
+  "bin": {
+    "zerion": "./cli/zerion.js",
+    "zerion-bundie": "./src/cli.js"
+  },
+  "files": [
+    "cli/**/*.js",
+    "cli/**/*.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test 'tests/**/*.test.mjs'",
+    "test:unit": "node --test 'tests/unit/**/*.test.mjs'",
+    "test:integration": "node --test 'tests/integration/**/*.test.mjs'",
+    "test:integration:auth": "node --test tests/integration/auth.test.mjs",
+    "test:bundie": "node --test tests/unit/bundie-policies.test.mjs tests/unit/bundie-rebalance.test.mjs tests/unit/bundie-policy-loader.test.mjs",
+    "build": "node --check src/cli.js && node --check src/bundie/policies.js && node --check src/bundie/strategy-monitor.js && node --check src/bundie/rebalance-loop.js && node --check src/bundie/policy-loader.js && node --check src/bundie/state-store.js && echo '{\"build\":\"ok (pure ESM, no compile step)\"}'",
+    "bundie": "node src/cli.js",
+    "prepublishOnly": "echo 'private package — do not publish' && exit 1"
+  },
+  "imports": {
+    "#zerion/*": "./*",
+    "#zerion": "./package.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "zerion",
+    "ai",
+    "mcp",
+    "wallet",
+    "openclaw",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeriontech/zerion-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zeriontech/zerion-ai/issues"
+  },
+  "homepage": "https://github.com/zeriontech/zerion-ai#readme",
+  "license": "MIT",
+  "dependencies": {
+    "@open-wallet-standard/core": "^1.2.4",
+    "@solana/web3.js": "^1.98.4",
+    "@x402/evm": "^2.6.0",
+    "@x402/fetch": "^2.6.0",
+    "@x402/svm": "^2.8.0",
+    "mppx": "^0.6.2",
+    "qrcode-terminal": "^0.12.0",
+    "viem": "^2.0.0"
+  }
+}
