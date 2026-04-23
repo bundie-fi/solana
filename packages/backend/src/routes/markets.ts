@@ -1,4 +1,7 @@
 import { Hono } from "hono";
+import { PublicKey } from "@solana/web3.js";
+import { buildPredictBuy } from "../lib/builders.js";
+import { connection, DEVNET_USDC } from "../lib/solana.js";
 
 export const markets = new Hono();
 
@@ -28,18 +31,6 @@ interface MarketDetail extends PredictionMarket {
   resolutionCriteria: string;
   expiryTimestamp: number;
   createdAt: number;
-}
-
-interface BuyRequest {
-  outcome: "yes" | "no";
-  amount: number;
-}
-
-interface BuyResponse {
-  txId: string;
-  shares: number;
-  cost: number;
-  newPrice: number;
 }
 
 interface ResolveResponse {
@@ -116,7 +107,7 @@ const MOCK_MARKETS: MarketDetail[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Routes
+// Read routes
 // ---------------------------------------------------------------------------
 
 markets.get("/", (c) => {
@@ -138,39 +129,94 @@ markets.get("/:id", (c) => {
   return c.json({ market });
 });
 
+// ---------------------------------------------------------------------------
+// Write routes — return UNSIGNED transactions for the client to sign + send.
+//
+// Mirrors the `Prepared` shape from @bundie/sol-cli/src/prepare.ts. The
+// prediction-market program is Anchor 1.0; we hand-encode the 8-byte
+// sha256("global:buy_shares") discriminator + Borsh args (outcome:u8 +
+// amount:u64) so we don't need to thread a wallet through an AnchorProvider
+// just to build an instruction.
+// ---------------------------------------------------------------------------
+
+interface PredictBuyBody {
+  /** Buyer wallet — signs + pays fee. */
+  wallet: string;
+  /** "yes" or "no". */
+  outcome: "yes" | "no";
+  /** Whole-USDC amount to buy (× 1e6 base units on-chain). */
+  amount: number;
+  /** Strategy address the market predicts on. Required for the program's
+   *  buyer ≠ strategy.authority self-exclusion check. The client gets this
+   *  from `GET /api/markets/:id` (`market.strategy`). Falls back to the mock
+   *  strategy address if the client omits it AND the market id is in our
+   *  mock catalog. */
+  strategy?: string;
+  /** Collateral mint (defaults to devnet USDC). */
+  collateral_mint?: string;
+}
+
 markets.post("/:id/buy", async (c) => {
   const { id } = c.req.param();
-  const market = MOCK_MARKETS.find((m) => m.address === id);
 
-  if (!market) {
-    return c.json({ error: "Market not found", id }, 404);
+  let marketKey: PublicKey;
+  try {
+    marketKey = new PublicKey(id);
+  } catch {
+    return c.json({ error: `Invalid market address: ${id}` }, 400);
   }
 
-  const body = await c.req.json<BuyRequest>();
-  const { outcome, amount } = body;
-
-  if (!outcome || !["yes", "no"].includes(outcome)) {
-    return c.json({ error: "outcome must be 'yes' or 'no'" }, 400);
-  }
-  if (!amount || amount <= 0) {
-    return c.json({ error: "amount must be a positive number" }, 400);
+  let body: PredictBuyBody;
+  try {
+    body = await c.req.json<PredictBuyBody>();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  // Mock cost calculation (simplified LS-LMSR-like pricing)
-  const priceImpact = amount * 0.002;
-  const currentPrice = outcome === "yes" ? market.yesPrice : market.noPrice;
-  const shares = amount / (currentPrice + priceImpact / 2);
-  const cost = amount;
-  const newPrice = Math.min(0.99, currentPrice + priceImpact);
+  if (!body.wallet) return c.json({ error: "`wallet` is required" }, 400);
+  if (!body.outcome || !["yes", "no"].includes(body.outcome)) {
+    return c.json({ error: "`outcome` must be 'yes' or 'no'" }, 400);
+  }
+  if (!body.amount || body.amount <= 0) {
+    return c.json({ error: "`amount` must be a positive number" }, 400);
+  }
 
-  const response: BuyResponse = {
-    txId: `mock_tx_${id.slice(0, 8)}_${Date.now()}`,
-    shares: parseFloat(shares.toFixed(4)),
-    cost: parseFloat(cost.toFixed(2)),
-    newPrice: parseFloat(newPrice.toFixed(4)),
-  };
+  let payer: PublicKey;
+  try {
+    payer = new PublicKey(body.wallet);
+  } catch {
+    return c.json({ error: `Invalid wallet pubkey: ${body.wallet}` }, 400);
+  }
 
-  return c.json(response);
+  // Resolve strategy: explicit body field wins; else look up in mock catalog;
+  // else 400. (Once we hydrate markets from chain we'll fetchMarket() here.)
+  const fallback = MOCK_MARKETS.find((m) => m.address === id);
+  const strategy = body.strategy ?? fallback?.strategy;
+  if (!strategy) {
+    return c.json(
+      { error: "`strategy` is required (read from `GET /api/markets/:id`)" },
+      400
+    );
+  }
+
+  const collateralMint = body.collateral_mint ?? DEVNET_USDC.toBase58();
+
+  try {
+    const prepared = await buildPredictBuy(connection, payer, {
+      market: marketKey.toBase58(),
+      strategy,
+      collateralMint,
+      side: body.outcome,
+      amount: body.amount,
+    });
+    return c.json(prepared);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json(
+      { error: "Failed to build prediction buy_shares tx", detail: message },
+      500
+    );
+  }
 });
 
 markets.post("/:id/resolve", async (c) => {
