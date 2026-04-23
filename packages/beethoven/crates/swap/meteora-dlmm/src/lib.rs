@@ -126,7 +126,10 @@ impl<'info> Swap<'info> for MeteoraDlmm {
         let mut metas = MaybeUninit::<[InstructionAccount; TOTAL]>::uninit();
         let metas_ptr = metas.as_mut_ptr() as *mut InstructionAccount;
         unsafe {
-            core::ptr::write(metas_ptr, InstructionAccount::writable(ctx.lb_pair.address()));
+            core::ptr::write(
+                metas_ptr,
+                InstructionAccount::writable(ctx.lb_pair.address()),
+            );
             core::ptr::write(
                 metas_ptr.add(1),
                 InstructionAccount::writable(ctx.bin_array_bitmap_extension.address()),

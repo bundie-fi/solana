@@ -2,7 +2,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
-import { fetchStrategy, fetchStrategies, fetchMarkets } from '@/lib/chain'
+import {
+  fetchStrategy,
+  fetchStrategies,
+  fetchMarkets,
+  fetchProtocolCoverage,
+  fetchRecentActivity,
+  type ActivityEntry,
+} from '@/lib/chain'
 import { PROTOCOLS, type Protocol } from '@/lib/protocols'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { BuySharesPanel } from '@/components/BuySharesPanel'
@@ -18,10 +25,10 @@ const SLOT_MS = 400
 // amount @ 64 (8B LE u64). Total 165 bytes.
 const TOKEN_ACCOUNT_LEN = 165
 
-// TODO: Add a "Recent activity" section here once we can afford a
-// `getSignaturesForAddress(strategy)` round-trip per page-view. RPC-expensive
-// today; deferred until we either cache the signatures backend-side or move
-// activity rendering to a client-side lazy section.
+// "Recent activity" is rendered below the Top backers section. Implementation
+// note: the underlying fetch (chain.ts::fetchRecentActivity) Promise.allSettleds
+// the per-sig getTransaction calls and caches the result for 60s per strategy
+// to keep public-devnet 429s manageable.
 
 interface NavSnapshot {
   slot: number
@@ -159,19 +166,32 @@ export default async function StrategyDetailPage({
       ? `slot ${lastSnapshotSlot}`
       : 'unknown'
 
-  // TODO: replace with rebalance-history scan once Beethoven dispatch logs land.
-  // findProtocol() looks up by canonical id, but the strategy account stores
-  // a program ID — walk the catalog instead.
+  // findProtocol() in lib/protocols looks up by canonical id, but the strategy
+  // account stores a program ID — walk the catalog by programId instead. Used
+  // as the fallback chip when no rebalance history exists yet.
   const matchedProtocol: Protocol | undefined = PROTOCOLS.find(
     (p) => p.programId === strategy!.protocol,
   )
 
-  const [{ markets: openMarkets, currentSlot }, topBackers] = await Promise.all(
-    [
+  const [{ markets: openMarkets, currentSlot }, topBackers, coverageRaw, activity] =
+    await Promise.all([
       fetchOpenMarketsForStrategy(params.id),
       fetchTopBackers(strategy.mint),
-    ],
-  )
+      fetchProtocolCoverage(new PublicKey(params.id)).catch(() => []),
+      fetchRecentActivity(new PublicKey(params.id)).catch(
+        () => [] as ActivityEntry[],
+      ),
+    ])
+
+  // Resolve each program ID against the static catalog. Unknown program IDs
+  // (not yet wired into lib/protocols) still get rendered with a truncated
+  // pubkey so we never silently drop on-chain truth.
+  const coverage: { protocol: Protocol | undefined; programId: string; legs: number }[] =
+    coverageRaw.map((c) => ({
+      protocol: PROTOCOLS.find((p) => p.programId === c.protocolId),
+      programId: c.protocolId,
+      legs: c.legs,
+    }))
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -242,13 +262,42 @@ export default async function StrategyDetailPage({
             </div>
           )}
 
-          {/* Position composition */}
+          {/* Position composition — derived from rebalance ix history. Empty
+              coverage (e.g. fresh strategy with no rebalances yet) falls back
+              to the single metadata-protocol chip so the section still renders. */}
           <section className="rounded-xl border border-neutral-300 bg-surface p-6">
             <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600 mb-4">
               Position composition
             </h2>
-            {/* TODO: replace with rebalance-history scan once Beethoven dispatch logs land */}
-            {matchedProtocol ? (
+            {coverage.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {coverage.map((c) =>
+                  c.protocol ? (
+                    <ProtocolChip
+                      key={c.programId}
+                      protocol={c.protocol}
+                      legs={c.legs}
+                    />
+                  ) : (
+                    <span
+                      key={c.programId}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-neutral-300 bg-neutral-0/40 font-mono text-[11px] font-medium text-neutral-700"
+                      title={`Unmapped protocol ${c.programId}`}
+                    >
+                      <span className="uppercase tracking-[0.12em] opacity-70">
+                        Unmapped
+                      </span>
+                      <span className="opacity-30" aria-hidden="true">·</span>
+                      <span className="text-neutral-600">
+                        {c.programId.slice(0, 8)}…{c.programId.slice(-6)}
+                      </span>
+                      <span className="opacity-30" aria-hidden="true">·</span>
+                      <span>{c.legs} {c.legs === 1 ? 'leg' : 'legs'}</span>
+                    </span>
+                  ),
+                )}
+              </div>
+            ) : matchedProtocol ? (
               <div className="flex items-center justify-between gap-4">
                 <ProtocolChip protocol={matchedProtocol} />
                 <span className="font-mono nums text-sm text-neutral-900">
@@ -367,6 +416,84 @@ export default async function StrategyDetailPage({
             )}
           </section>
 
+          {/* Recent activity — last N decoded strategy-token ixs touching this
+              strategy. fetchRecentActivity caches per-strategy for 60s and
+              tolerates per-sig RPC failures (drops the row, keeps rendering). */}
+          <section className="rounded-xl border border-neutral-300 bg-surface p-6">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600 mb-4">
+              Recent activity
+            </h2>
+            {activity.length === 0 ? (
+              <p className="text-sm text-neutral-700">No on-chain activity yet.</p>
+            ) : (
+              <ul className="divide-y divide-neutral-300">
+                {activity.map((a) => {
+                  const rel =
+                    a.blockTime && a.blockTime > 0
+                      ? formatRelative(Math.max(0, nowSec - a.blockTime))
+                      : `slot ${a.slot}`
+                  const protoName =
+                    a.protocol &&
+                    (PROTOCOLS.find((p) => p.programId === a.protocol)?.name ??
+                      `${a.protocol.slice(0, 4)}…${a.protocol.slice(-4)}`)
+                  const chipTone =
+                    a.kind === 'deposit' || a.kind === 'create'
+                      ? 'bg-amber-600/10 text-amber-400 border-amber-600/40'
+                      : a.kind === 'redeem'
+                      ? 'bg-danger-400/10 text-danger-400 border-danger-400/40'
+                      : a.kind === 'perp'
+                      ? 'bg-purple-500/10 text-purple-300 border-purple-500/40'
+                      : 'bg-neutral-0/40 text-neutral-700 border-neutral-300'
+                  return (
+                    <li
+                      key={`${a.signature}-${a.kind}`}
+                      className="flex items-center justify-between gap-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full border font-mono text-[10px] uppercase tracking-[0.08em] ${chipTone}`}
+                        >
+                          {a.label}
+                        </span>
+                        {a.amount && (
+                          <span className="font-mono nums text-xs text-neutral-900 truncate">
+                            {a.amount}
+                          </span>
+                        )}
+                        {protoName && (
+                          <>
+                            <span
+                              className="opacity-30 font-mono text-[10px]"
+                              aria-hidden="true"
+                            >
+                              ·
+                            </span>
+                            <span className="font-mono text-[11px] text-neutral-700 truncate">
+                              {protoName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono text-[10px] text-neutral-600">
+                          {rel}
+                        </span>
+                        <a
+                          href={`https://orbmarkets.io/tx/${a.signature}?cluster=devnet`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[10px] text-amber-400 hover:underline"
+                        >
+                          tx ↗
+                        </a>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
           {/* On-chain details */}
           <div className="rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
             <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600">
@@ -469,7 +596,13 @@ function DetailRow({
 
 // Lifted from ProtocolCoverage.tsx — shared chip styling, kept inline to avoid
 // pulling in a "use client" component for what is otherwise pure markup.
-function ProtocolChip({ protocol }: { protocol: Protocol }) {
+function ProtocolChip({
+  protocol,
+  legs,
+}: {
+  protocol: Protocol
+  legs?: number
+}) {
   const tone =
     protocol.category === 'deposit'
       ? {
@@ -492,13 +625,21 @@ function ProtocolChip({ protocol }: { protocol: Protocol }) {
         'font-mono text-[11px] font-medium tracking-[0.04em]',
         tone.chip,
       ].join(' ')}
-      title={`${protocol.name} — ${tone.label}`}
+      title={`${protocol.name} — ${tone.label}${
+        legs !== undefined ? ` · ${legs} ${legs === 1 ? 'leg' : 'legs'}` : ''
+      }`}
     >
       <span className="uppercase tracking-[0.12em] opacity-70">
         {tone.label}
       </span>
       <span className="opacity-30" aria-hidden="true">·</span>
       <span>{protocol.name}</span>
+      {legs !== undefined && (
+        <>
+          <span className="opacity-30" aria-hidden="true">·</span>
+          <span className="nums">{legs} {legs === 1 ? 'leg' : 'legs'}</span>
+        </>
+      )}
     </span>
   )
 }

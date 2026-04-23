@@ -191,8 +191,7 @@ use beethoven_core::DepositInit;
 
 /// Anchor disc for `marginfi_account_initialize`.
 /// From sha256("global:marginfi_account_initialize")[..8].
-pub const MARGINFI_ACCOUNT_INITIALIZE_DISCRIMINATOR: [u8; 8] =
-    [43, 78, 61, 255, 148, 52, 249, 154];
+pub const MARGINFI_ACCOUNT_INITIALIZE_DISCRIMINATOR: [u8; 8] = [43, 78, 61, 255, 148, 52, 249, 154];
 
 pub struct MarginfiInitAccounts<'info> {
     pub marginfi_program: &'info AccountView,

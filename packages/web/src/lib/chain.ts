@@ -23,6 +23,12 @@ const POSITION_SNAPSHOTS_LEN = 161
 
 // First-byte instruction discriminator for update_nav (lib.rs::process_instruction = 3)
 const UPDATE_NAV_IX_TAG = 0x03
+// First-byte instruction discriminator for rebalance (dispatch byte 4)
+const REBALANCE_IX_TAG = 0x04
+// rebalance ix layout: account[0] = authority, account[1] = strategy,
+// then remaining_accounts begin at index 2; the FIRST remaining account
+// is the protocol program ID Beethoven's Context detector keys off.
+const REBALANCE_PROTOCOL_ACCOUNT_INDEX = 2
 // Solana mainnet/devnet target: 400ms slots → ~78,840,000 slots/year.
 // nav_per_share is 1e9-scaled per update_nav.rs but the ratio between two
 // samples cancels the scale, so we don't need NAV_SCALE for APY.
@@ -175,6 +181,103 @@ export async function fetchPositionSnapshot(
   const info = await c.getAccountInfo(positionSnapshotsPda(strategy))
   if (!info) return null
   return deserializePositionSnapshots(Buffer.from(info.data))
+}
+
+// ── Protocol coverage (rebalance history scan) ────────────────────────────────
+// The strategy account stores a single `protocol` pubkey field but real
+// composition is the union of every protocol that appears as the first
+// remaining_account on any rebalance ix (dispatch byte 0x04). We walk recent
+// signatures touching the strategy, decode each tx's compiled rebalance ixs,
+// and tally distinct protocol program IDs along with leg counts. Cached
+// per-strategy with a short TTL — rebalances are infrequent and devnet RPC
+// throttling is real.
+
+export interface ProtocolCoverageEntry {
+  protocolId: string
+  legs: number
+}
+
+interface ProtocolCoverageCacheEntry {
+  fetchedAt: number
+  coverage: ProtocolCoverageEntry[]
+}
+const PROTOCOL_COVERAGE_CACHE = new Map<string, ProtocolCoverageCacheEntry>()
+const PROTOCOL_COVERAGE_TTL_MS = 60_000
+// Pinned to dampen devnet 429s — getSignaturesForAddress defaults to 1000.
+const PROTOCOL_COVERAGE_SIG_LIMIT = 50
+
+export async function fetchProtocolCoverage(
+  strategy: PublicKey,
+): Promise<ProtocolCoverageEntry[]> {
+  const cacheKey = strategy.toBase58()
+  const cached = PROTOCOL_COVERAGE_CACHE.get(cacheKey)
+  if (cached && Date.now() - cached.fetchedAt < PROTOCOL_COVERAGE_TTL_MS) {
+    return cached.coverage
+  }
+
+  const conn = new Connection(RPC, 'confirmed')
+  let sigs: Awaited<ReturnType<Connection['getSignaturesForAddress']>>
+  try {
+    sigs = await conn.getSignaturesForAddress(strategy, {
+      limit: PROTOCOL_COVERAGE_SIG_LIMIT,
+    })
+  } catch {
+    // RPC failure → empty coverage so the UI falls back to its single-chip render.
+    PROTOCOL_COVERAGE_CACHE.set(cacheKey, { fetchedAt: Date.now(), coverage: [] })
+    return []
+  }
+
+  const tally = new Map<string, number>()
+
+  for (const s of sigs) {
+    if (s.err) continue
+    let tx: Awaited<ReturnType<Connection['getTransaction']>> = null
+    try {
+      tx = await conn.getTransaction(s.signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: 'confirmed',
+      })
+    } catch {
+      continue
+    }
+    if (!tx) continue
+
+    let keys: PublicKey[]
+    try {
+      keys = tx.transaction.message
+        .getAccountKeys({
+          accountKeysFromLookups: tx.meta?.loadedAddresses ?? undefined,
+        })
+        .keySegments()
+        .flat()
+    } catch {
+      continue
+    }
+
+    const ixs = tx.transaction.message.compiledInstructions ?? []
+    for (const ix of ixs) {
+      const programId = keys[ix.programIdIndex]
+      if (!programId?.equals(STRATEGY_PROGRAM_ID)) continue
+      if (ix.data.length === 0) continue
+      if (ix.data[0] !== REBALANCE_IX_TAG) continue
+      // accountKeyIndexes is the per-ix slice of message account indices;
+      // index 2 corresponds to the first remaining_account = protocol program.
+      const acctIdxs = ix.accountKeyIndexes ?? []
+      if (acctIdxs.length <= REBALANCE_PROTOCOL_ACCOUNT_INDEX) continue
+      const protoIdx = acctIdxs[REBALANCE_PROTOCOL_ACCOUNT_INDEX]
+      const protoKey = keys[protoIdx]
+      if (!protoKey) continue
+      const id = protoKey.toBase58()
+      tally.set(id, (tally.get(id) ?? 0) + 1)
+    }
+  }
+
+  const coverage: ProtocolCoverageEntry[] = Array.from(tally.entries())
+    .map(([protocolId, legs]) => ({ protocolId, legs }))
+    .sort((a, b) => b.legs - a.legs)
+
+  PROTOCOL_COVERAGE_CACHE.set(cacheKey, { fetchedAt: Date.now(), coverage })
+  return coverage
 }
 
 // ── NAV history derivation ────────────────────────────────────────────────────
@@ -479,6 +582,240 @@ export async function fetchCurrentSlot(): Promise<number | null> {
   } catch {
     return null
   }
+}
+
+// ── Recent activity (signature scan + ix decode) ──────────────────────────────
+// Walks the last N signatures touching a strategy account and decodes the
+// strategy-token instructions inside each tx into typed activity entries.
+// Strategy-token dispatch bytes (per memory/strategy_token_dispatch.md):
+//   0=create_strategy, 1=buy_shares, 2=redeem_shares, 3=update_nav,
+//   4=rebalance, 5=snapshot_positions, 6=init_position, 7=perp_place_order
+//
+// Performance notes:
+// - 30 sigs × getTransaction = 31 RPC calls. Public devnet WILL throttle, so
+//   we Promise.allSettled the per-sig fetches and drop any that 429.
+// - Cached per-strategy with a 60s TTL — the page re-renders (revalidate=30)
+//   are cheap because two consecutive renders inside the TTL window share the
+//   same fetched batch.
+
+export type ActivityKind =
+  | 'create'
+  | 'deposit'
+  | 'redeem'
+  | 'update_nav'
+  | 'rebalance'
+  | 'snapshot'
+  | 'init_position'
+  | 'perp'
+
+export interface ActivityEntry {
+  signature: string
+  blockTime: number | null
+  slot: number
+  kind: ActivityKind
+  label: string
+  amount?: string
+  protocol?: string
+}
+
+const CREATE_IX_TAG = 0x00
+const BUY_SHARES_IX_TAG = 0x01
+const REDEEM_SHARES_IX_TAG = 0x02
+// UPDATE_NAV_IX_TAG and REBALANCE_IX_TAG already declared above.
+const SNAPSHOT_IX_TAG = 0x05
+const INIT_POSITION_IX_TAG = 0x06
+const PERP_PLACE_ORDER_IX_TAG = 0x07
+
+interface ActivityCacheEntry {
+  fetchedAt: number
+  entries: ActivityEntry[]
+}
+const ACTIVITY_CACHE = new Map<string, ActivityCacheEntry>()
+const ACTIVITY_TTL_MS = 60_000
+const ACTIVITY_SIG_LIMIT = 30
+const ACTIVITY_RENDER_LIMIT = 10
+
+function formatUsdc(raw: bigint): string {
+  // 6 decimals across both USDC base-units and our share mints.
+  const whole = raw / 1_000_000n
+  const frac = raw % 1_000_000n
+  const fracStr = frac.toString().padStart(6, '0').replace(/0+$/, '')
+  return fracStr.length > 0 ? `${whole.toString()}.${fracStr}` : whole.toString()
+}
+
+function readU64LE(data: Uint8Array, offset: number): bigint | undefined {
+  if (offset + 8 > data.length) return undefined
+  // Uint8Array → Buffer wrapper for readBigUInt64LE; cheap, no copy.
+  return Buffer.from(data.buffer, data.byteOffset + offset, 8).readBigUInt64LE(0)
+}
+
+function decodeRebalanceSubAction(byte: number): string {
+  switch (byte) {
+    case 0:
+      return 'deposit'
+    case 1:
+      return 'withdraw'
+    case 2:
+      return 'swap'
+    default:
+      return `op ${byte}`
+  }
+}
+
+export async function fetchRecentActivity(
+  strategy: PublicKey,
+  limit: number = ACTIVITY_RENDER_LIMIT,
+): Promise<ActivityEntry[]> {
+  const cacheKey = strategy.toBase58()
+  const cached = ACTIVITY_CACHE.get(cacheKey)
+  if (cached && Date.now() - cached.fetchedAt < ACTIVITY_TTL_MS) {
+    return cached.entries.slice(0, limit)
+  }
+
+  const conn = new Connection(RPC, 'confirmed')
+  let sigs: Awaited<ReturnType<Connection['getSignaturesForAddress']>>
+  try {
+    sigs = await conn.getSignaturesForAddress(strategy, {
+      limit: ACTIVITY_SIG_LIMIT,
+    })
+  } catch {
+    ACTIVITY_CACHE.set(cacheKey, { fetchedAt: Date.now(), entries: [] })
+    return []
+  }
+
+  // Parallel fetch + ignore individual failures (devnet 429 tolerant).
+  const txs = await Promise.allSettled(
+    sigs.map((s) =>
+      conn.getTransaction(s.signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: 'confirmed',
+      }),
+    ),
+  )
+
+  const entries: ActivityEntry[] = []
+
+  for (let i = 0; i < sigs.length; i++) {
+    const sigInfo = sigs[i]
+    if (sigInfo.err) continue
+    const result = txs[i]
+    if (result.status !== 'fulfilled' || !result.value) continue
+    const tx = result.value
+
+    let keys: PublicKey[]
+    try {
+      keys = tx.transaction.message
+        .getAccountKeys({
+          accountKeysFromLookups: tx.meta?.loadedAddresses ?? undefined,
+        })
+        .keySegments()
+        .flat()
+    } catch {
+      continue
+    }
+
+    const ixs = tx.transaction.message.compiledInstructions ?? []
+    for (const ix of ixs) {
+      const programId = keys[ix.programIdIndex]
+      if (!programId?.equals(STRATEGY_PROGRAM_ID)) continue
+      if (ix.data.length === 0) continue
+
+      const tag = ix.data[0]
+      const acctIdxs = ix.accountKeyIndexes ?? []
+      const base = {
+        signature: sigInfo.signature,
+        blockTime: sigInfo.blockTime ?? null,
+        slot: sigInfo.slot,
+      }
+
+      switch (tag) {
+        case CREATE_IX_TAG: {
+          // create_strategy: account[0] = creator/authority signer.
+          const creator = acctIdxs[0] !== undefined ? keys[acctIdxs[0]] : undefined
+          const creatorB58 = creator?.toBase58()
+          entries.push({
+            ...base,
+            kind: 'create',
+            label: creatorB58
+              ? `Strategy created by ${creatorB58.slice(0, 4)}…${creatorB58.slice(-4)}`
+              : 'Strategy created',
+          })
+          break
+        }
+        case BUY_SHARES_IX_TAG: {
+          const amount = readU64LE(ix.data, 1)
+          entries.push({
+            ...base,
+            kind: 'deposit',
+            label: 'Deposit',
+            amount: amount !== undefined ? `${formatUsdc(amount)} USDC` : undefined,
+          })
+          break
+        }
+        case REDEEM_SHARES_IX_TAG: {
+          const amount = readU64LE(ix.data, 1)
+          entries.push({
+            ...base,
+            kind: 'redeem',
+            label: 'Redeem',
+            amount:
+              amount !== undefined ? `${formatUsdc(amount)} shares` : undefined,
+          })
+          break
+        }
+        case UPDATE_NAV_IX_TAG: {
+          entries.push({ ...base, kind: 'update_nav', label: 'NAV updated' })
+          break
+        }
+        case REBALANCE_IX_TAG: {
+          // Layout per CLAUDE / IDL:
+          //   data[0]   = dispatch byte (0x04)
+          //   data[1]   = beethoven protocol category byte (caller-supplied)
+          //   data[2]   = sub-action (0=deposit, 1=withdraw, 2=swap)
+          //   data[3..11] = u64 amount
+          const subByte = ix.data.length > 2 ? ix.data[2] : 0
+          const subAction = decodeRebalanceSubAction(subByte)
+          const amount = readU64LE(ix.data, 3)
+          // First remaining account → protocol program ID.
+          const protoIdx = acctIdxs[REBALANCE_PROTOCOL_ACCOUNT_INDEX]
+          const protoKey = protoIdx !== undefined ? keys[protoIdx] : undefined
+          const protocolId = protoKey?.toBase58()
+          entries.push({
+            ...base,
+            kind: 'rebalance',
+            label: `Rebalance · ${subAction}`,
+            amount: amount !== undefined ? formatUsdc(amount) : undefined,
+            protocol: protocolId,
+          })
+          break
+        }
+        case SNAPSHOT_IX_TAG: {
+          entries.push({ ...base, kind: 'snapshot', label: 'Snapshot taken' })
+          break
+        }
+        case INIT_POSITION_IX_TAG: {
+          entries.push({
+            ...base,
+            kind: 'init_position',
+            label: 'Position initialized',
+          })
+          break
+        }
+        case PERP_PLACE_ORDER_IX_TAG: {
+          entries.push({ ...base, kind: 'perp', label: 'Perp order' })
+          break
+        }
+        default:
+          // Unknown dispatch byte — silently skip.
+          break
+      }
+    }
+  }
+
+  // Newest first; getSignaturesForAddress already returns that order, but the
+  // per-tx ix walk preserves whatever order the RPC gave us.
+  ACTIVITY_CACHE.set(cacheKey, { fetchedAt: Date.now(), entries })
+  return entries.slice(0, limit)
 }
 
 export async function fetchMarkets(strategies: StrategyDisplay[]): Promise<MarketDisplay[]> {

@@ -15,8 +15,8 @@ pinocchio::program_entrypoint!(process_instruction);
 
 /// Strategy Token Program ID — `Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm`
 pub const ID: Address = Address::new_from_array([
-    162, 26, 7, 87, 249, 8, 100, 213, 180, 17, 125, 234, 45, 168, 44, 50, 84, 184, 53, 8, 233,
-    206, 146, 225, 18, 196, 241, 232, 131, 217, 106, 60,
+    162, 26, 7, 87, 249, 8, 100, 213, 180, 17, 125, 234, 45, 168, 44, 50, 84, 184, 53, 8, 233, 206,
+    146, 225, 18, 196, 241, 232, 131, 217, 106, 60,
 ]);
 
 /// Anchor v0.30 legacy IDL instruction prefix — `sha256("anchor:idl")[..8]`

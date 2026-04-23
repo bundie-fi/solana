@@ -215,16 +215,10 @@ impl<'info> Swap<'info> for OpenbookV2 {
         let (max_base_lots, max_quote_lots_including_fees) = match data.side {
             // Buying base with quote: cap quote spent at in_amount, stop once
             // we've received min_out base.
-            Side::Bid => (
-                minimum_out_amount as i64,
-                in_amount as i64,
-            ),
+            Side::Bid => (minimum_out_amount as i64, in_amount as i64),
             // Selling base for quote: cap base sold at in_amount, stop once
             // we've received min_out quote.
-            Side::Ask => (
-                in_amount as i64,
-                minimum_out_amount as i64,
-            ),
+            Side::Ask => (in_amount as i64, minimum_out_amount as i64),
         };
 
         let accounts = [
@@ -280,25 +274,13 @@ impl<'info> Swap<'info> for OpenbookV2 {
         let mut instruction_data = MaybeUninit::<[u8; DATA_LEN]>::uninit();
         unsafe {
             let ptr = instruction_data.as_mut_ptr() as *mut u8;
-            core::ptr::copy_nonoverlapping(
-                PLACE_TAKE_ORDER_DISCRIMINATOR.as_ptr(),
-                ptr,
-                8,
-            );
+            core::ptr::copy_nonoverlapping(PLACE_TAKE_ORDER_DISCRIMINATOR.as_ptr(), ptr, 8);
             // side: u8
             core::ptr::write(ptr.add(8), data.side as u8);
             // price_lots: i64 — max value ⇒ "any price"
-            core::ptr::copy_nonoverlapping(
-                PRICE_LOTS_ANY.to_le_bytes().as_ptr(),
-                ptr.add(9),
-                8,
-            );
+            core::ptr::copy_nonoverlapping(PRICE_LOTS_ANY.to_le_bytes().as_ptr(), ptr.add(9), 8);
             // max_base_lots: i64
-            core::ptr::copy_nonoverlapping(
-                max_base_lots.to_le_bytes().as_ptr(),
-                ptr.add(17),
-                8,
-            );
+            core::ptr::copy_nonoverlapping(max_base_lots.to_le_bytes().as_ptr(), ptr.add(17), 8);
             // max_quote_lots_including_fees: i64
             core::ptr::copy_nonoverlapping(
                 max_quote_lots_including_fees.to_le_bytes().as_ptr(),

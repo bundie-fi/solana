@@ -325,9 +325,8 @@ impl<'info> Perps<'info> for Zeta {
                 InstructionAccount::writable(ctx.perp_sync_queue.address()),
             );
         }
-        let accounts_slice = unsafe {
-            core::slice::from_raw_parts(accounts_ptr as *const InstructionAccount, N)
-        };
+        let accounts_slice =
+            unsafe { core::slice::from_raw_parts(accounts_ptr as *const InstructionAccount, N) };
 
         // ── account_infos (parallel array of AccountView refs) ───────────
         let infos_buf: [&AccountView; N] = [

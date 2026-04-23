@@ -176,8 +176,8 @@ impl PositionReader for MarginfiAccountReader {
                 .map_err(|_| ProgramError::InvalidAccountData)?;
 
             let asset_shares = i128::from_le_bytes(
-                acc_data[base + BALANCE_OFFSET_ASSET_SHARES
-                    ..base + BALANCE_OFFSET_ASSET_SHARES + 16]
+                acc_data
+                    [base + BALANCE_OFFSET_ASSET_SHARES..base + BALANCE_OFFSET_ASSET_SHARES + 16]
                     .try_into()
                     .map_err(|_| ProgramError::InvalidAccountData)?,
             );
@@ -202,8 +202,7 @@ impl PositionReader for MarginfiAccountReader {
                 if bank_data.len() < BANK_MIN_LEN {
                     continue;
                 }
-                let mint_bytes: [u8; 32] = bank_data
-                    [BANK_OFFSET_MINT..BANK_OFFSET_MINT + 32]
+                let mint_bytes: [u8; 32] = bank_data[BANK_OFFSET_MINT..BANK_OFFSET_MINT + 32]
                     .try_into()
                     .map_err(|_| ProgramError::InvalidAccountData)?;
                 if mint_bytes != *USDC_MINT.as_array() {
@@ -212,8 +211,7 @@ impl PositionReader for MarginfiAccountReader {
                     break;
                 }
                 let asset_share_value = i128::from_le_bytes(
-                    bank_data[BANK_OFFSET_ASSET_SHARE_VALUE
-                        ..BANK_OFFSET_ASSET_SHARE_VALUE + 16]
+                    bank_data[BANK_OFFSET_ASSET_SHARE_VALUE..BANK_OFFSET_ASSET_SHARE_VALUE + 16]
                         .try_into()
                         .map_err(|_| ProgramError::InvalidAccountData)?,
                 );

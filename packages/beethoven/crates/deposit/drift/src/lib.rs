@@ -228,8 +228,7 @@ impl<'info> Deposit<'info> for Drift {
 use beethoven_core::DepositInit;
 
 /// Anchor disc for `initialize_user_stats`. From sha256("global:initialize_user_stats")[..8].
-pub const INITIALIZE_USER_STATS_DISCRIMINATOR: [u8; 8] =
-    [254, 243, 72, 98, 251, 130, 168, 213];
+pub const INITIALIZE_USER_STATS_DISCRIMINATOR: [u8; 8] = [254, 243, 72, 98, 251, 130, 168, 213];
 
 /// Anchor disc for `initialize_user`. From sha256("global:initialize_user")[..8].
 pub const INITIALIZE_USER_DISCRIMINATOR: [u8; 8] = [111, 17, 185, 250, 60, 122, 38, 254];

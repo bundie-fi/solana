@@ -88,21 +88,8 @@ impl<'info> TryFrom<&'info [AccountView]> for SplStakePoolDepositSolAccounts<'in
         // account here (e.g. the program ID itself) — `Data` controls whether
         // it gets forwarded into the CPI. This mirrors the marginfi/kamino
         // pattern of using a fixed slot count parsed up-front.
-        let [
-            stake_pool_program,
-            stake_pool,
-            withdraw_authority,
-            reserve_stake,
-            lamports_from,
-            pool_tokens_to,
-            manager_fee_account,
-            referrer_pool_tokens_account,
-            pool_mint,
-            system_program,
-            token_program,
-            sol_deposit_authority,
-            ..,
-        ] = accounts
+        let [stake_pool_program, stake_pool, withdraw_authority, reserve_stake, lamports_from, pool_tokens_to, manager_fee_account, referrer_pool_tokens_account, pool_mint, system_program, token_program, sol_deposit_authority, ..] =
+            accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
         };
@@ -152,9 +139,7 @@ impl<'info> Deposit<'info> for SplStakePool {
         // no `sol_deposit_authority` we slice down to 10 before invoking.
         // The slot-10 placeholder writes (overwritten below if used) keep
         // both arrays fully-initialised either way.
-        let auth = ctx
-            .sol_deposit_authority
-            .unwrap_or(ctx.stake_pool_program);
+        let auth = ctx.sol_deposit_authority.unwrap_or(ctx.stake_pool_program);
 
         let mut metas = [
             InstructionAccount::writable(ctx.stake_pool.address()),
@@ -214,7 +199,10 @@ impl<'info> Deposit<'info> for SplStakePool {
             program_id: &SPL_STAKE_POOL_PROGRAM_ID,
             accounts: metas_slice,
             data: unsafe {
-                core::slice::from_raw_parts(instruction_data.as_ptr() as *const u8, DEPOSIT_DATA_LEN)
+                core::slice::from_raw_parts(
+                    instruction_data.as_ptr() as *const u8,
+                    DEPOSIT_DATA_LEN,
+                )
             },
         };
 

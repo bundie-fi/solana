@@ -185,22 +185,70 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     // more than any realistic strategy.
     const MAX_POSITIONS: usize = 16;
     let mut descriptors: [PositionDescriptor; MAX_POSITIONS] = [
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
-        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
+        PositionDescriptor {
+            tag: 0,
+            num_state_accs: 0,
+        },
     ];
     let num_positions = parse_descriptors(data, &mut descriptors)?;
 
@@ -361,7 +409,10 @@ fn parse_descriptors(
         for i in 0..n {
             let tag = data[2 + 2 * i];
             let sa = data[2 + 2 * i + 1];
-            descriptors[i] = PositionDescriptor { tag, num_state_accs: sa };
+            descriptors[i] = PositionDescriptor {
+                tag,
+                num_state_accs: sa,
+            };
         }
         Ok(n)
     } else {

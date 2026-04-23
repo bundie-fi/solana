@@ -299,9 +299,9 @@ impl<'a> SwapContext<'a> {
 
             #[cfg(feature = "orca-whirlpools-swap")]
             SwapContext::OrcaWhirlpools(_) => Ok((
-                SwapData::OrcaWhirlpools(
-                    crate::orca_whirlpools::OrcaWhirlpoolsSwapData::try_from(data)?,
-                ),
+                SwapData::OrcaWhirlpools(crate::orca_whirlpools::OrcaWhirlpoolsSwapData::try_from(
+                    data,
+                )?),
                 &[],
             )),
 
@@ -846,10 +846,8 @@ pub fn try_from_swap_context<'info>(
         detector_account.address(),
         &crate::phoenix::PHOENIX_PROGRAM_ID,
     ) {
-        let (mine, rest) = split_accounts_checked(
-            accounts,
-            crate::phoenix::PhoenixSwapAccounts::NUM_ACCOUNTS,
-        )?;
+        let (mine, rest) =
+            split_accounts_checked(accounts, crate::phoenix::PhoenixSwapAccounts::NUM_ACCOUNTS)?;
         let ctx = crate::phoenix::PhoenixSwapAccounts::try_from(mine)?;
         return Ok((SwapContext::Phoenix(ctx), rest));
     }

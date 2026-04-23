@@ -79,14 +79,13 @@ pub fn read_collateral_value(reserve_data: &[u8], ctoken_amount: u64) -> Result<
     }
 
     let available = u64::from_le_bytes(
-        reserve_data[RESERVE_OFFSET_LIQUIDITY_AVAILABLE
-            ..RESERVE_OFFSET_LIQUIDITY_AVAILABLE + 8]
+        reserve_data[RESERVE_OFFSET_LIQUIDITY_AVAILABLE..RESERVE_OFFSET_LIQUIDITY_AVAILABLE + 8]
             .try_into()
             .map_err(|_| ProgramError::InvalidAccountData)?,
     );
     let borrowed_sf = u128::from_le_bytes(
-        reserve_data[RESERVE_OFFSET_LIQUIDITY_BORROWED_SF
-            ..RESERVE_OFFSET_LIQUIDITY_BORROWED_SF + 16]
+        reserve_data
+            [RESERVE_OFFSET_LIQUIDITY_BORROWED_SF..RESERVE_OFFSET_LIQUIDITY_BORROWED_SF + 16]
             .try_into()
             .map_err(|_| ProgramError::InvalidAccountData)?,
     );
@@ -105,7 +104,8 @@ pub fn read_collateral_value(reserve_data: &[u8], ctoken_amount: u64) -> Result<
     let total_liquidity = (available as u128).saturating_add(borrowed);
 
     // value = ctoken_amount * total_liquidity / collateral_supply
-    let numerator = (ctoken_amount as u128).checked_mul(total_liquidity)
+    let numerator = (ctoken_amount as u128)
+        .checked_mul(total_liquidity)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     let value = numerator / (collateral_supply as u128);
     if value > u64::MAX as u128 {
@@ -202,9 +202,22 @@ impl<'info> Deposit<'info> for Kamino {
         _data: &Self::Data,
         signer_seeds: &[Signer],
     ) -> ProgramResult {
-        // Refresh reserves
+        // Refresh reserves.
+        //
+        // Upstream RefreshReserve account layout (klend-sdk refreshReserve.ts):
+        //   [0] reserve                 writable
+        //   [1] lending_market          readonly
+        //   [2] pyth_oracle             readonly  (Option — placeholder = klend program id)
+        //   [3] switchboard_price       readonly  (Option — placeholder = klend program id)
+        //   [4] switchboard_twap        readonly  (Option — placeholder = klend program id)
+        //   [5] scope_prices            readonly  (Option — placeholder = klend program id)
+        //
+        // Slot [1] MUST be the lending_market account, not a None placeholder.
+        // Passing the klend program id here previously caused
+        // AccountOwnedByWrongProgram (3007) inside Kamino's reserve refresh.
         let accounts = [
             InstructionAccount::writable(ctx.reserve.address()),
+            InstructionAccount::readonly(ctx.lending_market.address()),
             InstructionAccount::readonly(ctx.kamino_lending_program.address()),
             InstructionAccount::readonly(ctx.kamino_lending_program.address()),
             InstructionAccount::readonly(ctx.kamino_lending_program.address()),
@@ -213,6 +226,7 @@ impl<'info> Deposit<'info> for Kamino {
 
         let account_infos = [
             ctx.reserve,
+            ctx.lending_market,
             ctx.kamino_lending_program,
             ctx.kamino_lending_program,
             ctx.kamino_lending_program,
@@ -230,6 +244,7 @@ impl<'info> Deposit<'info> for Kamino {
         for reserve in ctx.reserve_accounts {
             let accounts = [
                 InstructionAccount::writable(reserve.address()),
+                InstructionAccount::readonly(ctx.lending_market.address()),
                 InstructionAccount::readonly(ctx.kamino_lending_program.address()),
                 InstructionAccount::readonly(ctx.kamino_lending_program.address()),
                 InstructionAccount::readonly(ctx.kamino_lending_program.address()),
@@ -238,6 +253,7 @@ impl<'info> Deposit<'info> for Kamino {
 
             let account_infos = [
                 reserve,
+                ctx.lending_market,
                 ctx.kamino_lending_program,
                 ctx.kamino_lending_program,
                 ctx.kamino_lending_program,

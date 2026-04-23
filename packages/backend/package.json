@@ -10,16 +10,18 @@
     "test": "vitest"
   },
   "dependencies": {
-    "hono": "^4",
+    "@bundie/common": "workspace:*",
+    "@coral-xyz/anchor": "^0.32.1",
     "@hono/node-server": "^1",
     "@solana/web3.js": "^1.98",
     "@supabase/supabase-js": "^2",
-    "dotenv": "^16"
+    "dotenv": "^16",
+    "hono": "^4"
   },
   "devDependencies": {
-    "typescript": "^5.5",
     "@types/node": "^22",
     "tsx": "^4",
+    "typescript": "^5.5",
     "vitest": "^2"
   }
 }
