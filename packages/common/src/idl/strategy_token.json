@@ -1,0 +1,440 @@
+{
+  "address": "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm",
+  "metadata": {
+    "name": "strategy_token",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Bundie Strategy Token Program - Pinocchio program that mints tradeable shares tracking live portfolio value via Beethoven (Kamino, Marinade, Drift, Marginfi, Mango perps)",
+    "docs": [
+      "PINOCCHIO DISPATCH NOTE:",
+      "This program is built with pinocchio (no Anchor framework). Each instruction is",
+      "selected by a SINGLE u8 dispatch byte at the start of the instruction data, NOT",
+      "an Anchor sha256(\"global:<name>\") 8-byte discriminator.",
+      "",
+      "To remain compatible with Anchor 0.30+ tooling (which expects an [u8; 8]",
+      "discriminator) we encode the dispatch byte as the first element of an 8-byte",
+      "array, padded with zeros: [byte, 0, 0, 0, 0, 0, 0, 0]. ONLY THE FIRST BYTE IS",
+      "ON THE WIRE. Clients building txs must send a single byte (e.g. [1] for",
+      "buy_shares) followed by the args bytes — DO NOT prepend the full 8-byte array.",
+      "",
+      "Account discriminators ARE 8 bytes and stored at offset 0 of each account:",
+      "  Strategy          : [0xd0, 0x82, 0x35, 0xce, 0x9a, 0x7f, 0x5b, 0x11]",
+      "  NavOracle         : [0xa1, 0x4e, 0x73, 0x20, 0xbc, 0x44, 0x61, 0x05]",
+      "  PositionSnapshots : [0x7d, 0xa9, 0x1f, 0x4c, 0x62, 0x30, 0x8b, 0xe1]"
+    ]
+  },
+  "instructions": [
+    {
+      "name": "create_strategy",
+      "docs": [
+        "Create a new strategy with its share mint, wallet PDA, and NAV oracle.",
+        "Dispatch byte: 0. Real wire discriminator is the single byte 0x00."
+      ],
+      "discriminator": [0, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "creator", "writable": true, "signer": true },
+        {
+          "name": "strategy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [115, 116, 114, 97, 116, 101, 103, 121] },
+              { "kind": "account", "path": "creator" },
+              { "kind": "arg", "path": "name" }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "docs": ["Strategy share mint — caller-supplied keypair, NOT a PDA"],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "wallet",
+          "docs": ["Wallet PDA that will custody portfolio assets"],
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [119, 97, 108, 108, 101, 116] },
+              { "kind": "account", "path": "strategy" }
+            ]
+          }
+        },
+        {
+          "name": "nav_oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [110, 97, 118] },
+              { "kind": "account", "path": "strategy" }
+            ]
+          }
+        },
+        { "name": "deposit_mint", "docs": ["SPL mint of the strategy's quote/deposit token (e.g. USDC)"] },
+        { "name": "protocol", "docs": ["Default routing protocol (e.g. Kamino program id)"] },
+        { "name": "reserve", "docs": ["Default routing reserve / pool"] },
+        { "name": "token_program", "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+        { "name": "system_program", "address": "11111111111111111111111111111111" },
+        { "name": "rent", "address": "SysvarRent111111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "strategy_type", "type": "u8", "docs": ["0 = YIELD, 1 = AGENT"] },
+        { "name": "fee_bps", "type": "u16", "docs": ["Performance fee, basis points (max 10000)"] },
+        { "name": "min_deposit", "type": "u64" },
+        { "name": "name", "type": { "array": ["u8", 32] }, "docs": ["Fixed 32-byte name; pad with zeros"] }
+      ]
+    },
+    {
+      "name": "buy_shares",
+      "docs": [
+        "Deposit quote tokens, mint strategy shares pro-rata. For YIELD strategies,",
+        "remaining accounts are the Beethoven deposit context (Kamino/Marinade/etc).",
+        "Dispatch byte: 1."
+      ],
+      "discriminator": [1, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "buyer", "writable": true, "signer": true },
+        { "name": "strategy", "writable": true },
+        { "name": "mint", "docs": ["Strategy share mint"], "writable": true },
+        {
+          "name": "buyer_shares_ata",
+          "docs": ["Buyer's ATA for the strategy share mint — created idempotently"],
+          "writable": true
+        },
+        { "name": "wallet", "docs": ["Strategy wallet PDA — signs Beethoven CPIs"] },
+        {
+          "name": "wallet_token_ata",
+          "docs": ["Wallet's ATA for the deposit token — created idempotently"],
+          "writable": true
+        },
+        { "name": "buyer_token_ata", "docs": ["Buyer's deposit-token ATA"], "writable": true },
+        { "name": "token_program", "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+        { "name": "system_program", "address": "11111111111111111111111111111111" },
+        { "name": "associated_token_program", "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" },
+        { "name": "deposit_mint" }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64", "docs": ["Quote-token amount to deposit (base units)"] }
+      ]
+    },
+    {
+      "name": "redeem_shares",
+      "docs": [
+        "Burn shares, withdraw pro-rata quote tokens minus performance fee.",
+        "For YIELD strategies, remaining accounts are the Kamino withdraw context.",
+        "Dispatch byte: 2."
+      ],
+      "discriminator": [2, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "redeemer", "writable": true, "signer": true },
+        { "name": "strategy", "writable": true },
+        { "name": "mint", "writable": true },
+        { "name": "redeemer_shares", "docs": ["Redeemer's share-token ATA (burned here)"], "writable": true },
+        { "name": "wallet", "writable": true },
+        { "name": "wallet_token_ata", "writable": true },
+        { "name": "redeemer_token", "docs": ["Redeemer's quote-token ATA (receives net withdrawal)"], "writable": true },
+        { "name": "fee_receiver_ata", "docs": ["Quote-token ATA owned by strategy.authority — receives perf fee"], "writable": true },
+        { "name": "token_program", "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "shares", "type": "u64", "docs": ["Share-token amount to burn"] }
+      ]
+    },
+    {
+      "name": "update_nav",
+      "docs": [
+        "Permissionless NAV refresh. Reads idle wallet balance + each protocol",
+        "leg's value via PositionReader, writes nav_per_share + EMA TWAP.",
+        "Dispatch byte: 3.",
+        "",
+        "Wire format (after the dispatch byte is stripped):",
+        "  []                                           ← legacy / no positions",
+        "| [num_positions: u8, protocol_tag: u8 × N]  ← extended",
+        "Protocol tags: 0=Kamino, 1=Marinade, 2=Drift, 3=Marginfi.",
+        "",
+        "Remaining accounts (after the 4 fixed): for each position i in 0..N,",
+        "  [4 + 2i + 0] holding_acc        — SPL token acct (cToken/mSOL/lp)",
+        "  [4 + 2i + 1] exchange_rate_acc  — protocol-owned rate source"
+      ],
+      "discriminator": [3, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "cranker", "signer": true },
+        { "name": "strategy", "writable": true },
+        { "name": "nav_oracle", "writable": true },
+        { "name": "wallet_token_ata", "docs": ["Wallet's quote-token ATA (idle balance)"] }
+      ],
+      "args": [
+        { "name": "num_positions", "type": "u8", "docs": ["0 in legacy mode; otherwise N protocol tags follow"] },
+        { "name": "protocol_tags", "type": "bytes", "docs": ["N bytes; tag per deployed leg (0=Kamino, 1=Marinade, 2=Drift, 3=Marginfi)"] }
+      ]
+    },
+    {
+      "name": "rebalance",
+      "docs": [
+        "Authority-only rebalance step (single step in this hackathon build).",
+        "Routes via Beethoven (Deposit/Withdraw/Swap). Dispatch byte: 4.",
+        "",
+        "Wire format (after the dispatch byte is stripped):",
+        "  num_steps: u8 (must be 1)",
+        "  action: u8 (0=DEPOSIT, 1=WITHDRAW, 2=SWAP)",
+        "  amount: u64 LE",
+        "  if action == SWAP: min_out: u64 LE",
+        "Remaining accounts are the Beethoven context for the chosen action."
+      ],
+      "discriminator": [4, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "authority", "signer": true },
+        { "name": "strategy", "writable": true }
+      ],
+      "args": [
+        { "name": "num_steps", "type": "u8" },
+        { "name": "action", "type": "u8", "docs": ["0=DEPOSIT, 1=WITHDRAW, 2=SWAP"] },
+        { "name": "amount", "type": "u64" },
+        { "name": "min_out", "type": "u64", "docs": ["SWAP only — omit for DEPOSIT/WITHDRAW"] }
+      ]
+    },
+    {
+      "name": "snapshot_positions",
+      "docs": [
+        "Permissionless ~24h cadence snapshot of strategy composition into the",
+        "PositionSnapshots PDA. PDA is created on first call.",
+        "Dispatch byte: 5. No instruction args."
+      ],
+      "discriminator": [5, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "keeper", "writable": true, "signer": true },
+        { "name": "strategy" },
+        {
+          "name": "position_snapshots",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [112, 111, 115, 105, 116, 105, 111, 110, 95, 115, 110, 97, 112, 115, 104, 111, 116, 115] },
+              { "kind": "account", "path": "strategy" }
+            ]
+          }
+        },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_position",
+      "docs": [
+        "Permissionless one-shot per-strategy protocol setup (e.g. Kamino UserMetadata",
+        "+ Obligation init). Routes via beethoven::DepositInit. Dispatch byte: 6.",
+        "No instruction args. Remaining accounts = protocol-specific init context."
+      ],
+      "discriminator": [6, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "strategy" }
+      ],
+      "args": []
+    },
+    {
+      "name": "perp_place_order",
+      "docs": [
+        "Open or close a perp position via Beethoven::Perps (Mango v4 today).",
+        "One dispatch byte covers both: closing a long is side=Ask + reduce_only=true.",
+        "Dispatch byte: 7.",
+        "",
+        "Wire format (44 bytes after the dispatch byte):",
+        "  side: u8 (0=Bid, 1=Ask)",
+        "  price_lots: i64 LE",
+        "  max_base_lots: i64 LE",
+        "  max_quote_lots: i64 LE",
+        "  client_order_id: u64 LE",
+        "  order_type: u8 (0=Limit, 1=IOC, 2=PostOnly, 3=Market, 4=PostOnlySlide)",
+        "  reduce_only: u8 (0/1)",
+        "  expiry_ts: u64 LE (0 = no expiry)",
+        "  limit: u8 (book-iteration cap)"
+      ],
+      "discriminator": [7, 0, 0, 0, 0, 0, 0, 0],
+      "accounts": [
+        { "name": "authority", "signer": true },
+        { "name": "strategy", "writable": true }
+      ],
+      "args": [
+        { "name": "side", "type": "u8" },
+        { "name": "price_lots", "type": "i64" },
+        { "name": "max_base_lots", "type": "i64" },
+        { "name": "max_quote_lots", "type": "i64" },
+        { "name": "client_order_id", "type": "u64" },
+        { "name": "order_type", "type": "u8" },
+        { "name": "reduce_only", "type": "u8" },
+        { "name": "expiry_ts", "type": "u64" },
+        { "name": "limit", "type": "u8" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Strategy",
+      "discriminator": [208, 130, 53, 206, 154, 127, 91, 17]
+    },
+    {
+      "name": "NavOracle",
+      "discriminator": [161, 78, 115, 32, 188, 68, 97, 5]
+    },
+    {
+      "name": "PositionSnapshots",
+      "discriminator": [125, 169, 31, 76, 98, 48, 139, 225]
+    }
+  ],
+  "types": [
+    {
+      "name": "Strategy",
+      "docs": [
+        "330-byte fixed layout. Field offsets are explicit in src/state/strategy.rs."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "pubkey", "docs": ["offset 8"] },
+          { "name": "mint", "type": "pubkey", "docs": ["offset 40 — strategy share mint"] },
+          { "name": "wallet", "type": "pubkey", "docs": ["offset 72 — wallet PDA"] },
+          { "name": "deposit_mint", "type": "pubkey", "docs": ["offset 104 — quote token mint"] },
+          { "name": "protocol", "type": "pubkey", "docs": ["offset 136 — default routing protocol"] },
+          { "name": "reserve", "type": "pubkey", "docs": ["offset 168 — default reserve/pool"] },
+          { "name": "name", "type": { "array": ["u8", 32] }, "docs": ["offset 200 — fixed 32-byte name"] },
+          { "name": "strategy_type", "type": "u8", "docs": ["offset 232 — 0=YIELD, 1=AGENT"] },
+          { "name": "status", "type": "u8", "docs": ["offset 233 — 0=ACTIVE, 1=PAUSED, 2=CLOSED (see StrategyStatus)"] },
+          { "name": "fee_bps", "type": "u16", "docs": ["offset 234 — performance fee bps"] },
+          { "name": "total_deposits", "type": "u64", "docs": ["offset 236"] },
+          { "name": "current_nav", "type": "u64", "docs": ["offset 244 — total portfolio value, quote-token base units"] },
+          { "name": "total_shares", "type": "u64", "docs": ["offset 252"] },
+          { "name": "total_investors", "type": "u32", "docs": ["offset 260"] },
+          { "name": "high_water_mark", "type": "u64", "docs": ["offset 264 — per-share, 1e9 scaled"] },
+          { "name": "min_deposit", "type": "u64", "docs": ["offset 272"] },
+          { "name": "last_nav_slot", "type": "u64", "docs": ["offset 280"] },
+          { "name": "nav_twap_accumulator", "type": "u128", "docs": ["offset 288 — repurposed: holds latest TWAP value"] },
+          { "name": "twap_last_slot", "type": "u64", "docs": ["offset 304"] },
+          { "name": "created_at", "type": "i64", "docs": ["offset 312"] },
+          { "name": "bump", "type": "u8", "docs": ["offset 320 — strategy PDA bump"] },
+          { "name": "wallet_bump", "type": "u8", "docs": ["offset 321 — wallet PDA bump"] }
+        ]
+      }
+    },
+    {
+      "name": "NavOracle",
+      "docs": ["89-byte fixed layout. PDA seeds: [\"nav\", strategy]"],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "strategy", "type": "pubkey", "docs": ["offset 8"] },
+          { "name": "nav_per_share", "type": "u64", "docs": ["offset 40 — 1e9 scaled"] },
+          { "name": "twap_value", "type": "u64", "docs": ["offset 48 — EMA TWAP, 1e9 scaled"] },
+          { "name": "snapshot_count", "type": "u64", "docs": ["offset 56"] },
+          { "name": "last_snapshot_slot", "type": "u64", "docs": ["offset 64"] },
+          { "name": "min_snapshot_interval", "type": "u64", "docs": ["offset 72 — slots, default 300"] },
+          { "name": "twap_window", "type": "u64", "docs": ["offset 80 — slots, default 9000"] },
+          { "name": "bump", "type": "u8", "docs": ["offset 88"] }
+        ]
+      }
+    },
+    {
+      "name": "PositionSnapshots",
+      "docs": [
+        "161-byte fixed layout. PDA seeds: [\"position_snapshots\", strategy].",
+        "~24h-rate-limited (216_000 slots)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "strategy", "type": "pubkey", "docs": ["offset 8"] },
+          { "name": "snapshot_at", "type": "i64", "docs": ["offset 40 — unix timestamp"] },
+          { "name": "snapshot_slot", "type": "u64", "docs": ["offset 48"] },
+          { "name": "protocol", "type": "pubkey", "docs": ["offset 56"] },
+          { "name": "reserve", "type": "pubkey", "docs": ["offset 88"] },
+          { "name": "portfolio_value", "type": "u64", "docs": ["offset 120 — quote-token base units"] },
+          { "name": "total_shares", "type": "u64", "docs": ["offset 128"] },
+          { "name": "nav_per_share", "type": "u64", "docs": ["offset 136 — 1e9 scaled"] },
+          { "name": "high_water_mark", "type": "u64", "docs": ["offset 144 — 1e9 scaled"] },
+          { "name": "snapshot_count", "type": "u64", "docs": ["offset 152"] },
+          { "name": "bump", "type": "u8", "docs": ["offset 160"] }
+        ]
+      }
+    },
+    {
+      "name": "StrategyStatus",
+      "docs": ["Encoded as u8 in Strategy.status — 0=Active, 1=Paused, 2=Closed"],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Active" },
+          { "name": "Paused" },
+          { "name": "Closed" }
+        ]
+      }
+    },
+    {
+      "name": "StrategyType",
+      "docs": ["Encoded as u8 in Strategy.strategy_type — 0=Yield, 1=Agent"],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Yield" },
+          { "name": "Agent" }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolTag",
+      "docs": [
+        "u8 tag list passed in update_nav data. Maps to nav_readers in",
+        "src/nav_readers/mod.rs."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Kamino" },
+          { "name": "Marinade" },
+          { "name": "Drift" },
+          { "name": "Marginfi" }
+        ]
+      }
+    },
+    {
+      "name": "RebalanceAction",
+      "docs": ["u8 action selector inside rebalance step data — see rebalance.rs"],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Deposit" },
+          { "name": "Withdraw" },
+          { "name": "Swap" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 393347072, "name": "StrategyNotActive", "msg": "Strategy is not active (custom 0x17700000)" },
+    { "code": 393347073, "name": "DepositBelowMin", "msg": "Deposit below minimum (custom 0x17700001)" },
+    { "code": 393347074, "name": "InsufficientShares", "msg": "Insufficient shares to redeem (custom 0x17700002)" },
+    { "code": 393347075, "name": "NavOverflow", "msg": "NAV / share math overflow (custom 0x17700003)" },
+    { "code": 393347076, "name": "InvalidAllocations", "msg": "Invalid allocation set (custom 0x17700004)" },
+    { "code": 393347077, "name": "SnapshotTooSoon", "msg": "Snapshot below min interval (custom 0x17700005)" },
+    { "code": 393347078, "name": "ZeroShares", "msg": "Zero shares result (custom 0x17700006)" },
+    { "code": 393347079, "name": "ZeroAmount", "msg": "Zero amount supplied (custom 0x17700007)" },
+    { "code": 393347080, "name": "InvalidAuthority", "msg": "Invalid authority (custom 0x17700008)" },
+    { "code": 393347081, "name": "InvalidMint", "msg": "Invalid mint (custom 0x17700009)" },
+    { "code": 393347082, "name": "InvalidStrategyType", "msg": "Invalid strategy type (custom 0x1770000A)" },
+    { "code": 393347083, "name": "InvalidDiscriminator", "msg": "Invalid account discriminator (custom 0x1770000B)" },
+    { "code": 393347084, "name": "InvalidPda", "msg": "Invalid PDA (custom 0x1770000C)" },
+    { "code": 393347085, "name": "InvalidProtocol", "msg": "Invalid / unsupported protocol tag (custom 0x1770000D)" },
+    { "code": 393347086, "name": "AccountNotWritable", "msg": "Account not writable (custom 0x1770000E)" },
+    { "code": 393347087, "name": "AccountNotSigner", "msg": "Account not signer (custom 0x1770000F)" }
+  ],
+  "constants": [
+    { "name": "STRATEGY_LEN", "type": "u64", "value": "330" },
+    { "name": "NAV_ORACLE_LEN", "type": "u64", "value": "89" },
+    { "name": "POSITION_SNAPSHOTS_LEN", "type": "u64", "value": "161" },
+    { "name": "MIN_SNAPSHOT_INTERVAL_SLOTS", "type": "u64", "value": "216000" },
+    { "name": "DEFAULT_MIN_SNAPSHOT_INTERVAL", "type": "u64", "value": "300" },
+    { "name": "DEFAULT_TWAP_WINDOW", "type": "u64", "value": "9000" },
+    { "name": "NAV_SCALE", "type": "u128", "value": "1000000000" },
+    { "name": "SHARE_DECIMALS", "type": "u8", "value": "9" }
+  ]
+}

@@ -1,27 +1,54 @@
 //! update_nav — refresh the strategy's NAV oracle.
 //!
 //! ──────────────────────────────────────────────────────────────────────────
-//! Wire format
+//! Wire format (v1 + v2)
 //! ──────────────────────────────────────────────────────────────────────────
 //!
 //! Instruction discriminator: byte `3` (set in `lib.rs::process_instruction`).
-//! After the discriminator is stripped, this handler receives `_data` =
+//! After the discriminator is stripped, this handler receives `_data` in
+//! one of three shapes:
 //!
-//!     []                                            ← legacy / no positions
-//!   | [num_positions: u8,                           ← extended
-//!      protocol_tag: u8 × num_positions]
+//!     []                                                    ← legacy / no positions
+//!   | [num_positions: u8, tag: u8 × N]                      ← v1
+//!   | [V2_SENTINEL, num_positions: u8,                      ← v2
+//!      (tag: u8, num_state_accs: u8) × N]
 //!
-//! Backwards compatibility: if `data` is empty, OR if `num_positions == 0`,
-//! behaviour is identical to the pre-C4 implementation — only the wallet
-//! quote-token ATA is read into `portfolio_value`. This keeps the path
-//! valid for strategies with no deployed legs and lets keepers upgrade
-//! their submission format on their own schedule.
+//! `V2_SENTINEL = 0xFF`. v1 cannot start with `0xFF` because that would
+//! claim 255 positions (impossible to fit alongside the 4 fixed accounts
+//! within Solana's account-array cap), so the byte is unambiguous.
+//!
+//! ## v1 — single-state-account-per-position
+//!
+//! Account layout (after the 4 fixed accounts):
+//!
+//!     [4 + 2*i + 0] holding_acc       — SPL token (cToken / mSOL / lp)
+//!     [4 + 2*i + 1] state_acc         — protocol-owned state account
+//!
+//! `num_positions` MUST equal `(accounts.len() - 4) / 2`.
+//!
+//! ## v2 — variable-state-accounts-per-position
+//!
+//! Designed for Drift / marginfi which need >1 aux state account per
+//! position (Drift's User + per-asset SpotMarket; marginfi's
+//! MarginfiAccount + per-asset Bank). For each position:
+//!
+//!     [holding_acc] [state_acc_0] [state_acc_1] … [state_acc_{S-1}]
+//!
+//! where S = `num_state_accs` for that position. Total remaining-account
+//! count = Σ_i (1 + num_state_accs[i]).
+//!
+//! v1-tagged positions emit `num_state_accs == 1` in v2 form, so the
+//! same dispatcher handles both — v1 is just sugar.
+//!
+//! Backwards compatibility: empty data and v1-shaped data both still
+//! work. New keepers SHOULD emit v2 — but devnet keepers emitting v1 for
+//! Kamino / Marinade strategies continue to dispatch correctly.
 //!
 //! Protocol tags (see `nav_readers::PROTOCOL_TAG_*`):
-//!     0 = Kamino     (position_acc = Kamino Reserve account)
-//!     1 = Marinade   (position_acc = Marinade State PDA)
-//!     2 = Drift      (position_acc = Drift User account)         — stub
-//!     3 = Marginfi   (position_acc = MarginfiAccount)            — stub
+//!     0 = Kamino     (state_accs = [Reserve])
+//!     1 = Marinade   (state_accs = [State])
+//!     2 = Drift      (state_accs = [User, SpotMarket…])      — v2 only
+//!     3 = Marginfi   (state_accs = [MarginfiAccount, Bank…]) — v2 only
 //!
 //! Account layout (after the 4 fixed accounts):
 //!
@@ -29,17 +56,7 @@
 //!     [1] strategy (writable, program-owned)
 //!     [2] nav_oracle (writable, program-owned)
 //!     [3] wallet_token_ata (idle quote-token)
-//!     [4..] for each position i in 0..num_positions:
-//!             [4 + 2*i + 0] holding_acc      — SPL token account whose
-//!                                              `amount` is the per-protocol
-//!                                              balance (cToken / mSOL / lp)
-//!             [4 + 2*i + 1] exchange_rate_acc — protocol-owned account
-//!                                              whose bytes encode the
-//!                                              exchange rate
-//!
-//! `num_positions` MUST equal `(accounts.len() - 4) / 2`. A mismatch (odd
-//! account count, or wrong tag count) is a `NotEnoughAccountKeys` error to
-//! catch keeper bugs early rather than silently mis-pricing.
+//!     [4..] for each position i: holding_acc + N state accounts (see above)
 
 use pinocchio::{
     account::AccountView,
@@ -61,6 +78,17 @@ use crate::{
 };
 
 const NAV_SCALE: u128 = 1_000_000_000;
+
+/// Wire-format v2 sentinel. `data[0] == V2_SENTINEL` switches the parser
+/// from v1 (`[num_positions, tag×N]`) to v2 (variable state-accounts).
+const V2_SENTINEL: u8 = 0xFF;
+
+/// One per-position descriptor parsed from the instruction data. Always
+/// produced by the parser, regardless of whether the source was v1 or v2.
+struct PositionDescriptor {
+    tag: u8,
+    num_state_accs: u8,
+}
 
 pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     // ----------------------------------------------------------------
@@ -143,9 +171,8 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     // ----------------------------------------------------------------
     // 5. Read portfolio value
     //   = idle wallet ATA balance
-    //   + Σ (per-position exchange-rate read of deployed holdings)
-    // See module-level wire-format doc for the data + remaining-accounts
-    // layout.
+    //   + Σ (per-position protocol read of deployed holdings)
+    // See module-level wire-format doc for v1 vs v2 layouts.
     // ----------------------------------------------------------------
 
     let mut portfolio_value: u64 = {
@@ -153,46 +180,70 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         cpi::spl_token::read_token_amount(&ata_data)
     };
 
-    // Parse `num_positions` and the protocol-tag list out of `data`.
-    // Empty data → 0 positions (backwards-compatible fallback).
-    let (num_positions, tags) = if data.is_empty() {
-        (0usize, &data[..])
-    } else {
-        let n = data[0] as usize;
-        if data.len() < 1 + n {
-            return Err(ProgramError::InvalidInstructionData);
-        }
-        (n, &data[1..1 + n])
-    };
+    // Parse `data` into a uniform list of PositionDescriptors. A small
+    // fixed buffer keeps us off the heap (no_std). 16 positions is far
+    // more than any realistic strategy.
+    const MAX_POSITIONS: usize = 16;
+    let mut descriptors: [PositionDescriptor; MAX_POSITIONS] = [
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+        PositionDescriptor { tag: 0, num_state_accs: 0 },
+    ];
+    let num_positions = parse_descriptors(data, &mut descriptors)?;
 
+    // Walk remaining_accounts in lockstep with descriptors.
     let remaining = &accounts[4..];
-    if remaining.len() != num_positions * 2 {
-        // Either the keeper claimed more positions than they passed
-        // accounts for, or vice-versa. Refuse rather than risk
-        // silently dropping a deployed leg from NAV.
+
+    // Sanity-check the total remaining-account count matches the sum of
+    // `1 + num_state_accs` across all descriptors. This catches keeper
+    // bugs (wrong tag count vs accounts) before we mis-price.
+    let mut expected_remaining: usize = 0;
+    for d in &descriptors[..num_positions] {
+        expected_remaining = expected_remaining
+            .checked_add(1 + d.num_state_accs as usize)
+            .ok_or(ProgramError::InvalidInstructionData)?;
+    }
+    if remaining.len() != expected_remaining {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
-    for i in 0..num_positions {
-        let tag = tags[i];
-        let holding_acc = &remaining[2 * i];
-        let position_acc = &remaining[2 * i + 1];
+    let mut cursor: usize = 0;
+    for d in &descriptors[..num_positions] {
+        let s = d.num_state_accs as usize;
+        let holding_acc = &remaining[cursor];
+        let state_accs = &remaining[cursor + 1..cursor + 1 + s];
+        cursor += 1 + s;
 
         let holding_amount = {
             let h_data = holding_acc.try_borrow()?;
             cpi::spl_token::read_token_amount(&h_data)
         };
 
-        let leg_value = match tag {
+        let leg_value = match d.tag {
             PROTOCOL_TAG_KAMINO => {
-                KaminoReserveReader::value_in_quote(position_acc, holding_amount)?
+                KaminoReserveReader::value_in_quote_multi(state_accs, holding_amount)?
             }
             PROTOCOL_TAG_MARINADE => {
-                MarinadeStateReader::value_in_quote(position_acc, holding_amount)?
+                MarinadeStateReader::value_in_quote_multi(state_accs, holding_amount)?
             }
-            PROTOCOL_TAG_DRIFT => DriftUserReader::value_in_quote(position_acc, holding_amount)?,
+            PROTOCOL_TAG_DRIFT => {
+                DriftUserReader::value_in_quote_multi(state_accs, holding_amount)?
+            }
             PROTOCOL_TAG_MARGINFI => {
-                MarginfiAccountReader::value_in_quote(position_acc, holding_amount)?
+                MarginfiAccountReader::value_in_quote_multi(state_accs, holding_amount)?
             }
             _ => return Err(error::err(error::ERROR_INVALID_PROTOCOL)),
         };
@@ -274,4 +325,60 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     }
 
     Ok(())
+}
+
+/// Parse `data` (instruction-data payload after the discriminator) into
+/// the `descriptors` slice. Supports three shapes:
+///
+///   * `[]`                                       → 0 positions
+///   * `[num, tag×N]` (v1)                         → N positions, each
+///                                                   with `num_state_accs = 1`
+///   * `[V2_SENTINEL, num, (tag, sa)×N]` (v2)      → N positions with
+///                                                   per-position `sa`
+///
+/// Returns the number of positions actually written.
+fn parse_descriptors(
+    data: &[u8],
+    descriptors: &mut [PositionDescriptor],
+) -> Result<usize, ProgramError> {
+    if data.is_empty() {
+        return Ok(0);
+    }
+
+    if data[0] == V2_SENTINEL {
+        // v2: [SENTINEL, n, (tag, num_state_accs) × n]
+        if data.len() < 2 {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        let n = data[1] as usize;
+        if n > descriptors.len() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        let needed = 2 + n * 2;
+        if data.len() < needed {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        for i in 0..n {
+            let tag = data[2 + 2 * i];
+            let sa = data[2 + 2 * i + 1];
+            descriptors[i] = PositionDescriptor { tag, num_state_accs: sa };
+        }
+        Ok(n)
+    } else {
+        // v1: [num, tag × num]; each position implicitly carries 1 state acc.
+        let n = data[0] as usize;
+        if n > descriptors.len() {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        if data.len() < 1 + n {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        for i in 0..n {
+            descriptors[i] = PositionDescriptor {
+                tag: data[1 + i],
+                num_state_accs: 1,
+            };
+        }
+        Ok(n)
+    }
 }

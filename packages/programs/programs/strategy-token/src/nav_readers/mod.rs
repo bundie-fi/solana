@@ -15,6 +15,28 @@
 //!
 //! Each reader keeps a defensive owner-check inside `value_in_quote` as a
 //! second line of defense against a mis-tagged account.
+//!
+//! ## Multi-account positions (v2 wire format)
+//!
+//! Some protocols (Drift, marginfi) need MORE than one state account per
+//! position: a primary "user" account holding the position list, plus
+//! per-asset accounts (SpotMarket, Bank) that carry the share-value /
+//! cumulative-interest used to convert shares → underlying tokens.
+//!
+//! `PositionReader::value_in_quote_multi` is the multi-account variant.
+//! It receives a slice `state_accs: &[AccountView]` where:
+//!   - `state_accs[0]` is the primary state account (e.g. Drift `User`,
+//!     marginfi `MarginfiAccount`) — used for the defensive owner-check
+//!     and to enumerate active positions.
+//!   - `state_accs[1..]` are auxiliary accounts (SpotMarket / Bank /
+//!     oracle) referenced by the active positions, in caller-supplied
+//!     order. The reader matches them up by mint or by `bank_pk`.
+//!
+//! The default impl of `value_in_quote_multi` forwards to the existing
+//! single-account `value_in_quote(state_accs[0], holding_amount)`, so
+//! single-account readers (Kamino, Marinade) only need to keep
+//! implementing `value_in_quote` and the dispatcher can call
+//! `value_in_quote_multi` uniformly.
 
 pub mod drift;
 pub mod kamino;
@@ -22,6 +44,18 @@ pub mod marginfi;
 pub mod marinade;
 
 use pinocchio::{account::AccountView, error::ProgramError};
+
+/// USDC mint (mainnet & devnet share the same mint for our purposes here:
+/// strategies on devnet currently use Circle's devnet USDC, which has the
+/// same address as mainnet for clients that route through the
+/// Circle-issued mint. If a future strategy uses a different USDC mint we
+/// should make this configurable per-strategy.)
+///
+/// Encoded base58: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`.
+pub const USDC_MINT: pinocchio::address::Address = pinocchio::address::Address::new_from_array([
+    198, 250, 122, 243, 190, 219, 173, 58, 61, 101, 243, 106, 171, 201, 116, 49, 177, 187, 228,
+    194, 210, 246, 224, 228, 124, 166, 2, 3, 69, 47, 93, 97,
+]);
 
 /// Value a strategy's deployed position in quote-token units.
 ///
@@ -38,6 +72,28 @@ pub trait PositionReader {
         position_account: &AccountView,
         holding_amount: u64,
     ) -> Result<u64, ProgramError>;
+
+    /// Multi-account variant for protocols that need >1 state account per
+    /// position (Drift, marginfi).
+    ///
+    /// `state_accs[0]` is the primary state account (Drift `User`,
+    /// marginfi `MarginfiAccount`). `state_accs[1..]` are auxiliary
+    /// accounts (SpotMarket, Bank) referenced by active positions, in
+    /// caller-supplied order — the reader matches them up internally
+    /// (e.g. by mint or by `bank_pk`).
+    ///
+    /// Default impl forwards to the single-account `value_in_quote`,
+    /// which lets readers like Kamino and Marinade keep working with no
+    /// changes. Multi-account readers override this directly.
+    fn value_in_quote_multi(
+        state_accs: &[AccountView],
+        holding_amount: u64,
+    ) -> Result<u64, ProgramError> {
+        if state_accs.is_empty() {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+        Self::value_in_quote(&state_accs[0], holding_amount)
+    }
 }
 
 // ─── Wire-format protocol tags ────────────────────────────────────────────

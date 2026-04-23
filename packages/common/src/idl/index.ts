@@ -12,10 +12,13 @@
 
 import predictionMarketIdl from './prediction_market.json' with { type: 'json' };
 import type { PredictionMarket } from './prediction_market.js';
+import strategyTokenIdl from './strategy_token.json' with { type: 'json' };
+import type { StrategyToken } from './strategy_token.js';
 
-export { predictionMarketIdl };
-export type { PredictionMarket };
+export { predictionMarketIdl, strategyTokenIdl };
+export type { PredictionMarket, StrategyToken };
 export type PredictionMarketIdlType = typeof predictionMarketIdl;
+export type StrategyTokenIdlType = typeof strategyTokenIdl;
 
 /**
  * Strategy Token — pinocchio, dispatched by single-byte discriminator.
