@@ -70,10 +70,28 @@ export async function runCli(
 }
 
 /**
- * Best-effort extraction of "tx <signature>" or "Signature: <...>" from
- * CLI stdout. Returns null if no signature found.
+ * The CLI emits JSON envelopes when --execute succeeds. We try JSON parse
+ * first, fall back to regex for any pre-execute summary lines.
  */
+function tryParseJson(stdout: string): Record<string, unknown> | null {
+  // Find the FIRST `{` and try to parse from there to the end.
+  const idx = stdout.indexOf("{");
+  if (idx === -1) return null;
+  try {
+    return JSON.parse(stdout.slice(idx));
+  } catch {
+    return null;
+  }
+}
+
 export function extractSignature(stdout: string): string | null {
+  const json = tryParseJson(stdout);
+  if (json) {
+    for (const k of ["createSignature", "depositSignature", "signature", "txSignature", "tx"]) {
+      const v = json[k];
+      if (typeof v === "string" && v.length >= 40) return v;
+    }
+  }
   const m =
     stdout.match(/Signature:\s+([A-Za-z0-9]{40,90})/) ||
     stdout.match(/tx\s+([A-Za-z0-9]{40,90})/) ||
@@ -81,20 +99,18 @@ export function extractSignature(stdout: string): string | null {
   return m ? m[1] : null;
 }
 
-/**
- * Best-effort extraction of "Strategy address: <pubkey>" or similar.
- */
 export function extractStrategyAddress(stdout: string): string | null {
+  const json = tryParseJson(stdout);
+  if (json && typeof json.strategyAddress === "string") return json.strategyAddress;
   const m =
     stdout.match(/[Ss]trategy(?:Address|\s+address)?\s*[:=]?\s*([1-9A-HJ-NP-Za-km-z]{32,44})/) ||
     stdout.match(/created\s+strategy\s+([1-9A-HJ-NP-Za-km-z]{32,44})/i);
   return m ? m[1] : null;
 }
 
-/**
- * Best-effort extraction of "Market address: <pubkey>" or similar.
- */
 export function extractMarketAddress(stdout: string): string | null {
+  const json = tryParseJson(stdout);
+  if (json && typeof json.marketAddress === "string") return json.marketAddress;
   const m =
     stdout.match(/[Mm]arket(?:Address|\s+address)?\s*[:=]?\s*([1-9A-HJ-NP-Za-km-z]{32,44})/) ||
     stdout.match(/opened\s+market\s+([1-9A-HJ-NP-Za-km-z]{32,44})/i);

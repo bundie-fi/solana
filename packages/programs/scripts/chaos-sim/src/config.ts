@@ -31,33 +31,48 @@ export const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
 export const CLI_BIN = process.env.CHAOS_CLI || "npx -y -p @bundie/sol-cli@latest bundie-sol";
 
 // Phase sizing scaled to fit the 1.2 USDC/wallet budget:
-//   creator: 0.5 USDC seed deposit + 3 × 0.1 rebalances = 0.8 USDC
+//   creator: 0.5 USDC seed deposit + 2 × 0.1 rebalances = 0.7 USDC
 //   trader:  10 trades × 0.05-0.1 USDC = 0.5–1.0 USDC
 // Total per-wallet spend ≤ ~1.0, leaves rent + slippage headroom.
+//
+// REBALANCES capped at 2 because v1 composition uses kamino only — repeating
+// rebalance into the same protocol from the same strategy is a no-op for
+// composition variety, so there's no point ranging higher until we add more
+// protocols. Bump to 4 once REBALANCE_PROTOCOLS grows.
 export const PHASE = {
-  CREATORS: 5,                              // 5 strategies, each multi-protocol
-  STRATEGY_SEED_USDC: "0.5",                // initial buy_shares passed via --deposit
-  REBALANCES_PER_STRATEGY_MIN: 2,           // composition: 2-4 protocols
-  REBALANCES_PER_STRATEGY_MAX: 4,
-  REBALANCE_USDC: "0.1",                    // amount per rebalance leg
+  CREATORS: 5,
+  STRATEGY_SEED_USDC: "0.1",                // shrunk from 0.5 to fit per-wallet USDC after multiple test runs
+  REBALANCES_PER_STRATEGY_MIN: 1,
+  REBALANCES_PER_STRATEGY_MAX: 1,
+  REBALANCE_USDC: "0.05",
   MARKETS_PER_STRATEGY: 2,                  // 5 strategies × 2 = 10 markets
+  // create-market needs an --initial-subsidy in USDC. Default is 10 USDC
+  // (way over budget). Use the strategy creator's available balance.
+  MARKET_INITIAL_SUBSIDY_USDC: "0.1",
+  MARKET_THRESHOLD_BPS: 300,                // 3% APY threshold
+  MARKET_RESOLUTION_DAYS: 1,                // shorter horizon to keep test loops tight
   TRADER_WALLETS: 5,
-  TRADES_PER_TRADER: 10,                    // halved from spec to fit budget
+  TRADES_PER_TRADER: 10,
   TRADE_USDC_MIN: 50_000,                   // 0.05 USDC
   TRADE_USDC_MAX: 100_000,                  // 0.10 USDC
 };
 
-// Available rebalance protocols. After the Drift-perp agent merges, append
-// 'drift-perp' to this list and the harness will start composing it in.
-export const REBALANCE_PROTOCOLS = [
-  "kamino",          // spot lending
-  "drift",           // spot lending (deposit side)
-  "marinade",        // LST mint
-  "orca-whirlpools", // CLMM swap
-  "raydium-clmm",    // CLMM swap
-  // 'drift-perp',   // ← unlocked once strategy-token byte 8 ships
-] as const;
+// Rebalance protocols included in the auto-composition recipe.
+//
+// SCOPE NOTE: each non-kamino protocol's CLI rebalance resolver requires
+// protocol-specific config flags (--reserve, --whirlpool, --pool-state,
+// --market-index) plus per-strategy account init in some cases. For v1
+// of the chaos sim we limit to kamino with a hard-coded devnet reserve
+// (KAMINO_DEVNET_RESERVE below) so composition exercises a real Beethoven
+// CPI path end-to-end. Adding marinade / drift / orca / raydium / drift-perp
+// requires per-protocol config injection in orchestrator.ts — tracked as
+// follow-up work.
+export const REBALANCE_PROTOCOLS = ["kamino"] as const;
 export type RebalanceProtocol = (typeof REBALANCE_PROTOCOLS)[number];
+
+/** Live devnet Kamino USDC reserve (verified by the kamino NAV probe). */
+export const KAMINO_DEVNET_RESERVE =
+  "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy";
 
 // Inter-tx jitter to avoid devnet rate limits. 200-400ms randomized.
 export const TX_JITTER_MIN_MS = 200;

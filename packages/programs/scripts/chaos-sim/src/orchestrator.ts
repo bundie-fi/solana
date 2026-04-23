@@ -16,6 +16,7 @@
  * its own jitter so we don't wallop devnet RPC.
  */
 import {
+  KAMINO_DEVNET_RESERVE,
   PHASE,
   REBALANCE_PROTOCOLS,
   RebalanceProtocol,
@@ -126,11 +127,16 @@ async function phaseCompose(
     const composition = pickN(REBALANCE_PROTOCOLS, compCount);
     const name = `chaos-${creator.role}-${Date.now() % 100000}`;
 
-    // 1a. create
+    // 1a. create as agent-type — funds sit in wallet PDA, rebalance txs
+    // below move them into protocols. CLI's --protocol only maps
+    // kamino/marginfi/jupiter as names; pass kamino as the label-only
+    // primary regardless of the recipe (real composition is decided by
+    // the rebalance legs, not the strategy's primary-protocol field).
     const cR = await runAndRecord(rec, creator, "create-strategy", [
       "create-strategy",
       "--name", name,
-      "--protocol", primary,
+      "--type", "agent",
+      "--protocol", "kamino",
       "--fee-bps", "1000",
       "--deposit", PHASE.STRATEGY_SEED_USDC,
       "--min-deposit", "0.05",
@@ -150,13 +156,21 @@ async function phaseCompose(
     const strat: CreatedStrategy = { creator, address: addr, primaryProtocol: primary, composition };
     strategies.push(strat);
 
-    // 1b. composition rebalances
+    // 1b. composition rebalances. Each protocol leg supplies its own
+    // required CLI flags (Kamino needs --reserve; once more protocols
+    // are wired in REBALANCE_PROTOCOLS, extend this map analogously.)
     for (const proto of composition) {
+      const extraFlags: string[] = [];
+      if (proto === "kamino") {
+        extraFlags.push("--reserve", KAMINO_DEVNET_RESERVE);
+      }
       await runAndRecord(rec, creator, `rebalance-${proto}`, [
         "rebalance",
         "--strategy", addr,
         "--protocol", proto,
+        "--action", "deposit",
         "--amount", PHASE.REBALANCE_USDC,
+        ...extraFlags,
       ], { strategy: addr, leg: proto });
     }
   }
@@ -192,13 +206,16 @@ async function phaseMarkets(
       : creators[(s + 1) % creators.length];
 
     for (let i = 0; i < PHASE.MARKETS_PER_STRATEGY; i++) {
-      const horizonHours = 1 + Math.floor(Math.random() * 4);
+      const thresholdBps = PHASE.MARKET_THRESHOLD_BPS + Math.floor(Math.random() * 500); // 3–8%
+      const question = `Will ${strat.address.slice(0, 6)}… APY > ${(thresholdBps / 100).toFixed(1)}% in ${PHASE.MARKET_RESOLUTION_DAYS}d?`;
       const r = await runAndRecord(rec, maker, "create-market", [
         "create-market",
         "--strategy", strat.address,
-        "--horizon-hours", String(horizonHours),
-        "--threshold-bps", String(100 + Math.floor(Math.random() * 500)), // 1-6%
-      ], { strategy: strat.address, maker: maker.role });
+        "--question", question,
+        "--threshold-bps", String(thresholdBps),
+        "--resolution-days", String(PHASE.MARKET_RESOLUTION_DAYS),
+        "--initial-subsidy", PHASE.MARKET_INITIAL_SUBSIDY_USDC,
+      ], { strategy: strat.address, maker: maker.role, thresholdBps });
       if (!r.ok) continue;
       const addr = extractMarketAddress(r.stdout);
       if (addr) markets.push({ strategy: strat, address: addr });
@@ -232,7 +249,7 @@ async function phaseTrade(
       await runAndRecord(rec, trader, `predict-${outcome}`, [
         "predict",
         "--market", market.address,
-        "--outcome", outcome,
+        "--side", outcome,
         "--amount", amountUsdc,
       ], { market: market.address, outcome, amountUsdc });
     }
