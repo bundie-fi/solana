@@ -29,7 +29,9 @@ const PROBES: Probe[] = [
   {
     name: "drift",
     file: "probe-drift-spotmarket.ts",
-    defaultRpc: "https://api.devnet.solana.com",
+    // Drift devnet has hand-crafted test data where deposit interest reads
+    // < 1.0 (impossible economically). Mainnet is the source of truth.
+    defaultRpc: "https://api.mainnet-beta.solana.com",
     rpcEnv: "DRIFT_RPC_URL",
   },
   {

@@ -50,7 +50,8 @@ const BANK_OFFSET_MINT = 8;
 // reshuffles the struct head this typically moves too.
 const BANK_OFFSET_MINT_DECIMALS = 40;
 const BANK_OFFSET_ASSET_SHARE_VALUE = 80;
-const BANK_MIN_LEN = BANK_OFFSET_ASSET_SHARE_VALUE + 16;
+const BANK_OFFSET_LIABILITY_SHARE_VALUE = 96;
+const BANK_MIN_LEN = BANK_OFFSET_LIABILITY_SHARE_VALUE + 16;
 
 // I80F48: 80 integer bits + 48 fractional bits. Stored as i128 LE in 16 B.
 // `asset_share_value` is initialised at 1.0 (= 1 << 48 in I80F48) and grows
@@ -104,16 +105,23 @@ async function main() {
   // mint_decimals @ 40 (u8)
   const decimals = info.data.readUInt8(BANK_OFFSET_MINT_DECIMALS);
 
-  // asset_share_value @ 80..96 (i128 LE in I80F48)
-  const lo = info.data.readBigUInt64LE(BANK_OFFSET_ASSET_SHARE_VALUE);
-  const hi = info.data.readBigInt64LE(BANK_OFFSET_ASSET_SHARE_VALUE + 8);
-  const asv = (hi << 64n) | lo;
+  function readI80F48(off: number): bigint {
+    const lo = info!.data.readBigUInt64LE(off);
+    const hi = info!.data.readBigInt64LE(off + 8);
+    return (hi << 64n) | lo;
+  }
+
+  const asv = readI80F48(BANK_OFFSET_ASSET_SHARE_VALUE);
+  const lsv = readI80F48(BANK_OFFSET_LIABILITY_SHARE_VALUE);
 
   console.log(`  account length:               ${info.data.length}`);
   console.log(`  mint @${BANK_OFFSET_MINT}:                       ${mint.toBase58()}`);
   console.log(`  mint_decimals @${BANK_OFFSET_MINT_DECIMALS}:               ${decimals}`);
   console.log(
     `  asset_share_value @${BANK_OFFSET_ASSET_SHARE_VALUE}:        ${asv.toString()}  (~${(Number(asv) / 2 ** 48).toFixed(6)}x as I80F48)`,
+  );
+  console.log(
+    `  liability_share_value @${BANK_OFFSET_LIABILITY_SHARE_VALUE}:    ${lsv.toString()}  (~${(Number(lsv) / 2 ** 48).toFixed(6)}x as I80F48)`,
   );
 
   // --- Assertions --------------------------------------------------------
@@ -132,8 +140,26 @@ async function main() {
       `asset_share_value too large for I80F48 integer part - got ${asv.toString()} (>= 2^80; struct layout drift? we previously saw ~1.84e19 at the wrong offset 88)`,
     );
   }
+  if (lsv < ASSET_SHARE_VALUE_MIN) {
+    fail(
+      `liability_share_value <= 0 - got ${lsv.toString()} (zero/neg => layout drift OR dead bank)`,
+    );
+  }
+  if (lsv >= ASSET_SHARE_VALUE_MAX) {
+    fail(
+      `liability_share_value too large for I80F48 integer part - got ${lsv.toString()} (>= 2^80; struct layout drift?)`,
+    );
+  }
+  // Critical invariant: in any healthy lending market, liability share value
+  // (borrow accrual) >= asset share value (deposit accrual). Newly-init'd
+  // banks at zero utilisation can have lsv == asv == 1.0 exactly.
+  if (lsv < asv) {
+    fail(
+      `liability_share_value (${lsv}) < asset_share_value (${asv}) - this is impossible in a healthy market; offsets have likely swapped`,
+    );
+  }
 
-  console.log(`ok MARGINFI PROBE PASS - offsets stable`);
+  console.log(`ok MARGINFI PROBE PASS - offsets stable, liability >= asset invariant holds`);
 }
 
 main().catch((e) => {
