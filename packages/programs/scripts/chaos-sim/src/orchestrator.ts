@@ -156,7 +156,29 @@ async function phaseCompose(
     const strat: CreatedStrategy = { creator, address: addr, primaryProtocol: primary, composition };
     strategies.push(strat);
 
-    // 1b. composition rebalances. Each protocol leg supplies its own
+    // 1b. init-position per protocol (one-shot per strategy per protocol).
+    // Kamino REQUIRES this before any rebalance — sets up the per-strategy
+    // UserMetadata + Obligation accounts. Drift and Marginfi follow the
+    // same shape but with their own PDA derivations.
+    const initialized = new Set<RebalanceProtocol>();
+    for (const proto of composition) {
+      if (initialized.has(proto)) continue;
+      const initFlags: string[] = [];
+      if (proto === "kamino") {
+        // Falls back to devnet main lending market when --lending-market
+        // is omitted; passing explicitly keeps the chaos run reproducible.
+        initFlags.push("--lending-market", "27MKCQo5qP7ijrwWSMKX2Jeb3PhK2NZmHQ9befWVRS4J");
+      }
+      const ir = await runAndRecord(rec, creator, `init-position-${proto}`, [
+        "init-position",
+        "--strategy", addr,
+        "--protocol", proto,
+        ...initFlags,
+      ], { strategy: addr, leg: proto });
+      if (ir.ok) initialized.add(proto);
+    }
+
+    // 1c. composition rebalances. Each protocol leg supplies its own
     // required CLI flags (Kamino needs --reserve; once more protocols
     // are wired in REBALANCE_PROTOCOLS, extend this map analogously.)
     for (const proto of composition) {

@@ -2,6 +2,7 @@
 
 import type { StrategyDisplay } from "@bundie/common";
 import { ProtocolCoverage } from "@/components/ProtocolCoverage";
+import { SnsName } from "@/components/SnsName";
 import { Sparkline, synthSeries } from "@/components/ui/Sparkline";
 
 /**
@@ -62,9 +63,16 @@ export function StrategyCard({
           <h3 className="font-serif text-[22px] leading-tight text-neutral-900 truncate">
             {s.name}
           </h3>
-          <p className="text-xs text-neutral-600 font-mono mt-0.5 truncate">
-            {s.address.slice(0, 6)}…{s.address.slice(-4)}
-          </p>
+          {/* Strategy address: SNS-aware. The strategy itself rarely has a
+              `.sol` (it's a PDA), so this almost always renders as the
+              truncated pubkey — but we route through SnsName for symmetry
+              with creator/trader rendering. */}
+          <SnsName
+            addr={s.address}
+            head={6}
+            tail={4}
+            className="text-xs text-neutral-600 font-mono mt-0.5 block truncate"
+          />
         </div>
         <span
           className={`font-mono text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-[0.1em] shrink-0 ${statusStyles}`}
@@ -114,10 +122,23 @@ export function StrategyCard({
       {/* Protocol coverage — which Beethoven protocols this strategy uses. */}
       <ProtocolCoverage strategy={s.address} className="mb-3" />
 
-      {/* Footer: creator */}
+      {/* Footer: creator. Prefer the on-chain authority pubkey routed
+          through SnsName so we display `<creator>.sol` when one resolves
+          (chaos-pool, then mainnet primary domain). Falls back to the
+          metadata-supplied creatorName, then the truncated pubkey. */}
       <footer className="mt-auto pt-3 border-t border-neutral-300 flex items-center justify-between">
         <span className="text-xs text-neutral-600 font-mono truncate">
-          {s.creatorName ? `by ${s.creatorName}` : "by anonymous"}
+          {s.authority ? (
+            <SnsName
+              addr={s.authority}
+              prefix="by "
+              className="text-xs text-neutral-600 font-mono"
+            />
+          ) : s.creatorName ? (
+            `by ${s.creatorName}`
+          ) : (
+            "by anonymous"
+          )}
         </span>
         <span className="text-xs text-neutral-600 group-hover:text-amber-400 transition-colors duration-180">
           View →

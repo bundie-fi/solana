@@ -6,27 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p $PORT",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:sns": "TSX_TSCONFIG_PATH=tests/tsconfig.json tsx tests/sns.smoke.ts"
   },
   "dependencies": {
+    "@bonfida/spl-name-service": "^3.0.21",
     "@bundie/common": "workspace:*",
-    "next": "^14.2",
-    "react": "^18.3",
-    "react-dom": "^18.3",
-    "@solana/web3.js": "^1.98",
+    "@solana/spl-name-service": "^0.2.1",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/wallet-adapter-base": "^0.9",
     "@solana/wallet-adapter-react": "^0.15",
     "@solana/wallet-adapter-react-ui": "^0.9",
     "@solana/wallet-adapter-wallets": "^0.19",
-    "@solana/wallet-adapter-base": "^0.9",
-    "@solana/spl-name-service": "^0.2.1",
-    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98",
+    "next": "^14.2",
+    "react": "^18.3",
+    "react-dom": "^18.3",
     "tailwindcss": "^3.4"
   },
   "devDependencies": {
-    "typescript": "^5.5",
-    "@types/react": "^18",
     "@types/node": "^22",
+    "@types/react": "^18",
+    "autoprefixer": "^10",
     "postcss": "^8",
-    "autoprefixer": "^10"
+    "typescript": "^5.5"
   }
 }

@@ -12,7 +12,9 @@
     "chaos:setup": "tsx scripts/chaos-sim/src/index.ts setup",
     "chaos:fund": "tsx scripts/chaos-sim/src/index.ts fund",
     "chaos:run": "tsx scripts/chaos-sim/src/index.ts run",
-    "chaos:doctor": "tsx scripts/chaos-sim/src/index.ts doctor"
+    "chaos:doctor": "tsx scripts/chaos-sim/src/index.ts doctor",
+    "chaos:register-names": "tsx scripts/chaos-sim/src/index.ts register-names",
+    "chaos:test": "tsx scripts/chaos-sim/tests/sns.smoke.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
@@ -26,13 +28,16 @@
     "@solana/web3.js": "^1.98",
     "@types/chai": "^4",
     "@types/mocha": "^10",
+    "@types/node": "^22",
     "@zetamarkets/sdk": "^1.64.2",
     "bn.js": "^5.2.3",
     "chai": "^4",
     "mocha": "^10",
     "ts-mocha": "^10",
-    "typescript": "^5.5",
-    "@types/node": "^22",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.5"
+  },
+  "dependencies": {
+    "@bonfida/spl-name-service": "^3.0.21"
   }
 }

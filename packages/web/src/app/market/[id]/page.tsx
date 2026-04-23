@@ -7,6 +7,8 @@ import {
 } from '@/lib/chain'
 import { PriceBar } from '@/components/ui/PriceBar'
 import { PayoffCalculator } from '@/components/PayoffCalculator'
+import { SnsName } from '@/components/SnsName'
+import { lookupChaosPoolSync } from '@/lib/sns'
 import type { StrategyDisplay } from '@bundie/common'
 
 export const revalidate = 30
@@ -269,7 +271,15 @@ export default async function MarketDetailPage({
                 ? `${formatUsdc(subsidyEst)} USDC`
                 : '— (fully traded)'
             }
-            sub={`by ${truncate(market.subsidyProvider)}`}
+            // SSR-safe: synchronous chaos-pool lookup means our agents'
+            // names render without flicker. Real users still get the
+            // truncated pubkey in SSR; the SnsName component would
+            // upgrade them client-side, but DetailRow is plain text so
+            // we use the sync chaos lookup here.
+            sub={`by ${
+              lookupChaosPoolSync(market.subsidyProvider) ??
+              truncate(market.subsidyProvider)
+            }`}
             subHref={explorer(market.subsidyProvider)}
           />
           <DetailRow

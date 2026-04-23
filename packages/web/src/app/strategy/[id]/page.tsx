@@ -13,6 +13,7 @@ import {
 import { PROTOCOLS, type Protocol } from '@/lib/protocols'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { BuySharesPanel } from '@/components/BuySharesPanel'
+import { SnsName } from '@/components/SnsName'
 import type { MarketDisplay, StrategyDisplay } from '@bundie/common'
 
 export const revalidate = 30
@@ -223,7 +224,10 @@ export default async function StrategyDetailPage({
           rel="noopener noreferrer"
           className="text-amber-400 hover:underline"
         >
-          {strategy.authority.slice(0, 8)}…{strategy.authority.slice(-6)}
+          {/* SNS-resolved when available (chaos-pool, then mainnet primary
+              domain). Falls back to truncated pubkey while resolving or if
+              no name is registered. */}
+          <SnsName addr={strategy.authority} head={8} tail={6} />
         </a>
       </p>
 
@@ -403,7 +407,9 @@ export default async function StrategyDetailPage({
                       rel="noopener noreferrer"
                       className="font-mono text-xs text-amber-400 hover:underline truncate"
                     >
-                      {b.owner.slice(0, 8)}…{b.owner.slice(-6)}
+                      {/* Backers are real on-chain wallets — SNS-resolve so
+                          chaos-pool traders show up as <name>.sol. */}
+                      <SnsName addr={b.owner} head={8} tail={6} />
                     </a>
                     <span className="font-mono nums text-neutral-900">
                       {b.uiAmount.toLocaleString(undefined, {
