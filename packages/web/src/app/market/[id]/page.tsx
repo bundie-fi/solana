@@ -8,7 +8,6 @@ import {
 import { PriceBar } from '@/components/ui/PriceBar'
 import { PayoffCalculator } from '@/components/PayoffCalculator'
 import { SnsName } from '@/components/SnsName'
-import { lookupChaosPoolSync } from '@/lib/sns'
 import type { StrategyDisplay } from '@bundie/common'
 
 export const revalidate = 30
@@ -271,16 +270,17 @@ export default async function MarketDetailPage({
                 ? `${formatUsdc(subsidyEst)} USDC`
                 : '— (fully traded)'
             }
-            // SSR-safe: synchronous chaos-pool lookup means our agents'
-            // names render without flicker. Real users still get the
-            // truncated pubkey in SSR; the SnsName component would
-            // upgrade them client-side, but DetailRow is plain text so
-            // we use the sync chaos lookup here.
-            sub={`by ${
-              lookupChaosPoolSync(market.subsidyProvider) ??
-              truncate(market.subsidyProvider)
-            }`}
-            subHref={explorer(market.subsidyProvider)}
+            // SNS-aware subsidy provider — surface `<provider>.sol` when one resolves.
+            subNode={
+              <SnsName
+                addr={market.subsidyProvider}
+                head={6}
+                tail={6}
+                prefix="by "
+                className="font-mono text-[11px] text-neutral-600 hover:text-amber-400"
+                linkToExplorer
+              />
+            }
           />
           <DetailRow
             label="Trading fee"
@@ -300,8 +300,16 @@ export default async function MarketDetailPage({
           />
           <DetailRow
             label="Authority"
-            value={truncate(market.authority)}
-            valueHref={explorer(market.authority)}
+            // SNS-aware authority. valueNode wins over value when present.
+            valueNode={
+              <SnsName
+                addr={market.authority}
+                head={6}
+                tail={6}
+                className="font-mono text-sm text-amber-400 hover:underline mt-1 inline-block"
+                linkToExplorer
+              />
+            }
           />
           <DetailRow
             label="Resolution slot"
@@ -374,21 +382,29 @@ function DetailRow({
   label,
   value,
   valueHref,
+  valueNode,
   sub,
   subHref,
+  subNode,
 }: {
   label: string
-  value: string
+  value?: string
   valueHref?: string
+  // valueNode/subNode are escape hatches for SNS-aware rows that need to
+  // render a client component (SnsName) inside an otherwise-static table.
+  valueNode?: React.ReactNode
   sub?: string
   subHref?: string
+  subNode?: React.ReactNode
 }) {
   return (
     <div>
       <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600">
         {label}
       </p>
-      {valueHref ? (
+      {valueNode ? (
+        <div className="mt-1">{valueNode}</div>
+      ) : valueHref ? (
         <a
           href={valueHref}
           target="_blank"
@@ -400,7 +416,9 @@ function DetailRow({
       ) : (
         <p className="font-mono text-sm text-neutral-900 mt-1">{value}</p>
       )}
-      {sub && (
+      {subNode ? (
+        <div className="mt-1">{subNode}</div>
+      ) : sub ? (
         subHref ? (
           <a
             href={subHref}
@@ -413,7 +431,7 @@ function DetailRow({
         ) : (
           <p className="font-mono text-[11px] text-neutral-600 mt-1">{sub}</p>
         )
-      )}
+      ) : null}
     </div>
   )
 }

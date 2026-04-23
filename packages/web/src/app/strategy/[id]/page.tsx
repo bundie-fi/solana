@@ -218,17 +218,16 @@ export default async function StrategyDetailPage({
 
       <p className="text-xs text-neutral-600 mb-8 font-mono">
         Creator:{' '}
-        <a
-          href={`https://orbmarkets.io/address/${strategy.authority}?cluster=devnet`}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* SNS-aware creator label — renders `<creator>.sol` when the
+            authority pubkey reverse-resolves (chaos-pool, devnet primary,
+            mainnet primary), otherwise falls back to the truncated pubkey. */}
+        <SnsName
+          addr={strategy.authority}
+          head={8}
+          tail={6}
           className="text-amber-400 hover:underline"
-        >
-          {/* SNS-resolved when available (chaos-pool, then mainnet primary
-              domain). Falls back to truncated pubkey while resolving or if
-              no name is registered. */}
-          <SnsName addr={strategy.authority} head={8} tail={6} />
-        </a>
+          linkToExplorer
+        />
       </p>
 
       {/* Stats grid */}
@@ -401,16 +400,15 @@ export default async function StrategyDetailPage({
                     key={b.owner}
                     className="flex items-center justify-between gap-4 py-2 text-sm"
                   >
-                    <a
-                      href={`https://orbmarkets.io/address/${b.owner}?cluster=devnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    {/* Backer pubkey routed through SnsName so chaos-pool
+                        agents and any real `.sol` holders surface as names. */}
+                    <SnsName
+                      addr={b.owner}
+                      head={8}
+                      tail={6}
                       className="font-mono text-xs text-amber-400 hover:underline truncate"
-                    >
-                      {/* Backers are real on-chain wallets — SNS-resolve so
-                          chaos-pool traders show up as <name>.sol. */}
-                      <SnsName addr={b.owner} head={8} tail={6} />
-                    </a>
+                      linkToExplorer
+                    />
                     <span className="font-mono nums text-neutral-900">
                       {b.uiAmount.toLocaleString(undefined, {
                         maximumFractionDigits: 4,

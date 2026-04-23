@@ -29,6 +29,13 @@ type GetMultiplePrimaryDomains = (
 const MAINNET_RPC =
   process.env.NEXT_PUBLIC_MAINNET_RPC || "https://api.mainnet-beta.solana.com";
 
+// Devnet RPC — used to reverse-lookup names registered through the
+// in-app /identity flow (Bonfida devnet registrar). We try devnet BEFORE
+// mainnet so newly-registered devnet identities show up immediately
+// across the app.
+const DEVNET_RPC =
+  process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
+
 // ───────────────────────────────────────────────────────────────────────────
 // Static chaos-pool map — mirrored from
 // packages/programs/scripts/chaos-sim/keys/agent-names.json. Update both
@@ -106,18 +113,39 @@ export async function lookupSnsForAddress(
     return local;
   }
 
-  // (3) mainnet primary-domain via Bonfida. Wrapped in try/catch — an RPC
-  // outage MUST NOT block the UI. We negative-cache misses to avoid
-  // hammering the RPC on every render.
+  // Validate pubkey once — invalid input → negative cache, no RPC.
+  let pubkey: PublicKey;
   try {
-    let pubkey: PublicKey;
-    try {
-      pubkey = new PublicKey(addr);
-    } catch {
-      cacheSet(addr, null);
-      return null;
-    }
+    pubkey = new PublicKey(addr);
+  } catch {
+    cacheSet(addr, null);
+    return null;
+  }
 
+  // (3a) DEVNET primary-domain via Bonfida devnet utils. This is the path
+  // the Bundie /identity flow targets, so it must run first — newly
+  // registered names need to surface immediately across the app.
+  try {
+    const sns = await import("@bonfida/spl-name-service");
+    const devnetUtils = (sns as unknown as {
+      devnet?: { utils?: { getPrimaryDomain?: (c: Connection, owner: PublicKey) => Promise<{ reverse: string; stale: boolean }> } };
+    }).devnet?.utils;
+    if (devnetUtils?.getPrimaryDomain) {
+      const conn = new Connection(DEVNET_RPC, "confirmed");
+      const result = await devnetUtils.getPrimaryDomain(conn, pubkey);
+      if (result?.reverse && !result.stale) {
+        const full = `${result.reverse}.sol`;
+        cacheSet(addr, full);
+        return full;
+      }
+    }
+  } catch {
+    // devnet primary lookup failed (no primary set, RPC throttle, etc.)
+    // — fall through to mainnet.
+  }
+
+  // (3b) MAINNET primary-domain via Bonfida. Same try/catch budget as (3a).
+  try {
     const { getMultipleFavoriteDomains } = (await import(
       "@bonfida/spl-name-service"
     )) as { getMultipleFavoriteDomains: GetMultiplePrimaryDomains };
@@ -153,4 +181,22 @@ export function truncatePubkey(addr: string, head = 6, tail = 4): string {
 /** Test/debug helper — flush the in-memory cache. */
 export function _resetSnsCache(): void {
   cache.clear();
+}
+
+/**
+ * Invalidate a single address (after a successful devnet registration so
+ * the next render re-fetches and sees the new `<name>.sol`). Safe to call
+ * even when the address isn't cached.
+ */
+export function invalidateSnsLookup(addr: string): void {
+  cache.delete(addr);
+}
+
+/**
+ * Manual override — write a known name into the cache. Used right after a
+ * successful registration on /identity so the wallet immediately reflects
+ * its new `.sol` across the app without waiting for Bonfida indexers.
+ */
+export function setSnsCacheEntry(addr: string, name: string): void {
+  cacheSet(addr, name);
 }

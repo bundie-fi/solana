@@ -9,6 +9,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/markets", label: "Markets" },
   { href: "/protocols", label: "Protocols" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/identity", label: "Identity" },
 ];
 
 /**

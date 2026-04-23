@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Figtree, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { TopNav } from "@/components/TopNav";
+import { IdentityBanner } from "@/components/IdentityBanner";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -65,6 +66,7 @@ export default function RootLayout({
     >
       <body className="bg-background text-neutral-900 antialiased min-h-screen font-sans">
         <Providers>
+          <IdentityBanner />
           <TopNav />
           {children}
         </Providers>

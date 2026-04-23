@@ -296,15 +296,24 @@ function StrategyDetail({ strategy: s }: { strategy: StrategyDisplay }) {
 
       {/* Meta */}
       <div className="rounded-xl border border-neutral-300 bg-neutral-50 p-4 flex flex-col gap-2 text-xs">
-        {/* "Created by" routes through SnsName so the chaos-pool agents
-            (and any real .sol holders) display their identity. The
-            metadata creatorName is the explicit fallback when authority
-            isn't on the display object. */}
-        <RowSns
-          label="Created by"
-          addr={s.authority}
-          fallback={s.creatorName ?? "anonymous"}
-        />
+        {/* SNS-aware creator row. We render a SnsName when we have an
+            authority pubkey on the strategy (almost always); fall back to
+            the metadata creatorName when missing for any reason. */}
+        {s.authority ? (
+          <RowNode
+            label="Created by"
+            node={
+              <SnsName
+                addr={s.authority}
+                head={6}
+                tail={4}
+                className="font-mono nums text-neutral-800"
+              />
+            }
+          />
+        ) : (
+          <Row label="Created by" value={s.creatorName ?? "anonymous"} mono />
+        )}
         <Row label="Protocol" value={truncate(s.protocol)} mono />
         <Row label="Token mint" value={truncate(s.mint)} mono />
         <Row label="Fee" value={`${(s.feeBps / 100).toFixed(2)}%`} />
@@ -356,30 +365,15 @@ function Row({
   );
 }
 
-function truncate(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-/**
- * Row variant that resolves an address through SnsName. If `addr` is
- * empty/undefined, renders the supplied fallback string. The right side
- * matches the mono styling of the regular Row so the meta column lines up.
- */
-function RowSns({
-  label,
-  addr,
-  fallback,
-}: {
-  label: string;
-  addr?: string;
-  fallback: string;
-}) {
+function RowNode({ label, node }: { label: string; node: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-neutral-600">{label}</span>
-      <span className="font-mono nums text-neutral-800 text-right truncate">
-        {addr ? <SnsName addr={addr} head={6} tail={4} /> : fallback}
-      </span>
+      <span className="text-right truncate">{node}</span>
     </div>
   );
+}
+
+function truncate(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
