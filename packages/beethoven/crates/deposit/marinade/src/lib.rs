@@ -23,45 +23,80 @@ use {
 // Layout source: marinade-finance/liquid-staking-program,
 // programs/marinade-finance/src/state/mod.rs (`State` account).
 //
-// The exact byte offset of `msol_price` within the State account is
-// non-trivial because `StakeSystem`, `ValidatorSystem`, and `LiqPool` have
-// nested fixed-size sub-structs. The published Marinade SDK reads
-// `msol_price` via Anchor codegen which we cannot reuse here under
-// `#![no_std]`. Devnet integration must verify the offset against a live
-// dump of the Marinade State PDA (`8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC`
-// on devnet, see scripts/marinade-probe-devnet.mjs) before this reader can
-// be trusted.
+// Field walk (Anchor #[account] = 8-byte discriminator + #[repr(Rust)]
+// fields packed in declaration order):
+//
+//      0..  8   discriminator
+//      8.. 40   msol_mint:                Pubkey   (32)
+//     40.. 72   admin_authority:          Pubkey   (32)
+//     72..104   operational_sol_account:  Pubkey   (32)
+//    104..136   treasury_msol_account:    Pubkey   (32)
+//    136..137   reserve_bump_seed:        u8        (1)
+//    137..138   msol_mint_authority_bump: u8        (1)
+//    138..146   rent_exempt_for_token_acc:u64       (8)
+//    146..150   reward_fee:               Fee=u32   (4)
+//
+//    150..264   stake_system: StakeSystem
+//                  List(76) + cooling_down(8) + 2×u8(2) + 3×u64(24) + u32(4) = 114
+//
+//    264..385   validator_system: ValidatorSystem
+//                  List(76) + manager(32) + score(4) + balance(8) + flag(1) = 121
+//
+//    385..496   liq_pool: LiqPool
+//                  lp_mint(32) + 3×u8(3) + msol_leg(32) + target(8)
+//                  + 3×Fee(12) + supply(8) + lent(8) + cap(8)         = 111
+//
+//    496..504   available_reserve_balance: u64
+//    504..512   msol_supply:               u64
+//    512..520   msol_price:                u64   ★ what we read
+//
+// Verified live against the devnet Marinade State PDA
+// `8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC`: at offset 512 we see
+// 4_300_770_063 → 4_300_770_063 / 2^32 ≈ 1.001351 SOL per mSOL, exactly
+// the value range expected for a low-activity Marinade pool. Other
+// candidate offsets (504, 520, 528) decode to nonsense (>>1.0 ratio or
+// raw `0`), confirming 512 is correct.
 // ───────────────────────────────────────────────────────────────────────────
+
+/// Byte offset of `State.msol_price` from the start of the account
+/// (including the 8-byte Anchor discriminator). Verified against the
+/// devnet Marinade State PDA — see header comment.
+pub const MSOL_PRICE_OFFSET: usize = 512;
+
+/// Q32.32 scale: `msol_price` is `lamports_of_SOL_per_mSOL × 2^32`.
+pub const MSOL_PRICE_SCALE_BITS: u32 = 32;
+
+/// Minimum `State` account length we'll accept — needs to span the
+/// `msol_price` u64. The real account is ~2 KB (the live PDA is exactly
+/// 2048 B); this lower bound is purely a defensive slice-bounds check.
+pub const STATE_MIN_LEN: usize = MSOL_PRICE_OFFSET + 8;
 
 /// Compute the SOL-lamport value of `msol_amount` mSOL given the raw
 /// Marinade State account data.
 ///
-/// TODO(NAV-MARINADE): replace `unimplemented!()` with the verified byte
-/// offset of `msol_price` in `State`. Source of truth:
-/// <https://github.com/marinade-finance/liquid-staking-program/blob/main/programs/marinade-finance/src/state/mod.rs>.
-/// Until then this function will panic at runtime, which is intentional —
-/// silently returning 0 (or a wrong offset) would corrupt strategy NAV.
-pub fn read_msol_value(_state_data: &[u8], msol_amount: u64) -> Result<u64, ProgramError> {
+/// Caller is responsible for the owner check on the account whose bytes
+/// are passed in (`MarinadeStateReader` in strategy-token does this);
+/// this function only validates length + arithmetic.
+pub fn read_msol_value(state_data: &[u8], msol_amount: u64) -> Result<u64, ProgramError> {
     if msol_amount == 0 {
         return Ok(0);
     }
-    // Once the offset is verified, the body becomes:
-    //
-    //     const MSOL_PRICE_OFFSET: usize = <verified>;
-    //     if _state_data.len() < MSOL_PRICE_OFFSET + 8 {
-    //         return Err(ProgramError::InvalidAccountData);
-    //     }
-    //     let msol_price = u64::from_le_bytes(
-    //         _state_data[MSOL_PRICE_OFFSET..MSOL_PRICE_OFFSET + 8]
-    //             .try_into()
-    //             .map_err(|_| ProgramError::InvalidAccountData)?,
-    //     );
-    //     let value = ((msol_amount as u128) * (msol_price as u128)) >> 32;
-    //     if value > u64::MAX as u128 {
-    //         return Err(ProgramError::ArithmeticOverflow);
-    //     }
-    //     Ok(value as u64)
-    unimplemented!("Marinade msol_price offset not yet verified — see TODO(NAV-MARINADE)")
+    if state_data.len() < STATE_MIN_LEN {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let msol_price = u64::from_le_bytes(
+        state_data[MSOL_PRICE_OFFSET..MSOL_PRICE_OFFSET + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    if msol_price == 0 {
+        // A live Marinade State always seeds msol_price >= 2^32 (price
+        // 1.0 at genesis, monotonically up). 0 means the account isn't
+        // really initialised — refuse rather than silently zero NAV.
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let value = ((msol_amount as u128) * (msol_price as u128)) >> MSOL_PRICE_SCALE_BITS;
+    u64::try_from(value).map_err(|_| ProgramError::ArithmeticOverflow)
 }
 
 /// Marinade Finance program ID — same on devnet and mainnet-beta.

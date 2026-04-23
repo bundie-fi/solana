@@ -3,9 +3,16 @@
 //! Layout source: marinade-finance/liquid-staking-program,
 //! programs/marinade-finance/src/state/mod.rs (`State` account).
 //!
-//! See `packages/beethoven/crates/deposit/marinade/src/lib.rs` for the
-//! per-protocol reader; this module only holds the dispatch glue and the
-//! Marinade program-id (used for the defensive owner-check).
+//! The actual byte-walk + Q32.32 conversion lives in
+//! `beethoven::marinade::read_msol_value` (offset 512, verified against
+//! the devnet Marinade State PDA — see that crate's header comment).
+//! This module only owns the dispatch glue and the program-id owner-check.
+//!
+//! ⚠ Unit note: this reader returns SOL **lamports**, not the strategy's
+//! quote-token base units. Strategies that quote in USDC need a Pyth
+//! SOL/USDC step on top of this — not yet wired in `update_nav`. As
+//! long as a strategy's quote token *is* SOL (or wSOL), the value
+//! returned here can be summed directly with the wallet ATA balance.
 
 use pinocchio::{account::AccountView, error::ProgramError};
 
