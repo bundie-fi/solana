@@ -64,4 +64,40 @@ pub mod prediction_market {
     pub fn redeem(ctx: Context<RedeemWinnings>) -> Result<()> {
         instructions::redeem::handler(ctx)
     }
+
+    /// V2 — open a market of any of the five `MarketKind` variants. v1
+    /// `create_market` continues to work and produces ApyThreshold-equivalent
+    /// markets that resolve via the v1 `resolve` ix.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_market_v2(
+        ctx: Context<CreateMarketV2>,
+        question: String,
+        market_id: u64,
+        kind: u8,
+        payload: [u8; MARKET_PAYLOAD_LEN],
+        resolution_slot: u64,
+        initial_subsidy: u64,
+        fee_bps: u16,
+        initial_nav_a: u64,
+        initial_nav_b: u64,
+    ) -> Result<()> {
+        instructions::create_market_v2::handler(
+            ctx,
+            question,
+            market_id,
+            kind,
+            payload,
+            resolution_slot,
+            initial_subsidy,
+            fee_bps,
+            initial_nav_a,
+            initial_nav_b,
+        )
+    }
+
+    /// V2 — branch on `market.kind` and read the relevant on-chain quantity
+    /// (NavOracle TWAP, Strategy.backer_count, ...) to set the outcome.
+    pub fn resolve_market_v2(ctx: Context<ResolveMarketV2>) -> Result<()> {
+        instructions::resolve_market_v2::handler(ctx)
+    }
 }
