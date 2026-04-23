@@ -184,8 +184,17 @@ impl<'info> Deposit<'info> for Marginfi {
 // works whether the account is a fresh keypair or a PDA derived by the
 // wrapping program (which would pass its seeds via `signer_seeds`).
 //
-// Reference: mrgnlabs/marginfi-v2 programs/marginfi/src/instructions/
-// marginfi_account/initialize.rs.
+// Choice: PDA-derived `marginfi_account`. The wrapping program (strategy-
+// token) has a single deterministic wallet PDA per strategy and derives
+// the marginfi account as a sub-PDA underneath it (e.g.
+// `["marginfi", strategy, group]`), then passes the wallet PDA's signer
+// seeds. Caller-supplied keypairs would force the off-chain CLI to retain
+// secret material across runs, which we explicitly avoid.
+//
+// Account ordering verified against mrgnlabs/marginfi-v2
+// `programs/marginfi/src/instructions/marginfi_account/initialize.rs`
+// (struct `MarginfiAccountInitialize`, main branch @ 2026-04). Cross-
+// checked with `@mrgnlabs/marginfi-client-v2` IDL `marginfi.json`.
 
 use beethoven_core::DepositInit;
 

@@ -272,13 +272,21 @@ impl<'info> TryFrom<&'info [AccountView]> for DriftInitAccounts<'info> {
 
 impl Drift {
     /// First setup ix — must run before `initialize_user`.
-    /// Account roles (from drift-labs/protocol-v2 InitializeUserStats):
-    ///   user_stats     writable  (init)
+    /// Account roles (verified against drift-labs/protocol-v2
+    /// `programs/drift/src/instructions/user.rs::InitializeUserStats`,
+    /// commit master @ 2026-04, and `@drift-labs/sdk`
+    /// `sdk/src/driftClient.ts::getInitializeUserStatsIx`):
+    ///   user_stats     writable  (init, PDA = ["user_stats", authority])
     ///   state          writable
-    ///   authority      readonly signer
+    ///   authority      readonly  (AccountInfo, NOT Signer in the program)
     ///   payer          writable signer
     ///   rent           readonly
     ///   system_program readonly
+    ///
+    /// `authority` is `AccountInfo<'info>` (not `Signer<'info>`) in
+    /// drift-labs/protocol-v2 — it's only used to derive seeds. Marking it
+    /// as a signer here would force Solana's runtime to require a
+    /// signature that Drift never asks for.
     fn initialize_user_stats_signed(
         ctx: &DriftInitAccounts<'_>,
         signer_seeds: &[Signer],
@@ -286,7 +294,7 @@ impl Drift {
         let accounts = [
             InstructionAccount::writable(ctx.user_stats.address()),
             InstructionAccount::writable(ctx.state.address()),
-            InstructionAccount::readonly_signer(ctx.authority.address()),
+            InstructionAccount::readonly(ctx.authority.address()),
             InstructionAccount::writable_signer(ctx.payer.address()),
             InstructionAccount::readonly(ctx.rent.address()),
             InstructionAccount::readonly(ctx.system_program.address()),
@@ -311,11 +319,14 @@ impl Drift {
     }
 
     /// Second setup ix — depends on `user_stats` already existing.
-    /// Account roles (from drift-labs/protocol-v2 InitializeUser):
-    ///   user           writable  (init, seeded by sub_account_id)
-    ///   user_stats     writable
+    /// Account roles (verified against drift-labs/protocol-v2
+    /// `programs/drift/src/instructions/user.rs::InitializeUser`, commit
+    /// master @ 2026-04, and `@drift-labs/sdk`
+    /// `sdk/src/driftClient.ts::getInitializeUserInstructions`):
+    ///   user           writable  (init, PDA = ["user", authority, sub_account_id_le])
+    ///   user_stats     writable  (has_one = authority)
     ///   state          writable
-    ///   authority      readonly signer
+    ///   authority      readonly  (AccountInfo, NOT Signer in the program)
     ///   payer          writable signer
     ///   rent           readonly
     ///   system_program readonly
@@ -328,7 +339,7 @@ impl Drift {
             InstructionAccount::writable(ctx.user.address()),
             InstructionAccount::writable(ctx.user_stats.address()),
             InstructionAccount::writable(ctx.state.address()),
-            InstructionAccount::readonly_signer(ctx.authority.address()),
+            InstructionAccount::readonly(ctx.authority.address()),
             InstructionAccount::writable_signer(ctx.payer.address()),
             InstructionAccount::readonly(ctx.rent.address()),
             InstructionAccount::readonly(ctx.system_program.address()),
