@@ -16,16 +16,30 @@ idl-build = []
 [dependencies]
 pinocchio = { version = "0.10", default-features = false, features = ["cpi"] }
 beethoven = { path = "../../../beethoven", features = [
-    # Deposit (lending / vaults) — all four are filled in upstream Beethoven
+    # Deposit — lending vaults + liquid staking + vault aggregators
     "kamino-deposit",
     "jupiter-deposit",
     "drift-deposit",
     "marginfi-deposit",
-    # Perps (derivatives) — Mango v4 today; Drift / Adrena slot in here later
+    "marinade-deposit",        # devnet ✓ — liquid staking (SOL → mSOL)
+    "solend-deposit",          # devnet ✓ — lending
+    "spl-stake-pool-deposit",  # devnet ✓ — covers BlazeStake/Jito/custom LSTs
+    "drift-vaults-deposit",    # devnet ✓ — vault aggregator on top of Drift
+    "meteora-vaults-deposit",  # devnet ✓ — Mercurial-style yield router
+    # Perps (derivatives)
     "mango-perps",
-    # Swap (DEX routing) — all 14 protocols in the Beethoven crate tree
-    "raydium-cpmm-swap",  # devnet pools confirmed
-    "manifest-swap",      # devnet markets confirmed
+    "zeta-perps",  # devnet ✓ — futures + options, cross-margin
+    # Swap (DEX routing) — original 14 + 8 new (4 Raydium + Orca + 2 Meteora + 2 CLOBs)
+    "raydium-cpmm-swap",        # mainnet pools
+    "raydium-cpmm-devnet-swap", # devnet variant (different program ID)
+    "raydium-clmm-swap",        # devnet ✓ — concentrated liquidity
+    "raydium-amm-v4-swap",      # devnet ✓ — legacy CP
+    "orca-whirlpools-swap",     # devnet ✓ — CLMM
+    "meteora-dlmm-swap",        # devnet ✓ — bin-based AMM
+    "meteora-damm-v2-swap",     # devnet ✓ — CP
+    "phoenix-swap",             # devnet ✓ — CLOB
+    "openbook-v2-swap",         # devnet ✓ — CLOB
+    "manifest-swap",            # devnet markets confirmed
     "aldrin-swap",
     "aldrin_v2-swap",
     "futarchy-swap",

@@ -62,6 +62,30 @@ pub enum SwapContext<'info> {
     Hadron(crate::hadron::HadronSwapAccounts<'info>),
     #[cfg(feature = "raydium-cpmm-swap")]
     RaydiumCpmm(crate::raydium_cpmm::RaydiumCpmmSwapAccounts<'info>),
+
+    #[cfg(feature = "raydium-cpmm-devnet-swap")]
+    RaydiumCpmmDevnet(crate::raydium_cpmm_devnet::RaydiumCpmmDevnetSwapAccounts<'info>),
+
+    #[cfg(feature = "raydium-clmm-swap")]
+    RaydiumClmm(crate::raydium_clmm::RaydiumClmmSwapAccounts<'info>),
+
+    #[cfg(feature = "raydium-amm-v4-swap")]
+    RaydiumAmmV4(crate::raydium_amm_v4::RaydiumAmmV4SwapAccounts<'info>),
+
+    #[cfg(feature = "orca-whirlpools-swap")]
+    OrcaWhirlpools(crate::orca_whirlpools::OrcaWhirlpoolsSwapAccounts<'info>),
+
+    #[cfg(feature = "meteora-dlmm-swap")]
+    MeteoraDlmm(crate::meteora_dlmm::MeteoraDlmmSwapAccounts<'info>),
+
+    #[cfg(feature = "meteora-damm-v2-swap")]
+    MeteoraDammV2(crate::meteora_damm_v2::MeteoraDammV2SwapAccounts<'info>),
+
+    #[cfg(feature = "phoenix-swap")]
+    Phoenix(crate::phoenix::PhoenixSwapAccounts<'info>),
+
+    #[cfg(feature = "openbook-v2-swap")]
+    OpenbookV2(crate::openbook_v2::OpenbookV2SwapAccounts<'info>),
 }
 
 /// Protocol-specific swap data enum for use with SwapContext
@@ -106,6 +130,30 @@ pub enum SwapData<'a> {
     Hadron(crate::hadron::HadronSwapData),
     #[cfg(feature = "raydium-cpmm-swap")]
     RaydiumCpmm(()),
+
+    #[cfg(feature = "raydium-cpmm-devnet-swap")]
+    RaydiumCpmmDevnet(()),
+
+    #[cfg(feature = "raydium-clmm-swap")]
+    RaydiumClmm(crate::raydium_clmm::RaydiumClmmData),
+
+    #[cfg(feature = "raydium-amm-v4-swap")]
+    RaydiumAmmV4(()),
+
+    #[cfg(feature = "orca-whirlpools-swap")]
+    OrcaWhirlpools(crate::orca_whirlpools::OrcaWhirlpoolsSwapData),
+
+    #[cfg(feature = "meteora-dlmm-swap")]
+    MeteoraDlmm(crate::meteora_dlmm::MeteoraDlmmSwapData),
+
+    #[cfg(feature = "meteora-damm-v2-swap")]
+    MeteoraDammV2(crate::meteora_damm_v2::MeteoraDammV2SwapData),
+
+    #[cfg(feature = "phoenix-swap")]
+    Phoenix(crate::phoenix::PhoenixSwapData),
+
+    #[cfg(feature = "openbook-v2-swap")]
+    OpenbookV2(crate::openbook_v2::OpenbookV2SwapData),
 }
 
 impl<'a> SwapContext<'a> {
@@ -236,6 +284,50 @@ impl<'a> SwapContext<'a> {
 
             #[cfg(feature = "raydium-cpmm-swap")]
             SwapContext::RaydiumCpmm(_) => Ok((SwapData::RaydiumCpmm(()), data)),
+
+            #[cfg(feature = "raydium-cpmm-devnet-swap")]
+            SwapContext::RaydiumCpmmDevnet(_) => Ok((SwapData::RaydiumCpmmDevnet(()), data)),
+
+            #[cfg(feature = "raydium-clmm-swap")]
+            SwapContext::RaydiumClmm(_) => Ok((
+                SwapData::RaydiumClmm(crate::raydium_clmm::RaydiumClmmData::try_from(data)?),
+                &[],
+            )),
+
+            #[cfg(feature = "raydium-amm-v4-swap")]
+            SwapContext::RaydiumAmmV4(_) => Ok((SwapData::RaydiumAmmV4(()), data)),
+
+            #[cfg(feature = "orca-whirlpools-swap")]
+            SwapContext::OrcaWhirlpools(_) => Ok((
+                SwapData::OrcaWhirlpools(
+                    crate::orca_whirlpools::OrcaWhirlpoolsSwapData::try_from(data)?,
+                ),
+                &[],
+            )),
+
+            #[cfg(feature = "meteora-dlmm-swap")]
+            SwapContext::MeteoraDlmm(_) => Ok((
+                SwapData::MeteoraDlmm(crate::meteora_dlmm::MeteoraDlmmSwapData),
+                data,
+            )),
+
+            #[cfg(feature = "meteora-damm-v2-swap")]
+            SwapContext::MeteoraDammV2(_) => Ok((
+                SwapData::MeteoraDammV2(crate::meteora_damm_v2::MeteoraDammV2SwapData),
+                data,
+            )),
+
+            #[cfg(feature = "phoenix-swap")]
+            SwapContext::Phoenix(_) => Ok((
+                SwapData::Phoenix(crate::phoenix::PhoenixSwapData::try_from(data)?),
+                &[],
+            )),
+
+            #[cfg(feature = "openbook-v2-swap")]
+            SwapContext::OpenbookV2(_) => Ok((
+                SwapData::OpenbookV2(crate::openbook_v2::OpenbookV2SwapData::try_from(data)?),
+                &[],
+            )),
 
             #[allow(unreachable_patterns)]
             _ => Err(ProgramError::InvalidAccountData),
@@ -403,6 +495,94 @@ impl<'a> Swap<'a> for SwapContext<'a> {
                     in_amount,
                     minimum_out_amount,
                     &(),
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "raydium-cpmm-devnet-swap")]
+            (SwapContext::RaydiumCpmmDevnet(accounts), SwapData::RaydiumCpmmDevnet(())) => {
+                crate::raydium_cpmm_devnet::RaydiumCpmmDevnet::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    &(),
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "raydium-clmm-swap")]
+            (SwapContext::RaydiumClmm(accounts), SwapData::RaydiumClmm(d)) => {
+                crate::raydium_clmm::RaydiumClmm::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "raydium-amm-v4-swap")]
+            (SwapContext::RaydiumAmmV4(accounts), SwapData::RaydiumAmmV4(())) => {
+                crate::raydium_amm_v4::RaydiumAmmV4::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    &(),
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "orca-whirlpools-swap")]
+            (SwapContext::OrcaWhirlpools(accounts), SwapData::OrcaWhirlpools(d)) => {
+                crate::orca_whirlpools::OrcaWhirlpools::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "meteora-dlmm-swap")]
+            (SwapContext::MeteoraDlmm(accounts), SwapData::MeteoraDlmm(d)) => {
+                crate::meteora_dlmm::MeteoraDlmm::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "meteora-damm-v2-swap")]
+            (SwapContext::MeteoraDammV2(accounts), SwapData::MeteoraDammV2(d)) => {
+                crate::meteora_damm_v2::MeteoraDammV2::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "phoenix-swap")]
+            (SwapContext::Phoenix(accounts), SwapData::Phoenix(d)) => {
+                crate::phoenix::Phoenix::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "openbook-v2-swap")]
+            (SwapContext::OpenbookV2(accounts), SwapData::OpenbookV2(d)) => {
+                crate::openbook_v2::OpenbookV2::swap_signed(
+                    accounts,
+                    in_amount,
+                    minimum_out_amount,
+                    d,
                     signer_seeds,
                 )
             }
@@ -589,6 +769,104 @@ pub fn try_from_swap_context<'info>(
         return Ok((SwapContext::RaydiumCpmm(ctx), rest));
     }
 
+    #[cfg(feature = "raydium-cpmm-devnet-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::raydium_cpmm_devnet::RAYDIUM_CPMM_DEVNET_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::raydium_cpmm_devnet::RaydiumCpmmDevnetSwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::raydium_cpmm_devnet::RaydiumCpmmDevnetSwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::RaydiumCpmmDevnet(ctx), rest));
+    }
+
+    #[cfg(feature = "raydium-clmm-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::raydium_clmm::RAYDIUM_CLMM_PROGRAM_ID,
+    ) {
+        // CLMM has variable-length tick_array tail in remaining_accounts.
+        let ctx = crate::raydium_clmm::RaydiumClmmSwapAccounts::try_from(accounts)?;
+        return Ok((SwapContext::RaydiumClmm(ctx), &[]));
+    }
+
+    #[cfg(feature = "raydium-amm-v4-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::raydium_amm_v4::RAYDIUM_AMM_V4_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::raydium_amm_v4::RaydiumAmmV4SwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::raydium_amm_v4::RaydiumAmmV4SwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::RaydiumAmmV4(ctx), rest));
+    }
+
+    #[cfg(feature = "orca-whirlpools-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::orca_whirlpools::ORCA_WHIRLPOOLS_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::orca_whirlpools::OrcaWhirlpoolsSwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::orca_whirlpools::OrcaWhirlpoolsSwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::OrcaWhirlpools(ctx), rest));
+    }
+
+    #[cfg(feature = "meteora-dlmm-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::meteora_dlmm::METEORA_DLMM_PROGRAM_ID,
+    ) {
+        // DLMM has variable-length bin_array tail.
+        let ctx = crate::meteora_dlmm::MeteoraDlmmSwapAccounts::try_from(accounts)?;
+        return Ok((SwapContext::MeteoraDlmm(ctx), &[]));
+    }
+
+    #[cfg(feature = "meteora-damm-v2-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::meteora_damm_v2::METEORA_DAMM_V2_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::meteora_damm_v2::MeteoraDammV2SwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::meteora_damm_v2::MeteoraDammV2SwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::MeteoraDammV2(ctx), rest));
+    }
+
+    #[cfg(feature = "phoenix-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::phoenix::PHOENIX_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::phoenix::PhoenixSwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::phoenix::PhoenixSwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::Phoenix(ctx), rest));
+    }
+
+    #[cfg(feature = "openbook-v2-swap")]
+    if address_eq(
+        detector_account.address(),
+        &crate::openbook_v2::OPENBOOK_V2_PROGRAM_ID,
+    ) {
+        let (mine, rest) = split_accounts_checked(
+            accounts,
+            crate::openbook_v2::OpenbookV2SwapAccounts::NUM_ACCOUNTS,
+        )?;
+        let ctx = crate::openbook_v2::OpenbookV2SwapAccounts::try_from(mine)?;
+        return Ok((SwapContext::OpenbookV2(ctx), rest));
+    }
+
     Err(ProgramError::InvalidAccountData)
 }
 
@@ -627,6 +905,21 @@ pub enum DepositContext<'info> {
 
     #[cfg(feature = "marginfi-deposit")]
     Marginfi(crate::marginfi::MarginfiDepositAccounts<'info>),
+
+    #[cfg(feature = "marinade-deposit")]
+    Marinade(crate::marinade::MarinadeDepositAccounts<'info>),
+
+    #[cfg(feature = "solend-deposit")]
+    Solend(crate::solend::SolendDepositAccounts<'info>),
+
+    #[cfg(feature = "spl-stake-pool-deposit")]
+    SplStakePool(crate::spl_stake_pool::SplStakePoolDepositSolAccounts<'info>),
+
+    #[cfg(feature = "drift-vaults-deposit")]
+    DriftVaults(crate::drift_vaults::DriftVaultsDepositAccounts<'info>),
+
+    #[cfg(feature = "meteora-vaults-deposit")]
+    MeteoraVaults(crate::meteora_vaults::MeteoraVaultsDepositAccounts<'info>),
 }
 
 /// Protocol-specific deposit data enum for use with DepositContext
@@ -639,6 +932,16 @@ pub enum DepositData {
     Drift(crate::drift::DriftDepositData),
     #[cfg(feature = "marginfi-deposit")]
     Marginfi(crate::marginfi::MarginfiDepositData),
+    #[cfg(feature = "marinade-deposit")]
+    Marinade(crate::marinade::MarinadeDepositData),
+    #[cfg(feature = "solend-deposit")]
+    Solend(()),
+    #[cfg(feature = "spl-stake-pool-deposit")]
+    SplStakePool(crate::spl_stake_pool::SplStakePoolDepositSolData),
+    #[cfg(feature = "drift-vaults-deposit")]
+    DriftVaults(()),
+    #[cfg(feature = "meteora-vaults-deposit")]
+    MeteoraVaults(crate::meteora_vaults::MeteoraVaultsDepositData),
 }
 
 impl<'a> DepositContext<'a> {
@@ -662,6 +965,34 @@ impl<'a> DepositContext<'a> {
             #[cfg(feature = "marginfi-deposit")]
             DepositContext::Marginfi(_) => Ok((
                 DepositData::Marginfi(crate::marginfi::MarginfiDepositData::try_from(data)?),
+                &[],
+            )),
+
+            #[cfg(feature = "marinade-deposit")]
+            DepositContext::Marinade(_) => Ok((
+                DepositData::Marinade(crate::marinade::MarinadeDepositData),
+                &[],
+            )),
+
+            #[cfg(feature = "solend-deposit")]
+            DepositContext::Solend(_) => Ok((DepositData::Solend(()), &[])),
+
+            #[cfg(feature = "spl-stake-pool-deposit")]
+            DepositContext::SplStakePool(_) => Ok((
+                DepositData::SplStakePool(
+                    crate::spl_stake_pool::SplStakePoolDepositSolData::try_from(data)?,
+                ),
+                &[],
+            )),
+
+            #[cfg(feature = "drift-vaults-deposit")]
+            DepositContext::DriftVaults(_) => Ok((DepositData::DriftVaults(()), &[])),
+
+            #[cfg(feature = "meteora-vaults-deposit")]
+            DepositContext::MeteoraVaults(_) => Ok((
+                DepositData::MeteoraVaults(
+                    crate::meteora_vaults::MeteoraVaultsDepositData::try_from(data)?,
+                ),
                 &[],
             )),
 
@@ -705,6 +1036,58 @@ impl<'info> Deposit<'info> for DepositContext<'info> {
             DepositContext::Marginfi(accounts) => {
                 if let DepositData::Marginfi(data) = data {
                     crate::marginfi::Marginfi::deposit_signed(accounts, amount, data, signer_seeds)
+                } else {
+                    Err(ProgramError::InvalidInstructionData)
+                }
+            }
+
+            #[cfg(feature = "marinade-deposit")]
+            DepositContext::Marinade(accounts) => {
+                if let DepositData::Marinade(d) = data {
+                    crate::marinade::Marinade::deposit_signed(accounts, amount, d, signer_seeds)
+                } else {
+                    Err(ProgramError::InvalidInstructionData)
+                }
+            }
+
+            #[cfg(feature = "solend-deposit")]
+            DepositContext::Solend(accounts) => {
+                crate::solend::Solend::deposit_signed(accounts, amount, &(), signer_seeds)
+            }
+
+            #[cfg(feature = "spl-stake-pool-deposit")]
+            DepositContext::SplStakePool(accounts) => {
+                if let DepositData::SplStakePool(d) = data {
+                    crate::spl_stake_pool::SplStakePool::deposit_signed(
+                        accounts,
+                        amount,
+                        d,
+                        signer_seeds,
+                    )
+                } else {
+                    Err(ProgramError::InvalidInstructionData)
+                }
+            }
+
+            #[cfg(feature = "drift-vaults-deposit")]
+            DepositContext::DriftVaults(accounts) => {
+                crate::drift_vaults::DriftVaults::deposit_signed(
+                    accounts,
+                    amount,
+                    &(),
+                    signer_seeds,
+                )
+            }
+
+            #[cfg(feature = "meteora-vaults-deposit")]
+            DepositContext::MeteoraVaults(accounts) => {
+                if let DepositData::MeteoraVaults(d) = data {
+                    crate::meteora_vaults::MeteoraVaults::deposit_signed(
+                        accounts,
+                        amount,
+                        d,
+                        signer_seeds,
+                    )
                 } else {
                     Err(ProgramError::InvalidInstructionData)
                 }
@@ -758,21 +1141,64 @@ pub fn try_from_deposit_context<'info>(
         return Ok(DepositContext::Marginfi(ctx));
     }
 
+    #[cfg(feature = "marinade-deposit")]
+    if address_eq(
+        detector_account.address(),
+        &crate::marinade::MARINADE_PROGRAM_ID,
+    ) {
+        let ctx = crate::marinade::MarinadeDepositAccounts::try_from(accounts)?;
+        return Ok(DepositContext::Marinade(ctx));
+    }
+
+    #[cfg(feature = "solend-deposit")]
+    if address_eq(
+        detector_account.address(),
+        &crate::solend::SOLEND_PROGRAM_ID,
+    ) {
+        let ctx = crate::solend::SolendDepositAccounts::try_from(accounts)?;
+        return Ok(DepositContext::Solend(ctx));
+    }
+
+    #[cfg(feature = "spl-stake-pool-deposit")]
+    if address_eq(
+        detector_account.address(),
+        &crate::spl_stake_pool::SPL_STAKE_POOL_PROGRAM_ID,
+    ) {
+        let ctx = crate::spl_stake_pool::SplStakePoolDepositSolAccounts::try_from(accounts)?;
+        return Ok(DepositContext::SplStakePool(ctx));
+    }
+
+    #[cfg(feature = "drift-vaults-deposit")]
+    if address_eq(
+        detector_account.address(),
+        &crate::drift_vaults::DRIFT_VAULTS_PROGRAM_ID,
+    ) {
+        let ctx = crate::drift_vaults::DriftVaultsDepositAccounts::try_from(accounts)?;
+        return Ok(DepositContext::DriftVaults(ctx));
+    }
+
+    #[cfg(feature = "meteora-vaults-deposit")]
+    if address_eq(
+        detector_account.address(),
+        &crate::meteora_vaults::METEORA_VAULTS_PROGRAM_ID,
+    ) {
+        let ctx = crate::meteora_vaults::MeteoraVaultsDepositAccounts::try_from(accounts)?;
+        return Ok(DepositContext::MeteoraVaults(ctx));
+    }
+
     Err(ProgramError::InvalidAccountData)
 }
 
 // ─── Perps context ────────────────────────────────────────────────────────
 //
 // Mirrors the Swap/Deposit pattern for perpetual-futures operations.
-// Today only Mango v4 is implemented; Jupiter Perps / Adrena / Parcl
-// variants plug in here the same way. The entire block is cfg-gated on
-// "any perps protocol enabled" so builds without a perps feature simply
-// omit PerpsContext + its dispatcher (strategy-token picks it up only
-// when built with a perps feature on).
-#[cfg(any(feature = "mango-perps"))]
+// Mango v4 + Zeta wired today; Drift Perps / Adrena slot in here the same
+// way. The entire block is cfg-gated on "any perps protocol enabled" so
+// builds without a perps feature simply omit PerpsContext + its dispatcher.
+#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
 pub use perps_ctx::*;
 
-#[cfg(any(feature = "mango-perps"))]
+#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
 mod perps_ctx {
     use super::*;
     use crate::Perps;
@@ -780,11 +1206,15 @@ mod perps_ctx {
     pub enum PerpsContext<'info> {
         #[cfg(feature = "mango-perps")]
         Mango(crate::mango::MangoPlaceOrderAccounts<'info>),
+        #[cfg(feature = "zeta-perps")]
+        Zeta(crate::zeta::ZetaPlacePerpOrderAccounts<'info>),
     }
 
     pub enum PerpsData {
         #[cfg(feature = "mango-perps")]
         Mango(crate::mango::MangoPlaceOrderData),
+        #[cfg(feature = "zeta-perps")]
+        Zeta(crate::zeta::ZetaPlacePerpOrderData),
     }
 
     impl<'info> Perps<'info> for PerpsContext<'info> {
@@ -800,6 +1230,10 @@ mod perps_ctx {
                 #[cfg(feature = "mango-perps")]
                 (PerpsContext::Mango(accounts), PerpsData::Mango(d)) => {
                     crate::mango::Mango::place_order_signed(accounts, d, signer_seeds)
+                }
+                #[cfg(feature = "zeta-perps")]
+                (PerpsContext::Zeta(accounts), PerpsData::Zeta(d)) => {
+                    crate::zeta::Zeta::place_order_signed(accounts, d, signer_seeds)
                 }
                 #[allow(unreachable_patterns)]
                 _ => Err(ProgramError::InvalidAccountData),
@@ -828,6 +1262,12 @@ mod perps_ctx {
             return Ok(PerpsContext::Mango(ctx));
         }
 
+        #[cfg(feature = "zeta-perps")]
+        if address_eq(detector_account.address(), &crate::zeta::ZETA_PROGRAM_ID) {
+            let ctx = crate::zeta::ZetaPlacePerpOrderAccounts::try_from(accounts)?;
+            return Ok(PerpsContext::Zeta(ctx));
+        }
+
         let _ = detector_account;
         Err(ProgramError::InvalidAccountData)
     }
@@ -837,11 +1277,22 @@ mod perps_ctx {
 //
 // For protocols whose deposit path needs a per-user state account
 // (obligation, metadata, margin account) created once before any deposit.
-// Gated on "any deposit-init-capable protocol enabled" (today: kamino).
-#[cfg(any(feature = "kamino-deposit"))]
+// Gated on "any deposit-init-capable protocol enabled" (today: kamino,
+// drift, marginfi). Jupiter is intentionally NOT included — see its
+// crate-level doc comment for the rationale (it composes Kamino-style
+// state under the hood and uses standard ATAs for the user position).
+#[cfg(any(
+    feature = "kamino-deposit",
+    feature = "drift-deposit",
+    feature = "marginfi-deposit"
+))]
 pub use deposit_init_ctx::*;
 
-#[cfg(any(feature = "kamino-deposit"))]
+#[cfg(any(
+    feature = "kamino-deposit",
+    feature = "drift-deposit",
+    feature = "marginfi-deposit"
+))]
 mod deposit_init_ctx {
     use super::*;
     use crate::DepositInit;
@@ -849,6 +1300,12 @@ mod deposit_init_ctx {
     pub enum DepositInitContext<'info> {
         #[cfg(feature = "kamino-deposit")]
         Kamino(crate::kamino::KaminoInitAccounts<'info>),
+
+        #[cfg(feature = "drift-deposit")]
+        Drift(crate::drift::DriftInitAccounts<'info>),
+
+        #[cfg(feature = "marginfi-deposit")]
+        Marginfi(crate::marginfi::MarginfiInitAccounts<'info>),
     }
 
     impl<'info> DepositInit<'info> for DepositInitContext<'info> {
@@ -859,6 +1316,14 @@ mod deposit_init_ctx {
                 #[cfg(feature = "kamino-deposit")]
                 DepositInitContext::Kamino(accounts) => {
                     crate::kamino::Kamino::init_signed(accounts, signer_seeds)
+                }
+                #[cfg(feature = "drift-deposit")]
+                DepositInitContext::Drift(accounts) => {
+                    crate::drift::Drift::init_signed(accounts, signer_seeds)
+                }
+                #[cfg(feature = "marginfi-deposit")]
+                DepositInitContext::Marginfi(accounts) => {
+                    crate::marginfi::Marginfi::init_signed(accounts, signer_seeds)
                 }
                 #[allow(unreachable_patterns)]
                 _ => Err(ProgramError::InvalidAccountData),
@@ -882,6 +1347,21 @@ mod deposit_init_ctx {
         ) {
             let ctx = crate::kamino::KaminoInitAccounts::try_from(accounts)?;
             return Ok(DepositInitContext::Kamino(ctx));
+        }
+
+        #[cfg(feature = "drift-deposit")]
+        if address_eq(detector_account.address(), &crate::drift::DRIFT_PROGRAM_ID) {
+            let ctx = crate::drift::DriftInitAccounts::try_from(accounts)?;
+            return Ok(DepositInitContext::Drift(ctx));
+        }
+
+        #[cfg(feature = "marginfi-deposit")]
+        if address_eq(
+            detector_account.address(),
+            &crate::marginfi::MARGINFI_PROGRAM_ID,
+        ) {
+            let ctx = crate::marginfi::MarginfiInitAccounts::try_from(accounts)?;
+            return Ok(DepositInitContext::Marginfi(ctx));
         }
 
         let _ = detector_account;

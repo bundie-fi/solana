@@ -12,6 +12,108 @@ use {
     solana_program_error::{ProgramError, ProgramResult},
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// NAV reader — exchange-rate read of a Kamino Reserve.
+//
+// Used by strategy-token::update_nav to value cTokens (collateral) held in
+// the strategy wallet at their underlying-token equivalent.
+//
+// Layout source: Kamino-Finance/klend, programs/klend/src/state/reserve.rs.
+// Reserve is `#[account(zero_copy)]` (Pod, repr(C, packed-ish via field
+// padding)). The fields we need, with offsets relative to the start of the
+// account *including* the 8-byte Anchor discriminator:
+//
+//     0..8     Anchor discriminator
+//     8..16    version: u64
+//     16..32   last_update (slot:u64, stale:u8, price_status:u8, padding:[u8;6])
+//     32..64   lending_market: Pubkey
+//     64..96   farm_collateral: Pubkey
+//     96..128  farm_debt: Pubkey
+//     128..    ReserveLiquidity {
+//                  mint_pubkey: Pubkey                      // 128..160
+//                  supply_vault: Pubkey                     // 160..192
+//                  fee_vault:    Pubkey                     // 192..224
+//                  available_amount: u64                    // 224..232  ★
+//                  borrowed_amount_sf: u128                 // 232..248  ★
+//                  market_price_sf: u128                    // 248..264
+//                  ...
+//              }
+//     ...     ReserveCollateral starts at offset 1344 (after liquidity = 1216 bytes):
+//                  mint_pubkey: Pubkey                      // 1344..1376
+//                  mint_total_supply: u64                   // 1376..1384  ★
+//                  ...
+//
+// `borrowed_amount_sf` is a 60-bit-fraction-shifted u128 (klend's `Sf` =
+// shifted by 2^60). For NAV we want underlying tokens, so we divide by
+// 1u128 << 60.
+//
+// IMPORTANT: these offsets are derived from upstream klend at the time of
+// writing. If Kamino reorders fields in a future Reserve struct migration
+// the offsets must be re-verified. A defensive length check guards against
+// reading from a too-small account; a wrong-but-large account would
+// silently corrupt NAV — devnet integration MUST validate these offsets
+// against a live reserve before mainnet.
+// ───────────────────────────────────────────────────────────────────────────
+
+const RESERVE_OFFSET_LIQUIDITY_AVAILABLE: usize = 224;
+const RESERVE_OFFSET_LIQUIDITY_BORROWED_SF: usize = 232;
+const RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY: usize = 1376;
+const RESERVE_MIN_LEN: usize = RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY + 8;
+const SF_SCALE_BITS: u32 = 60;
+
+/// Compute the underlying-token value of `ctoken_amount` cTokens, given the
+/// raw Kamino Reserve account data.
+///
+/// Math: `value = ctoken_amount * total_liquidity / collateral_supply`,
+/// where `total_liquidity = available + (borrowed_sf >> 60)`.
+///
+/// Returns `Err(InvalidAccountData)` if the account is shorter than
+/// expected (catches the most-likely "wrong account" footgun) or if
+/// `collateral_supply` is zero (an empty reserve has no exchange rate).
+pub fn read_collateral_value(reserve_data: &[u8], ctoken_amount: u64) -> Result<u64, ProgramError> {
+    if reserve_data.len() < RESERVE_MIN_LEN {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if ctoken_amount == 0 {
+        return Ok(0);
+    }
+
+    let available = u64::from_le_bytes(
+        reserve_data[RESERVE_OFFSET_LIQUIDITY_AVAILABLE
+            ..RESERVE_OFFSET_LIQUIDITY_AVAILABLE + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let borrowed_sf = u128::from_le_bytes(
+        reserve_data[RESERVE_OFFSET_LIQUIDITY_BORROWED_SF
+            ..RESERVE_OFFSET_LIQUIDITY_BORROWED_SF + 16]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+    let collateral_supply = u64::from_le_bytes(
+        reserve_data[RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY
+            ..RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY + 8]
+            .try_into()
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+    );
+
+    if collateral_supply == 0 {
+        return Ok(0);
+    }
+
+    let borrowed = borrowed_sf >> SF_SCALE_BITS;
+    let total_liquidity = (available as u128).saturating_add(borrowed);
+
+    // value = ctoken_amount * total_liquidity / collateral_supply
+    let numerator = (ctoken_amount as u128).checked_mul(total_liquidity)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let value = numerator / (collateral_supply as u128);
+    if value > u64::MAX as u128 {
+        return Err(ProgramError::ArithmeticOverflow);
+    }
+    Ok(value as u64)
+}
+
 pub const KAMINO_LEND_PROGRAM_ID: Address = Address::new_from_array([
     4, 178, 172, 177, 18, 88, 204, 227, 104, 44, 65, 139, 168, 114, 255, 61, 249, 17, 2, 113, 47,
     21, 175, 18, 182, 190, 105, 179, 67, 91, 0, 8,

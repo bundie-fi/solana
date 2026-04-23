@@ -17,6 +17,41 @@ pub const MARGINFI_PROGRAM_ID: Address =
 pub const LENDING_ACCOUNT_DEPOSIT_DISCRIMINATOR: [u8; 8] = [171, 94, 235, 103, 82, 64, 212, 140];
 pub const DEPOSIT_DATA_LEN: usize = 18;
 
+// ───────────────────────────────────────────────────────────────────────────
+// NAV reader — value of a marginfi `MarginfiAccount` in underlying tokens.
+//
+// `MarginfiAccount.lending_account.balances[]` holds up to 16 `Balance`
+// entries, each with `bank_pk: Pubkey`, `asset_shares: WrappedI80F48`,
+// `liability_shares: WrappedI80F48`, plus emissions/state fields. Net
+// asset value per balance =
+//
+//     asset_shares * Bank::asset_share_value
+//
+// where `Bank::asset_share_value` is also a `WrappedI80F48` (I80F48
+// fixed-point) read from the bank account.
+//
+// Layout source: mrgnlabs/marginfi-v2,
+// programs/marginfi/src/state/marginfi_account.rs (MarginfiAccount, 2304
+// bytes incl. discriminator) and
+// programs/marginfi/src/state/marginfi_group.rs (Bank).
+//
+// TODO(NAV-MARGINFI): implement once strategy-token has a verified
+// marginfi deposit on devnet. Like Drift, this needs the position account
+// (MarginfiAccount) AND each referenced Bank, so the wire format will
+// need to grow to N accounts per marginfi position.
+// ───────────────────────────────────────────────────────────────────────────
+
+/// Compute the underlying-token value of a marginfi account.
+///
+/// TODO(NAV-MARGINFI): see module-level note. Currently panics at runtime
+/// so callers don't silently report zero deployed capital.
+pub fn read_marginfi_value(_account_data: &[u8]) -> Result<u64, ProgramError> {
+    unimplemented!(
+        "marginfi NAV reader not implemented — see TODO(NAV-MARGINFI). \
+         Source: mrgnlabs/marginfi-v2 programs/marginfi/src/state/marginfi_account.rs"
+    )
+}
+
 pub struct Marginfi;
 
 pub struct MarginfiDepositData {
@@ -139,5 +174,93 @@ impl<'info> Deposit<'info> for Marginfi {
         data: &Self::Data,
     ) -> ProgramResult {
         Self::deposit_signed(ctx, amount, data, &[])
+    }
+}
+
+// ─── DepositInit: marginfi_account_initialize ────────────────────────────
+//
+// Marginfi requires a `MarginfiAccount` to exist for an authority before any
+// `lending_account_deposit`. The new account itself signs the create — this
+// works whether the account is a fresh keypair or a PDA derived by the
+// wrapping program (which would pass its seeds via `signer_seeds`).
+//
+// Reference: mrgnlabs/marginfi-v2 programs/marginfi/src/instructions/
+// marginfi_account/initialize.rs.
+
+use beethoven_core::DepositInit;
+
+/// Anchor disc for `marginfi_account_initialize`.
+/// From sha256("global:marginfi_account_initialize")[..8].
+pub const MARGINFI_ACCOUNT_INITIALIZE_DISCRIMINATOR: [u8; 8] =
+    [43, 78, 61, 255, 148, 52, 249, 154];
+
+pub struct MarginfiInitAccounts<'info> {
+    pub marginfi_program: &'info AccountView,
+    pub group: &'info AccountView,
+    pub marginfi_account: &'info AccountView,
+    pub authority: &'info AccountView,
+    pub fee_payer: &'info AccountView,
+    pub system_program: &'info AccountView,
+}
+
+impl<'info> TryFrom<&'info [AccountView]> for MarginfiInitAccounts<'info> {
+    type Error = ProgramError;
+
+    fn try_from(accounts: &'info [AccountView]) -> Result<Self, Self::Error> {
+        let [marginfi_program, group, marginfi_account, authority, fee_payer, system_program] =
+            accounts
+        else {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        };
+
+        Ok(MarginfiInitAccounts {
+            marginfi_program,
+            group,
+            marginfi_account,
+            authority,
+            fee_payer,
+            system_program,
+        })
+    }
+}
+
+impl<'info> DepositInit<'info> for Marginfi {
+    type Accounts = MarginfiInitAccounts<'info>;
+
+    fn init_signed(ctx: &Self::Accounts, signer_seeds: &[Signer]) -> ProgramResult {
+        // Account roles (from marginfi-v2 MarginfiAccountInitialize):
+        //   group            readonly
+        //   marginfi_account writable signer  (the new account; PDA-signed
+        //                                      via signer_seeds when needed)
+        //   authority        readonly signer
+        //   fee_payer        writable signer
+        //   system_program   readonly
+        let accounts = [
+            InstructionAccount::readonly(ctx.group.address()),
+            InstructionAccount::writable_signer(ctx.marginfi_account.address()),
+            InstructionAccount::readonly_signer(ctx.authority.address()),
+            InstructionAccount::writable_signer(ctx.fee_payer.address()),
+            InstructionAccount::readonly(ctx.system_program.address()),
+        ];
+
+        let infos = [
+            ctx.group,
+            ctx.marginfi_account,
+            ctx.authority,
+            ctx.fee_payer,
+            ctx.system_program,
+        ];
+
+        let ix = InstructionView {
+            program_id: &MARGINFI_PROGRAM_ID,
+            accounts: &accounts,
+            data: &MARGINFI_ACCOUNT_INITIALIZE_DISCRIMINATOR,
+        };
+
+        invoke_signed(&ix, &infos, signer_seeds)
+    }
+
+    fn init(ctx: &Self::Accounts) -> ProgramResult {
+        Self::init_signed(ctx, &[])
     }
 }

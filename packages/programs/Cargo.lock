@@ -293,10 +293,16 @@ version = "0.0.1"
 dependencies = [
  "beethoven-core",
  "beethoven-deposit-drift",
+ "beethoven-deposit-drift-vaults",
  "beethoven-deposit-jupiter",
  "beethoven-deposit-kamino",
  "beethoven-deposit-marginfi",
+ "beethoven-deposit-marinade",
+ "beethoven-deposit-meteora-vaults",
+ "beethoven-deposit-solend",
+ "beethoven-deposit-spl-stake-pool",
  "beethoven-perps-mango",
+ "beethoven-perps-zeta",
  "beethoven-swap-aldrin",
  "beethoven-swap-aldrin-v2",
  "beethoven-swap-futarchy",
@@ -304,9 +310,17 @@ dependencies = [
  "beethoven-swap-hadron",
  "beethoven-swap-heaven",
  "beethoven-swap-manifest",
+ "beethoven-swap-meteora-damm-v2",
+ "beethoven-swap-meteora-dlmm",
  "beethoven-swap-omnipair",
+ "beethoven-swap-openbook-v2",
+ "beethoven-swap-orca-whirlpools",
  "beethoven-swap-perena",
+ "beethoven-swap-phoenix",
+ "beethoven-swap-raydium-amm-v4",
+ "beethoven-swap-raydium-clmm",
  "beethoven-swap-raydium-cpmm",
+ "beethoven-swap-raydium-cpmm-devnet",
  "beethoven-swap-scale-amm",
  "beethoven-swap-scale-vmm",
  "beethoven-swap-solfi",
@@ -327,6 +341,17 @@ dependencies = [
 
 [[package]]
 name = "beethoven-deposit-drift"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-deposit-drift-vaults"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",
@@ -370,7 +395,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "beethoven-deposit-marinade"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-deposit-meteora-vaults"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-deposit-solend"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-deposit-spl-stake-pool"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
 name = "beethoven-perps-mango"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-perps-zeta"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",
@@ -458,7 +538,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "beethoven-swap-meteora-damm-v2"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-meteora-dlmm"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
 name = "beethoven-swap-omnipair"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-openbook-v2"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-orca-whirlpools"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",
@@ -480,7 +604,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "beethoven-swap-phoenix"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-raydium-amm-v4"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-raydium-clmm"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
 name = "beethoven-swap-raydium-cpmm"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.5.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-swap-raydium-cpmm-devnet"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",

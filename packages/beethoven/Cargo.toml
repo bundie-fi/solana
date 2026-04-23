@@ -12,7 +12,17 @@ default = ["deposit", "swap"]
 upstream-bpf = []
 
 # Action groups
-deposit = ["kamino-deposit", "jupiter-deposit", "drift-deposit", "marginfi-deposit"]
+deposit = [
+    "kamino-deposit",
+    "jupiter-deposit",
+    "drift-deposit",
+    "marginfi-deposit",
+    "marinade-deposit",
+    "solend-deposit",
+    "spl-stake-pool-deposit",
+    "drift-vaults-deposit",
+    "meteora-vaults-deposit",
+]
 swap = [
     "perena-swap",
     "solfi-swap",
@@ -28,17 +38,31 @@ swap = [
     "omnipair-swap",
     "hadron-swap",
     "raydium-cpmm-swap",
+    "raydium-cpmm-devnet-swap",
+    "raydium-clmm-swap",
+    "raydium-amm-v4-swap",
+    "orca-whirlpools-swap",
+    "meteora-dlmm-swap",
+    "meteora-damm-v2-swap",
+    "phoenix-swap",
+    "openbook-v2-swap",
 ]
-perps = ["mango-perps"]
+perps = ["mango-perps", "zeta-perps"]
 
 # Deposit protocols
 kamino-deposit = ["dep:beethoven-deposit-kamino"]
 jupiter-deposit = ["dep:beethoven-deposit-jupiter"]
 drift-deposit = ["dep:beethoven-deposit-drift"]
 marginfi-deposit = ["dep:beethoven-deposit-marginfi"]
+marinade-deposit = ["dep:beethoven-deposit-marinade"]
+solend-deposit = ["dep:beethoven-deposit-solend"]
+spl-stake-pool-deposit = ["dep:beethoven-deposit-spl-stake-pool"]
+drift-vaults-deposit = ["dep:beethoven-deposit-drift-vaults"]
+meteora-vaults-deposit = ["dep:beethoven-deposit-meteora-vaults"]
 
 # Perps protocols
 mango-perps = ["dep:beethoven-perps-mango"]
+zeta-perps = ["dep:beethoven-perps-zeta"]
 
 # Swap protocols
 perena-swap = ["dep:beethoven-swap-perena"]
@@ -55,6 +79,14 @@ scale_vmm-swap = ["dep:beethoven-swap-scale-vmm"]
 omnipair-swap = ["dep:beethoven-swap-omnipair"]
 hadron-swap = ["dep:beethoven-swap-hadron"]
 raydium-cpmm-swap = ["dep:beethoven-swap-raydium-cpmm"]
+raydium-cpmm-devnet-swap = ["dep:beethoven-swap-raydium-cpmm-devnet"]
+raydium-clmm-swap = ["dep:beethoven-swap-raydium-clmm"]
+raydium-amm-v4-swap = ["dep:beethoven-swap-raydium-amm-v4"]
+orca-whirlpools-swap = ["dep:beethoven-swap-orca-whirlpools"]
+meteora-dlmm-swap = ["dep:beethoven-swap-meteora-dlmm"]
+meteora-damm-v2-swap = ["dep:beethoven-swap-meteora-damm-v2"]
+phoenix-swap = ["dep:beethoven-swap-phoenix"]
+openbook-v2-swap = ["dep:beethoven-swap-openbook-v2"]
 
 [dependencies]
 beethoven-core = { path = "crates/core" }
@@ -82,7 +114,21 @@ beethoven-swap-scale-vmm = { path = "crates/swap/scale-vmm", optional = true }
 beethoven-swap-omnipair = { path = "crates/swap/omnipair", optional = true }
 beethoven-swap-hadron = { path = "crates/swap/hadron", optional = true }
 beethoven-swap-raydium-cpmm = { path = "crates/swap/raydium-cpmm", optional = true }
+beethoven-swap-raydium-cpmm-devnet = { path = "crates/swap/raydium-cpmm-devnet", optional = true }
+beethoven-swap-raydium-clmm = { path = "crates/swap/raydium-clmm", optional = true }
+beethoven-swap-raydium-amm-v4 = { path = "crates/swap/raydium-amm-v4", optional = true }
+beethoven-swap-orca-whirlpools = { path = "crates/swap/orca-whirlpools", optional = true }
+beethoven-swap-meteora-dlmm = { path = "crates/swap/meteora-dlmm", optional = true }
+beethoven-swap-meteora-damm-v2 = { path = "crates/swap/meteora-damm-v2", optional = true }
+beethoven-swap-phoenix = { path = "crates/swap/phoenix", optional = true }
+beethoven-swap-openbook-v2 = { path = "crates/swap/openbook-v2", optional = true }
+beethoven-deposit-marinade = { path = "crates/deposit/marinade", optional = true }
+beethoven-deposit-solend = { path = "crates/deposit/solend", optional = true }
+beethoven-deposit-spl-stake-pool = { path = "crates/deposit/spl-stake-pool", optional = true }
+beethoven-deposit-drift-vaults = { path = "crates/deposit/drift-vaults", optional = true }
+beethoven-deposit-meteora-vaults = { path = "crates/deposit/meteora-vaults", optional = true }
 beethoven-perps-mango = { path = "crates/perps/mango", optional = true }
+beethoven-perps-zeta = { path = "crates/perps/zeta", optional = true }
 
 [workspace]
 members = [
@@ -105,7 +151,21 @@ members = [
     "crates/swap/omnipair",
     "crates/swap/hadron",
     "crates/swap/raydium-cpmm",
+    "crates/swap/raydium-cpmm-devnet",
+    "crates/swap/raydium-clmm",
+    "crates/swap/raydium-amm-v4",
+    "crates/swap/orca-whirlpools",
+    "crates/swap/meteora-dlmm",
+    "crates/swap/meteora-damm-v2",
+    "crates/swap/phoenix",
+    "crates/swap/openbook-v2",
+    "crates/deposit/marinade",
+    "crates/deposit/solend",
+    "crates/deposit/spl-stake-pool",
+    "crates/deposit/drift-vaults",
+    "crates/deposit/meteora-vaults",
     "crates/perps/mango",
+    "crates/perps/zeta",
     "program-test",
     "crates/client",
 ]

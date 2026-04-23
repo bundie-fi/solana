@@ -152,3 +152,21 @@ impl<'info> Deposit<'info> for JupiterEarn {
         Self::deposit_signed(ctx, amount, data, &[])
     }
 }
+
+// ─── DepositInit: NOT REQUIRED ────────────────────────────────────────────
+//
+// Jupiter Lend / Earn (the program wired here, JUPITER_EARN_PROGRAM_ID)
+// does NOT need a per-user state account before depositing. Inspect
+// `JupiterEarnDepositAccounts`:
+//   - `signer` is the user's wallet (no per-user PDA owned by the program).
+//   - `recipient_token_account` is a plain ATA of `f_token_mint` owned by
+//     `signer`. ATAs are auto-created by the standard Associated Token
+//     Account program (the deposit ix carries `associated_token_program`),
+//     so they need no separate Anchor `init` ix.
+//   - All other accounts (`lending`, `vault`, `liquidity`, `f_token_mint`,
+//     `lending_admin`, rate models, etc.) are GLOBAL singletons shared by
+//     every depositor — they're created once at protocol launch.
+//
+// The user's "position" is just their f_token ATA balance. First deposit
+// implicitly mints into a freshly-created ATA in the same instruction. No
+// `DepositInit` impl is needed and none is wired into `DepositInitContext`.
