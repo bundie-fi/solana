@@ -63,7 +63,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // ── Defaults ───────────────────────────────────────────────────────────────
-const PM_PROGRAM_ID = new PublicKey("Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i");
+const PM_PROGRAM_ID = new PublicKey("Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4");
 const DEVNET_USDC = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";

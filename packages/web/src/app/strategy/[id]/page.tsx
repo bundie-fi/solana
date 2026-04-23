@@ -60,7 +60,7 @@ export default async function StrategyDetailPage({
       <p className="text-xs text-neutral-600 mb-8 font-mono">
         Creator:{' '}
         <a
-          href={`https://explorer.solana.com/address/${strategy.authority}?cluster=devnet`}
+          href={`https://orbmarkets.io/address/${strategy.authority}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-amber-400 hover:underline"
@@ -162,7 +162,7 @@ function DetailRow({
       <span className="text-neutral-600 shrink-0">{label}</span>
       {isAddress ? (
         <a
-          href={`https://explorer.solana.com/address/${value}?cluster=devnet`}
+          href={`https://orbmarkets.io/address/${value}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="font-mono text-xs text-amber-400 hover:underline truncate max-w-[260px]"

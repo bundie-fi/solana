@@ -33,10 +33,10 @@ import * as path from "path";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey(
-  "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+  "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"
 );
 const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
-  "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 const DEVNET_USDC = new PublicKey(
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"

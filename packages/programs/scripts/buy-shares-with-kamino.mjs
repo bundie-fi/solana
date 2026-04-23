@@ -74,7 +74,7 @@ import { join } from "node:path";
 // ────────────────────────────── constants ──────────────────────────────
 
 const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey(
-  "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV",
+  "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm",
 );
 const KAMINO_LEND_PROGRAM_ID = new PublicKey("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 const KAMINO_FARMS_PROGRAM_ID = new PublicKey("FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr");
@@ -361,7 +361,7 @@ async function main() {
     commitment: "confirmed",
   });
   console.log(`\n✓ buy_shares confirmed: ${sig}`);
-  console.log(`  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  console.log(`  https://orbmarkets.io/tx/${sig}?cluster=devnet`);
 }
 
 main().catch((e) => {

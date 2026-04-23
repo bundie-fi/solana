@@ -17,7 +17,7 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PREDICTION_PROGRAM_ID = new PublicKey(
-  "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 
 // TOKEN_PROGRAM_ID and ASSOCIATED_TOKEN_PROGRAM_ID
@@ -219,7 +219,7 @@ export function PredictPanel({
           Prediction placed!
         </p>
         <a
-          href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
+          href={`https://orbmarkets.io/tx/${txSig}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-predict-purple underline underline-offset-2 hover:text-purple-300 transition-colors"

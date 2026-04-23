@@ -48,7 +48,7 @@ const STRATEGY      = new PublicKey(process.env.STRATEGY || "6kQ1qdE2sQ8L69Cv2bA
 const LENDING_MARKET = new PublicKey(process.env.LENDING_MARKET || "27MKCQo5qP7ijrwWSMKX2Jeb3PhK2NZmHQ9befWVRS4J");
 const DRY_RUN       = process.env.DRY_RUN !== "0";
 
-const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey("Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV");
+const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey("Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm");
 const KAMINO_LEND_PROGRAM_ID    = new PublicKey("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 const DEFAULT_PUBKEY             = new PublicKey("11111111111111111111111111111111");
 
@@ -172,7 +172,7 @@ async function main() {
 
   const sig = await sendAndConfirmTransaction(conn, new Transaction().add(ix), [payer]);
   console.log(`\n✓ init_position confirmed: ${sig}`);
-  console.log(`  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  console.log(`  https://orbmarkets.io/tx/${sig}?cluster=devnet`);
 }
 
 main().catch((e) => {

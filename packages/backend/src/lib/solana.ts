@@ -6,12 +6,12 @@ export const connection = new Connection(rpcUrl, "confirmed");
 
 /** Strategy Token Program ID */
 export const strategyProgramId = new PublicKey(
-  process.env.STRATEGY_PROGRAM_ID || "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+  process.env.STRATEGY_PROGRAM_ID || "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"
 );
 
 /** Prediction Market Program ID */
 export const predictionProgramId = new PublicKey(
-  process.env.PREDICTION_PROGRAM_ID || "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  process.env.PREDICTION_PROGRAM_ID || "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 
 // ---------------------------------------------------------------------------

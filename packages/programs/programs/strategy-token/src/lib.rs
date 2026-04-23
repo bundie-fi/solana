@@ -13,10 +13,10 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError, Pro
 
 pinocchio::program_entrypoint!(process_instruction);
 
-/// Strategy Token Program ID
+/// Strategy Token Program ID — `Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm`
 pub const ID: Address = Address::new_from_array([
-    7, 241, 15, 8, 33, 84, 211, 43, 197, 41, 205, 236, 235, 230, 21, 118, 161, 71, 101, 255, 213,
-    205, 62, 233, 196, 171, 67, 154, 183, 193, 236, 12,
+    162, 26, 7, 87, 249, 8, 100, 213, 180, 17, 125, 234, 45, 168, 44, 50, 84, 184, 53, 8, 233,
+    206, 146, 225, 18, 196, 241, 232, 131, 217, 106, 60,
 ]);
 
 pub fn process_instruction(

@@ -15,7 +15,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 
-const PROGRAM_ID = new PublicKey('Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV')
+const PROGRAM_ID = new PublicKey('Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm')
 const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')
 
 interface BuySharesPanelProps {
@@ -193,7 +193,7 @@ export function BuySharesPanel({
         <div className="text-xs rounded-lg border border-success-400/30 bg-success-400/10 px-3 py-2 space-y-1">
           <p className="text-success-400 font-medium">Transaction confirmed!</p>
           <a
-            href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
+            href={`https://orbmarkets.io/tx/${txSig}?cluster=devnet`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-amber-400 hover:underline block truncate font-mono"

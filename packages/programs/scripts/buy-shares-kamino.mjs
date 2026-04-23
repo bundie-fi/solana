@@ -32,7 +32,7 @@
  *   RPC: https://api.devnet.solana.com
  *   wallet: ~/.config/solana/id.json
  *   USDC: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
- *   strategy program: Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV
+ *   strategy program: Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm
  */
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -71,7 +71,7 @@ import BN from "bn.js";
 
 const RPC_URL              = process.env.RPC_URL || "https://api.devnet.solana.com";
 const KEYPAIR_PATH         = process.env.KEYPAIR || join(homedir(), ".config/solana/id.json");
-const STRATEGY_PROGRAM_ID  = address("Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV");
+const STRATEGY_PROGRAM_ID  = address("Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm");
 const USDC_MINT            = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const DEFAULT_LENDING_MKT  = address("27MKCQo5qP7ijrwWSMKX2Jeb3PhK2NZmHQ9befWVRS4J");
 const SYSTEM_PROGRAM       = address("11111111111111111111111111111111");
@@ -517,11 +517,11 @@ async function main() {
       await sendAndConfirm(signed, { commitment: "confirmed" });
     } catch (e) {
       throw new UserError(
-        `${label} send failed: ${e.message ?? e}\n  signature (if landed): ${sig}\n  https://explorer.solana.com/tx/${sig}?cluster=devnet`,
+        `${label} send failed: ${e.message ?? e}\n  signature (if landed): ${sig}\n  https://orbmarkets.io/tx/${sig}?cluster=devnet`,
       );
     }
     console.log(`✓ ${label} confirmed: ${sig}`);
-    console.log(`  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+    console.log(`  https://orbmarkets.io/tx/${sig}?cluster=devnet`);
     return sig;
   };
 

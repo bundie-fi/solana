@@ -38,7 +38,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey(
-  "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+  "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"
 );
 
 /** Strategy account discriminator — match state/strategy.rs */

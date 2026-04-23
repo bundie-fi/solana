@@ -54,10 +54,10 @@ import { join } from "node:path";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const STRATEGY_TOKEN_PROGRAM_ID = new PublicKey(
-  "Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"
+  "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"
 );
 const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
-  "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 const DEVNET_USDC = new PublicKey(
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
@@ -320,7 +320,7 @@ async function main() {
 
   if (!SEND) {
     console.log("\nDRY-RUN: not sending. Re-run with --send to broadcast.");
-    console.log(`Explorer (after send): https://explorer.solana.com/address/${market.toBase58()}?cluster=devnet`);
+    console.log(`Explorer (after send): https://orbmarkets.io/address/${market.toBase58()}?cluster=devnet`);
     return;
   }
 
@@ -330,10 +330,10 @@ async function main() {
   console.log("  ✓ tx:", sig);
   console.log("  ✓ market:", market.toBase58());
   console.log(
-    `  Explorer: https://explorer.solana.com/address/${market.toBase58()}?cluster=devnet`
+    `  Explorer: https://orbmarkets.io/address/${market.toBase58()}?cluster=devnet`
   );
   console.log(
-    `  Tx:       https://explorer.solana.com/tx/${sig}?cluster=devnet`
+    `  Tx:       https://orbmarkets.io/tx/${sig}?cluster=devnet`
   );
 }
 

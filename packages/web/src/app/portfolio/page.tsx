@@ -191,7 +191,7 @@ export default function PortfolioPage() {
                   >
                     <td className="px-4 py-3">
                       <a
-                        href={`https://explorer.solana.com/address/${ta.mint}?cluster=devnet`}
+                        href={`https://orbmarkets.io/address/${ta.mint}?cluster=devnet`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-mono text-xs text-neutral-800 hover:text-predict-purple transition-colors"

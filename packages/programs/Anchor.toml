@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-prediction_market = "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+prediction_market = "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 
 [provider]
 cluster = "devnet"

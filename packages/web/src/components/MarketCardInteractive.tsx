@@ -6,7 +6,7 @@ import type { MarketDisplay } from "@bundie/common";
 import { PredictPanel } from "./PredictPanel";
 
 const PREDICTION_PROGRAM_ID = new PublicKey(
-  "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 
 // USDC devnet mint

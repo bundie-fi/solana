@@ -4,8 +4,8 @@ import type { MarketDisplay } from '@bundie/common'
 
 const RPC = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://api.devnet.solana.com'
 
-const STRATEGY_PROGRAM_ID = new PublicKey('Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV')
-const PREDICTION_PROGRAM_ID = new PublicKey('Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i')
+const STRATEGY_PROGRAM_ID = new PublicKey('Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm')
+const PREDICTION_PROGRAM_ID = new PublicKey('Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4')
 
 // pinocchio strategy discriminator (from state/strategy.rs)
 const STRATEGY_DISC = Buffer.from([0xd0, 0x82, 0x35, 0xce, 0x9a, 0x7f, 0x5b, 0x11])

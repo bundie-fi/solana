@@ -28,7 +28,7 @@ import {
 } from "@solana/spl-token";
 
 const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
-  "Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i"
+  "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
 );
 
 // ── PDA helpers ──────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ describe("prediction-market", () => {
         newAccountPubkey: navOracle.publicKey,
         lamports,
         space: 89,
-        programId: new PublicKey("Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"),
+        programId: new PublicKey("Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"),
       })
     );
     await provider.sendAndConfirm(createOracleTx, [navOracle]);
@@ -471,7 +471,7 @@ describe("prediction-market", () => {
           newAccountPubkey: oracle2.publicKey,
           lamports,
           space: 89,
-          programId: new PublicKey("Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV"),
+          programId: new PublicKey("Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"),
         })
       ),
       [oracle2]

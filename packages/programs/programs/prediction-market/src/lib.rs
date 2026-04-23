@@ -8,7 +8,7 @@ pub mod state;
 use instructions::*;
 use state::*;
 
-declare_id!("Y13kynHKA6nfgDtYReVTuPZEVki6NmY9dYDihQT8j7i");
+declare_id!("Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4");
 
 #[program]
 pub mod prediction_market {

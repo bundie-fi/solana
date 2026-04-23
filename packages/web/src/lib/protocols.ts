@@ -1,6 +1,6 @@
 /**
  * Static catalog of every Beethoven-wired protocol available to the
- * strategy-token program (devnet `Y13kaQZ6NJgyfLiL5VjZ9k5QaFJnw4REM4A5Gsfg9VV`).
+ * strategy-token program (devnet `Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm`).
  *
  * Source of truth for program IDs:
  *   packages/beethoven/crates/{deposit,swap,perps}/<protocol>/src/lib.rs

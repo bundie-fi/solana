@@ -128,7 +128,7 @@ async function main() {
   try {
     await sendAndConfirm(signedTx, { commitment: "confirmed" });
     console.log(`✓ deposit confirmed: ${signature}`);
-    console.log(`  https://explorer.solana.com/tx/${signature}?cluster=devnet`);
+    console.log(`  https://orbmarkets.io/tx/${signature}?cluster=devnet`);
   } catch (e) {
     console.error(`\n✗ send failed: ${e?.message ?? e}`);
     console.error(`  signature (if landed): ${signature}`);

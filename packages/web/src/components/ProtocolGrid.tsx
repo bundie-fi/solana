@@ -138,7 +138,7 @@ function ProtocolCard({
   copied: boolean;
   onCopy: () => void;
 }) {
-  const explorerHref = `https://explorer.solana.com/address/${p.programId}?cluster=devnet`;
+  const explorerHref = `https://orbmarkets.io/address/${p.programId}?cluster=devnet`;
 
   return (
     <article

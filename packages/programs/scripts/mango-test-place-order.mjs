@@ -204,7 +204,7 @@ async function main() {
     console.error(`✗ order tx failed: ${JSON.stringify(conf.value.err)}`);
     process.exit(1);
   }
-  console.log(`✓ E. order placed: https://explorer.solana.com/tx/${sig}?cluster=devnet`);
+  console.log(`✓ E. order placed: https://orbmarkets.io/tx/${sig}?cluster=devnet`);
 }
 
 main().catch((e) => {
