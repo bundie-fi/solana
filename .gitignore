@@ -60,6 +60,7 @@ coverage/
 packages/launch-video/
 packages/video/
 
-# Session artifacts (handoffs + superstack scratch)
+# Session artifacts (handoffs + superstack scratch + agent workspace)
 HANDOFF-*.md
 .superstack/
+.claude/
