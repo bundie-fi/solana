@@ -91,3 +91,35 @@ jobs:
       - name: webapp build (non-blocking)
         run: pnpm --filter @bundie/web build || true
         continue-on-error: true
+
+  # ─── NAV-reader byte-offset regression probes ───────────────────────────────
+  # Every NAV reader in packages/programs/programs/strategy-token/src/nav_readers
+  # slices protocol state by hard-coded byte offsets. Drift and marginfi have
+  # both shifted struct layouts in the past, silently corrupting NAV until we
+  # caught it manually. These probes hit live PDAs on devnet (and mainnet for
+  # marginfi, whose v2 is not reliably on devnet) and fail the PR if the bytes
+  # at our offsets stop looking sane. See packages/programs/scripts/probes/README.md.
+  nav-offset-probes:
+    name: NAV-reader offset probes
+    runs-on: ubuntu-latest
+    needs: rust
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: probe NAV-reader offsets
+        # continue-on-error stays false (the default) so a layout drift
+        # blocks the PR.
+        run: pnpm --filter @bundie/programs probe:nav

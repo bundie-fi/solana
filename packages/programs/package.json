@@ -3,7 +3,12 @@
   "scripts": {
     "build": "anchor build",
     "test": "anchor test",
-    "deploy": "anchor deploy"
+    "deploy": "anchor deploy",
+    "probe:nav": "tsx scripts/probes/run-all.ts",
+    "probe:drift": "tsx scripts/probes/probe-drift-spotmarket.ts",
+    "probe:marginfi": "tsx scripts/probes/probe-marginfi-bank.ts",
+    "probe:marinade": "tsx scripts/probes/probe-marinade-state.ts",
+    "probe:kamino": "tsx scripts/probes/probe-kamino-reserve.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
@@ -21,6 +26,8 @@
     "chai": "^4",
     "mocha": "^10",
     "ts-mocha": "^10",
-    "typescript": "^5.5"
+    "typescript": "^5.5",
+    "@types/node": "^22",
+    "tsx": "^4.21.0"
   }
 }
