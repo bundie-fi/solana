@@ -42,6 +42,7 @@ pub mod drift;
 pub mod kamino;
 pub mod marginfi;
 pub mod marinade;
+pub mod pyth;
 
 use pinocchio::{account::AccountView, error::ProgramError};
 

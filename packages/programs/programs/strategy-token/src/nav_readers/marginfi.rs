@@ -114,7 +114,12 @@ const BALANCE_OFFSET_ASSET_SHARES: usize = 40;
 //
 // then byte-walk to verify the I80F48 lands at offset 88.
 const BANK_OFFSET_MINT: usize = 8;
-const BANK_OFFSET_ASSET_SHARE_VALUE: usize = 88;
+// Verified live against mainnet Bank `HKHvcCZKJzWPycqQdgCCT5oxt7GWdbPHrg9HSdxpdsEL`
+// (USDC) on 2026-04-23 — value @ 80 reads as a sane I80F48 close to 1.0; value
+// @ 88 returns ~1.84e19 garbage (would massively overvalue positions).
+// `_pad0[7]` lives AFTER mint_decimals + group:Pubkey, pushing asset_share_value
+// to disk offset 80 (not 88 as a naive sequential layout would suggest).
+const BANK_OFFSET_ASSET_SHARE_VALUE: usize = 80;
 const BANK_MIN_LEN: usize = BANK_OFFSET_ASSET_SHARE_VALUE + 16;
 
 /// I80F48 fractional bits — multiplying two I80F48s and shifting right

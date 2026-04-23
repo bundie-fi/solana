@@ -113,7 +113,10 @@ const SPOT_BALANCE_TYPE_DEPOSIT: u8 = 0;
 // then byte-walk to confirm. If the offsets shift, only the two consts
 // below need to change.
 const SPOT_MARKET_OFFSET_MINT: usize = 72;
-const SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST: usize = 432;
+// Verified live against devnet SpotMarket `6gMq3mRCKf8aP3ttTyYhuijVZ2LGi14oDsBbkgubfLB3`
+// (and 8 sibling markets) on 2026-04-23 — values @ 480 read as ~1.0–1.13 in
+// Q1e10 (sane); values @ 432 are `total_spot_fee` (junk for this purpose).
+const SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST: usize = 480;
 const SPOT_MARKET_MIN_LEN: usize = SPOT_MARKET_OFFSET_CUMULATIVE_DEPOSIT_INTEREST + 16;
 
 /// Drift's `SPOT_CUMULATIVE_INTEREST_PRECISION` = 10^10. `scaled_balance`
