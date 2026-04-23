@@ -47,7 +47,7 @@ swap = [
     "phoenix-swap",
     "openbook-v2-swap",
 ]
-perps = ["mango-perps", "zeta-perps"]
+perps = ["mango-perps", "zeta-perps", "drift-perps"]
 
 # Deposit protocols
 kamino-deposit = ["dep:beethoven-deposit-kamino"]
@@ -63,6 +63,7 @@ meteora-vaults-deposit = ["dep:beethoven-deposit-meteora-vaults"]
 # Perps protocols
 mango-perps = ["dep:beethoven-perps-mango"]
 zeta-perps = ["dep:beethoven-perps-zeta"]
+drift-perps = ["dep:beethoven-perps-drift"]
 
 # Swap protocols
 perena-swap = ["dep:beethoven-swap-perena"]
@@ -129,6 +130,7 @@ beethoven-deposit-drift-vaults = { path = "crates/deposit/drift-vaults", optiona
 beethoven-deposit-meteora-vaults = { path = "crates/deposit/meteora-vaults", optional = true }
 beethoven-perps-mango = { path = "crates/perps/mango", optional = true }
 beethoven-perps-zeta = { path = "crates/perps/zeta", optional = true }
+beethoven-perps-drift = { path = "crates/perps/drift", optional = true }
 
 [workspace]
 members = [
@@ -166,6 +168,7 @@ members = [
     "crates/deposit/meteora-vaults",
     "crates/perps/mango",
     "crates/perps/zeta",
+    "crates/perps/drift",
     "program-test",
     "crates/client",
 ]

@@ -2,6 +2,7 @@ pub mod buy_shares;
 pub mod create_strategy;
 pub mod idl;
 pub mod init_position;
+pub mod perp_open;
 pub mod perp_place_order;
 pub mod rebalance;
 pub mod redeem_shares;

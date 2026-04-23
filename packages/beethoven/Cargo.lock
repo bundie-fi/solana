@@ -564,6 +564,7 @@ dependencies = [
  "beethoven-deposit-meteora-vaults",
  "beethoven-deposit-solend",
  "beethoven-deposit-spl-stake-pool",
+ "beethoven-perps-drift",
  "beethoven-perps-mango",
  "beethoven-perps-zeta",
  "beethoven-swap-aldrin",
@@ -724,6 +725,17 @@ dependencies = [
 
 [[package]]
 name = "beethoven-deposit-spl-stake-pool"
+version = "0.0.1"
+dependencies = [
+ "beethoven-core",
+ "solana-account-view",
+ "solana-address 2.6.0",
+ "solana-instruction-view",
+ "solana-program-error",
+]
+
+[[package]]
+name = "beethoven-perps-drift"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",
