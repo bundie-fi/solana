@@ -30,4 +30,10 @@ pub enum MarketError {
     InvalidStrategyAccount,
     #[msg("Strategy account does not match the market's strategy")]
     WrongStrategyForMarket,
+    #[msg("Unknown market kind discriminator")]
+    InvalidKind,
+    #[msg("Per-kind payload failed validation (zero/oversized/missing field)")]
+    InvalidPayload,
+    #[msg("This market kind is not yet implemented (Drawdown awaits NavOracle history extension)")]
+    ResolveDeferredKind,
 }

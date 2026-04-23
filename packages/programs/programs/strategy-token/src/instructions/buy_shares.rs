@@ -129,6 +129,23 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     }
 
     // ----------------------------------------------------------------
+    // 3c. Detect first-time investor BEFORE we create the share ATA.
+    //
+    // A buyer is treated as a new investor when their share ATA either
+    // does not exist yet (data_len == 0) or exists with a zero balance.
+    // The `backer_count` field is incremented in step 9 when this is true,
+    // and is read by prediction-market kind=4 (BackerCount) at resolve time.
+    // ----------------------------------------------------------------
+
+    let is_new_investor = {
+        let ata_data = buyer_shares_ata.try_borrow().ok();
+        match ata_data {
+            None => true, // not yet initialised (System-owned, len 0)
+            Some(d) => d.len() < 72 || cpi::spl_token::read_token_amount(&d) == 0,
+        }
+    };
+
+    // ----------------------------------------------------------------
     // 4. Create buyer's share ATA if needed (idempotent)
     // ----------------------------------------------------------------
 
@@ -278,6 +295,13 @@ pub fn process(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         if high_water_mark == 0 {
             let hwm = (new_nav as u128 * 1_000_000_000 / new_total_shares as u128) as u64;
             Strategy::set_high_water_mark(strat_data, hwm);
+        }
+
+        // Increment backer count for first-time investors (saturating).
+        // Read by prediction-market kind=4 (BackerCount) at resolve time.
+        if is_new_investor {
+            let prev = Strategy::backer_count(strat_data);
+            Strategy::set_backer_count(strat_data, prev.saturating_add(1));
         }
     }
 

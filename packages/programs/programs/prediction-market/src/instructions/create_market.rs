@@ -122,5 +122,12 @@ pub fn handler(
     market.no_mint_bump = ctx.bumps.no_mint;
     market.vault_bump = ctx.bumps.vault;
 
+    // V2 fields are zero-initialised. v1 markets are interpreted as
+    // ApyThreshold (kind=0) when read by v2 code, but their resolution
+    // still flows through the original `resolve` ix which keys off
+    // `market_type` (Absolute|Relative) — preserving back-compat.
+    market.kind = 0;
+    market.payload = [0u8; MARKET_PAYLOAD_LEN];
+
     Ok(())
 }

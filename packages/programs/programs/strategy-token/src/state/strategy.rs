@@ -219,7 +219,13 @@ impl Strategy {
         data[OFF_TOTAL_SHARES..OFF_TOTAL_SHARES + 8].copy_from_slice(&v.to_le_bytes());
     }
 
-    // ---------- total_investors (u32) ----------
+    // ---------- total_investors / backer_count (u32) ----------
+    //
+    // `total_investors` was reserved at the original layout (offset 260) but
+    // never written to. Prediction-market BackerCount markets (kind 4) read
+    // this field, and `buy_shares` now increments it on first-time investors.
+    // `backer_count` is provided as an alias so call-sites can use whichever
+    // term reads better in context. Both accessors map to the same 4 bytes.
 
     #[inline(always)]
     pub fn total_investors(data: &[u8]) -> u32 {
@@ -233,6 +239,16 @@ impl Strategy {
     #[inline(always)]
     pub fn set_total_investors(data: &mut [u8], v: u32) {
         data[OFF_TOTAL_INVESTORS..OFF_TOTAL_INVESTORS + 4].copy_from_slice(&v.to_le_bytes());
+    }
+
+    #[inline(always)]
+    pub fn backer_count(data: &[u8]) -> u32 {
+        Self::total_investors(data)
+    }
+
+    #[inline(always)]
+    pub fn set_backer_count(data: &mut [u8], v: u32) {
+        Self::set_total_investors(data, v);
     }
 
     // ---------- high_water_mark (u64) ----------
