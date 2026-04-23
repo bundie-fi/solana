@@ -40,8 +40,13 @@ export default async function StrategyDetailPage({
       {/* Header */}
       <div className="flex items-start justify-between mb-2 flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">{strategy.name}</h1>
-          <p className="text-xs text-gray-500 mt-1 font-mono">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
+            Strategy
+          </span>
+          <h1 className="font-serif text-display text-neutral-900 mt-1">
+            {strategy.name}
+          </h1>
+          <p className="text-xs text-neutral-600 mt-2 font-mono">
             {params.id}
           </p>
         </div>
@@ -52,13 +57,13 @@ export default async function StrategyDetailPage({
         </span>
       </div>
 
-      <p className="text-xs text-gray-500 mb-8 font-mono">
+      <p className="text-xs text-neutral-600 mb-8 font-mono">
         Creator:{' '}
         <a
           href={`https://explorer.solana.com/address/${strategy.authority}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-earn-gold hover:underline"
+          className="text-amber-400 hover:underline"
         >
           {strategy.authority.slice(0, 8)}…{strategy.authority.slice(-6)}
         </a>
@@ -75,9 +80,9 @@ export default async function StrategyDetailPage({
       {/* Main content: details + buy panel side by side on wide screens */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: extra details */}
-        <div className="flex-1 rounded-xl border border-border bg-surface p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-            On-chain Details
+        <div className="flex-1 rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
+          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600">
+            On-chain details
           </h2>
 
           <DetailRow label="Share Mint" value={strategy.mint} isAddress />
@@ -132,11 +137,13 @@ function StatCard({
   gold?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 text-center">
-      <p className={`text-2xl font-bold ${gold ? 'text-earn-gold' : 'text-white'}`}>
+    <div className="rounded-xl border border-neutral-300 bg-surface p-4 text-center">
+      <p className={`font-mono nums text-2xl font-semibold ${gold ? 'text-amber-400' : 'text-neutral-900'}`}>
         {value}
       </p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600 mt-2">
+        {label}
+      </p>
     </div>
   )
 }
@@ -152,18 +159,18 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-4 text-sm">
-      <span className="text-gray-500 shrink-0">{label}</span>
+      <span className="text-neutral-600 shrink-0">{label}</span>
       {isAddress ? (
         <a
           href={`https://explorer.solana.com/address/${value}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-mono text-xs text-earn-gold hover:underline truncate max-w-[260px]"
+          className="font-mono text-xs text-amber-400 hover:underline truncate max-w-[260px]"
         >
           {value.slice(0, 8)}…{value.slice(-6)}
         </a>
       ) : (
-        <span className="text-white font-mono text-xs truncate max-w-[260px]">
+        <span className="text-neutral-900 font-mono text-xs truncate max-w-[260px]">
           {value}
         </span>
       )}

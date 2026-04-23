@@ -22,9 +22,9 @@ export function Stat({
   className?: string;
 }) {
   const toneMap = {
-    default: "text-neutral-800",
-    gold:    "text-earn-gold",
-    purple:  "text-predict-purple",
+    default: "text-neutral-900",
+    gold:    "text-amber-400",
+    purple:  "text-purple-300",
     success: "text-success-400",
     danger:  "text-danger-400",
   } as const;

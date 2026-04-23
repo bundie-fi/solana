@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { StrategyDisplay } from "@bundie/common";
+import { ProtocolCoverage } from "@/components/ProtocolCoverage";
 import { StrategyCard } from "@/components/StrategyCard";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/button";
@@ -73,15 +74,15 @@ export function DiscoverClient({
       {/* ─── Hero ─── */}
       <section className="mb-8 md:mb-12">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-earn-gold">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
             Earn mode
           </span>
-          <h1 className="text-h1 font-semibold text-neutral-800">
-            Discover strategies
+          <h1 className="font-serif text-display text-neutral-900">
+            Discover <em className="text-amber-400">strategies</em>.
           </h1>
-          <p className="text-body text-neutral-700 max-w-xl">
+          <p className="text-body text-neutral-700 max-w-xl mt-2">
             Back live DeFi strategies on Solana. Your shares track portfolio
-            value in real time — sell any time.
+            value in real time. Sell any time.
           </p>
         </div>
 
@@ -133,7 +134,7 @@ export function DiscoverClient({
                 className={[
                   "h-9 px-3 rounded-md text-xs font-medium whitespace-nowrap transition-colors duration-180",
                   active
-                    ? "bg-earn-gold text-[#0a0a0f]"
+                    ? "bg-amber-600 text-neutral-900"
                     : "text-neutral-700 hover:text-neutral-800 hover:bg-neutral-200",
                 ].join(" ")}
               >
@@ -288,6 +289,9 @@ function StrategyDetail({ strategy: s }: { strategy: StrategyDisplay }) {
           })}
         </div>
       </div>
+
+      {/* Protocol coverage */}
+      <ProtocolCoverage strategy={s.address} />
 
       {/* Meta */}
       <div className="rounded-xl border border-neutral-300 bg-neutral-50 p-4 flex flex-col gap-2 text-xs">

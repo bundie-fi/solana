@@ -3,22 +3,48 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Root tokens — kept as CSS variables so non-Tailwind code paths can read
-   them, and so we can flip light/dark later without touching components.
+   Bundie design tokens. Aligned with packages/landing-page so the dark-mode
+   editorial brand (warm ink + amber + violet accents) carries through into
+   the app surface. Tailwind aliases (earn-gold, predict-purple) point at
+   these via tailwind.config.ts so component code keeps compiling.
    ────────────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #0a0a0f;
-  --surface: #141420;
-  --surface-raised: #1a1a28;
-  --border: #1e1e2e;
-  --border-hover: #2a2a3d;
-  --text-primary: #e6e6f0;
-  --text-secondary: #b0b0c4;
-  --text-tertiary: #8888a3;
-  --gold: #d4a853;
-  --purple: #a78bfa;
-  --success: #34d399;
-  --danger: #f87171;
+  --bg:            #0a0908;
+  --bg-raised:    #121110;
+  --bg-deep:      #161413;
+
+  --ink:          #f6f3ee;
+  --ink-2:        rgba(246, 243, 238, 0.72);
+  --ink-3:        rgba(246, 243, 238, 0.52);
+  --ink-4:        rgba(246, 243, 238, 0.36);
+
+  --line:         rgba(246, 243, 238, 0.08);
+  --line-2:       rgba(246, 243, 238, 0.15);
+  --line-3:       rgba(246, 243, 238, 0.22);
+
+  --amber:        #c2570c;
+  --amber-2:      #d96a1c;
+  --amber-3:      #e28646;
+  --amber-tint:   rgba(194, 87, 12, 0.14);
+  --amber-ring:   rgba(194, 87, 12, 0.35);
+
+  --purple:       #6d28d9;
+  --purple-2:     #8b47ee;
+  --purple-3:     #b691f1;
+  --purple-tint:  rgba(109, 40, 217, 0.18);
+  --purple-ring:  rgba(109, 40, 217, 0.38);
+
+  --violet:       #9945ff;
+  --violet-tint:  rgba(153, 69, 255, 0.14);
+
+  --success:      #7de0a4;
+  --success-2:    #38d17a;
+  --warning:      #ffc27d;
+  --danger:       #f87171;
+
+  --ease:         cubic-bezier(0.25, 0.4, 0.25, 1);
+  --dur-fast:     140ms;
+  --dur:          260ms;
 }
 
 html {
@@ -28,8 +54,23 @@ html {
 
 body {
   background-color: var(--bg);
-  color: var(--text-primary);
+  color: var(--ink);
+  font-family: var(--font-sans), 'Figtree', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--amber); color: var(--ink); }
+
+/* Display type. Use on h1/h2/hero copy that should read editorial. */
+.serif {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.serif em {
+  font-style: italic;
+  color: var(--amber-3);
 }
 
 /* Tabular numerics on any element tagged .nums — used for money, APY, prices */
@@ -54,28 +95,30 @@ body {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track {
-  background: var(--bg);
-}
+::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--line-2);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--bg);
+  scrollbar-color: var(--line-2) var(--bg);
 }
 
 /* Focus ring defaults — reserved for brand-coloured affordances */
-:focus-visible {
-  outline: none;
+:focus-visible { outline: none; }
+.focus-amber:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--amber-ring);
+  border-radius: 4px;
 }
+/* Legacy alias — gold became amber in this brand pass; kept so existing
+   `focus-gold` classes keep working without sweeping every component. */
 .focus-gold:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(212, 168, 83, 0.6);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--amber-ring);
+  border-radius: 4px;
 }
 .focus-purple:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--purple-ring);
+  border-radius: 4px;
 }

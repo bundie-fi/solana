@@ -23,26 +23,26 @@ function MarketCardStatic({ m }: { m: MarketDisplay }) {
   const vol    = Number(m.totalVolume) / 1e6
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-5">
+    <div className="rounded-xl border border-neutral-300 bg-surface p-5">
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs px-2 py-0.5 rounded-full bg-predict-purple/10 text-predict-purple font-medium">
           {m.marketType === 'absolute' ? 'Performance' : 'Vs Match'}
         </span>
-        <span className={`text-xs font-medium ${m.status === 'active' ? 'text-green-400' : 'text-gray-400'}`}>
+        <span className={`text-xs font-medium ${m.status === 'active' ? 'text-success-400' : 'text-neutral-700'}`}>
           {m.status === 'resolved' ? `Settled: ${m.outcome?.toUpperCase()}` : 'Active'}
         </span>
       </div>
 
-      <p className="text-sm text-white font-medium mt-2 mb-1 leading-snug">{m.question}</p>
-      <p className="text-xs text-gray-500 font-mono mb-3">{m.strategyName}</p>
+      <p className="text-sm text-neutral-900 font-medium mt-2 mb-1 leading-snug">{m.question}</p>
+      <p className="text-xs text-neutral-600 font-mono mb-3">{m.strategyName}</p>
 
       <div className="flex justify-between text-sm font-semibold mb-1">
-        <span className="text-green-400">YES {yesPct}¢</span>
-        <span className="text-red-400">NO {noPct}¢</span>
+        <span className="text-success-400">YES {yesPct}¢</span>
+        <span className="text-danger-400">NO {noPct}¢</span>
       </div>
       <PriceBar yesPrice={m.yesPrice} />
 
-      <p className="text-xs text-gray-500 mt-3">Vol: ${vol.toFixed(2)}</p>
+      <p className="text-xs text-neutral-600 mt-3">Vol: ${vol.toFixed(2)}</p>
     </div>
   )
 }
@@ -60,14 +60,19 @@ export default async function MarketsPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-predict-purple mb-1">Markets</h1>
-      <p className="text-gray-400 mb-8">Prediction Hub — LS-LMSR Pricing</p>
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-purple-300">
+        Predict mode
+      </span>
+      <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
+        <em className="text-purple-300">Markets</em>.
+      </h1>
+      <p className="text-neutral-700 mb-8">LS-LMSR pricing. On-chain settlement reads strategy NAV.</p>
 
       {showLive && (
         <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <h2 className="text-sm font-medium text-green-400 uppercase tracking-wider">Live on devnet</h2>
+            <h2 className="text-sm font-medium text-success-400 uppercase tracking-wider">Live on devnet</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {liveMarkets.map(m => (
@@ -79,7 +84,7 @@ export default async function MarketsPage() {
 
       <section>
         {showLive && (
-          <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+          <h2 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-4">
             Coming soon
           </h2>
         )}

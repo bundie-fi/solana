@@ -6,19 +6,19 @@ type Variant = "primary" | "predict" | "secondary" | "ghost" | "destructive";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
-  // Earn Gold — default, used everywhere strategy-backing is the action.
+  // Amber — primary action everywhere strategy-backing is the verb.
   primary:
-    "bg-earn-gold text-[#0a0a0f] hover:bg-gold-400 active:bg-gold-600 font-semibold focus-gold",
-  // Predict Purple — used on prediction-market CTAs.
+    "bg-amber-600 text-neutral-900 hover:bg-amber-500 active:bg-amber-700 font-semibold focus-amber shadow-amber",
+  // Predict — prediction-market CTAs.
   predict:
-    "bg-predict-purple text-white hover:bg-purple-500 active:bg-purple-600 font-semibold focus-purple",
+    "bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 font-semibold focus-purple shadow-purple",
   // Kept for backward compatibility with existing /markets and /portfolio calls.
   secondary:
-    "bg-predict-purple text-white hover:bg-purple-500 active:bg-purple-600 font-semibold focus-purple",
+    "bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 font-semibold focus-purple shadow-purple",
   ghost:
-    "bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 border border-neutral-300 hover:border-neutral-400 focus-gold",
+    "bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 border border-neutral-300 hover:border-neutral-400 focus-amber",
   destructive:
-    "bg-danger-500 text-white hover:bg-danger-400 font-semibold focus-gold",
+    "bg-danger-500 text-white hover:bg-danger-400 font-semibold focus-amber",
 };
 
 const sizeStyles: Record<Size, string> = {

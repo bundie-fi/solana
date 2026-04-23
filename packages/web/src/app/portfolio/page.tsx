@@ -78,16 +78,21 @@ export default function PortfolioPage() {
   if (!connected) {
     return (
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Portfolio</h1>
-        <p className="text-gray-400 mb-8">Your Yields</p>
-        <div className="rounded-xl border border-border bg-surface p-12 flex flex-col items-center gap-4">
-          <p className="text-gray-400 text-sm">Connect your wallet to view your portfolio</p>
+        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
+          Portfolio
+        </span>
+        <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
+          Your <em className="text-amber-400">positions</em>.
+        </h1>
+        <p className="text-neutral-700 mb-8">Strategy shares and prediction tokens.</p>
+        <div className="rounded-xl border border-neutral-300 bg-surface p-12 flex flex-col items-center gap-4">
+          <p className="text-neutral-700 text-sm">Connect your wallet to view your portfolio</p>
           <WalletMultiButton
             style={{
-              background: "rgba(167,139,250,0.15)",
-              border: "1px solid rgba(167,139,250,0.4)",
+              background: "rgba(109,40,217,0.18)",
+              border: "1px solid rgba(109,40,217,0.4)",
               borderRadius: "10px",
-              color: "#a78bfa",
+              color: "#b691f1",
               fontSize: "14px",
               height: "42px",
               padding: "0 20px",
@@ -100,39 +105,44 @@ export default function PortfolioPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-2">Portfolio</h1>
-      <p className="text-gray-400 mb-8">Your Yields</p>
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
+        Portfolio
+      </span>
+      <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
+        Your <em className="text-amber-400">positions</em>.
+      </h1>
+      <p className="text-neutral-700 mb-8">Strategy shares and prediction tokens.</p>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {/* SOL Balance */}
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">SOL Balance</p>
+        <div className="rounded-xl border border-neutral-300 bg-surface p-5">
+          <p className="text-xs text-neutral-600 uppercase tracking-wider mb-1">SOL Balance</p>
           {loading ? (
-            <div className="h-7 w-24 rounded bg-white/5 animate-pulse" />
+            <div className="h-7 w-24 rounded bg-neutral-200 animate-pulse" />
           ) : (
-            <p className="text-2xl font-bold text-white">
+            <p className="text-2xl font-bold text-neutral-900">
               {solBalance !== null ? solBalance.toFixed(4) : "—"}
-              <span className="text-sm text-gray-500 font-normal ml-1">SOL</span>
+              <span className="text-sm text-neutral-600 font-normal ml-1">SOL</span>
             </p>
           )}
-          <p className="text-xs text-gray-600 mt-1 font-mono truncate">
+          <p className="text-xs text-neutral-500 mt-1 font-mono truncate">
             {publicKey?.toBase58()}
           </p>
         </div>
 
         {/* Token accounts count */}
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Token Holdings</p>
+        <div className="rounded-xl border border-neutral-300 bg-surface p-5">
+          <p className="text-xs text-neutral-600 uppercase tracking-wider mb-1">Token Holdings</p>
           {loading ? (
-            <div className="h-7 w-16 rounded bg-white/5 animate-pulse" />
+            <div className="h-7 w-16 rounded bg-neutral-200 animate-pulse" />
           ) : (
-            <p className="text-2xl font-bold text-white">
+            <p className="text-2xl font-bold text-neutral-900">
               {tokenAccounts.length}
-              <span className="text-sm text-gray-500 font-normal ml-1">accounts</span>
+              <span className="text-sm text-neutral-600 font-normal ml-1">accounts</span>
             </p>
           )}
-          <p className="text-xs text-gray-600 mt-1">Strategy shares &amp; prediction tokens</p>
+          <p className="text-xs text-neutral-500 mt-1">Strategy shares &amp; prediction tokens</p>
         </div>
       </div>
 
@@ -148,25 +158,25 @@ export default function PortfolioPage() {
         {loading ? (
           <div className="space-y-2">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-14 rounded-xl bg-surface border border-border animate-pulse" />
+              <div key={i} className="h-14 rounded-xl bg-surface border border-neutral-300 animate-pulse" />
             ))}
           </div>
         ) : tokenAccounts.length === 0 ? (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center">
-            <p className="text-gray-500 text-sm">No token holdings found</p>
-            <p className="text-gray-600 text-xs mt-1">
+          <div className="rounded-xl border border-neutral-300 bg-surface p-8 text-center">
+            <p className="text-neutral-600 text-sm">No token holdings found</p>
+            <p className="text-neutral-500 text-xs mt-1">
               Invest in a strategy to see your shares here
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border border-border bg-surface overflow-hidden">
+          <div className="rounded-xl border border-neutral-300 bg-surface overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs text-gray-500 font-medium px-4 py-3 uppercase tracking-wider">
+                <tr className="border-b border-neutral-300">
+                  <th className="text-left text-xs text-neutral-600 font-medium px-4 py-3 uppercase tracking-wider">
                     Mint
                   </th>
-                  <th className="text-right text-xs text-gray-500 font-medium px-4 py-3 uppercase tracking-wider">
+                  <th className="text-right text-xs text-neutral-600 font-medium px-4 py-3 uppercase tracking-wider">
                     Balance
                   </th>
                 </tr>
@@ -176,21 +186,21 @@ export default function PortfolioPage() {
                   <tr
                     key={ta.mint}
                     className={`${
-                      i < tokenAccounts.length - 1 ? "border-b border-border" : ""
-                    } hover:bg-white/[0.02] transition-colors`}
+                      i < tokenAccounts.length - 1 ? "border-b border-neutral-300" : ""
+                    } hover:bg-neutral-200 transition-colors`}
                   >
                     <td className="px-4 py-3">
                       <a
                         href={`https://explorer.solana.com/address/${ta.mint}?cluster=devnet`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-xs text-gray-300 hover:text-predict-purple transition-colors"
+                        className="font-mono text-xs text-neutral-800 hover:text-predict-purple transition-colors"
                       >
                         {ta.mint.slice(0, 8)}…{ta.mint.slice(-6)}
                       </a>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-white font-semibold font-mono">
+                      <span className="text-neutral-900 font-semibold font-mono">
                         {ta.uiAmount}
                       </span>
                     </td>
@@ -210,9 +220,9 @@ export default function PortfolioPage() {
             Your Predictions
           </h2>
         </div>
-        <div className="rounded-xl border border-border bg-surface p-8 text-center">
-          <p className="text-gray-500 text-sm">Coming soon</p>
-          <p className="text-gray-600 text-xs mt-1">
+        <div className="rounded-xl border border-neutral-300 bg-surface p-8 text-center">
+          <p className="text-neutral-600 text-sm">Coming soon</p>
+          <p className="text-neutral-500 text-xs mt-1">
             Open prediction positions with P&amp;L will appear here
           </p>
         </div>

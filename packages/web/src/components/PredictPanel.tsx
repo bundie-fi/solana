@@ -195,14 +195,14 @@ export function PredictPanel({
 
   if (!connected) {
     return (
-      <div className="mt-4 pt-4 border-t border-border flex flex-col items-center gap-3">
-        <p className="text-xs text-gray-400">Connect wallet to predict</p>
+      <div className="mt-4 pt-4 border-t border-neutral-300 flex flex-col items-center gap-3">
+        <p className="text-xs text-neutral-700">Connect wallet to predict</p>
         <WalletMultiButton
           style={{
-            background: "rgba(167,139,250,0.15)",
-            border: "1px solid rgba(167,139,250,0.4)",
+            background: "rgba(109,40,217,0.18)",
+            border: "1px solid rgba(109,40,217,0.4)",
             borderRadius: "8px",
-            color: "#a78bfa",
+            color: "#b691f1",
             fontSize: "13px",
             height: "36px",
             padding: "0 16px",
@@ -214,7 +214,7 @@ export function PredictPanel({
 
   if (status === "success" && txSig) {
     return (
-      <div className="mt-4 pt-4 border-t border-border text-center">
+      <div className="mt-4 pt-4 border-t border-neutral-300 text-center">
         <p className="text-green-400 font-semibold text-sm mb-2">
           Prediction placed!
         </p>
@@ -228,7 +228,7 @@ export function PredictPanel({
         </a>
         <button
           onClick={() => { setStatus("idle"); setTxSig(null); }}
-          className="block mt-3 mx-auto text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="block mt-3 mx-auto text-xs text-neutral-600 hover:text-neutral-800 transition-colors"
         >
           Place another
         </button>
@@ -237,7 +237,7 @@ export function PredictPanel({
   }
 
   return (
-    <div className="mt-4 pt-4 border-t border-border space-y-3">
+    <div className="mt-4 pt-4 border-t border-neutral-300 space-y-3">
       {/* YES / NO toggle */}
       <div className="flex gap-2">
         <button
@@ -245,7 +245,7 @@ export function PredictPanel({
           className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
             selected === "yes"
               ? "bg-green-500/20 border border-green-500/50 text-green-400"
-              : "bg-surface border border-border text-gray-500 hover:border-green-500/30"
+              : "bg-surface border border-neutral-300 text-neutral-600 hover:border-green-500/30"
           }`}
         >
           YES &nbsp;{Math.round(yesPrice * 100)}¢
@@ -255,7 +255,7 @@ export function PredictPanel({
           className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
             selected === "no"
               ? "bg-red-500/20 border border-red-500/50 text-red-400"
-              : "bg-surface border border-border text-gray-500 hover:border-red-500/30"
+              : "bg-surface border border-neutral-300 text-neutral-600 hover:border-red-500/30"
           }`}
         >
           NO &nbsp;{Math.round(noPrice * 100)}¢
@@ -274,15 +274,15 @@ export function PredictPanel({
             setUsdcAmount(e.target.value);
             setErrorMsg(null);
           }}
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 pr-14 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-predict-purple/50 transition-colors"
+          className="w-full bg-background border border-neutral-300 rounded-lg px-3 py-2 pr-14 text-sm text-neutral-900 placeholder-neutral-500 focus:outline-none focus:border-predict-purple/50 transition-colors"
         />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-mono">
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-600 font-mono">
           USDC
         </span>
       </div>
 
       {/* Estimated payout */}
-      <div className="flex justify-between text-xs text-gray-500">
+      <div className="flex justify-between text-xs text-neutral-600">
         <span>Estimated shares</span>
         <span className={selected === "yes" ? "text-green-400" : "text-red-400"}>
           {estimatedShares}

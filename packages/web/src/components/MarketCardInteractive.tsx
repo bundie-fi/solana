@@ -57,7 +57,7 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
       className={`rounded-xl border bg-surface p-5 transition-colors ${
         showPredict
           ? "border-predict-purple/50"
-          : "border-border hover:border-predict-purple/40"
+          : "border-neutral-300 hover:border-predict-purple/40"
       }`}
     >
       <div className="flex items-start justify-between mb-2">
@@ -66,7 +66,7 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
         </span>
         <span
           className={`text-xs font-medium ${
-            m.status === "active" ? "text-green-400" : "text-gray-400"
+            m.status === "active" ? "text-success-400" : "text-neutral-700"
           }`}
         >
           {m.status === "resolved"
@@ -75,19 +75,19 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
         </span>
       </div>
 
-      <p className="text-sm text-white font-medium mt-2 mb-1 leading-snug">
+      <p className="text-sm text-neutral-900 font-medium mt-2 mb-1 leading-snug">
         {m.question}
       </p>
-      <p className="text-xs text-gray-500 font-mono mb-3">{m.strategyName}</p>
+      <p className="text-xs text-neutral-600 font-mono mb-3">{m.strategyName}</p>
 
       <div className="flex justify-between text-sm font-semibold mb-1">
-        <span className="text-green-400">YES {yesPct}¢</span>
-        <span className="text-red-400">NO {noPct}¢</span>
+        <span className="text-success-400">YES {yesPct}¢</span>
+        <span className="text-danger-400">NO {noPct}¢</span>
       </div>
       <PriceBar yesPrice={m.yesPrice} />
 
       <div className="flex items-center justify-between mt-3">
-        <p className="text-xs text-gray-500">Vol: ${vol.toFixed(2)}</p>
+        <p className="text-xs text-neutral-600">Vol: ${vol.toFixed(2)}</p>
         {m.status === "active" && (
           <button
             onClick={() => setShowPredict((v) => !v)}

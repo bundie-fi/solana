@@ -1,80 +1,113 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Palette aligned with packages/landing-page/brand.md:
+ *   bg   #0a0908   ink  #f6f3ee   amber #c2570c   purple #6d28d9
+ *
+ * The `earn-gold` / `predict-purple` aliases are preserved so existing
+ * component code compiles, but the underlying hex values shifted from the
+ * old gold #d4a853 → amber #c2570c (warmer, higher saturation) to match
+ * the Solana landing surface. Predict keeps a violet tone but deepened.
+ */
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
-        // ── Brand (legacy aliases preserved; /markets, /portfolio, /strategy use these) ──
-        "earn-gold": "#d4a853",
-        "predict-purple": "#a78bfa",
-        background: "#0a0a0f",
-        surface: "#141420",
-        border: "#1e1e2e",
+        // ── Brand aliases (kept; semantic for current call-sites) ───────
+        "earn-gold": "#c2570c",
+        "predict-purple": "#8b47ee",
+        background: "#0a0908",
+        surface: "#121110",
+        border: "rgba(246,243,238,0.15)",
 
-        // ── Extended brand scales ──
+        // ── Amber scale (replaces former gold scale) ────────────────────
+        amber: {
+          50:  "#fdf3e8",
+          100: "#fbdfc3",
+          200: "#f5b583",
+          300: "#ee9553",
+          400: "#e28646",
+          500: "#d96a1c",
+          600: "#c2570c",
+          700: "#994307",
+          800: "#6b2f05",
+          900: "#401d04",
+          950: "#261002",
+        },
+        // Gold alias points at amber so any `gold-400` / `gold-500` classes
+        // already in components keep rendering a sensible colour.
         gold: {
-          50:  "#fdf9ed",
-          100: "#faf0cc",
-          200: "#f4dd98",
-          300: "#ecc66a",
-          400: "#e0b25c",
-          500: "#d4a853",
-          600: "#b8893e",
-          700: "#926a2f",
-          800: "#6c4d23",
-          900: "#4a341a",
-          950: "#2a1d10",
+          50:  "#fdf3e8",
+          100: "#fbdfc3",
+          200: "#f5b583",
+          300: "#ee9553",
+          400: "#e28646",
+          500: "#d96a1c",
+          600: "#c2570c",
+          700: "#994307",
+          800: "#6b2f05",
+          900: "#401d04",
+          950: "#261002",
         },
+
+        // ── Purple / violet scale ───────────────────────────────────────
         purple: {
-          50:  "#f3efff",
-          100: "#e7ddff",
-          200: "#d0beff",
-          300: "#b69aff",
-          400: "#a78bfa",
-          500: "#8a6dee",
-          600: "#7554d1",
-          700: "#5e40a8",
-          800: "#452f7c",
-          900: "#2e2054",
-          950: "#1a1233",
+          50:  "#f4ecff",
+          100: "#e4d3ff",
+          200: "#cab0ff",
+          300: "#b691f1",
+          400: "#8b47ee",
+          500: "#7a34e6",
+          600: "#6d28d9",
+          700: "#561fae",
+          800: "#3f1881",
+          900: "#281054",
+          950: "#170831",
+        },
+        violet: {
+          400: "#9945ff",
+          500: "#7f2dff",
+          600: "#651fe0",
         },
 
-        // ── Neutral ramp (dark-mode canonical) ──
+        // ── Neutral (warm ink ramp) ─────────────────────────────────────
         neutral: {
-          0:   "#0a0a0f",
-          50:  "#101018",
-          100: "#141420",
-          200: "#1a1a28",
-          300: "#1e1e2e",
-          400: "#2a2a3d",
-          500: "#51516b",
-          600: "#8888a3",
-          700: "#b0b0c4",
-          800: "#e6e6f0",
-          900: "#ffffff",
+          0:   "#0a0908",
+          50:  "#0f0e0c",
+          100: "#121110",
+          200: "#161413",
+          300: "#1d1a17",
+          400: "#2a2622",
+          500: "#5c544c",
+          600: "#8b8278",
+          700: "#b0a89e",
+          800: "#e6e0d4",
+          900: "#f6f3ee",
         },
 
-        // ── Semantic ──
-        success: { 400: "#34d399", 500: "#10b981" },
+        // ── Semantic ────────────────────────────────────────────────────
+        success: { 400: "#7de0a4", 500: "#38d17a" },
         danger:  { 400: "#f87171", 500: "#ef4444" },
-        warning: { 400: "#fbbf24" },
+        warning: { 400: "#ffc27d" },
         info:    { 400: "#60a5fa" },
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        sans:  ["var(--font-sans)",  "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Instrument Serif", "Georgia", "serif"],
+        mono:  ["var(--font-mono)",  "ui-monospace", "monospace"],
       },
       fontSize: {
-        // display & stat use clamp() via arbitrary class; standard steps below
         stat:    ["clamp(1.5rem, 4.5vw, 2rem)",  { lineHeight: "1", fontWeight: "700" }],
-        display: ["clamp(2rem, 6vw, 3.25rem)",   { lineHeight: "1.05", fontWeight: "600" }],
-        h1:      ["clamp(1.75rem, 5vw, 2.25rem)", { lineHeight: "1.15", fontWeight: "600" }],
+        display: ["clamp(2rem, 6vw, 3.25rem)",   { lineHeight: "1.05", fontWeight: "400", letterSpacing: "-0.02em" }],
+        h1:      ["clamp(1.75rem, 5vw, 2.25rem)", { lineHeight: "1.15", fontWeight: "400", letterSpacing: "-0.015em" }],
       },
       boxShadow: {
-        soft:  "0 1px 2px rgba(0,0,0,.35)",
-        pop:   "0 8px 24px -8px rgba(0,0,0,.55)",
-        sheet: "0 -16px 48px -8px rgba(0,0,0,.6)",
+        soft:  "0 1px 2px rgba(0,0,0,.45)",
+        pop:   "0 8px 24px -8px rgba(0,0,0,.65)",
+        sheet: "0 -16px 48px -8px rgba(0,0,0,.7)",
+        amber: "0 10px 28px -10px rgba(194,87,12,0.55)",
+        purple:"0 10px 28px -10px rgba(109,40,217,0.55)",
       },
       transitionTimingFunction: {
         "out-quick": "cubic-bezier(.2,.8,.2,1)",

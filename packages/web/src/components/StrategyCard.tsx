@@ -1,6 +1,7 @@
 "use client";
 
 import type { StrategyDisplay } from "@bundie/common";
+import { ProtocolCoverage } from "@/components/ProtocolCoverage";
 import { Sparkline, synthSeries } from "@/components/ui/Sparkline";
 
 /**
@@ -49,7 +50,7 @@ export function StrategyCard({
     <article
       className={[
         "group relative flex flex-col rounded-xl border bg-surface p-5",
-        "border-neutral-300 hover:border-earn-gold/40",
+        "border-neutral-300 hover:border-amber-600/50",
         "transition-all duration-180 ease-out-quick",
         "hover:-translate-y-[1px] hover:shadow-pop",
         dimmed ? "opacity-40" : "",
@@ -58,7 +59,7 @@ export function StrategyCard({
       {/* Header: name + status */}
       <header className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-h3 font-semibold text-neutral-800 truncate">
+          <h3 className="font-serif text-[22px] leading-tight text-neutral-900 truncate">
             {s.name}
           </h3>
           <p className="text-xs text-neutral-600 font-mono mt-0.5 truncate">
@@ -66,7 +67,7 @@ export function StrategyCard({
           </p>
         </div>
         <span
-          className={`text-[11px] px-2 py-0.5 rounded-full font-medium capitalize shrink-0 ${statusStyles}`}
+          className={`font-mono text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-[0.1em] shrink-0 ${statusStyles}`}
         >
           {s.status}
         </span>
@@ -75,10 +76,10 @@ export function StrategyCard({
       {/* Sparkline row: APY prominent, sparkline trails it */}
       <div className="flex items-end justify-between gap-3 mb-4">
         <div className="flex flex-col">
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-600">
+          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-600">
             APY
           </span>
-          <span className="font-mono nums text-stat text-earn-gold leading-none">
+          <span className="font-mono nums text-stat text-amber-400 leading-none">
             {fmtApy(s.apy)}
           </span>
         </div>
@@ -93,29 +94,32 @@ export function StrategyCard({
       {/* Sub-stats grid */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="rounded-lg bg-neutral-0/40 border border-neutral-300 p-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-600">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-600">
             TVL
           </p>
-          <p className="font-mono nums text-base font-bold text-neutral-800 mt-0.5">
+          <p className="font-mono nums text-base font-semibold text-neutral-900 mt-0.5">
             {fmtTvl(s.tvl)}
           </p>
         </div>
         <div className="rounded-lg bg-neutral-0/40 border border-neutral-300 p-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-600">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-600">
             Investors
           </p>
-          <p className="font-mono nums text-base font-bold text-neutral-800 mt-0.5">
+          <p className="font-mono nums text-base font-semibold text-neutral-900 mt-0.5">
             {s.investorCount}
           </p>
         </div>
       </div>
+
+      {/* Protocol coverage — which Beethoven protocols this strategy uses. */}
+      <ProtocolCoverage strategy={s.address} className="mb-3" />
 
       {/* Footer: creator */}
       <footer className="mt-auto pt-3 border-t border-neutral-300 flex items-center justify-between">
         <span className="text-xs text-neutral-600 font-mono truncate">
           {s.creatorName ? `by ${s.creatorName}` : "by anonymous"}
         </span>
-        <span className="text-xs text-neutral-600 group-hover:text-earn-gold transition-colors duration-180">
+        <span className="text-xs text-neutral-600 group-hover:text-amber-400 transition-colors duration-180">
           View →
         </span>
       </footer>
@@ -127,7 +131,7 @@ export function StrategyCard({
       <button
         type="button"
         onClick={onClick}
-        className="text-left w-full focus-gold rounded-xl"
+        className="text-left w-full focus-amber rounded-xl"
         aria-label={`Open ${s.name}`}
       >
         {content}
@@ -139,7 +143,7 @@ export function StrategyCard({
     return (
       <a
         href={href}
-        className="block focus-gold rounded-xl"
+        className="block focus-amber rounded-xl"
         aria-label={`Open ${s.name}`}
       >
         {content}

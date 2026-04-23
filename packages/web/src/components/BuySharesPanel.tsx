@@ -127,27 +127,27 @@ export function BuySharesPanel({
 
   if (!connected) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-6 flex flex-col items-center gap-4">
-        <p className="text-sm text-gray-400 text-center">
+      <div className="rounded-xl border border-neutral-300 bg-surface p-6 flex flex-col items-center gap-4">
+        <p className="text-sm text-neutral-700 text-center">
           Connect your wallet to buy shares in this strategy.
         </p>
-        <WalletMultiButton className="!bg-earn-gold !text-black !font-semibold !rounded-lg !py-2 !px-4 !text-sm hover:!opacity-90" />
+        <WalletMultiButton className="!bg-amber-600 !text-neutral-900 !font-semibold !rounded-lg !py-2 !px-4 !text-sm hover:!bg-amber-500" />
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-6 space-y-4">
-      <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-        Buy Shares
+    <div className="rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
+      <h2 className="font-mono text-[11px] font-medium text-neutral-600 uppercase tracking-[0.18em]">
+        Buy shares
       </h2>
 
       <div className="space-y-1">
-        <label htmlFor="usdc-amount" className="text-xs text-gray-500">
+        <label htmlFor="usdc-amount" className="text-xs text-neutral-600">
           USDC Amount
         </label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-700 text-sm pointer-events-none">
             $
           </span>
           <input
@@ -163,7 +163,7 @@ export function BuySharesPanel({
               setTxSig(null)
             }}
             disabled={loading}
-            className="w-full rounded-lg border border-border bg-background pl-7 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-earn-gold/60 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg border border-neutral-300 bg-background pl-7 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-500 focus:outline-none focus:border-earn-gold/60 transition-colors disabled:opacity-50"
           />
         </div>
       </div>
@@ -171,11 +171,11 @@ export function BuySharesPanel({
       <button
         onClick={handleBuy}
         disabled={loading || !amount || parseFloat(amount) <= 0}
-        className="w-full rounded-lg bg-earn-gold text-black font-semibold py-2.5 text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full rounded-lg bg-amber-600 text-neutral-900 font-semibold py-2.5 text-sm hover:bg-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
-            <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+            <span className="w-4 h-4 border-2 border-neutral-900/30 border-t-neutral-900 rounded-full animate-spin" />
             Confirming…
           </>
         ) : (
@@ -184,26 +184,26 @@ export function BuySharesPanel({
       </button>
 
       {error && (
-        <p className="text-xs text-red-400 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+        <p className="text-xs text-danger-400 rounded-lg border border-danger-400/30 bg-danger-400/10 px-3 py-2">
           {error}
         </p>
       )}
 
       {txSig && (
-        <div className="text-xs rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 space-y-1">
-          <p className="text-green-400 font-medium">Transaction confirmed!</p>
+        <div className="text-xs rounded-lg border border-success-400/30 bg-success-400/10 px-3 py-2 space-y-1">
+          <p className="text-success-400 font-medium">Transaction confirmed!</p>
           <a
             href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-earn-gold hover:underline block truncate font-mono"
+            className="text-amber-400 hover:underline block truncate font-mono"
           >
             {txSig.slice(0, 20)}…{txSig.slice(-8)}
           </a>
         </div>
       )}
 
-      <p className="text-xs text-gray-600 text-center">
+      <p className="text-xs text-neutral-500 text-center">
         Connected: {publicKey?.toBase58().slice(0, 8)}…{publicKey?.toBase58().slice(-4)}
       </p>
     </div>

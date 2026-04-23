@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Figtree, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { TopNav } from "@/components/TopNav";
 import "./globals.css";
 
-const inter = Inter({
+const figtree = Figtree({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -36,7 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0a0a0f",
+  themeColor: "#0a0908",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -49,9 +58,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
-      <body className="bg-background text-neutral-800 antialiased min-h-screen font-sans">
-        <Providers>{children}</Providers>
+    <html
+      lang="en"
+      className={`${figtree.variable} ${instrumentSerif.variable} ${jetbrains.variable} dark`}
+    >
+      <body className="bg-background text-neutral-900 antialiased min-h-screen font-sans">
+        <Providers>
+          <TopNav />
+          {children}
+        </Providers>
       </body>
     </html>
   );
