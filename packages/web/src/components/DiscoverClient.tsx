@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { StrategyDisplay } from "@bundie/common";
 import { ProtocolCoverage } from "@/components/ProtocolCoverage";
+import { SnsName } from "@/components/SnsName";
 import { StrategyCard } from "@/components/StrategyCard";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/button";
@@ -295,7 +296,24 @@ function StrategyDetail({ strategy: s }: { strategy: StrategyDisplay }) {
 
       {/* Meta */}
       <div className="rounded-xl border border-neutral-300 bg-neutral-50 p-4 flex flex-col gap-2 text-xs">
-        <Row label="Created by" value={s.creatorName ?? "anonymous"} mono />
+        {/* SNS-aware creator row. We render a SnsName when we have an
+            authority pubkey on the strategy (almost always); fall back to
+            the metadata creatorName when missing for any reason. */}
+        {s.authority ? (
+          <RowNode
+            label="Created by"
+            node={
+              <SnsName
+                addr={s.authority}
+                head={6}
+                tail={4}
+                className="font-mono nums text-neutral-800"
+              />
+            }
+          />
+        ) : (
+          <Row label="Created by" value={s.creatorName ?? "anonymous"} mono />
+        )}
         <Row label="Protocol" value={truncate(s.protocol)} mono />
         <Row label="Token mint" value={truncate(s.mint)} mono />
         <Row label="Fee" value={`${(s.feeBps / 100).toFixed(2)}%`} />
@@ -343,6 +361,15 @@ function Row({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+function RowNode({ label, node }: { label: string; node: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-neutral-600">{label}</span>
+      <span className="text-right truncate">{node}</span>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { SnsName } from "@/components/SnsName";
+import { lookupSnsForAddress } from "@/lib/sns";
 
 const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
@@ -23,6 +25,28 @@ export default function PortfolioPage() {
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [tokenAccounts, setTokenAccounts] = useState<TokenAccount[]>([]);
   const [loading, setLoading] = useState(false);
+  // SNS reverse lookup for the connected wallet — surfaces the user's
+  // `<name>.sol` as the page title when one is set. Falls back to the
+  // generic "Your positions" header when null.
+  const [ownerSns, setOwnerSns] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!publicKey) {
+      setOwnerSns(null);
+      return;
+    }
+    let cancelled = false;
+    lookupSnsForAddress(publicKey.toBase58())
+      .then((n) => {
+        if (!cancelled) setOwnerSns(n);
+      })
+      .catch(() => {
+        if (!cancelled) setOwnerSns(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey]);
 
   useEffect(() => {
     if (!publicKey || !connected) {
@@ -109,9 +133,21 @@ export default function PortfolioPage() {
         Portfolio
       </span>
       <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
-        Your <em className="text-amber-400">positions</em>.
+        {ownerSns ? (
+          <>
+            <em className="text-amber-400">{ownerSns}</em>&apos;s positions.
+          </>
+        ) : (
+          <>
+            Your <em className="text-amber-400">positions</em>.
+          </>
+        )}
       </h1>
-      <p className="text-neutral-700 mb-8">Strategy shares and prediction tokens.</p>
+      <p className="text-neutral-700 mb-8">
+        {ownerSns
+          ? "Strategy shares and prediction tokens for this identity."
+          : "Strategy shares and prediction tokens."}
+      </p>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -127,7 +163,9 @@ export default function PortfolioPage() {
             </p>
           )}
           <p className="text-xs text-neutral-500 mt-1 font-mono truncate">
-            {publicKey?.toBase58()}
+            {publicKey ? (
+              <SnsName addr={publicKey.toBase58()} head={6} tail={6} />
+            ) : null}
           </p>
         </div>
 

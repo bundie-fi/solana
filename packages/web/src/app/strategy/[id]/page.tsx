@@ -13,6 +13,7 @@ import {
 import { PROTOCOLS, type Protocol } from '@/lib/protocols'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { BuySharesPanel } from '@/components/BuySharesPanel'
+import { SnsName } from '@/components/SnsName'
 import type { MarketDisplay, StrategyDisplay } from '@bundie/common'
 
 export const revalidate = 30
@@ -217,14 +218,16 @@ export default async function StrategyDetailPage({
 
       <p className="text-xs text-neutral-600 mb-8 font-mono">
         Creator:{' '}
-        <a
-          href={`https://orbmarkets.io/address/${strategy.authority}?cluster=devnet`}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* SNS-aware creator label — renders `<creator>.sol` when the
+            authority pubkey reverse-resolves (chaos-pool, devnet primary,
+            mainnet primary), otherwise falls back to the truncated pubkey. */}
+        <SnsName
+          addr={strategy.authority}
+          head={8}
+          tail={6}
           className="text-amber-400 hover:underline"
-        >
-          {strategy.authority.slice(0, 8)}…{strategy.authority.slice(-6)}
-        </a>
+          linkToExplorer
+        />
       </p>
 
       {/* Stats grid */}
@@ -397,14 +400,15 @@ export default async function StrategyDetailPage({
                     key={b.owner}
                     className="flex items-center justify-between gap-4 py-2 text-sm"
                   >
-                    <a
-                      href={`https://orbmarkets.io/address/${b.owner}?cluster=devnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    {/* Backer pubkey routed through SnsName so chaos-pool
+                        agents and any real `.sol` holders surface as names. */}
+                    <SnsName
+                      addr={b.owner}
+                      head={8}
+                      tail={6}
                       className="font-mono text-xs text-amber-400 hover:underline truncate"
-                    >
-                      {b.owner.slice(0, 8)}…{b.owner.slice(-6)}
-                    </a>
+                      linkToExplorer
+                    />
                     <span className="font-mono nums text-neutral-900">
                       {b.uiAmount.toLocaleString(undefined, {
                         maximumFractionDigits: 4,
