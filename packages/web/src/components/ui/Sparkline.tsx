@@ -57,9 +57,16 @@ export function Sparkline({
 }
 
 /**
- * Given the scalar performance buckets we currently have, fabricate a
- * believable 12-point series ending at `all` with variance reflecting the
- * shorter-window deltas. This is a placeholder until snapshot history lands.
+ * Build a sparkline series from the scalar performance buckets we have today.
+ *
+ * If every window is 0 (the default for a freshly-deserialized strategy that
+ * has no NAV oracle snapshots yet), we return an empty array — callers must
+ * skip rendering rather than draw a meaningless flat line. When at least one
+ * window is non-zero we generate a 12-point S-curve from `all - month → all`
+ * with deterministic wobble proportional to the shorter-window deltas.
+ *
+ * Replace the synthesis path with a real snapshot history once the NAV
+ * oracle reader lands time-series data into `lib/chain.ts`.
  */
 export function synthSeries(performance: {
   day: number;
@@ -68,14 +75,16 @@ export function synthSeries(performance: {
   all: number;
 }): number[] {
   const { day, week, month, all } = performance;
+  if (day === 0 && week === 0 && month === 0 && all === 0) {
+    return [];
+  }
   const n = 12;
-  const start = all - month; // approximate baseline 30d ago
+  const start = all - month;
   const end = all;
   const noise = Math.max(Math.abs(day), Math.abs(week) / 4, 0.05);
   const out: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
-    // Slight S-curve from start → end + deterministic pseudo-noise
     const base = start + (end - start) * (t * t * (3 - 2 * t));
     const wobble = noise * Math.sin(i * 1.7) * 0.5;
     out.push(base + wobble);

@@ -44,42 +44,17 @@ const CATEGORY_TONE: Record<
 };
 
 /**
- * Deterministic mock — hashes the strategy address into a stable subset of
- * 2–4 protocol IDs from the catalog. Same address always returns the same
- * list so it doesn't reshuffle between renders / pages.
+ * Returns the protocol IDs a strategy actually uses on chain.
  *
- * TODO: replace with on-chain rebalance-history reader.
+ * Today the strategy account doesn't store its protocol list, so this returns
+ * an empty array — the component renders nothing rather than fabricating a
+ * coverage list. Replace with a derivation from the strategy's recent
+ * `rebalance` ix `remaining_accounts` (the protocol-detector account is the
+ * first one in each leg) once that resolver lands.
  */
-export function mockProtocolsForStrategy(strategy: string): string[] {
-  if (!strategy) return [];
-
-  // Simple FNV-1a-ish hash over the address bytes. Good enough for a UI mock.
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < strategy.length; i++) {
-    h ^= strategy.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-
-  // 2–4 protocols per strategy.
-  const count = 2 + (h % 3); // 2, 3, or 4
-  const picks: string[] = [];
-  const seen = new Set<string>();
-  let cursor = h;
-
-  // Walk the catalog with a stepped index until we've collected `count`
-  // unique entries. Step by an odd number to spread picks across categories.
-  const STEP = 7;
-  for (let i = 0; i < PROTOCOLS.length && picks.length < count; i++) {
-    const idx = (cursor + i * STEP) % PROTOCOLS.length;
-    const p = PROTOCOLS[idx];
-    if (!seen.has(p.id)) {
-      seen.add(p.id);
-      picks.push(p.id);
-    }
-    cursor = (cursor * 31 + 1) >>> 0;
-  }
-
-  return picks;
+export function protocolsForStrategy(_strategy: string): string[] {
+  void PROTOCOLS;
+  return [];
 }
 
 export function ProtocolCoverage({
@@ -90,7 +65,7 @@ export function ProtocolCoverage({
   className?: string;
 }) {
   const protocols = useMemo<Protocol[]>(() => {
-    return mockProtocolsForStrategy(strategy)
+    return protocolsForStrategy(strategy)
       .map((id) => findProtocol(id))
       .filter((p): p is Protocol => Boolean(p));
   }, [strategy]);

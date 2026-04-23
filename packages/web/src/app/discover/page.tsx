@@ -1,5 +1,4 @@
 import { fetchStrategies } from "@/lib/chain";
-import { mockStrategies } from "@bundie/common";
 import type { StrategyDisplay } from "@bundie/common";
 import { DiscoverClient } from "@/components/DiscoverClient";
 
@@ -10,12 +9,12 @@ export default async function DiscoverPage() {
   try {
     liveStrategies = await fetchStrategies();
   } catch {
-    // Fall through to mock data
+    // RPC failure — render an empty Discover; never substitute mock data.
   }
 
   return (
     <main className="mx-auto w-full max-w-content px-4 py-6 md:px-8 md:py-12">
-      <DiscoverClient live={liveStrategies} upcoming={mockStrategies} />
+      <DiscoverClient live={liveStrategies} upcoming={[]} />
     </main>
   );
 }
