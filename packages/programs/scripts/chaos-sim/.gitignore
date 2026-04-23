@@ -1,2 +1,6 @@
-keys/
+# Ignore everything under keys/ except the public name manifest.
+# Pattern uses /* (not /) so the negation rule below can re-include a
+# specific file — git can't unignore files inside an ignored directory.
+keys/*
+!keys/agent-names.json
 logs/
