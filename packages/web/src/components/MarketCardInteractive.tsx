@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import type { MarketDisplay } from "@bundie/common";
@@ -75,10 +76,15 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
         </span>
       </div>
 
-      <p className="text-sm text-neutral-900 font-medium mt-2 mb-1 leading-snug">
-        {m.question}
-      </p>
-      <p className="text-xs text-neutral-600 font-mono mb-3">{m.strategyName}</p>
+      <Link
+        href={`/market/${m.address}`}
+        className="block group"
+      >
+        <p className="text-sm text-neutral-900 font-medium mt-2 mb-1 leading-snug group-hover:text-purple-300 transition-colors">
+          {m.question}
+        </p>
+        <p className="text-xs text-neutral-600 font-mono mb-3">{m.strategyName}</p>
+      </Link>
 
       <div className="flex justify-between text-sm font-semibold mb-1">
         <span className="text-success-400">YES {yesPct}¢</span>
