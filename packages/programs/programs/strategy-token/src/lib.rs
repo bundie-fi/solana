@@ -19,11 +19,25 @@ pub const ID: Address = Address::new_from_array([
     206, 146, 225, 18, 196, 241, 232, 131, 217, 106, 60,
 ]);
 
+/// Anchor v0.30 legacy IDL instruction prefix — `sha256("anchor:idl")[..8]`
+/// stored as the LE bytes of the resulting u64 (`0x0a69e9a778bcf440`).
+///
+/// When an instruction's data starts with this 8-byte tag we route to the
+/// IDL upload handlers so legacy `anchor-cli` can write the program's IDL to
+/// the canonical `createWithSeed(base, "anchor:idl", program_id)` PDA.
+const IDL_IX_TAG_LE: [u8; 8] = [64, 244, 188, 120, 167, 233, 105, 10];
+
 pub fn process_instruction(
     program_id: &Address,
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
+    // Legacy Anchor IDL upload protocol — tag is *not* part of the normal
+    // single-byte dispatch space, so existing clients are unaffected.
+    if data.len() >= 8 && data[0..8] == IDL_IX_TAG_LE {
+        return instructions::idl::process(program_id, accounts, &data[8..]);
+    }
+
     let (disc, rest) = data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
