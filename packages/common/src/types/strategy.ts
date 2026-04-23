@@ -37,6 +37,17 @@ export interface Strategy {
   createdAt: number
 }
 
+/** A single point in a strategy's NAV history, derived from on-chain
+ *  update_nav transactions. */
+export interface NavHistoryPoint {
+  /** Solana slot the snapshot was written at */
+  slot: number
+  /** NAV per share, 1e9-scaled (matches the on-chain encoding) */
+  navPerShare: number
+  /** Unix seconds (block time) — may be 0 if RPC didn't return blockTime */
+  timestamp: number
+}
+
 /** Strategy with computed display fields */
 export interface StrategyDisplay extends Strategy {
   /** Annualized yield percentage */
@@ -54,6 +65,12 @@ export interface StrategyDisplay extends Strategy {
     month: number
     all: number
   }
+  /** Optional NAV history derived off-chain via getSignaturesForAddress on the
+   *  NavOracle PDA. Empty/undefined when the strategy has fewer than 2 update_nav
+   *  txs — Sparkline empty-state should render nothing in that case. */
+  navHistory?: NavHistoryPoint[]
+  /** Most recent slot the NAV oracle was updated at (mirrors NavOracle.last_snapshot_slot). */
+  lastSnapshotSlot?: number
 }
 
 /** Strategy creation parameters */

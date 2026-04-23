@@ -1,15 +1,123 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { fetchStrategy } from '@/lib/chain'
+import { Connection, PublicKey } from '@solana/web3.js'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { fetchStrategy, fetchStrategies, fetchMarkets } from '@/lib/chain'
+import { PROTOCOLS, type Protocol } from '@/lib/protocols'
+import { Sparkline } from '@/components/ui/Sparkline'
 import { BuySharesPanel } from '@/components/BuySharesPanel'
+import type { MarketDisplay, StrategyDisplay } from '@bundie/common'
 
 export const revalidate = 30
+
+const RPC = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://api.devnet.solana.com'
+// Solana mainnet/devnet slot time is ≈ 400ms. Used for resolution-countdown
+// formatting; good enough for "≈ N days" rounding.
+const SLOT_MS = 400
+// SPL Token v1 account layout: mint @ offset 0 (32B), owner @ 32 (32B),
+// amount @ 64 (8B LE u64). Total 165 bytes.
+const TOKEN_ACCOUNT_LEN = 165
+
+// TODO: Add a "Recent activity" section here once we can afford a
+// `getSignaturesForAddress(strategy)` round-trip per page-view. RPC-expensive
+// today; deferred until we either cache the signatures backend-side or move
+// activity rendering to a client-side lazy section.
+
+interface NavSnapshot {
+  slot: number
+  navPerShare: number
+  timestamp: number
+}
+
+// Defensive accessor for fields the chain.ts agent is wiring in parallel.
+function getNavHistory(strategy: StrategyDisplay): NavSnapshot[] {
+  const maybe = (strategy as unknown as { navHistory?: NavSnapshot[] }).navHistory
+  return Array.isArray(maybe) ? maybe : []
+}
+
+function getLastSnapshotSlot(strategy: StrategyDisplay): number | undefined {
+  return (strategy as unknown as { lastSnapshotSlot?: number }).lastSnapshotSlot
+}
+
+function formatRelative(secondsAgo: number): string {
+  if (secondsAgo < 60) return `${secondsAgo}s ago`
+  const m = Math.floor(secondsAgo / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 48) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
+
+function formatSlotsRemaining(slotsRemaining: number): string {
+  if (slotsRemaining <= 0) return 'resolves now'
+  const ms = slotsRemaining * SLOT_MS
+  const days = ms / 86_400_000
+  if (days >= 1) return `≈ ${Math.round(days)}d`
+  const hours = ms / 3_600_000
+  if (hours >= 1) return `≈ ${Math.round(hours)}h`
+  const minutes = ms / 60_000
+  return `≈ ${Math.max(1, Math.round(minutes))}m`
+}
+
+interface TopBacker {
+  owner: string
+  uiAmount: number
+}
+
+async function fetchTopBackers(mint: string): Promise<TopBacker[]> {
+  try {
+    const conn = new Connection(RPC, 'confirmed')
+    // SPL Token v1 token accounts are 165 bytes; mint is at offset 0.
+    const accounts = await conn.getProgramAccounts(TOKEN_PROGRAM_ID, {
+      filters: [
+        { dataSize: TOKEN_ACCOUNT_LEN },
+        { memcmp: { offset: 0, bytes: mint } },
+      ],
+    })
+
+    return accounts
+      .map(({ account }) => {
+        const data = Buffer.from(account.data)
+        const owner = new PublicKey(data.slice(32, 64)).toBase58()
+        // Strategy share mints are 6 decimals (matches USDC base unit).
+        const amount = data.readBigUInt64LE(64)
+        const uiAmount = Number(amount) / 1e6
+        return { owner, uiAmount }
+      })
+      .filter((b) => b.uiAmount > 0)
+      .sort((a, b) => b.uiAmount - a.uiAmount)
+      .slice(0, 5)
+  } catch {
+    return []
+  }
+}
+
+async function fetchOpenMarketsForStrategy(
+  strategyAddress: string,
+): Promise<{ markets: MarketDisplay[]; currentSlot: number }> {
+  try {
+    const conn = new Connection(RPC, 'confirmed')
+    const [strategies, currentSlot] = await Promise.all([
+      fetchStrategies(),
+      conn.getSlot('confirmed'),
+    ])
+    const allMarkets = await fetchMarkets(strategies)
+    const markets = allMarkets.filter(
+      (m) => m.strategy === strategyAddress && m.status === 'active',
+    )
+    return { markets, currentSlot }
+  } catch {
+    return { markets: [], currentSlot: 0 }
+  }
+}
 
 export default async function StrategyDetailPage({
   params,
 }: {
   params: { id: string }
 }) {
-  let strategy = null
+  let strategy: StrategyDisplay | null = null
   try {
     strategy = await fetchStrategy(params.id)
   } catch {
@@ -34,6 +142,36 @@ export default async function StrategyDetailPage({
       : strategy.status === 'paused'
       ? 'bg-yellow-500/10 text-yellow-400'
       : 'bg-gray-500/10 text-gray-400'
+
+  // ── Section data ─────────────────────────────────────────────────────────
+  const navHistory = getNavHistory(strategy)
+  const lastSnapshotSlot = getLastSnapshotSlot(strategy)
+  const sparkData = navHistory.map((p) => p.navPerShare)
+  const lastSnapshotTs =
+    navHistory.length > 0
+      ? navHistory[navHistory.length - 1].timestamp
+      : undefined
+  const nowSec = Math.floor(Date.now() / 1000)
+  const lastUpdatedRel =
+    lastSnapshotTs && lastSnapshotTs > 0
+      ? formatRelative(Math.max(0, nowSec - lastSnapshotTs))
+      : lastSnapshotSlot
+      ? `slot ${lastSnapshotSlot}`
+      : 'unknown'
+
+  // TODO: replace with rebalance-history scan once Beethoven dispatch logs land.
+  // findProtocol() looks up by canonical id, but the strategy account stores
+  // a program ID — walk the catalog instead.
+  const matchedProtocol: Protocol | undefined = PROTOCOLS.find(
+    (p) => p.programId === strategy!.protocol,
+  )
+
+  const [{ markets: openMarkets, currentSlot }, topBackers] = await Promise.all(
+    [
+      fetchOpenMarketsForStrategy(params.id),
+      fetchTopBackers(strategy.mint),
+    ],
+  )
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -79,40 +217,191 @@ export default async function StrategyDetailPage({
 
       {/* Main content: details + buy panel side by side on wide screens */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left: extra details */}
-        <div className="flex-1 rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600">
-            On-chain details
-          </h2>
-
-          <DetailRow label="Share Mint" value={strategy.mint} isAddress />
-          <DetailRow label="Protocol Wallet" value={strategy.wallet} isAddress />
-          <DetailRow
-            label="Total Deposits"
-            value={`${(Number(strategy.totalDeposits) / 1e6).toFixed(2)} USDC`}
-          />
-          <DetailRow
-            label="Current NAV"
-            value={`${(Number(strategy.currentNav) / 1e6).toFixed(2)} USDC`}
-          />
-          <DetailRow
-            label="Total Shares"
-            value={Number(strategy.totalShares).toLocaleString()}
-          />
-          <DetailRow
-            label="High-Water Mark"
-            value={`${(Number(strategy.highWaterMark) / 1e6).toFixed(2)} USDC`}
-          />
-          <DetailRow
-            label="Min Deposit"
-            value={`${(Number(strategy.minDeposit) / 1e6).toFixed(2)} USDC`}
-          />
-          {strategy.createdAt > 0 && (
-            <DetailRow
-              label="Created"
-              value={new Date(strategy.createdAt * 1000).toLocaleDateString()}
-            />
+        {/* Left column: enrichment sections + on-chain details */}
+        <div className="flex-1 space-y-6">
+          {/* NAV sparkline */}
+          {sparkData.length > 0 && (
+            <div className="rounded-xl border border-neutral-300 bg-surface p-6">
+              <div className="flex items-end justify-between gap-4 mb-3">
+                <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600">
+                  NAV per share
+                </h2>
+                <p className="font-mono text-[10px] text-neutral-600">
+                  last updated {lastUpdatedRel}
+                </p>
+              </div>
+              <div className="text-amber-400">
+                <Sparkline
+                  data={sparkData}
+                  width={480}
+                  height={64}
+                  strokeWidth={1.75}
+                  className="w-full h-16"
+                />
+              </div>
+            </div>
           )}
+
+          {/* Position composition */}
+          <section className="rounded-xl border border-neutral-300 bg-surface p-6">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600 mb-4">
+              Position composition
+            </h2>
+            {/* TODO: replace with rebalance-history scan once Beethoven dispatch logs land */}
+            {matchedProtocol ? (
+              <div className="flex items-center justify-between gap-4">
+                <ProtocolChip protocol={matchedProtocol} />
+                <span className="font-mono nums text-sm text-neutral-900">
+                  100%
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-neutral-300 bg-neutral-0/40 font-mono text-[11px] font-medium text-neutral-700">
+                  External / unmapped
+                  <span className="opacity-30" aria-hidden="true">·</span>
+                  <span className="text-neutral-600">
+                    {strategy.protocol.slice(0, 8)}…{strategy.protocol.slice(-6)}
+                  </span>
+                </span>
+                <span className="font-mono nums text-sm text-neutral-900">
+                  100%
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* Open prediction markets */}
+          <section className="rounded-xl border border-neutral-300 bg-surface p-6">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-purple-300 mb-4">
+              Open markets
+            </h2>
+            {openMarkets.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+                <p className="text-sm text-neutral-700">
+                  No open markets on this strategy.
+                </p>
+                <p className="text-xs text-neutral-600 mt-1 font-mono">
+                  Anyone can open one via{' '}
+                  <span className="text-purple-300">bundie-sol create-market</span>.
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {openMarkets.map((m) => {
+                  const yesPct = Math.round(m.yesPrice * 100)
+                  const noPct = Math.round(m.noPrice * 100)
+                  const vol = (Number(m.totalVolume) / 1e6).toFixed(2)
+                  const slotsRemaining = Math.max(
+                    0,
+                    m.resolutionSlot - currentSlot,
+                  )
+                  const truncatedQ =
+                    m.question.length > 80
+                      ? m.question.slice(0, 80) + '…'
+                      : m.question
+                  return (
+                    <li key={m.address}>
+                      <Link
+                        href={`/market/${m.address}`}
+                        className="block rounded-xl border border-neutral-300 bg-background p-4 hover:border-purple-500/40 transition-colors"
+                      >
+                        <p className="text-sm text-neutral-900 leading-snug">
+                          {truncatedQ}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mt-3 font-mono text-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="text-success-400 font-semibold">
+                              YES {yesPct}¢
+                            </span>
+                            <span className="text-danger-400 font-semibold">
+                              NO {noPct}¢
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-neutral-600">
+                            <span>Vol ${vol}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{formatSlotsRemaining(slotsRemaining)}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
+          {/* Top backers */}
+          <section className="rounded-xl border border-neutral-300 bg-surface p-6">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400 mb-4">
+              Top backers
+            </h2>
+            {topBackers.length === 0 ? (
+              <p className="text-sm text-neutral-700">
+                No share holders yet. Be the first to back this strategy.
+              </p>
+            ) : (
+              <ul className="divide-y divide-neutral-300">
+                {topBackers.map((b) => (
+                  <li
+                    key={b.owner}
+                    className="flex items-center justify-between gap-4 py-2 text-sm"
+                  >
+                    <a
+                      href={`https://orbmarkets.io/address/${b.owner}?cluster=devnet`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs text-amber-400 hover:underline truncate"
+                    >
+                      {b.owner.slice(0, 8)}…{b.owner.slice(-6)}
+                    </a>
+                    <span className="font-mono nums text-neutral-900">
+                      {b.uiAmount.toLocaleString(undefined, {
+                        maximumFractionDigits: 4,
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* On-chain details */}
+          <div className="rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600">
+              On-chain details
+            </h2>
+
+            <DetailRow label="Share Mint" value={strategy.mint} isAddress />
+            <DetailRow label="Protocol Wallet" value={strategy.wallet} isAddress />
+            <DetailRow
+              label="Total Deposits"
+              value={`${(Number(strategy.totalDeposits) / 1e6).toFixed(2)} USDC`}
+            />
+            <DetailRow
+              label="Current NAV"
+              value={`${(Number(strategy.currentNav) / 1e6).toFixed(2)} USDC`}
+            />
+            <DetailRow
+              label="Total Shares"
+              value={Number(strategy.totalShares).toLocaleString()}
+            />
+            <DetailRow
+              label="High-Water Mark"
+              value={`${(Number(strategy.highWaterMark) / 1e6).toFixed(2)} USDC`}
+            />
+            <DetailRow
+              label="Min Deposit"
+              value={`${(Number(strategy.minDeposit) / 1e6).toFixed(2)} USDC`}
+            />
+            {strategy.createdAt > 0 && (
+              <DetailRow
+                label="Created"
+                value={new Date(strategy.createdAt * 1000).toLocaleDateString()}
+              />
+            )}
+          </div>
         </div>
 
         {/* Right: buy panel */}
@@ -175,5 +464,41 @@ function DetailRow({
         </span>
       )}
     </div>
+  )
+}
+
+// Lifted from ProtocolCoverage.tsx — shared chip styling, kept inline to avoid
+// pulling in a "use client" component for what is otherwise pure markup.
+function ProtocolChip({ protocol }: { protocol: Protocol }) {
+  const tone =
+    protocol.category === 'deposit'
+      ? {
+          label: 'Deposit',
+          chip: 'bg-amber-600/10 text-amber-400 border-amber-600/40',
+        }
+      : protocol.category === 'perps'
+      ? {
+          label: 'Perps',
+          chip: 'bg-purple-500/10 text-purple-300 border-purple-500/40',
+        }
+      : {
+          label: 'Swap',
+          chip: 'bg-neutral-0/40 text-neutral-800 border-neutral-300',
+        }
+  return (
+    <span
+      className={[
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border',
+        'font-mono text-[11px] font-medium tracking-[0.04em]',
+        tone.chip,
+      ].join(' ')}
+      title={`${protocol.name} — ${tone.label}`}
+    >
+      <span className="uppercase tracking-[0.12em] opacity-70">
+        {tone.label}
+      </span>
+      <span className="opacity-30" aria-hidden="true">·</span>
+      <span>{protocol.name}</span>
+    </span>
   )
 }
