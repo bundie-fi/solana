@@ -36,4 +36,8 @@ pub enum MarketError {
     InvalidPayload,
     #[msg("This market kind is not yet implemented (Drawdown awaits NavOracle history extension)")]
     ResolveDeferredKind,
+    #[msg("Agent cannot create a kind=6 market on its own strategy (insider-trading forbidden)")]
+    InsiderMarketForbidden,
+    #[msg("resolve_market_v2 data_a does not match the target_agent encoded in market payload")]
+    WrongTargetAgent,
 }

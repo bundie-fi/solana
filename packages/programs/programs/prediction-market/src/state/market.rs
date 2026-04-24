@@ -87,10 +87,15 @@ pub const MARKET_KIND_RATE_BARRIER: u8 = 5;
 
 /// AgentVsBenchmark (6) — "will agent X's vault NAV growth exceed a
 /// benchmark rate by at least `spread_bps` over a slot window?" The
-/// agent's vault pubkey is stored in `market.created_by` (the signer of
-/// create_market_v2); no additional account field is needed. The
-/// benchmark rate is read via the same selector table as RateBarrier.
-/// Market resolves Absolute.
+/// agent's vault pubkey is encoded in `payload[32..64]` as `target_agent`
+/// so ANY agent can create a market on ANY target (subject to the
+/// per-strategy conflict guard below). The `market.created_by` field
+/// still records the signer of create_market_v2 (the market creator),
+/// which MUST NOT equal `target_agent` — that guard is the on-chain
+/// insider-trading prevention.
+///
+/// The benchmark rate is read via the same selector table as
+/// RateBarrier. Market resolves Absolute.
 ///
 ///   payload[0..8]   = spread_bps                (u64 LE) — required annualised excess in bps
 ///   payload[8..16]  = window_start_slot         (u64 LE)
@@ -102,8 +107,12 @@ pub const MARKET_KIND_RATE_BARRIER: u8 = 5;
 ///                       4 = Orca SOL-USDC Whirlpool fee APY
 ///                       5 = Jupiter Perps SOL-PERP funding rate
 ///                       6 = Jupiter JLP NAV growth
-///   payload[32..40] = initial_agent_nav         (u64 LE) — agent vault NAV at create time
-///   payload[40..64] = reserved (zero)
+///   payload[32..64] = target_agent              (Pubkey, 32 bytes) — the vault
+///                       whose NAV is being measured. MUST != creator at
+///                       create-time, and MUST == `data_a.key()` at resolve-time.
+///                       Replaces the old `initial_agent_nav` u64 at 32..40
+///                       (unused by the resolver, which computes growth from
+///                       the current vault balance alone).
 ///
 /// `strategy_b` is unused (set to `None`).
 pub const MARKET_KIND_AGENT_VS_BENCHMARK: u8 = 6;

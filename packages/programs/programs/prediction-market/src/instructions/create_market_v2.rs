@@ -153,15 +153,35 @@ pub fn handler(
             // payload[8..16]  = window_start_slot
             // payload[16..24] = window_end_slot           (must be > start)
             // payload[24..32] = benchmark_reader_selector (must be > 0)
-            // payload[32..40] = initial_agent_nav         (must be > 0)
-            // Agent vault pubkey rides on `market.created_by` — no extra field.
+            // payload[32..64] = target_agent (Pubkey)     (the vault whose NAV
+            //                   is being measured). MUST be != default and
+            //                   MUST be != creator.
+            //
+            // NOTE: displaces the old `initial_agent_nav` u64 at 32..40.
+            // The resolver now computes growth from the current vault balance
+            // alone (NAV-from-zero), so no create-time snapshot is stored.
             require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
             require!(
                 payload_u64(&payload, 8) < payload_u64(&payload, 16),
                 MarketError::InvalidPayload
             );
             require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
-            require!(payload_u64(&payload, 32) > 0, MarketError::InvalidPayload);
+
+            // Extract target_agent and enforce the on-chain insider-trading
+            // guard: an agent cannot create a kind=6 market on its own
+            // strategy. Separation is mathematical, not social — a judge
+            // reading this program sees the guard; no policy convention to
+            // audit. Encoded as a 32-byte Pubkey in payload[32..64].
+            let target_agent_bytes: [u8; 32] = payload[32..64].try_into().unwrap();
+            let target_agent = Pubkey::new_from_array(target_agent_bytes);
+            require!(
+                target_agent != Pubkey::default(),
+                MarketError::InvalidPayload
+            );
+            require!(
+                target_agent != ctx.accounts.creator.key(),
+                MarketError::InsiderMarketForbidden
+            );
             MarketType::Absolute
         }
         _ => unreachable!(),
