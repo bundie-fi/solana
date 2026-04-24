@@ -16,12 +16,20 @@
  * is replaced with a logging mock so no API calls are made.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { resolve, join } from "node:path";
 import { loadPoliciesFromFile } from "./bundie/policy-loader.js";
 import { readState, setStrategyTarget, setPaused, statePath } from "./bundie/state-store.js";
 import { startLoop, runOnce, defaultDevnetConnection } from "./bundie/rebalance-loop.js";
 import { loadStrategyState } from "./bundie/strategy-monitor.js";
+import {
+  createAgent,
+  findAgent,
+  hasAgent,
+  importAgentFromKey,
+  listAgents,
+  signSolanaTx,
+} from "./bundie/agent-vault.js";
 
 function printJson(obj) {
   process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
@@ -155,6 +163,137 @@ async function cmdResume() {
   printJson({ ok: true, paused: false });
 }
 
+// ---- Agent (Bundie agents on the Zerion vault) -----------------------------
+//
+// Sub-commands surface the OWS-backed primitives in `bundie/agent-vault.js`
+// for chaos-sim and any future Bundie agent. None of these commands ever
+// emit secret material to stdout/stderr — vault entries are stored under
+// ~/.ows/wallets/ encrypted at rest by OWS.
+
+async function cmdAgentCreate(flags) {
+  const name = flags.name;
+  if (!name) {
+    printErr("missing_args", "Usage: zerion-bundie agent create --name <role>");
+    process.exit(1);
+  }
+  const created = createAgent(name);
+  // Idempotent: if the agent already existed, `created` mirrors the existing
+  // record. Caller can detect newness via the `existedBefore` flag we set by
+  // probing once before the create call.
+  printJson({
+    ok: true,
+    role: created.role,
+    pubkey: created.pubkey,
+    vaultName: created.vaultName,
+  });
+}
+
+async function cmdAgentList() {
+  const agents = listAgents();
+  printJson({
+    ok: true,
+    count: agents.length,
+    agents: agents.map((a) => ({
+      role: a.role,
+      pubkey: a.pubkey,
+      vaultName: a.vaultName,
+    })),
+  });
+}
+
+async function cmdAgentSign(flags) {
+  const name = flags.name;
+  const tx = flags.tx;
+  if (!name || !tx) {
+    printErr(
+      "missing_args",
+      "Usage: zerion-bundie agent sign --name <role> --tx <base64>",
+    );
+    process.exit(1);
+  }
+  // signSolanaTx throws DENY-by-default if the agent isn't in the vault.
+  const signedB64 = signSolanaTx(name, tx);
+  // Print ONLY the signed-tx bytes; never echo the input or any vault
+  // metadata that could leak to terminal scrollback.
+  printJson({ ok: true, role: name, signedTx: signedB64 });
+}
+
+async function cmdChaosSimMigrate(flags) {
+  // Default keys dir: monorepo path. Override with --keys-dir for tests.
+  const keysDir =
+    flags["keys-dir"] ||
+    resolve(
+      new URL("../../programs/scripts/chaos-sim/keys", import.meta.url).pathname,
+    );
+  if (!existsSync(keysDir)) {
+    printErr("missing_keys_dir", `keys directory not found: ${keysDir}`);
+    process.exit(1);
+  }
+  const namesPath = join(keysDir, "agent-names.json");
+  let names = {};
+  if (existsSync(namesPath)) {
+    try {
+      const raw = JSON.parse(readFileSync(namesPath, "utf-8"));
+      names = raw.agents || {};
+    } catch (err) {
+      printErr("bad_agent_names", `cannot parse agent-names.json: ${err.message}`);
+      process.exit(1);
+    }
+  }
+  const files = readdirSync(keysDir).filter(
+    (f) => f.endsWith(".json") && f !== "agent-names.json",
+  );
+  const results = [];
+  for (const file of files) {
+    const role = file.replace(/\.json$/, "");
+    const path = join(keysDir, file);
+    let bytes;
+    try {
+      bytes = JSON.parse(readFileSync(path, "utf-8"));
+    } catch (err) {
+      results.push({ role, status: "skipped", reason: `bad-json: ${err.message}` });
+      continue;
+    }
+    if (!Array.isArray(bytes) || (bytes.length !== 64 && bytes.length !== 32)) {
+      results.push({
+        role,
+        status: "skipped",
+        reason: `unexpected key length ${Array.isArray(bytes) ? bytes.length : "non-array"}`,
+      });
+      continue;
+    }
+    const wasInVault = hasAgent(role);
+    try {
+      const rec = importAgentFromKey(role, bytes);
+      // Cross-check against agent-names.json to catch role/pubkey drift.
+      const expectedPub = names[role]?.pubkey;
+      const mismatch =
+        expectedPub && expectedPub !== rec.pubkey
+          ? { expected: expectedPub, got: rec.pubkey }
+          : null;
+      results.push({
+        role,
+        status: wasInVault ? "already-in-vault" : "imported",
+        pubkey: rec.pubkey,
+        ...(mismatch ? { warn_pubkey_mismatch: mismatch } : {}),
+      });
+    } catch (err) {
+      results.push({ role, status: "failed", reason: err.message });
+    }
+  }
+  printJson({
+    ok: true,
+    keysDir,
+    fileNote:
+      "Existing keys/<role>.json files are LEFT IN PLACE. Delete them manually after verifying migration.",
+    migrated: results.filter((r) => r.status === "imported").length,
+    alreadyInVault: results.filter((r) => r.status === "already-in-vault").length,
+    skipped: results.filter((r) => r.status === "skipped").length,
+    failed: results.filter((r) => r.status === "failed").length,
+    results,
+  });
+}
+
 // ---- Live integrations ----------------------------------------------------
 
 async function loadLiveSwapExecutor() {
@@ -233,8 +372,11 @@ function makeDryRunBalances() {
 
 // ---- Dispatch -------------------------------------------------------------
 
-const [, , cmd, ...rest] = process.argv;
-const flags = parseFlags(rest);
+const [, , cmd, sub, ...rest] = process.argv;
+// Some commands take a subcommand (e.g. `agent create`); others don't.
+// We parse flags from whichever tail is correct per command.
+const flagArgs = ["agent"].includes(cmd) ? rest : [sub, ...rest].filter((x) => x !== undefined);
+const flags = parseFlags(flagArgs);
 
 (async () => {
   try {
@@ -244,6 +386,21 @@ const flags = parseFlags(rest);
       case "status": await cmdStatus(); break;
       case "pause": await cmdPause(); break;
       case "resume": await cmdResume(); break;
+      case "chaos-sim-migrate": await cmdChaosSimMigrate(flags); break;
+      case "agent": {
+        switch (sub) {
+          case "create": await cmdAgentCreate(flags); break;
+          case "list": await cmdAgentList(flags); break;
+          case "sign": await cmdAgentSign(flags); break;
+          default:
+            printErr(
+              "unknown_subcommand",
+              `Unknown agent subcommand: ${sub}. Try: create, list, sign`,
+            );
+            process.exit(1);
+        }
+        break;
+      }
       case undefined:
       case "--help":
       case "-h":
@@ -256,9 +413,15 @@ const flags = parseFlags(rest);
             "status": "Show configured strategies + paused state",
             "pause": "Kill-switch: stop auto-execution",
             "resume": "Re-enable auto-execution",
+            "agent create --name <role>": "Provision a Bundie agent in the Zerion vault",
+            "agent list": "List Bundie agents in the Zerion vault",
+            "agent sign --name <role> --tx <base64>": "Sign a Solana tx with a vault-managed agent key",
+            "chaos-sim-migrate [--keys-dir <path>]": "Import existing chaos-sim keys/*.json into the Zerion vault (idempotent, leaves files on disk)",
           },
           stateFile: statePath(),
           executePath: "cli/lib/trading/swap.js:120 (executeSwap)",
+          vaultPathEnv: "BUNDIE_AGENT_VAULT_PATH (optional override; default ~/.ows/wallets)",
+          passphraseEnv: "BUNDIE_AGENT_PASSPHRASE (unattended-signing passphrase; default empty)",
         });
         break;
       default:

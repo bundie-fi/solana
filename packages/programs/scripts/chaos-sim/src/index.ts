@@ -9,7 +9,7 @@
  *                   via Bonfida SNS (idempotent — skips already-registered
  *                   names). NEVER auto-runs — burns devnet SOL.
  */
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
 import { DEVNET_USDC_MINT, RPC_URL } from "./config.js";
@@ -20,7 +20,13 @@ import {
   isNameRegistered,
   registerNameOnDevnet,
 } from "./sns.js";
-import { loadPool, printPool, setupPool } from "./wallets.js";
+import { ChaosWallet, loadPool, printPool, setupPool } from "./wallets.js";
+
+/** Pubkey accessor — ChaosWallet may or may not carry a Keypair (vault path
+ *  has only `pubkeyB58`); we always have the b58 string regardless. */
+function chaosPub(w: ChaosWallet): PublicKey {
+  return new PublicKey(w.pubkeyB58);
+}
 
 async function doctor(): Promise<void> {
   const conn = new Connection(RPC_URL, "confirmed");
@@ -33,8 +39,8 @@ async function doctor(): Promise<void> {
   let totalSol = 0;
   let totalUsdc = 0n;
   for (const w of pool) {
-    const sol = await conn.getBalance(w.keypair.publicKey, "confirmed");
-    const ata = getAssociatedTokenAddressSync(DEVNET_USDC_MINT, w.keypair.publicKey);
+    const sol = await conn.getBalance(chaosPub(w), "confirmed");
+    const ata = getAssociatedTokenAddressSync(DEVNET_USDC_MINT, chaosPub(w));
     let usdc = 0n;
     try {
       usdc = (await getAccount(conn, ata, "confirmed")).amount;
@@ -84,7 +90,7 @@ async function registerNames(): Promise<void> {
     const bare = domain.replace(/\.sol$/i, "");
     const existingOwner = await isNameRegistered(conn, bare).catch(() => null);
     if (existingOwner) {
-      const matches = existingOwner.equals(w.keypair.publicKey);
+      const matches = existingOwner.equals(chaosPub(w));
       console.log(
         `${w.role.padEnd(12)} ${domain.padEnd(22)} already-registered  owner=${existingOwner.toBase58()}${
           matches ? " (matches)" : " (DOES NOT MATCH wallet — name was claimed by someone else)"
@@ -96,7 +102,7 @@ async function registerNames(): Promise<void> {
     // Need a USDC ATA — Bonfida devnet registrar requires it.
     const ata = getAssociatedTokenAddressSync(
       DEVNET_USDC_MINT,
-      w.keypair.publicKey,
+      chaosPub(w),
     );
     try {
       await getAccount(conn, ata, "confirmed");
@@ -139,7 +145,19 @@ async function main(): Promise<void> {
     case "setup": {
       const pool = setupPool();
       printPool(pool);
-      console.log(`\n${pool.length} keypairs persisted under packages/programs/scripts/chaos-sim/keys/`);
+      const vaultManaged = pool.filter((w) => w.signWith === "zerion-vault").length;
+      const fileFallback = pool.filter((w) => w.signWith === "file").length;
+      console.log(
+        `\n${pool.length} agents — ${vaultManaged} vault-managed (Zerion / OWS), ${fileFallback} file-fallback`,
+      );
+      console.log(
+        `Vault-managed agents live in ~/.ows/wallets/ (override via BUNDIE_AGENT_VAULT_PATH).`,
+      );
+      if (fileFallback > 0) {
+        console.log(
+          `${fileFallback} agents still use keys/<role>.json fallback. Run \`node packages/zerion-agent/src/cli.js chaos-sim-migrate\` to import them into the Zerion vault.`,
+        );
+      }
       console.log(`next: pnpm --filter @bundie/programs chaos:fund`);
       break;
     }

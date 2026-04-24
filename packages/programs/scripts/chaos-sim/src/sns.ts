@@ -259,13 +259,15 @@ export async function registerNameOnDevnet(
 
   // Lazy imports — see file-header note about Bonfida's transitive
   // spl-token version pin.
-  const { Transaction, sendAndConfirmTransaction } = await import(
+  const { Transaction, sendAndConfirmTransaction, PublicKey: PK } = await import(
     "@solana/web3.js"
   );
   const bonfida = await import("@bonfida/spl-name-service");
 
   // 1kB name account (typical small storage for a profile).
   const SPACE = 1_000;
+
+  const buyerPubkey = new PK(wallet.pubkeyB58);
 
   // Bonfida devnet binding: returns nested ix arrays, one per "step" of
   // the registration. We flatten into a single tx because all steps share
@@ -274,16 +276,41 @@ export async function registerNameOnDevnet(
     conn,
     bare,
     SPACE,
-    wallet.keypair.publicKey,
+    buyerPubkey,
     buyerUsdcAta,
     usdcMint,
   );
   const ixs = ixGroups.flat();
 
-  const tx = new Transaction().add(...ixs);
-  const sig = await sendAndConfirmTransaction(conn, tx, [wallet.keypair], {
-    commitment: "confirmed",
-  });
+  let sig: string;
+  if (wallet.signWith === "file" && wallet.keypair) {
+    // Backwards-compat path: sign locally with the on-disk keypair.
+    const tx = new Transaction().add(...ixs);
+    sig = await sendAndConfirmTransaction(conn, tx, [wallet.keypair], {
+      commitment: "confirmed",
+    });
+  } else {
+    // Vault-managed path: prepare → hand to `zerion-bundie agent sign` →
+    // broadcast the signed bytes via plain RPC. We import lazily to keep
+    // the smoke tests dependency-light.
+    const { signWithVault } = await import("./vault-signer.js");
+    const tx = new Transaction().add(...ixs);
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash(
+      "confirmed",
+    );
+    tx.feePayer = buyerPubkey;
+    tx.recentBlockhash = blockhash;
+    const unsigned = tx
+      .serialize({ requireAllSignatures: false, verifySignatures: false })
+      .toString("base64");
+    const signedB64 = signWithVault(wallet.role, unsigned);
+    const raw = Buffer.from(signedB64, "base64");
+    sig = await conn.sendRawTransaction(raw);
+    await conn.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      "confirmed",
+    );
+  }
 
   return {
     name: bare,
