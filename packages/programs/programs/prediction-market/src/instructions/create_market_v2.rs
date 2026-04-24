@@ -145,6 +145,11 @@ pub fn handler(
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
     market.authority = ctx.accounts.creator.key();
+    // Record the v2 signer as `created_by`. For agent markets this is the
+    // Zerion-managed agent vault; for `MARKET_KIND_AGENT_VS_BENCHMARK` it
+    // is the vault whose NAV is compared against the benchmark (no extra
+    // field — the agent identity rides on `created_by`).
+    market.created_by = ctx.accounts.creator.key();
     market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
     market.market_type = market_type;

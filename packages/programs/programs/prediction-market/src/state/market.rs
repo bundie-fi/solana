@@ -138,6 +138,15 @@ pub struct Market {
     /// Per-kind config payload. Layout documented on `MarketKind`. Fixed
     /// size so the Market account never grows; v1 markets carry zeroes.
     pub payload: [u8; MARKET_PAYLOAD_LEN],
+    /// Identity that signed `create_market_v2` — for Bundie agent markets
+    /// this is the Zerion-managed agent vault pubkey (the `creator` signer
+    /// in the v2 ix context). For `MARKET_KIND_AGENT_VS_BENCHMARK` this
+    /// pubkey IS the agent's vault under measurement (no extra field).
+    ///
+    /// For v1 markets created via `create_market`, this mirrors `authority`
+    /// so every Market account has a populated `created_by` — clients can
+    /// read it uniformly without branching on kind.
+    pub created_by: Pubkey,
 }
 
 // ─── Payload helpers ────────────────────────────────────────────────────────

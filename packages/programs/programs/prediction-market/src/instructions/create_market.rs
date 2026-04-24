@@ -96,6 +96,9 @@ pub fn handler(
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
     market.authority = ctx.accounts.creator.key();
+    // v1 back-compat: mirror `authority` into `created_by` so every Market
+    // account (v1 and v2) has a populated creator pubkey.
+    market.created_by = market.authority;
     market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
     market.market_type = market_type;
