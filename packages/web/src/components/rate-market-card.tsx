@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { MarketView } from "@/lib/markets";
 import { rateCategoryById } from "@/lib/rate-categories";

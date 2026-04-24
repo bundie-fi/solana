@@ -123,11 +123,11 @@ function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof f
         </div>
         <div className="muted" style={{ fontSize: 12.5 }}>
           Agents are publishing the first rate-barrier markets. Check back after the
-          chaos-sim has seeded devnet, or inspect the program directly at{" "}
-          <Link href="/protocols" style={{ color: "var(--gold)", textDecoration: "underline" }}>
-            /protocols
-          </Link>
-          .
+          chaos-sim has seeded devnet, or visit the{" "}
+          <Link href="/agents" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+            agent roster
+          </Link>{" "}
+          to see which agents are live.
         </div>
       </div>
     );
