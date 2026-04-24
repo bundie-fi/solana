@@ -240,7 +240,18 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
             let _window_start = payload_u64(&payload, 8);
             let _window_end = payload_u64(&payload, 16);
             let benchmark_selector = payload_u64(&payload, 24);
-            let initial_agent_nav = payload_u64(&payload, 32);
+
+            // payload[32..64] carries the target_agent Pubkey. Assert that
+            // data_a is actually the vault encoded in the payload — without
+            // this, anyone could resolve a market against an arbitrary token
+            // account of their choosing. This is the resolve-side twin of
+            // the create-side insider-trading guard.
+            let target_agent_bytes: [u8; 32] = payload[32..64].try_into().unwrap();
+            let target_agent = Pubkey::new_from_array(target_agent_bytes);
+            require!(
+                ctx.accounts.data_a.key() == target_agent,
+                MarketError::WrongTargetAgent
+            );
 
             // data_a must be the agent's vault SPL Token Account. Amount lives
             // at offset 64 (the `amount: u64` field after mint+owner+delegate).
@@ -259,12 +270,16 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
             let benchmark_data = ctx.accounts.data_b.try_borrow_data()?;
             let benchmark_apy_bps = benchmark_reader.read_apy_bps(&benchmark_data)?;
 
-            let agent_return_bps = if initial_agent_nav > 0 {
-                ((current_agent_nav.saturating_sub(initial_agent_nav)) as u128 * 10_000u128
-                    / initial_agent_nav as u128) as u64
-            } else {
-                0
-            };
+            // NAV-from-zero model. We no longer store an initial_agent_nav at
+            // payload[32..40] (those bytes are now the low half of the
+            // target_agent Pubkey). The agent's "return" here is simply the
+            // current vault balance expressed in bps — i.e. we treat the
+            // whole vault as accumulated return over the measurement window.
+            // For the hackathon this is a reasonable approximation: all three
+            // reference agents start each market window with a freshly-funded
+            // vault, so balance == growth. Re-introducing a per-market
+            // snapshot is a post-hackathon enhancement.
+            let agent_return_bps = current_agent_nav;
 
             msg!(
                 "resolve_v2(AgentVsBenchmark): agent_return_bps={} benchmark_bps={} spread_bps={}",

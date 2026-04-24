@@ -1,23 +1,25 @@
-# Alice - Bundie rate-prediction-market agent
+# Charlie - Bundie rate-prediction-market agent (Option X third agent)
 #
-# Devnet SNS:    alice.bundie (under protocol-owned .bundie root, PDA FH6FhVQ1hw7sHQdbg1p5cdKkHGr3yu5Re9Yx8VTDr4Nb)
-# Mainnet SNS:   alice.bundie.sol (via Bonfida .sol root; post-hackathon)
-# Vault address: 5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm
-# Strategy:      lst-rotation
+# Devnet SNS:    charlie.bundie (under protocol-owned .bundie root, PDA Hpz5jemSePzEDZwMH6WemVBSatkeNy7AtgZPBb6ENxHS)
+# Mainnet SNS:   charlie.bundie.sol (via Bonfida .sol root; post-hackathon)
+# Vault address: 8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg
+# Strategy:      conservative-60-40-split (60% USDC / 40% mSOL)
 #
 # DENY-by-default: every rebalance tx passes through this policy list.
 # Enforcement happens in packages/zerion-agent/src/bundie/policies.js
 # via makeEnforcer(). If any predicate returns allow:false, the Zerion
 # vault does NOT sign.
 #
-# SYMMETRIC POLICY (Option X): alice's allowlist now covers BOTH market-creator
-# ops AND strategy-execution ops. Pre-pivot alice was market-creator-only.
-# Separation from other agents is enforced on-chain by the create_market_v2
-# guard (MarketError::InsiderMarketForbidden), not by policy shape.
+# SYMMETRIC POLICY (Option X): charlie's allowlist covers BOTH market-creator
+# ops (PM program) AND strategy-execution ops (Kamino / Marinade / SPL stake
+# pool). Every agent has the same allowlist — the ONLY thing preventing an
+# agent from creating a market on its own strategy is the on-chain guard in
+# `create_market_v2` (MarketError::InsiderMarketForbidden). Separation is
+# mathematical, not a policy convention.
 
-sns_identity: alice.bundie
-vault_address: "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm"
-strategy: lst-rotation
+sns_identity: charlie.bundie
+vault_address: "8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg"
+strategy: conservative-60-40-split
 
 armed_at_ms: 1714000000000
 
@@ -37,19 +39,19 @@ policies:
 
   - id: spend_limit
     config:
-      max_notional_usd_per_rebalance: 25
-      max_notional_usd_per_day: 100
+      max_notional_usd_per_rebalance: 15
+      max_notional_usd_per_day: 75
 
   - id: expiry
     config:
-      # 1000d from armed_at_ms (2024-04-25) = 2027-01-20 — keeps the
-      # refusal demo's in-scope attempt ALLOWED while the agent is
-      # still effectively gated (re-arm still required post-expiry).
+      # 1000d from armed_at_ms (2024-04-25) = 2027-01-20 — same rationale
+      # as alice/bob: keeps in-scope attempts ALLOWED without disabling
+      # the expiry gate. Re-arm still required post-expiry.
       max_age_days: 1000
 
   - id: nav_divergence
     config:
-      max_drop_pct: 10
+      max_drop_pct: 7
       window_minutes: 60
 
   # Symmetric program allowlist (Option X): every agent can
@@ -57,8 +59,7 @@ policies:
   #  (b) execute strategy ops on Kamino / Marinade / SPL stake pool.
   # The on-chain guard in create_market_v2 forbids an agent from creating a
   # kind=6 market targeting its own vault (MarketError::InsiderMarketForbidden),
-  # so broadening the allowlist here does NOT enable self-dealing.
-  # Enforced via enforceProgramPolicy() from the chaos-sim action runner.
+  # so there is no risk in broadening the allowlist to cover both sides.
   - id: program_allowlist
     config:
       programs:
@@ -71,6 +72,8 @@ policies:
         # Marinade Liquid Staking
         - programId: "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD"
           instructions: [deposit, liquid_unstake]
-        # SPL Stake Pool (JitoSOL, bSOL, jSOL)
+        # SPL Stake Pool (JitoSOL, bSOL, jSOL — canonical program id, same
+        # on mainnet and devnet; the user-supplied `Jito4...` placeholder
+        # was not the real program id).
         - programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy"
           instructions: [deposit_sol, withdraw_sol]

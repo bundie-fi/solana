@@ -1,116 +1,121 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { SnsName } from "@/components/SnsName";
-import { lookupSnsForAddress } from "@/lib/sns";
+import {
+  PublicKey,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import {
+  deriveMarketPdas,
+  fetchAllMarkets,
+  type MarketView,
+} from "@/lib/markets";
+import { PROGRAM_IDS } from "@/lib/constants";
+import { PositionCard, type Position } from "@/components/position-card";
 
-const TOKEN_PROGRAM_ID = new PublicKey(
-  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-);
-
-interface TokenAccount {
-  mint: string;
-  balance: number;
-  decimals: number;
-  uiAmount: string;
-}
-
+/**
+ * My Bets — shows the connected wallet's YES/NO positions across every
+ * Bundie prediction market.
+ *
+ * Read strategy: fetch every Market account, derive YES/NO mint PDAs,
+ * derive the user's ATAs for each, and read balances in parallel. This is
+ * N*2 RPC reads but devnet has <100 markets so the cost is trivial.
+ */
 export default function PortfolioPage() {
   const { publicKey, connected } = useWallet();
   const { connection } = useConnection();
 
+  const [markets, setMarkets] = useState<MarketView[]>([]);
   const [solBalance, setSolBalance] = useState<number | null>(null);
-  const [tokenAccounts, setTokenAccounts] = useState<TokenAccount[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
-  // SNS reverse lookup for the connected wallet — surfaces the user's
-  // `<name>.sol` as the page title when one is set. Falls back to the
-  // generic "Your positions" header when null.
-  const [ownerSns, setOwnerSns] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!publicKey) {
-      setOwnerSns(null);
-      return;
-    }
-    let cancelled = false;
-    lookupSnsForAddress(publicKey.toBase58())
-      .then((n) => {
-        if (!cancelled) setOwnerSns(n);
-      })
-      .catch(() => {
-        if (!cancelled) setOwnerSns(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [publicKey]);
-
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!publicKey || !connected) {
-      setSolBalance(null);
-      setTokenAccounts([]);
+      setPositions([]);
+      setMarkets([]);
       return;
     }
+    setLoading(true);
+    setErr(null);
+    try {
+      const [allMkts, lamports, slot] = await Promise.all([
+        fetchAllMarkets(connection),
+        connection.getBalance(publicKey, "confirmed"),
+        connection.getSlot("confirmed"),
+      ]);
+      setMarkets(allMkts);
+      setSolBalance(lamports / LAMPORTS_PER_SOL);
 
-    let cancelled = false;
+      // For every market, derive YES and NO ATA balances for the user.
+      const programId = PROGRAM_IDS.predictionMarket;
+      const balances = await Promise.all(
+        allMkts.flatMap((m) => {
+          const marketPk = new PublicKey(m.address);
+          const { yesMint, noMint } = deriveMarketPdas(programId, marketPk);
+          const yesAta = getAssociatedTokenAddressSync(yesMint, publicKey);
+          const noAta = getAssociatedTokenAddressSync(noMint, publicKey);
+          return [
+            readSplBalance(connection, yesAta).then((b) => ({
+              m,
+              side: "yes" as const,
+              shares: b,
+            })),
+            readSplBalance(connection, noAta).then((b) => ({
+              m,
+              side: "no" as const,
+              shares: b,
+            })),
+          ];
+        }),
+      );
 
-    async function loadPortfolio() {
-      if (!publicKey) return;
-      setLoading(true);
-      try {
-        const [lamports, tokenRes] = await Promise.all([
-          connection.getBalance(publicKey, "confirmed"),
-          connection.getParsedTokenAccountsByOwner(publicKey, {
-            programId: TOKEN_PROGRAM_ID,
-          }),
-        ]);
-
-        if (cancelled) return;
-
-        setSolBalance(lamports / LAMPORTS_PER_SOL);
-
-        const accounts: TokenAccount[] = tokenRes.value
-          .map((ta) => {
-            const info = ta.account.data.parsed?.info;
-            const amount: number = info?.tokenAmount?.uiAmount ?? 0;
-            if (amount <= 0) return null;
-            return {
-              mint: info?.mint ?? "unknown",
-              balance: amount,
-              decimals: info?.tokenAmount?.decimals ?? 0,
-              uiAmount: info?.tokenAmount?.uiAmountString ?? "0",
-            } as TokenAccount;
-          })
-          .filter((a): a is TokenAccount => a !== null)
-          .sort((a, b) => b.balance - a.balance);
-
-        setTokenAccounts(accounts);
-      } catch (err) {
-        console.error("Portfolio load error:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const live = balances
+        .filter((x) => x.shares > 0)
+        .map<Position>((x) => ({
+          market: x.m,
+          side: x.side,
+          shares: x.shares,
+          state: positionState(x.m, slot),
+        }));
+      setPositions(live);
+    } catch (e) {
+      console.error("[portfolio] load error", e);
+      setErr(e instanceof Error ? e.message : "load failed");
+    } finally {
+      setLoading(false);
     }
-
-    loadPortfolio();
-    return () => { cancelled = true; };
   }, [publicKey, connected, connection]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const { open, pending, resolved } = useMemo(() => {
+    const open: Position[] = [];
+    const pending: Position[] = [];
+    const resolved: Position[] = [];
+    for (const p of positions) {
+      if (p.state === "open") open.push(p);
+      else if (p.state === "pending") pending.push(p);
+      else resolved.push(p);
+    }
+    return { open, pending, resolved };
+  }, [positions]);
 
   if (!connected) {
     return (
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
-          Portfolio
-        </span>
-        <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
-          Your <em className="text-amber-400">positions</em>.
-        </h1>
-        <p className="text-neutral-700 mb-8">Strategy shares and prediction tokens.</p>
-        <div className="rounded-xl border border-neutral-300 bg-surface p-12 flex flex-col items-center gap-4">
-          <p className="text-neutral-700 text-sm">Connect your wallet to view your portfolio</p>
+      <main className="mx-auto w-full max-w-content px-4 py-8 pb-safe">
+        <PageHeader />
+        <div className="rounded-xl border border-neutral-300 bg-surface p-10 flex flex-col items-center gap-4">
+          <p className="text-neutral-700 text-sm text-center">
+            Connect your wallet to view your YES / NO positions.
+          </p>
           <WalletMultiButton
             style={{
               background: "rgba(109,40,217,0.18)",
@@ -128,143 +133,165 @@ export default function PortfolioPage() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
-      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
-        Portfolio
-      </span>
-      <h1 className="font-serif text-display text-neutral-900 mt-1 mb-2">
-        {ownerSns ? (
-          <>
-            <em className="text-amber-400">{ownerSns}</em>&apos;s positions.
-          </>
-        ) : (
-          <>
-            Your <em className="text-amber-400">positions</em>.
-          </>
-        )}
-      </h1>
-      <p className="text-neutral-700 mb-8">
-        {ownerSns
-          ? "Strategy shares and prediction tokens for this identity."
-          : "Strategy shares and prediction tokens."}
-      </p>
+    <main className="mx-auto w-full max-w-content px-4 py-8 pb-safe">
+      <PageHeader />
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {/* SOL Balance */}
-        <div className="rounded-xl border border-neutral-300 bg-surface p-5">
-          <p className="text-xs text-neutral-600 uppercase tracking-wider mb-1">SOL Balance</p>
-          {loading ? (
-            <div className="h-7 w-24 rounded bg-neutral-200 animate-pulse" />
-          ) : (
-            <p className="text-2xl font-bold text-neutral-900">
-              {solBalance !== null ? solBalance.toFixed(4) : "—"}
-              <span className="text-sm text-neutral-600 font-normal ml-1">SOL</span>
-            </p>
-          )}
-          <p className="text-xs text-neutral-500 mt-1 font-mono truncate">
-            {publicKey ? (
-              <SnsName addr={publicKey.toBase58()} head={6} tail={6} />
-            ) : null}
-          </p>
-        </div>
-
-        {/* Token accounts count */}
-        <div className="rounded-xl border border-neutral-300 bg-surface p-5">
-          <p className="text-xs text-neutral-600 uppercase tracking-wider mb-1">Token Holdings</p>
-          {loading ? (
-            <div className="h-7 w-16 rounded bg-neutral-200 animate-pulse" />
-          ) : (
-            <p className="text-2xl font-bold text-neutral-900">
-              {tokenAccounts.length}
-              <span className="text-sm text-neutral-600 font-normal ml-1">accounts</span>
-            </p>
-          )}
-          <p className="text-xs text-neutral-500 mt-1">Strategy shares &amp; prediction tokens</p>
-        </div>
-      </div>
-
-      {/* Strategy Holdings */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="w-2 h-2 rounded-full bg-earn-gold" />
-          <h2 className="text-sm font-medium text-earn-gold uppercase tracking-wider">
-            Strategy Holdings
-          </h2>
-        </div>
-
-        {loading ? (
-          <div className="space-y-2">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-14 rounded-xl bg-surface border border-neutral-300 animate-pulse" />
-            ))}
+      {/* Wallet summary */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
+            Connected
           </div>
-        ) : tokenAccounts.length === 0 ? (
-          <div className="rounded-xl border border-neutral-300 bg-surface p-8 text-center">
-            <p className="text-neutral-600 text-sm">No token holdings found</p>
-            <p className="text-neutral-500 text-xs mt-1">
-              Invest in a strategy to see your shares here
-            </p>
+          <div className="font-mono text-xs text-neutral-800 mt-1 break-all">
+            {publicKey?.toBase58().slice(0, 6)}…
+            {publicKey?.toBase58().slice(-4)}
           </div>
-        ) : (
-          <div className="rounded-xl border border-neutral-300 bg-surface overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-300">
-                  <th className="text-left text-xs text-neutral-600 font-medium px-4 py-3 uppercase tracking-wider">
-                    Mint
-                  </th>
-                  <th className="text-right text-xs text-neutral-600 font-medium px-4 py-3 uppercase tracking-wider">
-                    Balance
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {tokenAccounts.map((ta, i) => (
-                  <tr
-                    key={ta.mint}
-                    className={`${
-                      i < tokenAccounts.length - 1 ? "border-b border-neutral-300" : ""
-                    } hover:bg-neutral-200 transition-colors`}
-                  >
-                    <td className="px-4 py-3">
-                      <a
-                        href={`https://orbmarkets.io/address/${ta.mint}?cluster=devnet`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-xs text-neutral-800 hover:text-predict-purple transition-colors"
-                      >
-                        {ta.mint.slice(0, 8)}…{ta.mint.slice(-6)}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-neutral-900 font-semibold font-mono">
-                        {ta.uiAmount}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </div>
+        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
+            SOL balance
           </div>
-        )}
+          <div className="font-serif text-2xl text-neutral-900 nums mt-1">
+            {solBalance == null
+              ? "—"
+              : `${solBalance.toFixed(4)} SOL`}
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
+            Markets scanned
+          </div>
+          <div className="font-serif text-2xl text-neutral-900 nums mt-1">
+            {markets.length}
+          </div>
+        </div>
       </section>
 
-      {/* Prediction Positions — coming soon */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <span className="w-2 h-2 rounded-full bg-predict-purple" />
-          <h2 className="text-sm font-medium text-predict-purple uppercase tracking-wider">
-            Your Predictions
-          </h2>
+      {err && (
+        <div className="rounded-lg border border-danger-400/40 bg-danger-400/10 p-3 text-xs text-danger-400 mb-4">
+          {err}
         </div>
-        <div className="rounded-xl border border-neutral-300 bg-surface p-8 text-center">
-          <p className="text-neutral-600 text-sm">Coming soon</p>
-          <p className="text-neutral-500 text-xs mt-1">
-            Open prediction positions with P&amp;L will appear here
+      )}
+
+      {loading && positions.length === 0 && <LoadingSkeleton />}
+
+      {!loading && positions.length === 0 && (
+        <div className="rounded-xl border border-dashed border-neutral-300 bg-surface p-10 text-center">
+          <p className="font-serif text-[18px] text-neutral-900 mb-1">
+            No positions yet.
+          </p>
+          <p className="text-xs text-neutral-600">
+            Head over to <Link href="/markets" className="underline text-amber-400">/markets</Link> and
+            pick a side.
           </p>
         </div>
-      </section>
+      )}
+
+      <PositionSection
+        title="Open positions"
+        tint="success"
+        subtitle="Markets still accepting bets"
+        positions={open}
+      />
+      <PositionSection
+        title="Pending resolution"
+        tint="amber"
+        subtitle="Resolution slot reached — awaiting on-chain resolver"
+        positions={pending}
+      />
+      <PositionSection
+        title="Resolved"
+        tint="purple"
+        subtitle="Redeem winning shares below"
+        positions={resolved}
+      />
     </main>
   );
+}
+
+function PageHeader() {
+  return (
+    <div className="mb-6">
+      <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-purple-300">
+        Portfolio
+      </span>
+      <h1 className="font-serif text-display text-neutral-900 mt-1 leading-tight">
+        My <em className="text-amber-400">bets</em>.
+      </h1>
+      <p className="text-neutral-700 mt-2 max-w-2xl">
+        Every YES / NO position you hold across Bundie prediction markets.
+      </p>
+    </div>
+  );
+}
+
+function PositionSection({
+  title,
+  subtitle,
+  tint,
+  positions,
+}: {
+  title: string;
+  subtitle: string;
+  tint: "success" | "amber" | "purple";
+  positions: Position[];
+}) {
+  if (positions.length === 0) return null;
+  const tintClass =
+    tint === "success"
+      ? "text-success-400"
+      : tint === "amber"
+        ? "text-amber-400"
+        : "text-purple-300";
+  return (
+    <section className="mb-8">
+      <div className="mb-3">
+        <h2
+          className={`font-mono text-[11px] uppercase tracking-[0.18em] ${tintClass}`}
+        >
+          {title} · {positions.length}
+        </h2>
+        <p className="text-xs text-neutral-600">{subtitle}</p>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {positions.map((p) => (
+          <PositionCard key={`${p.market.address}:${p.side}`} position={p} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-24 rounded-xl border border-neutral-300 bg-surface animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}
+
+function positionState(
+  m: MarketView,
+  currentSlot: number,
+): Position["state"] {
+  if (m.status === "resolved") return "resolved";
+  if (m.resolutionSlot > 0 && currentSlot >= m.resolutionSlot) return "pending";
+  return "open";
+}
+
+async function readSplBalance(
+  connection: ReturnType<typeof useConnection>["connection"],
+  ata: PublicKey,
+): Promise<number> {
+  try {
+    const info = await connection.getTokenAccountBalance(ata, "confirmed");
+    return info.value.uiAmount ?? 0;
+  } catch {
+    return 0;
+  }
 }

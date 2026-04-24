@@ -1087,6 +1087,16 @@ export type PredictionMarket = {
       "code": 6016,
       "name": "resolveDeferredKind",
       "msg": "This market kind is not yet implemented (Drawdown awaits NavOracle history extension)"
+    },
+    {
+      "code": 6017,
+      "name": "insiderMarketForbidden",
+      "msg": "Agent cannot create a kind=6 market on its own strategy (insider-trading forbidden)"
+    },
+    {
+      "code": 6018,
+      "name": "wrongTargetAgent",
+      "msg": "resolve_market_v2 data_a does not match the target_agent encoded in market payload"
     }
   ],
   "types": [

@@ -3,7 +3,7 @@
 # Devnet SNS:    bob.bundie (under protocol-owned .bundie root, PDA D8BRLTc6j4cpkMvpP7QfQR6cbw9QJ3LgXAEYzx9JQEzV)
 # Mainnet SNS:   bob.bundie.sol (via Bonfida .sol root; post-hackathon)
 # Vault address: EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb
-# Strategy:      conservative-split-usdc-msol
+# Strategy:      basis-trade-usdc
 #
 # DENY-by-default: every rebalance tx passes through this policy list.
 # Enforcement happens in packages/zerion-agent/src/bundie/policies.js
@@ -12,10 +12,15 @@
 #
 # Bob runs tighter thresholds than alice: smaller per-rebalance cap,
 # smaller daily cap, and a 5% kill-switch (vs alice's 10%).
+#
+# SYMMETRIC POLICY (Option X): bob's allowlist now covers BOTH market-creator
+# ops AND strategy-execution ops. Pre-pivot bob was market-creator-only.
+# Separation from other agents is enforced on-chain by the create_market_v2
+# guard (MarketError::InsiderMarketForbidden), not by policy shape.
 
 sns_identity: bob.bundie
 vault_address: "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb"
-strategy: conservative-split-usdc-msol
+strategy: basis-trade-usdc
 
 armed_at_ms: 1714000000000
 
@@ -50,11 +55,25 @@ policies:
       max_drop_pct: 5
       window_minutes: 60
 
-  # 6th predicate — program/ix allowlist. Covers non-swap flows like
-  # create_market_v2 where the swap-shaped predicates above don't apply.
+  # Symmetric program allowlist (Option X): every agent can
+  #  (a) create/trade/resolve prediction markets via the PM program, AND
+  #  (b) execute strategy ops on Kamino / Marinade / SPL stake pool.
+  # The on-chain guard in create_market_v2 forbids an agent from creating a
+  # kind=6 market targeting its own vault (MarketError::InsiderMarketForbidden),
+  # so broadening the allowlist here does NOT enable self-dealing.
   # Enforced via enforceProgramPolicy() from the chaos-sim action runner.
   - id: program_allowlist
     config:
       programs:
+        # Bundie Prediction Market (market-creator side)
         - programId: "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
           instructions: [create_market_v2, buy_shares, sell_shares, resolve_market_v2]
+        # Kamino Lend (strategy side)
+        - programId: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD"
+          instructions: [deposit_reserve_liquidity, withdraw_reserve_liquidity, refresh_reserve]
+        # Marinade Liquid Staking
+        - programId: "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD"
+          instructions: [deposit, liquid_unstake]
+        # SPL Stake Pool (JitoSOL, bSOL, jSOL)
+        - programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy"
+          instructions: [deposit_sol, withdraw_sol]

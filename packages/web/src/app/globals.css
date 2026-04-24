@@ -106,6 +106,24 @@ body {
   scrollbar-color: var(--line-2) var(--bg);
 }
 
+/* Hide scrollbar but keep scroll — used on the top-nav pill list so the
+   Feed/Markets/Agents/Protocols/Portfolio/Identity labels can scroll
+   horizontally on narrow phones without a visible track. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe-area helpers for the Seeker Android nav bar. Pages that render
+   their own floor element (bottom CTA, fixed footer) should add
+   `pb-safe` to clear the system-level bottom chrome. */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+}
+
 /* Focus ring defaults — reserved for brand-coloured affordances */
 :focus-visible { outline: none; }
 .focus-amber:focus-visible {

@@ -8,3 +8,6 @@ keys/*
 !keys/alice-first-market.json
 !keys/alice-first-market-policy-gated.json
 logs/
+
+.env
+.env.local

@@ -37,12 +37,14 @@ import {
 //   [16..24] window_end_slot
 //   [24..32] rate_reader_selector
 //
-// AgentVsBenchmark (kind=6):
+// AgentVsBenchmark (kind=6) — v2 layout post-547afea:
 //   [0..8]   spread_bps
 //   [8..16]  window_start_slot
 //   [16..24] window_end_slot
 //   [24..32] benchmark_reader_selector
-//   [32..40] initial_agent_nav
+//   [32..64] target_agent (Pubkey, 32 bytes) — the vault under measurement.
+//            Displaces the old `initial_agent_nav` slot; the on-chain program
+//            asserts `creator != target_agent` via `InsiderMarketForbidden`.
 
 function readU64LE(payload: number[] | Uint8Array, offset: number): number {
   // BigInt-safe read; cast to Number at the end. Our payload values
@@ -97,6 +99,23 @@ export interface MarketView {
   outcome: "yes" | "no" | null;
   /** NAV per share at market creation (strategy A). */
   initialNavPerShare: number;
+  /**
+   * For kind=6 markets, the agent vault under measurement (parsed from
+   * payload bytes 32..64). Null for other kinds. The on-chain program
+   * rejects kind=6 markets where `created_by == target_agent`, so UI can
+   * safely render creator and target as distinct entities.
+   */
+  targetAgent: string | null;
+  /** YES shares outstanding (raw on-chain value). */
+  yesShares: number;
+  /** NO shares outstanding (raw on-chain value). */
+  noShares: number;
+  /** Collateral mint (e.g. USDC). Used for buy_shares ix building. */
+  collateralMint: string;
+  /** Strategy PDA associated with the market (needed for buy_shares). */
+  strategy: string;
+  /** Market vault token account (holds collateral). */
+  vault: string;
 }
 
 // ─── Anchor plumbing ─────────────────────────────────────────────────────
@@ -168,6 +187,31 @@ function toNumber(v: BN | number | bigint | undefined | null): number {
   }
 }
 
+function readPubkey(
+  payload: number[] | Uint8Array,
+  offset: number,
+): string | null {
+  const bytes =
+    payload instanceof Uint8Array ? payload : Uint8Array.from(payload);
+  if (offset + 32 > bytes.length) return null;
+  const slice = bytes.slice(offset, offset + 32);
+  // All-zeros means "unset" for kind=6 payloads that predate the target_agent
+  // field; treat as null so callers can render a graceful placeholder.
+  let anyNonZero = false;
+  for (let i = 0; i < slice.length; i++) {
+    if (slice[i] !== 0) {
+      anyNonZero = true;
+      break;
+    }
+  }
+  if (!anyNonZero) return null;
+  try {
+    return new PublicKey(slice).toBase58();
+  } catch {
+    return null;
+  }
+}
+
 function toMarketView(
   address: PublicKey,
   raw: MarketAccountRaw,
@@ -182,6 +226,7 @@ function toMarketView(
   let spreadBps: number | null = null;
   let windowStartSlot: number | null = null;
   let windowEndSlot: number | null = null;
+  let targetAgent: string | null = null;
 
   if (kind === 5) {
     thresholdBps = readU64LE(payloadBytes, 0);
@@ -193,6 +238,11 @@ function toMarketView(
     windowStartSlot = readU64LE(payloadBytes, 8);
     windowEndSlot = readU64LE(payloadBytes, 16);
     rateReaderSelector = readU64LE(payloadBytes, 24);
+    // target_agent lives in bytes 32..64 per the 547afea anchor upgrade.
+    // Older markets written before that upgrade will have zeroes here, in
+    // which case `readPubkey` returns null and callers fall back to the
+    // creator's identity (best-effort display).
+    targetAgent = readPubkey(payloadBytes, 32);
   }
 
   const status: "active" | "resolved" =
@@ -228,6 +278,12 @@ function toMarketView(
     status,
     outcome,
     initialNavPerShare: toNumber(raw.initialNavPerShare as BN),
+    targetAgent,
+    yesShares: toNumber(raw.yesShares as BN),
+    noShares: toNumber(raw.noShares as BN),
+    collateralMint: (raw.collateralMint as PublicKey).toBase58(),
+    strategy: (raw.strategy as PublicKey).toBase58(),
+    vault: (raw.vault as PublicKey).toBase58(),
   };
 }
 
@@ -269,6 +325,30 @@ export async function fetchMarketByAddress(
     console.error(`[markets] fetchMarketByAddress(${key.toBase58()}) failed:`, err);
     return null;
   }
+}
+
+/**
+ * Derive the YES, NO, and vault token account PDAs for a market.
+ * Mirrors the seeds in `packages/programs/programs/prediction-market/src/state/market.rs`
+ * and in the IDL's `buy_shares` accounts block.
+ */
+export function deriveMarketPdas(
+  programId: PublicKey,
+  market: PublicKey,
+): { yesMint: PublicKey; noMint: PublicKey; vault: PublicKey } {
+  const [yesMint] = PublicKey.findProgramAddressSync(
+    [Buffer.from("yes_mint"), market.toBuffer()],
+    programId,
+  );
+  const [noMint] = PublicKey.findProgramAddressSync(
+    [Buffer.from("no_mint"), market.toBuffer()],
+    programId,
+  );
+  const [vault] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault"), market.toBuffer()],
+    programId,
+  );
+  return { yesMint, noMint, vault };
 }
 
 export async function fetchMarketsByCreator(
