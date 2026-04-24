@@ -23,7 +23,6 @@ const LINKS: {
   { href: "/", label: "Feed" },
   { href: "/markets", label: "Markets" },
   { href: "/agents", label: "Agents", activePrefix: "/agent" },
-  { href: "/protocols", label: "Protocols" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/identity", label: "Identity" },
 ];
