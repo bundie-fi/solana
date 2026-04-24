@@ -5,9 +5,11 @@
  *   fund            transfer SOL + USDC from the deployer keypair to the pool
  *   run             execute the phased simulation and write logs
  *   doctor          check pool balances + RPC reachability without spending
- *   register-names  one-shot: register each agent's `<name>.sol` on devnet
- *                   via Bonfida SNS (idempotent — skips already-registered
- *                   names). NEVER auto-runs — burns devnet SOL.
+ *   register-names  one-shot: register each agent's `<name>.bundie` on
+ *                   devnet under our owned `.bundie` root via SPL Name
+ *                   Service direct (idempotent — skips already-registered
+ *                   names). Requires `chaos:setup-root` to have run once.
+ *                   NEVER auto-runs — burns devnet SOL.
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
@@ -62,20 +64,23 @@ async function doctor(): Promise<void> {
 }
 
 async function registerNames(): Promise<void> {
-  // Explicit, opt-in. Spends devnet SOL (rent for a 1kB name account
-  // ~0.011 SOL each + tx fee). Iterates the pool, skips names that are
-  // already on-chain. Reports namePda + signature per agent.
+  // Explicit, opt-in. Spends devnet SOL (rent for the 96B header + 1kB
+  // body ≈ 0.0079 SOL each + tx fee). Iterates the pool, skips names that
+  // are already on-chain. Reports namePda + signature per agent.
   //
-  // Uses the SPL Name Service `Create` ix directly — Bonfida's
-  // `registerDomainName` requires a Pyth feed for the payment mint that
-  // doesn't exist on devnet. No USDC needed; just rent + tx fee.
+  // Uses the SPL Name Service `Create` ix directly under our owned
+  // `.bundie` root (see keys/bundie-root.json — created by
+  // `pnpm chaos:setup-root`). Bonfida's `.sol` registration is
+  // unavailable on devnet (Pyth USDC pricing dep) and bypassing it
+  // doesn't work for `.sol` PDAs because Bonfida owns the parent. With
+  // our own root we sign as parent_owner ourselves.
   const conn = new Connection(RPC_URL, "confirmed");
   const pool = loadPool();
 
   console.log(`SNS register-names — ${pool.length} agents`);
   console.log(`RPC: ${RPC_URL}`);
   console.log(
-    "NOTE: this writes to devnet. Each new registration costs ~0.011 SOL rent + fee (no USDC required).",
+    "NOTE: this writes to devnet under .bundie. Each new registration costs ~0.008 SOL rent + fee (no USDC required).",
   );
   console.log("");
   console.log("ROLE         DOMAIN                 STATUS");
@@ -93,7 +98,7 @@ async function registerNames(): Promise<void> {
     }
 
     // Idempotent: short-circuit when on-chain registry already exists.
-    const bare = domain.replace(/\.sol$/i, "");
+    const bare = domain.replace(/\.bundie$/i, "").replace(/\.sol$/i, "");
     const existingOwner = await isNameRegistered(conn, bare).catch(() => null);
     if (existingOwner) {
       const matches = existingOwner.equals(chaosPub(w));
@@ -149,7 +154,8 @@ async function main(): Promise<void> {
     }
     case "fund": {
       const pool = loadPool();
-      await fundPool(pool);
+      const solOnly = process.argv.includes("--sol-only");
+      await fundPool(pool, { solOnly });
       break;
     }
     case "run": {

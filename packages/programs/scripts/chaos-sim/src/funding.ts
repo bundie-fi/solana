@@ -173,18 +173,34 @@ async function fundUsdc(
   return sigs;
 }
 
-export async function fundPool(wallets: ChaosWallet[]): Promise<void> {
+export interface FundPoolOptions {
+  /**
+   * Skip the USDC top-up entirely. Useful when (a) the deployer's USDC
+   * is short of plan.usdcRequired and we just need SOL (e.g. before
+   * `chaos:register-names` which only burns SOL), or (b) we're rerunning
+   * a workflow that doesn't need USDC.
+   */
+  solOnly?: boolean;
+}
+
+export async function fundPool(
+  wallets: ChaosWallet[],
+  opts: FundPoolOptions = {},
+): Promise<void> {
   const conn = new Connection(RPC_URL, "confirmed");
   const deployer = loadDeployer();
   console.log(`funding from deployer ${deployer.publicKey.toBase58()}`);
+  if (opts.solOnly) console.log("(sol-only mode — USDC top-up skipped)");
 
   const plan = await buildPlan(conn, wallets);
   console.log(
     `plan: ${plan.needsSol.length} wallets need SOL (${plan.solRequired / 1e9} total)`,
   );
-  console.log(
-    `plan: ${plan.needsUsdc.length} wallets need USDC (${plan.usdcRequired / 1e6} total)`,
-  );
+  if (!opts.solOnly) {
+    console.log(
+      `plan: ${plan.needsUsdc.length} wallets need USDC (${plan.usdcRequired / 1e6} total)`,
+    );
+  }
 
   // Sanity-check deployer balance before sending
   const deployerSol = await conn.getBalance(deployer.publicKey, "confirmed");
@@ -193,7 +209,7 @@ export async function fundPool(wallets: ChaosWallet[]): Promise<void> {
       `deployer SOL too low: have ${deployerSol / 1e9}, need ${plan.solRequired / 1e9} + fees`,
     );
   }
-  if (plan.usdcRequired > 0) {
+  if (!opts.solOnly && plan.usdcRequired > 0) {
     const deployerAta = getAssociatedTokenAddressSync(
       DEVNET_USDC_MINT,
       deployer.publicKey,
@@ -201,14 +217,16 @@ export async function fundPool(wallets: ChaosWallet[]): Promise<void> {
     const deployerUsdc = (await getAccount(conn, deployerAta, "confirmed")).amount;
     if (deployerUsdc < BigInt(plan.usdcRequired)) {
       throw new Error(
-        `deployer USDC too low: have ${Number(deployerUsdc) / 1e6}, need ${plan.usdcRequired / 1e6}`,
+        `deployer USDC too low: have ${Number(deployerUsdc) / 1e6}, need ${plan.usdcRequired / 1e6} (re-run with --sol-only to skip)`,
       );
     }
   }
 
   const solSigs = await fundSol(conn, deployer, plan.needsSol);
   for (const s of solSigs) console.log(`SOL fund tx: ${s}`);
-  const usdcSigs = await fundUsdc(conn, deployer, plan.needsUsdc);
+  const usdcSigs = opts.solOnly
+    ? []
+    : await fundUsdc(conn, deployer, plan.needsUsdc);
   for (const s of usdcSigs) console.log(`USDC fund tx: ${s}`);
 
   if (solSigs.length === 0 && usdcSigs.length === 0) {

@@ -3,4 +3,5 @@
 # specific file — git can't unignore files inside an ignored directory.
 keys/*
 !keys/agent-names.json
+!keys/bundie-root.json
 logs/

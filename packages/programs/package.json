@@ -14,6 +14,7 @@
     "chaos:run": "tsx scripts/chaos-sim/src/index.ts run",
     "chaos:doctor": "tsx scripts/chaos-sim/src/index.ts doctor",
     "chaos:register-names": "tsx scripts/chaos-sim/src/index.ts register-names",
+    "chaos:setup-root": "tsx scripts/chaos-sim/src/setup-bundie-root.ts",
     "chaos:test": "tsx scripts/chaos-sim/tests/sns.smoke.ts",
     "chaos:test:deny": "tsx scripts/chaos-sim/tests/deny-default.smoke.ts"
   },

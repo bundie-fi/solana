@@ -5,33 +5,46 @@
  * ───────────────
  * Each chaos-sim agent (creator-N, trader-N) is just a base58 pubkey today.
  * Hard to debug, harder to demo. SNS gives every agent a human-readable
- * `<name>.sol` identity that is verifiable on-chain (the .sol TLD is a
- * Bonfida domain registry under NAME_PROGRAM_ID).
+ * `<name>.bundie` identity that is verifiable on-chain (the `.bundie` TLD is
+ * a custom domain registry we own under the SPL Name Service program).
  *
- * Authoritative source: `keys/agent-names.json`. The file is generated once
- * (committed) and treated as the canonical name → role/pubkey map for the
- * chaos pool. We never invent names at runtime.
+ * Why a custom `.bundie` root and not `.sol`
+ * ──────────────────────────────────────────
+ * Bonfida's `.sol` registration on devnet requires a Pyth oracle for USDC
+ * pricing that doesn't exist. Even bypassing Bonfida and calling SPL Name
+ * Service `Create` directly fails: the `.sol` PDA seeds include
+ * `ROOT_DOMAIN_ACCOUNT` (Bonfida-owned) and the on-chain processor (see
+ * processor.rs:66-78) requires the parent's owner to sign for any
+ * subdomain. We can't sign as Bonfida.
  *
- * Two surfaces:
+ * Solution: we created a `.bundie` root via `pnpm chaos:setup-root` and
+ * own its keypair (keys/bundie-root-owner.json). All subdomain creates
+ * here co-sign with that keypair. Same SPL Name Service program, same
+ * `NameRegistry` account layout, same reverse-lookup primitives.
+ *
+ * Authoritative source: `keys/agent-names.json` (role → label) and
+ * `keys/bundie-root.json` (root PDA + owner pubkey, written by setup-root).
+ *
+ * Three surfaces:
  *   1) `getNameForAgent(role)` — pure file lookup, no RPC.
- *   2) `registerNameOnDevnet(wallet, name)` — pays SOL on devnet to mint the
- *       Bonfida `<name>.sol` registry account owned by the wallet. ONLY
- *       called from the explicit `chaos:register-names` subcommand — never
- *       from a normal `chaos:run`. Devnet domain registration burns real
- *       devnet SOL (small, but non-zero), so we never auto-spend.
- *   3) `resolveAgentByName(conn, name)` — reverse-lookup the .sol record.
+ *   2) `registerNameOnDevnet(wallet, name)` — pays SOL on devnet to mint
+ *       the `<name>.bundie` registry account owned by the wallet. Requires
+ *       BOTH the wallet AND the root-owner keypair to sign. ONLY called
+ *       from the explicit `chaos:register-names` subcommand — never from
+ *       a normal `chaos:run`. Devnet domain registration burns devnet SOL
+ *       (small, but non-zero), so we never auto-spend.
+ *   3) `resolveAgentByName(conn, name)` — reverse-lookup the .bundie record.
  *       Returns null if the domain isn't registered yet. Always falls back
  *       to the local agent-names.json so the chaos sim works offline and
  *       before any devnet registration ever happens.
  *
- * Bonfida SDK: https://sns.guide/  (npm: @bonfida/spl-name-service@^3.0.21)
- * Key entry: `getDomainKeySync(domain)` derives the deterministic
- * NameRegistry PDA: hash("SPL Name Service" + domain) → seed → PDA under
- * the Solana Name Service program (`namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkx`
- * on mainnet/devnet alike).
+ * SPL Name Service: github.com/solana-labs/solana-program-library/tree/master/name-service
+ * Program ID `namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX` is identical
+ * mainnet/devnet — only the `.sol` Bonfida pricing layer differs by cluster.
  */
 import {
   Connection,
+  Keypair,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
@@ -41,35 +54,32 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// IMPORTANT: do NOT import from "@bonfida/spl-name-service" at the top
-// level. The package transitively pulls a different `@solana/spl-token`
-// build whose buffer-layout struct definition crashes at load time under
-// our pinned web3.js. We dynamic-import it only inside the functions
-// that actually need a network round-trip (registerNameOnDevnet,
-// isNameRegistered). The pure derivation `deriveNamePda` is implemented
-// inline below so it stays synchronous + dependency-light, which keeps
-// the smoke tests RPC-free and fast.
-
 import { ChaosWallet } from "./wallets.js";
 
-// SNS constants — copied from @bonfida/spl-name-service@3.0.21 constants.js
-// so we don't have to load the package at module-init.
-//   https://sns.guide/  (canonical SNS docs)
-// Identical on mainnet and devnet — name service program IDs match.
+// SPL Name Service program — same on mainnet and devnet. The on-chain
+// registry primitives are agnostic to which TLD lives under them.
 export const NAME_PROGRAM_ID = new PublicKey(
   "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
 );
-const ROOT_DOMAIN_ACCOUNT = new PublicKey(
-  "58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx",
-);
 const HASH_PREFIX = "SPL Name Service";
 
-// SPL Name Service `Create` discriminator. See sns-register.ts comment block
-// for the full ix layout — same here.
+// SPL Name Service `Create` is a Borsh-serialized enum variant (tag 0).
+// See instruction.rs:13-48 + processor.rs:32-82 in the SPL repo.
 const CREATE_INSTRUCTION_DISCRIMINATOR = 0x00;
 
+// state.rs:36 — every name account starts with a 96-byte NameRecordHeader
+// before user-controlled body bytes. The on-chain `Create` handler does
+// NOT add this for us in the rent calc — we have to size the account as
+// (header + body) and pre-fund accordingly. Forgetting this would
+// under-fund the account and bug us at the next rent epoch.
+const NAME_RECORD_HEADER_BYTES = 96;
+const NAME_BODY_SPACE = 1_000;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const NAMES_FILE = join(__dirname, "..", "keys", "agent-names.json");
+const KEYS_DIR = join(__dirname, "..", "keys");
+const NAMES_FILE = join(KEYS_DIR, "agent-names.json");
+const BUNDIE_ROOT_FILE = join(KEYS_DIR, "bundie-root.json");
+const BUNDIE_ROOT_OWNER_FILE = join(KEYS_DIR, "bundie-root-owner.json");
 
 // ───────────────────────────────────────────────────────────────────────────
 // Types
@@ -81,14 +91,27 @@ interface AgentEntry {
 }
 
 interface AgentNamesFile {
-  domainSuffix: string; // ".sol"
+  domainSuffix: string; // ".bundie"
   agents: Record<string, AgentEntry>; // role → entry
 }
 
-let cached: AgentNamesFile | null = null;
+interface BundieRootFile {
+  label: string;
+  domainSuffix: string; // ".bundie"
+  rootPda: string;
+  rootOwnerPubkey: string;
+  programId: string;
+  createdAt: string;
+  createdSig: string | null;
+}
+
+let cachedNames: AgentNamesFile | null = null;
+let cachedRoot: BundieRootFile | null = null;
+let cachedRootPda: PublicKey | null = null;
+let cachedRootOwnerKp: Keypair | null = null;
 
 function loadFile(): AgentNamesFile {
-  if (cached) return cached;
+  if (cachedNames) return cachedNames;
   if (!existsSync(NAMES_FILE)) {
     throw new Error(
       `agent-names.json not found at ${NAMES_FILE}. Re-create from the canonical roster.`,
@@ -98,8 +121,51 @@ function loadFile(): AgentNamesFile {
   if (!raw.agents || typeof raw.agents !== "object") {
     throw new Error("agent-names.json malformed — missing `agents` map");
   }
-  cached = raw as AgentNamesFile;
-  return cached;
+  cachedNames = raw as AgentNamesFile;
+  return cachedNames;
+}
+
+function loadRoot(): BundieRootFile {
+  if (cachedRoot) return cachedRoot;
+  if (!existsSync(BUNDIE_ROOT_FILE)) {
+    throw new Error(
+      `bundie-root.json not found at ${BUNDIE_ROOT_FILE}. Run \`pnpm chaos:setup-root\` first to create the .bundie root domain on devnet.`,
+    );
+  }
+  cachedRoot = JSON.parse(readFileSync(BUNDIE_ROOT_FILE, "utf8")) as BundieRootFile;
+  return cachedRoot;
+}
+
+function getRootPda(): PublicKey {
+  if (cachedRootPda) return cachedRootPda;
+  cachedRootPda = new PublicKey(loadRoot().rootPda);
+  return cachedRootPda;
+}
+
+/**
+ * Lazy-load the root-owner keypair from disk. Only used by code paths that
+ * actually need to write a subdomain (registerNameOnDevnet); pure read paths
+ * never touch this so chaos:doctor / chaos:run / unit tests stay free of
+ * the keypair file dependency.
+ */
+function getRootOwnerKeypair(): Keypair {
+  if (cachedRootOwnerKp) return cachedRootOwnerKp;
+  if (!existsSync(BUNDIE_ROOT_OWNER_FILE)) {
+    throw new Error(
+      `bundie-root-owner.json not found at ${BUNDIE_ROOT_OWNER_FILE}. ` +
+        `Run \`pnpm chaos:setup-root\` to create it (gitignored — never commit).`,
+    );
+  }
+  const raw = JSON.parse(readFileSync(BUNDIE_ROOT_OWNER_FILE, "utf8")) as number[];
+  cachedRootOwnerKp = Keypair.fromSecretKey(Uint8Array.from(raw));
+  // Sanity: pubkey must match the value persisted in bundie-root.json.
+  const expected = loadRoot().rootOwnerPubkey;
+  if (cachedRootOwnerKp.publicKey.toBase58() !== expected) {
+    throw new Error(
+      `root owner keypair pubkey ${cachedRootOwnerKp.publicKey.toBase58()} does not match metadata ${expected}. Re-run setup-root or restore the original keypair.`,
+    );
+  }
+  return cachedRootOwnerKp;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -107,8 +173,8 @@ function loadFile(): AgentNamesFile {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Look up the assigned `.sol` name for a chaos role.
- * Returns the bare label (e.g. `"alpha-hunter"`), no `.sol` suffix.
+ * Look up the assigned `.bundie` name for a chaos role.
+ * Returns the bare label (e.g. `"alpha-hunter"`), no `.bundie` suffix.
  * Throws if the role isn't in the manifest — fail loud, never invent names.
  */
 export function getNameForAgent(role: string): string {
@@ -122,7 +188,7 @@ export function getNameForAgent(role: string): string {
   return entry.name;
 }
 
-/** Returns the full `<name>.sol` form. */
+/** Returns the full `<name>.bundie` form (suffix from agent-names.json). */
 export function getDomainForAgent(role: string): string {
   const file = loadFile();
   return `${getNameForAgent(role)}${file.domainSuffix}`;
@@ -160,28 +226,31 @@ export function listAllAgents(): Array<{
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Compute the SNS NamePDA for a top-level `<name>.sol` domain.
+ * Compute the SNS NamePDA for `<name>.bundie`.
  *
- * Derivation matches @bonfida/spl-name-service::getDomainKeySync for the
- * non-subdomain case:
+ * Derivation (state.rs:69-97 in the SPL repo):
  *
- *   hashed_name = sha256("SPL Name Service" + name)
- *   seeds       = [hashed_name, alloc(32), ROOT_DOMAIN_ACCOUNT.toBuffer()]
+ *   hashed_name = sha256("SPL Name Service" + bare_label)
+ *   seeds       = [hashed_name (32B),
+ *                  Pubkey::default()  (no class)         (32B),
+ *                  BUNDIE_ROOT_PDA.toBuffer()            (32B)]
  *   pda         = findProgramAddressSync(seeds, NAME_PROGRAM_ID)
  *
- * Inline so the function stays synchronous and free of the heavy Bonfida
- * package load (see file header). Subdomains are out of scope — chaos-sim
- * agents only ever register top-level `.sol` names.
+ * The hashed name is just the bare label — hierarchy is encoded purely
+ * via the parent seed, NOT via "label.parent" string concatenation.
  */
 export function deriveNamePda(name: string): PublicKey {
-  const bare = name.replace(/\.sol$/i, "");
+  // Strip our suffix if present — accept both "alpha-hunter" and
+  // "alpha-hunter.bundie" forms. Also strip ".sol" for backwards compat
+  // with any legacy callers.
+  const bare = name.replace(/\.bundie$/i, "").replace(/\.sol$/i, "");
   const hashed = createHash("sha256")
     .update(HASH_PREFIX + bare, "utf8")
     .digest();
   const seeds = [
     Uint8Array.from(hashed),
-    new Uint8Array(32), // nameClass — empty for top-level domains
-    ROOT_DOMAIN_ACCOUNT.toBuffer(),
+    new Uint8Array(32), // class — empty
+    getRootPda().toBuffer(), // parent — our owned .bundie root
   ];
   const [pda] = PublicKey.findProgramAddressSync(seeds, NAME_PROGRAM_ID);
   return pda;
@@ -191,72 +260,75 @@ export function deriveNamePda(name: string): PublicKey {
  * Check if a domain is already registered. Returns the registered owner
  * pubkey if so, or null if the registry account doesn't exist.
  *
- * This is the ONLY way `registerNameOnDevnet` decides whether to skip —
- * never re-register an already-claimed name.
+ * Reads the NameRecordHeader off the raw account data — we don't need the
+ * Bonfida SDK for a simple owner lookup, and avoiding it sidesteps the
+ * SDK's transitive-deps loading bug under our pinned web3.js.
+ *
+ * Layout (state.rs:11-37): parent_name(32) | owner(32) | class(32).
  */
 export async function isNameRegistered(
   conn: Connection,
   name: string,
 ): Promise<PublicKey | null> {
   const pda = deriveNamePda(name);
-  try {
-    // Lazy import — Bonfida's package eagerly loads its bundled spl-token
-    // build, which crashes under our pinned web3.js. Loading it only when
-    // we actually need to talk to RPC contains the blast radius.
-    const { NameRegistryState } = await import("@bonfida/spl-name-service");
-    // Bonfida v3 returns { registry, nftOwner } — nftOwner overrides if the
-    // domain has been wrapped as an NFT and transferred. Prefer nftOwner
-    // when present so we honor the true on-chain holder.
-    const { registry, nftOwner } = await NameRegistryState.retrieve(conn, pda);
-    return nftOwner ?? registry.owner ?? null;
-  } catch {
-    return null;
-  }
+  const acc = await conn.getAccountInfo(pda, "confirmed");
+  if (!acc) return null;
+  if (!acc.owner.equals(NAME_PROGRAM_ID)) return null;
+  if (acc.data.length < NAME_RECORD_HEADER_BYTES) return null;
+  return new PublicKey(acc.data.subarray(32, 64));
 }
 
 export interface RegistrationResult {
   name: string;
-  domain: string; // <name>.sol
+  domain: string; // <name>.bundie
   namePda: string;
   signature: string;
   alreadyRegistered: boolean;
 }
 
 /**
- * Register `<name>.sol` on devnet to the wallet.
+ * Register `<name>.bundie` on devnet to the wallet.
  *
- * Implementation note — why we skip Bonfida's `registerDomainName`
- * ─────────────────────────────────────────────────────────────────
- * Bonfida's high-level devnet binding (`devnet.bindings.registerDomainName`)
- * tries to fetch a Pyth oracle for the buyer's payment mint to convert the
- * registrar's USDC fee. On devnet there is no live Pyth feed for our
- * payment mint, so the binding throws "The Pyth account for the provided
- * mint was not found" before any tx is built. That's a Bonfida
- * monetization-layer limitation, not an SNS limitation — the underlying
- * on-chain identity is just an SPL Name Service `Create` ix (discriminator
- * 0x00) that allocates the name account. No payment required, just rent.
+ * Implementation (research-verified against SPL Name Service `Create`,
+ * processor.rs:32-82):
  *
- * We use the lower-level `createNameRegistry` binding instead, which wraps
- * the SPL Name Service `createInstruction` directly. Same NameRegistry PDA
- * (the deterministic derivation in `deriveNamePda` above), same
- * reverse-lookup behavior, no Pyth dependency, no USDC ATA needed.
+ *   ix data: Borsh enum tag 0 (u8) | u32 LE hashed.length | hashed (32B)
+ *            | u64 LE rent lamports | u32 LE body space
  *
- * Cost: ~0.011 SOL of rent for a 1kB name account + tx fee.
+ *   accounts:
+ *     0. system program
+ *     1. payer (the wallet)                  [signer, writable]
+ *     2. name PDA                            [writable]
+ *     3. name owner (= the wallet)           [readonly]
+ *     4. Pubkey::default()                   [readonly] (no class)
+ *     5. BUNDIE_ROOT_PDA                     [readonly] (parent)
+ *     6. BUNDIE_ROOT_OWNER                   [signer]   (parent_owner — REQUIRED
+ *                                                       when parent ≠ default)
  *
- * DENY-by-default: failures from `createNameRegistry` propagate to the
- * caller. We never silently fall back to the Bonfida USDC path because
- * that path is exactly what we're working around.
+ * Slot 6 is what the previous bypass missed. Without it, the on-chain
+ * processor calls `parent_name_owner.unwrap()` on a `None` and aborts —
+ * exactly the "Program failed to complete" symptom we hit on every prior
+ * register attempt.
  *
- * Returns the tx signature on success, or a sentinel result if the name is
- * already taken (idempotent re-runs).
+ * Two signers per tx: the wallet (vault-managed via Zerion or file-fallback)
+ * AND the root owner (loaded from keys/bundie-root-owner.json). For
+ * vault-managed wallets we partial-sign with the root owner first, hand
+ * the still-incomplete tx to `zerion-bundie agent sign` for the wallet
+ * signature, then submit the fully-signed bytes via plain RPC.
+ *
+ * Cost: rent for (96 header + 1000 body) ≈ 0.0079 SOL + tx fee.
+ *
+ * DENY-by-default: failures propagate to the caller. We never silently
+ * fall back to the Bonfida USDC path (it doesn't exist on devnet anyway).
  */
 export async function registerNameOnDevnet(
   conn: Connection,
   wallet: ChaosWallet,
   name: string,
 ): Promise<RegistrationResult> {
-  const bare = name.replace(/\.sol$/i, "");
-  const domain = `${bare}.sol`;
+  const root = loadRoot();
+  const bare = name.replace(/\.bundie$/i, "").replace(/\.sol$/i, "");
+  const domain = `${bare}${root.domainSuffix}`;
   const namePda = deriveNamePda(bare);
 
   const existingOwner = await isNameRegistered(conn, bare);
@@ -270,27 +342,22 @@ export async function registerNameOnDevnet(
     };
   }
 
-  // Lazy import — Transaction is fine to pull eagerly (we already use the
-  // PublicKey export at the top), but keeping it grouped here matches the
-  // historical lazy-load posture.
   const { Transaction, sendAndConfirmTransaction, PublicKey: PK } = await import(
     "@solana/web3.js"
   );
 
-  // 1kB name account (typical small storage for a profile).
-  const SPACE = 1_000;
-
   const buyerPubkey = new PK(wallet.pubkeyB58);
+  const rootPda = getRootPda();
+  const rootOwnerKp = getRootOwnerKeypair();
 
-  // Build the SPL Name Service `Create` ix directly. We don't use Bonfida's
-  // `createNameRegistry` helper because the package's transitive borsh
-  // import fails under strict Node ESM resolution. The on-chain layout is
-  // tiny (see CREATE_INSTRUCTION_DISCRIMINATOR comment block above) and
-  // lets us stay decoupled from the Bonfida runtime.
+  // Build ix data — see comment block on this function for layout.
   const hashed = createHash("sha256")
     .update(HASH_PREFIX + bare, "utf8")
     .digest();
-  const lamports = BigInt(await conn.getMinimumBalanceForRentExemption(SPACE));
+  const totalSpace = NAME_RECORD_HEADER_BYTES + NAME_BODY_SPACE;
+  const lamports = BigInt(
+    await conn.getMinimumBalanceForRentExemption(totalSpace),
+  );
   const data = Buffer.alloc(1 + 4 + hashed.length + 8 + 4);
   let off = 0;
   data.writeUInt8(CREATE_INSTRUCTION_DISCRIMINATOR, off);
@@ -301,7 +368,7 @@ export async function registerNameOnDevnet(
   off += hashed.length;
   data.writeBigUInt64LE(lamports, off);
   off += 8;
-  data.writeUInt32LE(SPACE, off);
+  data.writeUInt32LE(NAME_BODY_SPACE, off);
 
   const EMPTY_PUBKEY = new PK(new Uint8Array(32));
   const ix = new TransactionInstruction({
@@ -309,25 +376,29 @@ export async function registerNameOnDevnet(
     keys: [
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       { pubkey: buyerPubkey, isSigner: true, isWritable: true }, // payer
-      { pubkey: namePda, isSigner: false, isWritable: true }, // name account
+      { pubkey: namePda, isSigner: false, isWritable: true }, // name PDA
       { pubkey: buyerPubkey, isSigner: false, isWritable: false }, // name_owner
-      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // name_class
-      { pubkey: ROOT_DOMAIN_ACCOUNT, isSigner: false, isWritable: false }, // parent
+      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // class = default
+      { pubkey: rootPda, isSigner: false, isWritable: false }, // parent
+      { pubkey: rootOwnerKp.publicKey, isSigner: true, isWritable: false }, // parent_owner
     ],
     data,
   });
 
   let sig: string;
   if (wallet.signWith === "file" && wallet.keypair) {
-    // Backwards-compat path: sign locally with the on-disk keypair.
+    // Backwards-compat path — both signers are local keypairs, send in one shot.
     const tx = new Transaction().add(ix);
-    sig = await sendAndConfirmTransaction(conn, tx, [wallet.keypair], {
-      commitment: "confirmed",
-    });
+    sig = await sendAndConfirmTransaction(
+      conn,
+      tx,
+      [wallet.keypair, rootOwnerKp],
+      { commitment: "confirmed" },
+    );
   } else {
-    // Vault-managed path: prepare → hand to `zerion-bundie agent sign` →
-    // broadcast the signed bytes via plain RPC. We import lazily to keep
-    // the smoke tests dependency-light.
+    // Vault-managed path. The Zerion vault only signs for the wallet's
+    // pubkey; we partial-sign with the root owner here (locally), then
+    // hand the partially-signed tx to the vault for the wallet signature.
     const { signWithVault } = await import("./vault-signer.js");
     const tx = new Transaction().add(ix);
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash(
@@ -335,11 +406,16 @@ export async function registerNameOnDevnet(
     );
     tx.feePayer = buyerPubkey;
     tx.recentBlockhash = blockhash;
-    const unsigned = tx
+    // Partial-sign with the root owner first. `partialSign` does NOT
+    // require all signers — it just adds the root owner's signature to
+    // the signatures array, leaving the wallet's slot empty for the vault
+    // to fill in.
+    tx.partialSign(rootOwnerKp);
+    const partial = tx
       .serialize({ requireAllSignatures: false, verifySignatures: false })
       .toString("base64");
-    const signedB64 = signWithVault(wallet.role, unsigned);
-    const raw = Buffer.from(signedB64, "base64");
+    const fullySignedB64 = signWithVault(wallet.role, partial);
+    const raw = Buffer.from(fullySignedB64, "base64");
     sig = await conn.sendRawTransaction(raw);
     await conn.confirmTransaction(
       { signature: sig, blockhash, lastValidBlockHeight },
@@ -361,27 +437,25 @@ export async function registerNameOnDevnet(
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Resolve `<name>.sol` → owner pubkey.
+ * Resolve `<name>.bundie` → owner pubkey.
  *
  * Two-tier lookup:
  *   (a) On-chain: query the NameRegistry PDA owner field (devnet).
  *   (b) Fallback: scan agent-names.json (authoritative for the chaos pool).
  *
- * Returns null if neither path produces a hit. We never silently return a
- * wrong owner — the on-chain owner takes precedence over the local file
- * if both exist, but the local file is the source of truth for our pool.
+ * Returns null if neither path produces a hit. The on-chain owner takes
+ * precedence over the local file if both exist, but the local file is the
+ * source of truth for our pool while registrations are still pending.
  */
 export async function resolveAgentByName(
   conn: Connection,
   name: string,
 ): Promise<PublicKey | null> {
-  const bare = name.replace(/\.sol$/i, "");
+  const bare = name.replace(/\.bundie$/i, "").replace(/\.sol$/i, "");
 
-  // (a) on-chain
   const owner = await isNameRegistered(conn, bare);
   if (owner) return owner;
 
-  // (b) local agent-names.json fallback
   const file = loadFile();
   for (const entry of Object.values(file.agents)) {
     if (entry.name === bare) {

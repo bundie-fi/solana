@@ -4,33 +4,29 @@
  * Mirrors the chaos-sim canonical path
  * (packages/programs/scripts/chaos-sim/src/sns.ts::registerNameOnDevnet) but
  * adapted for the browser:
- *   - Wallet Adapter signs (no server keypair).
+ *   - Wallet Adapter signs (no client-side keypair).
  *   - Connection comes from NEXT_PUBLIC_RPC_URL (devnet by default).
- *   - All Bonfida SDK access happens behind a lazy dynamic import so the SSR
- *     bundle stays small.
  *
- * DENY-by-default: name validation runs BEFORE we ever touch the SDK.
+ * Why a custom `.bundie` root and not `.sol`
+ * ──────────────────────────────────────────
+ * Bonfida's `.sol` registration on devnet requires a Pyth oracle for USDC
+ * pricing that doesn't exist. Even bypassing Bonfida and calling SPL Name
+ * Service `Create` directly fails: the `.sol` PDA seeds include
+ * `ROOT_DOMAIN_ACCOUNT` (Bonfida-owned) and the on-chain processor (see
+ * SPL processor.rs:66-78) requires the parent's owner to sign for any
+ * subdomain. We can't sign as Bonfida.
  *
- * Why the SPL Name Service direct path
- * ────────────────────────────────────
- * Bonfida's high-level `registerDomainName` binding (mainnet + devnet) calls
- * into a Pyth oracle to convert the registrar's USDC fee for the buyer's
- * payment mint. On devnet there is no live Pyth feed for our payment mint,
- * so the binding throws "The Pyth account for the provided mint was not
- * found" before any tx is constructed. That is a Bonfida-monetization-layer
- * limitation, NOT an SNS limitation — the underlying on-chain identity is
- * just an SPL Name Service `Create` ix (discriminator 0x00) that allocates
- * the name account, no payment required, just rent.
+ * Solution: we created a `.bundie` root via `pnpm chaos:setup-root` and
+ * own its keypair. All subdomain creates here co-sign with that keypair.
+ * Same SPL Name Service program, same `NameRegistry` account layout, same
+ * reverse-lookup primitives.
  *
- * We bypass Bonfida's USDC pricing layer and invoke the lower-level
- * `createNameRegistry` binding from `@bonfida/spl-name-service`, which wraps
- * the SPL Name Service `createInstruction` with rent calc + PDA derivation.
- * Same NameRegistry PDA as Bonfida produces (sha256("SPL Name Service" +
- * name)), same reverse-lookup behavior, no Pyth dependency.
+ * The root owner keypair lives server-side ONLY (env var
+ * `BUNDIE_ROOT_OWNER_SECRET_KEY`); the client posts an unsigned tx to
+ * `/api/sns/sign-as-root`, which adds the parent_owner signature and
+ * returns the partially-signed tx for the wallet to finish.
  *
- * Devnet cost: rent for a 1kB name account (~0.011 SOL) + tx fee. NO USDC
- * required. Failures here are surfaced — never silently fall back to the
- * Bonfida USDC path (DENY by default).
+ * DENY-by-default: name validation runs BEFORE we touch the network.
  */
 import {
   Connection,
@@ -43,38 +39,42 @@ import {
 const DEVNET_RPC =
   process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
 
-// SPL Name Service program ID — identical on mainnet and devnet (the
-// underlying identity registry is the same on-chain program; Bonfida's
-// pricing layer is what differs by cluster).
-//   https://github.com/solana-labs/solana-program-library/tree/master/name-service
+// SPL Name Service program — same on mainnet and devnet.
+//   github.com/solana-labs/solana-program-library/tree/master/name-service
 export const SPL_NAME_SERVICE_PROGRAM_ID = new PublicKey(
   "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
 );
 
-// `.sol` TLD root — identical on mainnet and devnet.
-const ROOT_DOMAIN_ACCOUNT = new PublicKey(
-  "58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx",
+// Our owned `.bundie` root on devnet (created by `pnpm chaos:setup-root`).
+// These are public values — the server holds the matching secret key.
+// Override via NEXT_PUBLIC_BUNDIE_ROOT_PDA / _OWNER for non-default deployments.
+const DEFAULT_BUNDIE_ROOT_PDA = "4ZKCQT1DgxQ7L4TggUMr4SS3zH4SLyVT1FWbCq4qrjEy";
+const DEFAULT_BUNDIE_ROOT_OWNER = "8EodjSj73fUA2doL86CSRZzrFQUxJ9kBPNjDBo92hpH6";
+export const BUNDIE_ROOT_PDA = new PublicKey(
+  process.env.NEXT_PUBLIC_BUNDIE_ROOT_PDA || DEFAULT_BUNDIE_ROOT_PDA,
+);
+export const BUNDIE_ROOT_OWNER = new PublicKey(
+  process.env.NEXT_PUBLIC_BUNDIE_ROOT_OWNER || DEFAULT_BUNDIE_ROOT_OWNER,
 );
 
-// Hash prefix the SPL Name Service program uses to derive name PDAs.
-// hash = sha256("SPL Name Service" + name).
+// SPL Name Service hash prefix. NameRegistry PDA seed[0] = sha256(prefix + name).
 const HASH_PREFIX = "SPL Name Service";
 
-// 1kB name account — matches the chaos-sim default. Larger spaces cost
-// more rent without giving us anything extra for a profile-only use case.
-const NAME_ACCOUNT_SPACE = 1_000;
+// Account layout: 96B NameRecordHeader + body. The on-chain `Create`
+// handler does NOT add the header to our `space` field — we have to size
+// rent for both, then pass body-only as `space`. The previous bypass
+// forgot the header and would have under-funded the account.
+const NAME_RECORD_HEADER_BYTES = 96;
+const NAME_BODY_SPACE = 1_000;
 
 // Approx devnet cost — surfaced so the UI can warn before the user signs.
-// Rent for a 1kB account on devnet is ≈ 0.011 SOL (Solana rent schedule).
-export const DEVNET_REGISTRATION_COST_SOL = 0.011;
+// Rent for (96 + 1000) bytes ≈ 0.0079 SOL on the current devnet schedule;
+// rounded up here for display so users have a tiny buffer.
+export const DEVNET_REGISTRATION_COST_SOL = 0.009;
 
-// Name validity rules (kept narrow for v1 — Bonfida's protocol is more
-// permissive but our UX surface is "lowercase alphanumeric + dashes",
-// matches the chaos-pool naming style and avoids confusable unicode):
-//   - 3–32 chars
-//   - lowercase a-z, 0-9, single dashes
-//   - no leading or trailing dash
-//   - no consecutive dashes
+// Name validity rules — narrow on purpose. SPL is more permissive but our
+// UX surface stays "lowercase alphanumeric + dashes" to match chaos-pool
+// naming and avoid confusable unicode.
 const NAME_MIN_LEN = 3;
 const NAME_MAX_LEN = 32;
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -106,94 +106,13 @@ export type AvailabilityResult =
   | { state: "invalid"; name: string; reason: string }
   | { state: "error"; name: string; reason: string };
 
-/**
- * checkAvailability — does the `<name>.sol` registry account already exist
- * on devnet? Three states:
- *   - 'invalid'  → fails our name regex (no RPC call)
- *   - 'taken'    → on-chain registry exists; surfaces owner pubkey
- *   - 'available'→ no registry, claim is open
- *   - 'error'    → RPC failure (caller should retry / show transient banner)
- */
-export async function checkAvailability(
-  raw: string,
-): Promise<AvailabilityResult> {
-  const v = validateName(raw);
-  const name = raw.trim().toLowerCase();
-  if (!v.ok) return { state: "invalid", name, reason: v.reason ?? "Invalid." };
-
-  try {
-    // Lazy-load the bonfida SDK — keeps the home-page bundle thin.
-    const { getDomainKeySync, NameRegistryState } = await import(
-      "@bonfida/spl-name-service"
-    );
-    const { pubkey } = getDomainKeySync(name);
-    const conn = new Connection(DEVNET_RPC, "confirmed");
-    try {
-      const { registry, nftOwner } = await NameRegistryState.retrieve(
-        conn,
-        pubkey,
-      );
-      const owner = (nftOwner ?? registry.owner).toBase58();
-      return { state: "taken", name, owner };
-    } catch {
-      // retrieve() throws when the account doesn't exist → free.
-      return { state: "available", name };
-    }
-  } catch (err) {
-    return {
-      state: "error",
-      name,
-      reason: err instanceof Error ? err.message : "Unknown error",
-    };
-  }
-}
-
-export interface BuiltRegistration {
-  /** The Transaction with the SPL Name Service create ix. Owner must sign + pay. */
-  tx: Transaction;
-  /** The deterministic PDA for `<name>.sol`. */
-  namePda: string;
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Inline SPL Name Service `Create` ix builder
-// ───────────────────────────────────────────────────────────────────────────
-//
-// We build the ix bytes ourselves rather than calling
-// `@bonfida/spl-name-service`'s `createNameRegistry` because the Bonfida
-// package eagerly loads a borsh ESM build whose `serialize` named export
-// doesn't exist under strict Node ESM resolution. Browsers + the Next.js
-// bundler tolerate the mismatch, but it's brittle and we don't actually
-// need any of Bonfida's logic for a top-level `<name>.sol` registration.
-//
-// The Create ix layout (from spl-name-service Rust source):
-//   discriminator: u8 = 0x00 (NameRegistryInstruction::Create)
-//   hashed_name:   Vec<u8> (length-prefixed by u32 LE)
-//   lamports:      u64 LE
-//   space:         u32 LE
-//
-// Accounts (in order):
-//   0. system_program           [readonly]
-//   1. payer                    [signer, writable]
-//   2. name_account (PDA)       [writable]
-//   3. name_owner               [readonly]
-//   4. name_class               [readonly] — empty pubkey if absent
-//   5. name_parent              [readonly] — ROOT_DOMAIN_ACCOUNT for .sol
-//
-// ROOT_DOMAIN_ACCOUNT does NOT need a signature for top-level `.sol`
-// registrations because the parent's owner is the SPL Name Service program
-// itself (no parent_owner account is appended).
-
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  // Browsers + modern Node both expose Web Crypto. We avoid importing
-  // node:crypto so this file stays bundleable for the client.
-  if (typeof globalThis.crypto?.subtle?.digest === "function") {
-    const buf = await globalThis.crypto.subtle.digest("SHA-256", data);
-    return new Uint8Array(buf);
-  }
-  // Fallback for old Node — dynamic import keeps the client bundle clean.
-  const { createHash } = await import("node:crypto");
-  return new Uint8Array(createHash("sha256").update(Buffer.from(data)).digest());
+  // Web Crypto is available everywhere we run: modern browsers and Node
+  // 16+ both expose `globalThis.crypto.subtle`. Importing `node:crypto`
+  // as a fallback would force webpack to try resolving a node-scheme URL
+  // for the client bundle and fail the build.
+  const buf = await globalThis.crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(buf);
 }
 
 async function deriveNamePda(bare: string): Promise<{
@@ -204,12 +123,85 @@ async function deriveNamePda(bare: string): Promise<{
   const hashed = await sha256(enc.encode(HASH_PREFIX + bare));
   const seeds = [
     hashed,
-    new Uint8Array(32), // nameClass — empty for top-level domains
-    ROOT_DOMAIN_ACCOUNT.toBuffer(),
+    new Uint8Array(32), // class — empty
+    BUNDIE_ROOT_PDA.toBuffer(), // parent — our owned `.bundie` root
   ];
   const [pda] = PublicKey.findProgramAddressSync(seeds, SPL_NAME_SERVICE_PROGRAM_ID);
   return { pda, hashed };
 }
+
+/**
+ * checkAvailability — does the `<name>.bundie` registry account already
+ * exist on devnet? Three states:
+ *   - 'invalid'  → fails our name regex (no RPC call)
+ *   - 'taken'    → on-chain registry exists; surfaces owner pubkey
+ *   - 'available'→ no registry, claim is open
+ *   - 'error'    → RPC failure (caller should retry / show transient banner)
+ *
+ * We read the NameRecordHeader off the raw account data (layout:
+ * parent_name(32) | owner(32) | class(32) | body…). This avoids the Bonfida
+ * SDK entirely so the client bundle stays small.
+ */
+export async function checkAvailability(
+  raw: string,
+): Promise<AvailabilityResult> {
+  const v = validateName(raw);
+  const name = raw.trim().toLowerCase();
+  if (!v.ok) return { state: "invalid", name, reason: v.reason ?? "Invalid." };
+
+  try {
+    const { pda } = await deriveNamePda(name);
+    const conn = new Connection(DEVNET_RPC, "confirmed");
+    const acc = await conn.getAccountInfo(pda, "confirmed");
+    if (!acc) return { state: "available", name };
+    if (!acc.owner.equals(SPL_NAME_SERVICE_PROGRAM_ID))
+      return { state: "available", name }; // foreign account, treat as free
+    if (acc.data.length < NAME_RECORD_HEADER_BYTES)
+      return { state: "available", name };
+    const owner = new PublicKey(acc.data.subarray(32, 64)).toBase58();
+    return { state: "taken", name, owner };
+  } catch (err) {
+    return {
+      state: "error",
+      name,
+      reason: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
+export interface BuiltRegistration {
+  /** The Transaction with the SPL Name Service create ix. */
+  tx: Transaction;
+  /** The deterministic PDA for `<name>.bundie`. */
+  namePda: string;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Inline SPL Name Service `Create` ix builder
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Wire format (research-verified from solana-program-library/name-service
+// instruction.rs:13-48 + processor.rs:32-82):
+//
+//   [u8 = 0x00]                       // Borsh enum tag — Create
+//   [u32 LE = hashed.len() = 32]
+//   [32 bytes hashed_name]
+//   [u64 LE rent lamports]
+//   [u32 LE body space]
+//
+// Accounts (in order):
+//   0. system_program                  [readonly]
+//   1. payer                           [signer, writable]
+//   2. name_account (PDA)              [writable]
+//   3. name_owner                      [readonly]
+//   4. name_class (Pubkey::default)    [readonly] — empty pubkey if absent
+//   5. name_parent (BUNDIE_ROOT_PDA)   [readonly]
+//   6. name_parent_owner               [signer]   — REQUIRED when parent ≠ default
+//
+// Slot 6 is what the previous bypass missed. Without it, the on-chain
+// processor calls `parent_name_owner.unwrap()` on a `None` and aborts —
+// exactly the "Program failed to complete" symptom we hit on every prior
+// register attempt for `.sol`.
 
 function buildCreateIxData(
   hashed: Uint8Array,
@@ -233,17 +225,15 @@ function buildCreateIxData(
 }
 
 /**
- * Build a registration transaction for `<name>.sol` owned by `owner`. The
- * caller is responsible for signing + sending. We DO NOT auto-send.
+ * Build a registration transaction for `<name>.bundie` owned by `owner`.
+ * Returns an UNSIGNED tx — the caller is responsible for getting both
+ * the wallet signature AND the bundie-root-owner signature (via the
+ * /api/sns/sign-as-root server route).
  *
- * Builds the SPL Name Service `Create` ix (discriminator 0x00) directly —
- * no Bonfida SDK in the call path, no Pyth, no USDC. Just rent for the
- * name account + tx fee.
- *
- * DENY-by-default: if RPC errors fetching rent exemption, we surface the
- * error directly. We never fall back to Bonfida's USDC path because that
- * path is exactly what we're working around (it requires a Pyth feed that
- * doesn't exist for our devnet payment mint).
+ * DENY-by-default: if RPC errors fetching rent exemption, we surface
+ * the error directly. We never fall back to Bonfida's USDC path because
+ * that path is exactly what we're working around (it requires a Pyth
+ * feed that doesn't exist for our devnet payment mint).
  */
 export async function buildRegisterTx(
   name: string,
@@ -258,17 +248,14 @@ export async function buildRegisterTx(
 
   const { pda: namePda, hashed } = await deriveNamePda(bare);
 
-  // Rent for the name account — required so the account stays alive.
-  // Throws on RPC failure (we let it propagate, DENY by default).
+  const totalSpace = NAME_RECORD_HEADER_BYTES + NAME_BODY_SPACE;
+  // Throws on RPC failure — DENY by default.
   const lamports = BigInt(
-    await c.getMinimumBalanceForRentExemption(NAME_ACCOUNT_SPACE),
+    await c.getMinimumBalanceForRentExemption(totalSpace),
   );
 
-  const data = buildCreateIxData(hashed, lamports, NAME_ACCOUNT_SPACE);
+  const data = buildCreateIxData(hashed, lamports, NAME_BODY_SPACE);
 
-  // nameClass is absent for top-level domains → push the all-zero pubkey.
-  // The on-chain program checks the key against PublicKey::default() to
-  // skip the signer requirement.
   const EMPTY_PUBKEY = new PublicKey(new Uint8Array(32));
 
   const ix = new TransactionInstruction({
@@ -278,18 +265,17 @@ export async function buildRegisterTx(
       { pubkey: owner, isSigner: true, isWritable: true }, // payer
       { pubkey: namePda, isSigner: false, isWritable: true },
       { pubkey: owner, isSigner: false, isWritable: false }, // name_owner
-      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // name_class (absent)
-      { pubkey: ROOT_DOMAIN_ACCOUNT, isSigner: false, isWritable: false }, // name_parent
+      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // class = default
+      { pubkey: BUNDIE_ROOT_PDA, isSigner: false, isWritable: false }, // parent
+      { pubkey: BUNDIE_ROOT_OWNER, isSigner: true, isWritable: false }, // parent_owner
     ],
     data: Buffer.from(data),
   });
 
   const tx = new Transaction().add(ix);
   tx.feePayer = owner;
-  // recentBlockhash assigned at send-time by the wallet adapter helper. We
-  // could pre-fill it here, but that adds a 30s expiry race that's painful
-  // when the user lingers on the confirmation modal. Let the executor stamp
-  // it just before signing.
+  // recentBlockhash is stamped just before signing to avoid the 30s expiry
+  // race that bites when the user lingers on the confirmation modal.
 
   return {
     tx,
@@ -314,20 +300,51 @@ export interface SnsSigningWallet {
 export interface RegistrationOutcome {
   namePda: string;
   signature: string;
-  domain: string; // "<name>.sol"
+  domain: string; // "<name>.bundie"
 }
 
 /**
- * executeRegistration — wires a connected wallet adapter to the build +
- * send path. The wallet's `sendTransaction` does the recent-blockhash +
- * sign + submit dance for us.
+ * POST the partially-signed tx to /api/sns/sign-as-root. The server adds
+ * the bundie-root-owner signature (held in BUNDIE_ROOT_OWNER_SECRET_KEY,
+ * server-only env). Returns the still-incomplete tx — the wallet still
+ * needs to sign as payer.
  *
- * Throws on:
- *   - wallet not connected
- *   - invalid name (validateName failure, before RPC)
- *   - already-registered name (we check and refuse to spend)
- *   - any RPC / send error (no fallback to the Bonfida USDC path — the
- *     whole point of this module is to NOT touch that path on devnet)
+ * Errors propagate to the caller (DENY by default). We never silently
+ * skip the parent_owner signature because the on-chain `Create` will
+ * reject the tx without it.
+ */
+async function signAsRoot(serializedTxB64: string): Promise<string> {
+  const res = await fetch("/api/sns/sign-as-root", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tx: serializedTxB64 }),
+  });
+  if (!res.ok) {
+    let body: { error?: string } = {};
+    try {
+      body = await res.json();
+    } catch {
+      // ignore — we'll fall back to the status text
+    }
+    throw new Error(
+      `sign-as-root failed (${res.status}): ${body.error ?? res.statusText}`,
+    );
+  }
+  const json = (await res.json()) as { tx?: string };
+  if (!json.tx) throw new Error("sign-as-root response missing `tx`");
+  return json.tx;
+}
+
+/**
+ * executeRegistration — orchestrates the full claim flow:
+ *
+ *   1. Validate name + check availability (refuses to spend on a taken name)
+ *   2. Build the unsigned create-subdomain tx
+ *   3. POST to /api/sns/sign-as-root → server adds parent_owner sig
+ *   4. Wallet signs as payer (via sendTransaction)
+ *   5. Confirm
+ *
+ * Throws on any failure — no silent fallback (DENY by default).
  */
 export async function executeRegistration(
   wallet: SnsSigningWallet,
@@ -344,28 +361,59 @@ export async function executeRegistration(
 
   const c = conn ?? new Connection(DEVNET_RPC, "confirmed");
 
-  // Refuse to register a taken name. The /identity UI also gates this with
-  // its live availability check, but we belt-and-brace at the boundary in
-  // case the user clicks fast or the cache is stale.
+  // Belt-and-brace — the /identity UI also gates this with its live
+  // availability check, but check again at the boundary in case the user
+  // clicks fast or the cache is stale.
   const avail = await checkAvailability(bare);
   if (avail.state === "taken")
-    throw new Error(`${bare}.sol is already taken (owner: ${avail.owner}).`);
+    throw new Error(`${bare}.bundie is already taken (owner: ${avail.owner}).`);
   if (avail.state === "invalid") throw new Error(avail.reason);
   // 'error' state → keep going; build/send will surface the real RPC error.
 
   const { tx, namePda } = await buildRegisterTx(bare, wallet.publicKey, c);
-  const signature = await wallet.sendTransaction(tx, c);
-  await c.confirmTransaction(signature, "confirmed").catch(() => {
-    /* don't throw — caller can poll if they care; tx is already submitted */
-  });
 
-  return { namePda, signature, domain: `${bare}.sol` };
+  // Stamp recent blockhash so the partial-sign step has a stable message
+  // to sign against. The wallet will see the same blockhash when it
+  // signs second; sendTransaction won't re-stamp because we already set it.
+  const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash(
+    "confirmed",
+  );
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = wallet.publicKey;
+
+  // Step 1 — server adds parent_owner sig.
+  const partialB64 = tx
+    .serialize({ requireAllSignatures: false, verifySignatures: false })
+    .toString("base64");
+  const rootSignedB64 = await signAsRoot(partialB64);
+  const rootSignedBytes = Uint8Array.from(
+    typeof Buffer !== "undefined"
+      ? Buffer.from(rootSignedB64, "base64")
+      : (atob(rootSignedB64).split("").map((c) => c.charCodeAt(0))),
+  );
+  const partiallySignedTx = Transaction.from(rootSignedBytes);
+
+  // Step 2 — wallet signs + sends.
+  const signature = await wallet.sendTransaction(partiallySignedTx, c);
+  await c
+    .confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      "confirmed",
+    )
+    .catch(() => {
+      /* don't throw — caller can poll if they care; tx is already submitted */
+    });
+
+  return { namePda, signature, domain: `${bare}.bundie` };
 }
 
-// Test-only helpers — kept so the smoke test can probe internals without
-// importing the bonfida SDK.
+// Test-only helpers — exposed so the smoke test can probe internals
+// without importing @solana/web3.js Transaction signing.
 export const _internals = {
   NAME_RE,
-  NAME_ACCOUNT_SPACE,
+  NAME_BODY_SPACE,
+  NAME_RECORD_HEADER_BYTES,
   validateName,
+  buildCreateIxData,
+  deriveNamePda,
 };

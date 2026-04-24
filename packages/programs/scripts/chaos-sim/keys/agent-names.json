@@ -1,6 +1,6 @@
 {
-  "_comment": "Stable .sol identities for chaos-sim agents. Generated 2026-04-23. Roles map to keypairs in this directory; names are reserved offline (registration on devnet via `pnpm chaos:register-names`).",
-  "domainSuffix": ".sol",
+  "_comment": "Stable .bundie identities for chaos-sim agents. Generated 2026-04-23 (suffix flipped from .sol to .bundie 2026-04-24 — see keys/bundie-root.json). Roles map to keypairs in this directory; names are reserved offline (registration on devnet via `pnpm chaos:register-names`).",
+  "domainSuffix": ".bundie",
   "agents": {
     "creator-0": {
       "name": "alpha-hunter",

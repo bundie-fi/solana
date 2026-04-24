@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /identity — claim your `<name>.sol` identity on Bundie.
+ * /identity — claim your `<name>.bundie` identity on Bundie.
  *
  * Three render states (single component, gated on wallet + SNS lookup):
  *   A) Wallet not connected → hero + connect CTA.
@@ -72,7 +72,7 @@ export default function IdentityPage() {
         <Header />
         <div className="mt-10 rounded-2xl border border-neutral-300 bg-surface p-8 md:p-12">
           <h2 className="font-serif text-h1 text-neutral-900">
-            Claim your <em className="text-amber-400">.sol</em> identity
+            Claim your <em className="text-amber-400">.bundie</em> identity
           </h2>
           <p className="mt-3 max-w-prose text-body text-neutral-700">
             Your name appears on every strategy you back, every market you
@@ -124,7 +124,7 @@ export default function IdentityPage() {
       onClaimed={(name) => {
         // Optimistically prime the cache so other surfaces (banner, cards)
         // pick up the new identity on next render without a full refetch.
-        const fullName = name.endsWith(".sol") ? name : `${name}.sol`;
+        const fullName = name.endsWith(".bundie") ? name : `${name}.bundie`;
         invalidateSnsLookup(publicKey.toBase58());
         setSnsCacheEntry(publicKey.toBase58(), fullName);
         setSnsName(fullName);
@@ -143,11 +143,12 @@ function Header() {
         Identity
       </span>
       <h1 className="mt-1 font-serif text-display text-neutral-900">
-        Your <em className="text-amber-400">.sol</em>, on Bundie.
+        Your <em className="text-amber-400">.bundie</em>, on Bundie.
       </h1>
       <p className="mt-2 max-w-prose text-body text-neutral-700">
-        Devnet identities powered by Bonfida SNS. Claim once, and every strategy
-        creator/trader pubkey across the app upgrades to your name.
+        Devnet identities under <code className="font-mono text-amber-400">.bundie</code>,
+        a custom root we own on the SPL Name Service program. Claim once, and
+        every strategy creator/trader pubkey across the app upgrades to your name.
       </p>
     </div>
   );
@@ -185,16 +186,17 @@ function IdentityHasNameView({ name, owner }: { name: string; owner: string }) {
             Manage your name
           </p>
           <p className="mt-1 text-sm text-neutral-700">
-            Transfer, set a primary, or list for sale on Bonfida (devnet).
+            Same on-chain identity primitives as Bonfida `.sol` — one program,
+            one PDA, one reverse-lookup. Bundie owns the parent, you own the leaf.
           </p>
         </div>
         <a
-          href="https://www.sns.id"
+          href={`https://orbmarkets.io/address/${owner}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-11 min-h-[44px] items-center justify-center rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-amber"
         >
-          Open Bonfida ↗
+          View on explorer ↗
         </a>
       </div>
 
@@ -349,7 +351,7 @@ function ClaimFlow({
             Registered on devnet
           </p>
           <h2 className="mt-1 font-serif text-h1 text-neutral-900">
-            <em className="text-amber-400">{success.name}.sol</em> is yours.
+            <em className="text-amber-400">{success.name}.bundie</em> is yours.
           </h2>
           <p className="mt-3 text-sm text-neutral-700">
             The reverse lookup will start resolving across the app within a few
@@ -417,8 +419,8 @@ function ClaimFlow({
         </p>
         <p className="mt-2 text-xs text-neutral-700">
           {loading
-            ? "Checking for an existing .sol identity…"
-            : `No .sol identity found yet — ${walletLabel} can claim one below.`}
+            ? "Checking for an existing .bundie identity…"
+            : `No .bundie identity found yet — ${walletLabel} can claim one below.`}
         </p>
       </div>
 
@@ -441,7 +443,7 @@ function ClaimFlow({
             className="block w-full min-h-[44px] rounded-lg border border-neutral-300 bg-surface px-4 pr-16 text-base font-mono text-neutral-900 placeholder:text-neutral-600 focus-amber focus:border-amber-600/40 transition-colors"
           />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center font-mono text-sm text-neutral-600">
-            .sol
+            .bundie
           </span>
         </div>
         <p className="mt-2 font-mono text-[11px] text-neutral-600">
@@ -475,8 +477,8 @@ function ClaimFlow({
           the Solana devnet faucet if needed.
         </p>
         <p className="mt-2 text-[11px] text-neutral-600">
-          (uses SPL Name Service directly — Bonfida pricing layer skipped on
-          devnet)
+          (uses SPL Name Service directly under our owned `.bundie` root —
+          identical NameRegistry primitives, no Bonfida USDC/Pyth dependency)
         </p>
       </aside>
 
@@ -514,7 +516,7 @@ function AvailabilityRow({
             ✓
           </span>
           <span className="font-mono text-neutral-900">
-            {result.name}.sol is available.
+            {result.name}.bundie is available.
           </span>
         </div>
         <Button onClick={onClaim} variant="primary" size="md">
@@ -531,7 +533,7 @@ function AvailabilityRow({
             ✗
           </span>
           <span className="font-mono text-neutral-900">
-            {result.name}.sol is taken.
+            {result.name}.bundie is taken.
           </span>
         </div>
         <p className="mt-2 text-xs text-neutral-700">
@@ -590,7 +592,7 @@ function ConfirmModal({
           Confirm registration
         </p>
         <h2 id="confirm-title" className="mt-1 font-serif text-h1 text-neutral-900">
-          Claim <em className="text-amber-400">{name}.sol</em>
+          Claim <em className="text-amber-400">{name}.bundie</em>
         </h2>
         <dl className="mt-4 space-y-2 text-sm">
           <Row label="Owner" value={truncatePubkey(owner, 8, 8)} mono />
@@ -602,8 +604,8 @@ function ConfirmModal({
           />
         </dl>
         <p className="mt-3 text-[11px] text-neutral-600">
-          (uses SPL Name Service directly — Bonfida pricing layer skipped on
-          devnet)
+          (uses SPL Name Service directly under our owned `.bundie` root —
+          identical NameRegistry primitives, no Bonfida USDC/Pyth dependency)
         </p>
         <p className="mt-4 text-xs text-neutral-700">
           Your wallet will pop up to sign one transaction. We don&apos;t store

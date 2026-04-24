@@ -5,11 +5,13 @@
  *
  * These tests exercise:
  *   - getNameForAgent returns the expected mapping for every chaos role
- *   - getDomainForAgent appends `.sol`
+ *   - getDomainForAgent appends `.bundie`
  *   - lookupAgentByPubkey is the inverse of the static map
- *   - deriveNamePda is deterministic and unique per name
+ *   - deriveNamePda is deterministic and unique per name (under our root)
  *
- * No RPC, no signers — pure file lookup + Bonfida's pure derivation.
+ * No RPC, no signers — pure file lookup + inline PDA derivation. Requires
+ * keys/bundie-root.json to be present (run `pnpm chaos:setup-root` once
+ * if you wiped the repo).
  */
 import {
   deriveNamePda,
@@ -72,9 +74,9 @@ test("getNameForAgent returns the correct name for every role", () => {
   }
 });
 
-test("getDomainForAgent appends .sol", () => {
+test("getDomainForAgent appends .bundie", () => {
   for (const [role, name] of Object.entries(EXPECTED)) {
-    assertEq(getDomainForAgent(role), `${name}.sol`, `role=${role}`);
+    assertEq(getDomainForAgent(role), `${name}.bundie`, `role=${role}`);
   }
 });
 
@@ -120,10 +122,12 @@ test("deriveNamePda is deterministic and unique per name", () => {
   assert(a1 !== b, "different names → different PDAs");
 });
 
-test("deriveNamePda strips .sol suffix", () => {
+test("deriveNamePda strips .bundie + .sol suffixes", () => {
   const bare = deriveNamePda("alpha-hunter").toBase58();
-  const withSuffix = deriveNamePda("alpha-hunter.sol").toBase58();
-  assertEq(bare, withSuffix, ".sol suffix is normalized away");
+  const withBundie = deriveNamePda("alpha-hunter.bundie").toBase58();
+  const withSol = deriveNamePda("alpha-hunter.sol").toBase58();
+  assertEq(bare, withBundie, ".bundie suffix is normalized away");
+  assertEq(bare, withSol, ".sol suffix is normalized away (legacy compat)");
 });
 
 test("registerNameOnDevnet signature: 3-arg shape (no USDC params)", () => {
