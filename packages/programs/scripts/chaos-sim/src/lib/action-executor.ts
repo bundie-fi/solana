@@ -28,6 +28,8 @@ import {
 } from "@solana/web3.js";
 
 import { createRateBarrierMarket } from "../actions/create-rate-barrier-market.js";
+import { createAgentVsBenchmarkMarket } from "../actions/create-agent-vs-benchmark-market.js";
+import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
@@ -149,20 +151,38 @@ async function executeLst(
   const programId = LST_PROGRAM[protocol];
   const ixName = LST_IX[protocol][direction];
   const policyGate = gate(args.policyPath, programId, ixName);
-  if (!args.surfpoolAvailable) {
-    return {
-      phase: "execute", chain: "surfpool",
-      action: `lst_${direction}`, protocol,
-      policyGate,
-      notes: "surfpool unreachable — policy-gated but not submitted",
-    };
+
+  if (protocol === "marinade") {
+    // Real Beethoven-pattern execution on devnet. The vault holds actual mSOL
+    // after staking, which the resolution program can read at settlement time.
+    if (args.action.type !== "lst_stake" && args.action.type !== "lst_unstake") {
+      throw new Error("lst type mismatch");
+    }
+    if (direction === "stake") {
+      const amountSolUi = (args.action as { args: { amountSolUi: number } }).args.amountSolUi;
+      const result = await stakeMarinade(args.devnet, args.kp, amountSolUi);
+      return {
+        phase: "execute", chain: "devnet", action: "lst_stake", protocol,
+        txSig: result.txSig, policyGate,
+        notes: `Marinade stake: ${amountSolUi} SOL → mSOL @ ${result.mSolTokenAccount.slice(0, 8)}…`,
+      };
+    } else {
+      const amountMsolUi = (args.action as { args: { amountMsolUi: number } }).args.amountMsolUi;
+      const result = await unstakeMarinade(args.devnet, args.kp, amountMsolUi);
+      return {
+        phase: "execute", chain: "devnet", action: "lst_unstake", protocol,
+        txSig: result.txSig, policyGate,
+        notes: `Marinade liquid-unstake: ~${amountMsolUi} mSOL → SOL`,
+      };
+    }
   }
-  const txSig = await selfTransfer(args.surfpool, args.kp);
+
+  // Other LST protocols (jito etc.) — stub until Beethoven CPI is wired.
   return {
-    phase: "execute", chain: "surfpool",
+    phase: "execute", chain: "devnet",
     action: `lst_${direction}`, protocol,
-    txSig, policyGate,
-    notes: `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`,
+    policyGate,
+    notes: `${protocol} ${direction}: policy-gated, CPI pending (use marinade for live execution)`,
   };
 }
 
@@ -218,6 +238,55 @@ async function executeCreateMarket(
   };
 }
 
+async function executeCreateKind6Market(
+  args: ExecuteActionArgs,
+): Promise<ExecuteActionResult> {
+  if (args.action.type !== "create_kind6_market") throw new Error("type mismatch");
+  const a = args.action.args;
+
+  let targetAgent: import("@solana/web3.js").PublicKey;
+  try {
+    const { PublicKey } = await import("@solana/web3.js");
+    targetAgent = new PublicKey(a.targetAgent);
+  } catch {
+    throw new Error(`create_kind6_market: invalid targetAgent pubkey "${a.targetAgent}"`);
+  }
+
+  if (targetAgent.equals(args.kp.publicKey)) {
+    throw new Error("create_kind6_market: targetAgent must not equal creator (insider guard)");
+  }
+
+  const currentSlot = BigInt(await args.devnet.getSlot("confirmed"));
+  const windowSlots = BigInt(Math.max(1, Math.floor(a.windowSlots)));
+  const windowEndSlot = currentSlot + windowSlots;
+  const question = (a.questionTemplate?.trim() || "Agent vs Benchmark market").slice(0, 128);
+
+  const result = await createAgentVsBenchmarkMarket({
+    connection: args.devnet,
+    creatorVault: args.kp,
+    targetAgent,
+    spreadBps: BigInt(Math.max(1, Math.floor(a.spreadBps))),
+    windowStartSlot: currentSlot,
+    windowEndSlot,
+    benchmarkSelector: BigInt(a.selector),
+    question,
+    marketId: BigInt(Date.now()),
+    resolutionSlot: windowEndSlot,
+    initialSubsidy: 1_000_000n,
+    feeBps: 100,
+    policyPath: args.policyPath,
+  });
+
+  return {
+    phase: "execute", chain: "devnet", action: "create_kind6_market",
+    txSig: result.signature,
+    marketPda: result.marketPda,
+    explorerUrl: `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`,
+    policyGate: result.policyGate ??
+      `enforceProgramPolicy passed (${PREDICTION_MARKET_PROGRAM_ID.slice(0, 4)}...create_market_v2 kind=6)`,
+  };
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────
 
 export async function executeAction(
@@ -239,6 +308,8 @@ export async function executeAction(
       return executeZerionSwapAction(args);
     case "create_kind5_market":
       return executeCreateMarket(args);
+    case "create_kind6_market":
+      return executeCreateKind6Market(args);
     default: {
       const exhaustive: never = action;
       throw new Error(`unhandled action type: ${JSON.stringify(exhaustive)}`);

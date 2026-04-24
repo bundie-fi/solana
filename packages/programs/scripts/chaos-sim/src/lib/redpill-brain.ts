@@ -47,6 +47,19 @@ export type BrainAction =
         windowSlots: number;
         questionTemplate: string;
       };
+    }
+  | {
+      type: "create_kind6_market";
+      args: {
+        /** Vault pubkey of the agent being measured (must != creator). */
+        targetAgent: string;
+        /** Benchmark rate selector (1-5, same table as kind=5). */
+        selector: number;
+        /** Required excess of agent NAV growth over benchmark, in bps. */
+        spreadBps: number;
+        windowSlots: number;
+        questionTemplate: string;
+      };
     };
 
 export interface BrainDecision {

@@ -172,7 +172,12 @@ async function main(): Promise<void> {
   requireEnv("REDPILL_API_KEY");
   requireEnv("ZERION_API_KEY");
 
-  const surfpoolUrl = process.env.SURFPOOL_RPC_URL ?? "http://127.0.0.1:8899";
+  // SURFPOOL_RPC_URL can point at a local fork OR at a mainnet RPC for rate
+  // observation. MAINNET_RPC_URL is accepted as an alias (set on Railway).
+  const surfpoolUrl =
+    process.env.SURFPOOL_RPC_URL ??
+    process.env.MAINNET_RPC_URL ??
+    "http://127.0.0.1:8899";
   const devnetUrl = process.env.DEVNET_RPC_URL ?? "https://api.devnet.solana.com";
   const surfpool = new Connection(surfpoolUrl, "confirmed");
   const devnet = new Connection(devnetUrl, "confirmed");

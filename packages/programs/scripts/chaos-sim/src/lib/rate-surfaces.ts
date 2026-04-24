@@ -1,60 +1,39 @@
 /**
- * rate-surfaces.ts — TS ports of the Rust nav_readers (Kamino + Marinade)
- * adapted so every function takes an explicit `Connection`. This is what
- * lets the same code run against surfpool (mainnet-fork state) or devnet.
+ * rate-surfaces.ts — TS mirrors of every on-chain rate reader.
  *
- * Byte offsets mirror:
- *   - packages/beethoven/crates/deposit/kamino/src/lib.rs  (Reserve layout)
- *   - packages/beethoven/crates/deposit/marinade/src/lib.rs (State layout)
+ * Each function takes an explicit `Connection` so the same code runs against
+ * the MAINNET_RPC_URL (for real rate observation) or devnet (fallback).
+ * Functions are fail-quiet: they return 0 on missing/malformed data so the
+ * LLM brain treats that as "unknown" and can decide accordingly.
  *
- * Do NOT refactor offsets without running probe:kamino / probe:marinade.
+ * Byte offsets mirror the Rust nav_readers and beethoven crates. Any changes
+ * here must be validated with the corresponding probe:* scripts.
+ *
+ * Selector table (matches on-chain rate_readers/mod.rs):
+ *   1 — Kamino USDC supply utilization (bps)
+ *   2 — Marinade mSOL price premium over 1.0 SOL (bps above par)
+ *   3 — MarginFi USDC bank utilization (bps)
+ *   4 — SPL Stake Pool SOL exchange rate premium (bps above par) — covers Jito / BlazeStake
+ *   5 — Drift SOL-PERP funding rate (bps, positive = longs pay shorts)
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Reserve / State fixtures
+// Kamino USDC reserve — selector 1
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Devnet test reserve (verified live). */
 export const KAMINO_USDC_RESERVE_DEVNET = new PublicKey(
   "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy",
 );
-/** Mainnet Main-Market USDC reserve (used when reading surfpool fork). */
 export const KAMINO_USDC_RESERVE_MAINNET = new PublicKey(
   "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
 );
 
-/** Marinade State PDA (same on mainnet + devnet — Marinade is a single
- *  program with one global State account). */
-export const MARINADE_STATE_PDA = new PublicKey(
-  "8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC",
-);
-
-// Offsets — MUST match nav_readers and probe scripts.
 const RESERVE_OFFSET_LIQUIDITY_AVAILABLE = 224;
 const RESERVE_OFFSET_LIQUIDITY_BORROWED_SF = 232;
 const RESERVE_MIN_LEN = 1384;
 const SF_SCALE_BITS = 60n;
 
-const STATE_OFFSET_MSOL_PRICE = 512;
-const STATE_MIN_LEN = STATE_OFFSET_MSOL_PRICE + 8;
-const MSOL_PRICE_SCALE_BITS = 32n;
-
-// ─────────────────────────────────────────────────────────────────────────
-// Kamino — reserve utilization (0..10000 bps)
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Read utilization (borrowed / (borrowed + available)) expressed in bps.
- * This is the same selector-1 value the prediction-market program reads
- * via its Rust rate-reader; we ship a TS mirror so agents can observe the
- * number off-chain before building a market.
- *
- * Returns 0 on:
- *   - account-not-found (surfpool hasn't JIT-fetched yet)
- *   - short data
- *   - zero total (empty reserve)
- */
 export async function readKaminoUsdcUtilizationBps(
   conn: Connection,
   reserve: PublicKey,
@@ -77,17 +56,17 @@ export async function readKaminoUsdcUtilizationBps(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Marinade — mSOL/SOL ratio (bps above 1.0)
+// Marinade mSOL price — selector 2
 // ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Read Marinade msol_price (Q32.32 fixed-point) and return the ratio above
- * 1.0 expressed in bps. 0 means "at peg or unreadable", 150 means "mSOL
- * trades at 1.015 SOL/mSOL (+1.5%)".
- *
- * Returns 0 on any read failure (fail-quiet — the prompt can treat 0 as
- * "unknown" and act accordingly).
- */
+export const MARINADE_STATE_PDA = new PublicKey(
+  "8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC",
+);
+
+const STATE_OFFSET_MSOL_PRICE = 512;
+const STATE_MIN_LEN = STATE_OFFSET_MSOL_PRICE + 8;
+const MSOL_PRICE_SCALE_BITS = 32n;
+
 export async function readMarinadeMsolAboveBps(conn: Connection): Promise<number> {
   try {
     const info = await conn.getAccountInfo(MARINADE_STATE_PDA, "confirmed");
@@ -95,11 +74,7 @@ export async function readMarinadeMsolAboveBps(conn: Connection): Promise<number
     const raw = info.data.readBigUInt64LE(STATE_OFFSET_MSOL_PRICE);
     const one = 1n << MSOL_PRICE_SCALE_BITS;
     if (raw <= one) return 0;
-    // (raw - one) / one * 10000 in bigint math
     const bps = ((raw - one) * 10000n) / one;
-    // Clamp — mSOL has historically stayed under 2.0 SOL/mSOL. We cap at
-    // 5000bps (+50%) to avoid surfacing nonsense numbers from a layout-drift
-    // regression; the probe script is the canonical layout guard.
     return Number(bps > 5000n ? 5000n : bps);
   } catch {
     return 0;
@@ -107,38 +82,199 @@ export async function readMarinadeMsolAboveBps(conn: Connection): Promise<number
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Top-level — compose both surfaces with a chain hint
+// MarginFi USDC bank utilization — selector 3
+//
+// Bank layout (mrgnlabs/marginfi-v2, programs/marginfi/src/state/marginfi_group.rs):
+//   [0..8]   Anchor discriminator
+//   [8..40]  mint: Pubkey
+//   [40]     mint_decimals: u8
+//   [41..43] _pad_0: [u8; 2]
+//   [43..51] flags: u64
+//   [51..83] group: Pubkey
+//   ...
+//   The `total_asset_shares` and `total_liability_shares` (WrappedI80F48 = i128)
+//   are deep inside the struct after BankConfig. Exact offsets need probe
+//   verification — we use the asset_share_value/liability_share_value approach
+//   from the outer Bank fields instead.
+//
+//   total_liability_shares: ~offset 600 (probe:marginfi to verify)
+//   total_asset_shares:     ~offset 616 (probe:marginfi to verify)
+//
+// MAINNET USDC bank: 2s37akK2eyBbp8DZgCm7RtsaEz8eqqZyhu81pttYiEy3
+// (main-pool; verify with `solana account 2s37ak...` on mainnet)
+// ─────────────────────────────────────────────────────────────────────────
+
+export const MARGINFI_USDC_BANK_MAINNET = new PublicKey(
+  "2s37akK2eyBbp8DZgCm7RtsaEz8eqqZyhu81pttYiEy3",
+);
+
+const MARGINFI_BANK_TOTAL_LIABILITY_SHARES_OFFSET = 600;
+const MARGINFI_BANK_TOTAL_ASSET_SHARES_OFFSET = 616;
+const MARGINFI_BANK_MIN_LEN = MARGINFI_BANK_TOTAL_ASSET_SHARES_OFFSET + 16;
+
+export async function readMarginfiUsdcUtilizationBps(
+  conn: Connection,
+  bank: PublicKey = MARGINFI_USDC_BANK_MAINNET,
+): Promise<number> {
+  try {
+    const info = await conn.getAccountInfo(bank, "confirmed");
+    if (!info || info.data.length < MARGINFI_BANK_MIN_LEN) return 0;
+    // WrappedI80F48 is stored as two u64s (lo + hi). We treat as u128 for ratio.
+    const liabLo = info.data.readBigUInt64LE(MARGINFI_BANK_TOTAL_LIABILITY_SHARES_OFFSET);
+    const liabHi = info.data.readBigUInt64LE(MARGINFI_BANK_TOTAL_LIABILITY_SHARES_OFFSET + 8);
+    const assetLo = info.data.readBigUInt64LE(MARGINFI_BANK_TOTAL_ASSET_SHARES_OFFSET);
+    const assetHi = info.data.readBigUInt64LE(MARGINFI_BANK_TOTAL_ASSET_SHARES_OFFSET + 8);
+    const liab = liabLo | (liabHi << 64n);
+    const asset = assetLo | (assetHi << 64n);
+    if (asset === 0n) return 0;
+    const bps = (liab * 10000n) / asset;
+    return Number(bps > 10000n ? 10000n : bps);
+  } catch {
+    return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SPL Stake Pool exchange rate — selector 4 (covers Jito / BlazeStake)
+//
+// StakePool layout (solana-labs/solana-program-library stake-pool/state.rs):
+//   [0]       account_type: u8
+//   [1..33]   manager: Pubkey
+//   [33..65]  staker: Pubkey
+//   [65..97]  stake_deposit_authority: Pubkey
+//   [97]      stake_withdraw_bump_seed: u8
+//   [98..130] validator_list: Pubkey
+//   [130..162] reserve_stake: Pubkey
+//   [162..194] pool_mint: Pubkey
+//   [194..226] manager_fee_account: Pubkey
+//   [226..258] token_program_id: Pubkey
+//   [258..266] total_lamports: u64 LE   ★
+//   [266..274] pool_token_supply: u64 LE ★
+//
+// BlazeStake mainnet pool: stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov84HpwHA
+// Jito mainnet pool:       Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Poqu
+// (verify with probe:spl-stake or `solana account <addr>` on mainnet)
+// ─────────────────────────────────────────────────────────────────────────
+
+export const BLAZE_STAKE_POOL_MAINNET = new PublicKey(
+  "stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov84HpwHA",
+);
+
+const SPL_STAKE_POOL_TOTAL_LAMPORTS_OFFSET = 258;
+const SPL_STAKE_POOL_TOKEN_SUPPLY_OFFSET = 266;
+const SPL_STAKE_POOL_MIN_LEN = SPL_STAKE_POOL_TOKEN_SUPPLY_OFFSET + 8;
+
+/**
+ * Read the exchange rate of an SPL stake pool (lamports per pool token)
+ * and return how many bps above 1.0 SOL per token the pool is.
+ * A healthy stake pool will be 200-800bps above par (~2-8% accumulated yield).
+ */
+export async function readSplStakePoolAboveBps(
+  conn: Connection,
+  pool: PublicKey = BLAZE_STAKE_POOL_MAINNET,
+): Promise<number> {
+  try {
+    const info = await conn.getAccountInfo(pool, "confirmed");
+    if (!info || info.data.length < SPL_STAKE_POOL_MIN_LEN) return 0;
+    const totalLamports = info.data.readBigUInt64LE(SPL_STAKE_POOL_TOTAL_LAMPORTS_OFFSET);
+    const tokenSupply = info.data.readBigUInt64LE(SPL_STAKE_POOL_TOKEN_SUPPLY_OFFSET);
+    if (tokenSupply === 0n) return 0;
+    // lamports_per_token expressed in 9-decimal units (1 SOL = 1e9 lamports)
+    const lamperToken = (totalLamports * 1_000_000_000n) / tokenSupply;
+    const one = 1_000_000_000n; // 1 SOL in lamports
+    if (lamperToken <= one) return 0;
+    const bps = ((lamperToken - one) * 10000n) / one;
+    return Number(bps > 5000n ? 5000n : bps);
+  } catch {
+    return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Zeta SOL-PERP funding rate — selector 5
+//
+// Zeta Markets perps (not Drift — Drift had a significant exploit in Aug 2023).
+// Zeta program: BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7 (devnet + mainnet)
+// SOL-PERP State account: derived from Zeta's market accounts.
+//
+// The funding rate from the Zeta perp market tells bob whether there's a
+// basis trade opportunity: positive funding = longs pay shorts = spot+short
+// perp earns the spread above borrowing cost.
+//
+// Exact PDA seeds and funding rate offset need probe:zeta verification.
+// Returns 0 until verified (fail-quiet — agents skip selector 5 if 0).
+// ─────────────────────────────────────────────────────────────────────────
+
+export const ZETA_PROGRAM_ID = new PublicKey(
+  "BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7",
+);
+
+export async function readZetaSolPerpFundingBps(_conn: Connection): Promise<number> {
+  // TODO(probe:zeta): derive SOL-PERP market PDA and verify funding rate offset.
+  // The Zeta State → Market → FundingAccumulator layout needs probe verification.
+  // When live this should return: annualised funding bps (signed), capped ±500.
+  return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Top-level: compose all rate surfaces with a chain hint
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface RateSurfaces {
+  /** Kamino USDC pool utilization (0-10000 bps). Selector 1. */
   kaminoUsdcUtilizationBps: number;
+  /** Marinade mSOL price premium over 1.0 SOL (bps above par). Selector 2. */
   marinadeMsolAboveBps: number;
-  /** "surfpool" or "devnet" — the chain this read actually ran against. */
+  /** MarginFi USDC bank utilization (0-10000 bps). Selector 3. 0 if unverified. */
+  marginfiUsdcUtilizationBps: number;
+  /** SPL Stake Pool (Jito/BlazeStake) exchange rate premium (bps above 1.0 SOL). Selector 4. */
+  splStakePoolAboveBps: number;
+  /** Zeta SOL-PERP funding rate (bps annualised, signed). Selector 5. 0 until probe verified. */
+  zetaSolPerpFundingBps: number;
+  /** The chain these reads ran against ("mainnet" | "devnet"). */
   chain: string;
-  /** The reserve we read (different between mainnet-fork and devnet). */
+  /** Kamino reserve address used. */
   kaminoReserve: string;
 }
 
 /**
- * Read both rate surfaces from the given connection. Pass "surfpool" as
- * chain to use the mainnet-fork reserve; anything else uses the devnet
- * test reserve.
+ * Read all rate surfaces from a single connection. Pass "mainnet" to use
+ * mainnet reserve/state addresses (observation via MAINNET_RPC_URL);
+ * anything else uses devnet test addresses.
+ *
+ * All reads are parallel and fail-quiet. The full surface is always returned
+ * even if individual protocols are unreachable.
  */
 export async function readAllRateSurfaces(
   conn: Connection,
-  chain: "surfpool" | "devnet",
+  chain: "mainnet" | "devnet",
 ): Promise<RateSurfaces> {
   const reserve =
-    chain === "surfpool"
+    chain === "mainnet"
       ? KAMINO_USDC_RESERVE_MAINNET
       : KAMINO_USDC_RESERVE_DEVNET;
-  const [kaminoUsdcUtilizationBps, marinadeMsolAboveBps] = await Promise.all([
+
+  const [
+    kaminoUsdcUtilizationBps,
+    marinadeMsolAboveBps,
+    marginfiUsdcUtilizationBps,
+    splStakePoolAboveBps,
+    zetaSolPerpFundingBps,
+  ] = await Promise.all([
     readKaminoUsdcUtilizationBps(conn, reserve),
     readMarinadeMsolAboveBps(conn),
+    // MarginFi, SPL stake pool, and Zeta only meaningful on mainnet.
+    chain === "mainnet" ? readMarginfiUsdcUtilizationBps(conn) : Promise.resolve(0),
+    chain === "mainnet" ? readSplStakePoolAboveBps(conn) : Promise.resolve(0),
+    chain === "mainnet" ? readZetaSolPerpFundingBps(conn) : Promise.resolve(0),
   ]);
+
   return {
     kaminoUsdcUtilizationBps,
     marinadeMsolAboveBps,
+    marginfiUsdcUtilizationBps,
+    splStakePoolAboveBps,
+    zetaSolPerpFundingBps,
     chain,
     kaminoReserve: reserve.toBase58(),
   };

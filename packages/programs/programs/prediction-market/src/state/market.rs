@@ -74,12 +74,11 @@ pub const MARKET_KIND_BACKER_COUNT: u8 = 4;
 ///   payload[8..16]  = window_start_slot        (u64 LE)
 ///   payload[16..24] = window_end_slot          (u64 LE)
 ///   payload[24..32] = rate_reader_selector     (u64 LE)
-///                       1 = Kamino USDC supply APY
-///                       2 = Marinade mSOL stake APY
-///                       3 = Kamino USDC borrow APR
-///                       4 = Orca SOL-USDC Whirlpool fee APY
-///                       5 = Jupiter Perps SOL-PERP funding rate
-///                       6 = Jupiter JLP NAV growth
+///                       1 = Kamino USDC supply utilization (bps)
+///                       2 = Marinade mSOL price premium over SOL (bps above par)
+///                       3 = MarginFi USDC bank utilization (bps)
+///                       4 = SPL Stake Pool exchange rate (bps above par, covers Jito/BlazeStake)
+///                       5 = Zeta SOL-PERP funding rate (bps annualised, signed)
 ///   payload[32..64] = reserved (zero)
 ///
 /// `strategy_b` is unused (set to `None`).

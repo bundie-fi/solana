@@ -49,6 +49,15 @@ export default async function AgentProfilePage({
     (m) => m.kind === 6 && m.targetAgent === vault,
   );
 
+  // Known devnet token mints → protocol label + selector for rate context.
+  // mSOL devnet is the Marinade mSOL mint deployed on devnet.
+  const KNOWN_MINTS: Record<string, { label: string; protocol: string; selector: number; unit: string }> = {
+    // Marinade mSOL (devnet) — when an agent stakes SOL via Beethoven execute
+    "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": { label: "Marinade mSOL", protocol: "marinade", selector: 2, unit: "mSOL" },
+    // Kamino kUSDC (devnet main-market reserve)
+    "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy": { label: "Kamino kUSDC", protocol: "kamino", selector: 1, unit: "kUSDC" },
+  };
+
   let solLamports = 0;
   let tokenAccounts: Array<{ mint: string; uiAmount: number }> = [];
   try {
@@ -74,6 +83,11 @@ export default async function AgentProfilePage({
   } catch {
     // swallow
   }
+
+  // Strategy positions = token accounts that map to a known protocol.
+  const strategyPositions = tokenAccounts
+    .map((t) => ({ ...t, meta: KNOWN_MINTS[t.mint] }))
+    .filter((t) => t.meta != null);
 
   const resolvedMarkets = createdByMe.filter((m) => m.status === "resolved");
   const activeMarkets = createdByMe.filter((m) => m.status === "active");
@@ -226,6 +240,56 @@ export default async function AgentProfilePage({
             tokenAccounts={tokenAccounts}
           />
         </div>
+
+        {/* Strategy positions — live devnet positions from Beethoven execution */}
+        {strategyPositions.length > 0 && (
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
+            <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
+              Strategy positions
+              <span className="muted mono" style={{ fontSize: 9, marginLeft: 8 }}>devnet execution · mainnet rate context</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {strategyPositions.map((pos) => (
+                <div
+                  key={pos.mint}
+                  className="card inset"
+                  style={{
+                    padding: "10px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span
+                      className="pill pill-gold"
+                      style={{ fontSize: 9, padding: "2px 6px" }}
+                    >
+                      {pos.meta!.protocol.toUpperCase()}
+                    </span>
+                    <div>
+                      <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-0)" }}>
+                        {pos.uiAmount.toFixed(6)} {pos.meta!.unit}
+                      </div>
+                      <div className="muted" style={{ fontSize: 10, marginTop: 1 }}>
+                        {pos.meta!.label} · selector={pos.meta!.selector}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--gold)" }}>
+                      rate market ready
+                    </div>
+                    <div className="muted" style={{ fontSize: 9, marginTop: 2 }}>
+                      resolution via on-chain reader
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Two-column markets */}
         <div

@@ -42,10 +42,13 @@ export async function runTick(args: TickArgs): Promise<void> {
   // ─── 1. Observe ────────────────────────────────────────────────────────
   const surfpoolAvailable = await isSurfpoolReachable(args.surfpool);
   const observeConn = surfpoolAvailable ? args.surfpool : args.devnet;
-  const observeChain = surfpoolAvailable ? "surfpool" : "devnet";
+  // When SURFPOOL_RPC_URL / MAINNET_RPC_URL points at real mainnet (recommended),
+  // label it "mainnet" so all 5 rate readers use mainnet reserve/state addresses.
+  // If surfpool is unreachable we fall back to devnet (only Kamino + Marinade work).
+  const observeChain = surfpoolAvailable ? "mainnet" : "devnet";
 
   const [rates, selfNavOnObserveChain, selfNavOnDevnet, peerNavs] = await Promise.all([
-    readAllRateSurfaces(observeConn, observeChain as "surfpool" | "devnet"),
+    readAllRateSurfaces(observeConn, observeChain as "mainnet" | "devnet"),
     readVaultNav(observeConn, args.kp.publicKey),
     // Always read devnet balance separately: market-creation txs are submitted
     // to devnet, so the LLM must see the devnet fee-payer balance even when
@@ -76,9 +79,10 @@ export async function runTick(args: TickArgs): Promise<void> {
 
   console.log(
     `[tick ${args.agentName}] observed from ${observeChain} ` +
-      `(surfpool=${surfpoolAvailable ? "up" : "down"})  ` +
-      `kaminoUtil=${rates.kaminoUsdcUtilizationBps}bps  msolAbove=${rates.marinadeMsolAboveBps}bps  ` +
-      `selfSol=${selfNav.sol.toFixed(4)}`,
+      `(mainnetRpc=${surfpoolAvailable ? "up" : "down"})  ` +
+      `kamino=${rates.kaminoUsdcUtilizationBps}bps  marinade=${rates.marinadeMsolAboveBps}bps  ` +
+      `marginfi=${rates.marginfiUsdcUtilizationBps}bps  jito=${rates.splStakePoolAboveBps}bps  ` +
+      `driftFunding=${rates.driftSolPerpFundingBps}bps  selfSol=${selfNav.sol.toFixed(4)}`,
   );
 
   // ─── 2. Reason (Redpill) ───────────────────────────────────────────────
