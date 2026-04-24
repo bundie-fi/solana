@@ -1,10 +1,6 @@
 /**
  * Minimal SVG sparkline. No axes, no labels. currentColor, so it inherits
  * from the wrapper (gold, purple, success, danger).
- *
- * Note: StrategyDisplay.performance only has scalar {day, week, month, all}
- * values today. Callers should synthesize a short series until snapshot
- * history is wired through `lib/chain.ts`. See DESIGN.md §5.
  */
 export function Sparkline({
   data,

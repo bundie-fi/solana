@@ -209,7 +209,7 @@ function IdentityHasNameView({ name, owner }: { name: string; owner: string }) {
           View your portfolio →
         </Link>
         <Link
-          href="/discover"
+          href="/markets"
           className="inline-flex h-11 min-h-[44px] items-center rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-amber"
         >
           Discover strategies
@@ -396,7 +396,7 @@ function ClaimFlow({
               Go to portfolio →
             </Link>
             <Link
-              href="/discover"
+              href="/markets"
               className="inline-flex h-11 min-h-[44px] items-center rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-amber"
             >
               Back a strategy

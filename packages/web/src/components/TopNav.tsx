@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS: { href: string; label: string }[] = [
-  { href: "/discover", label: "Discover" },
   { href: "/markets", label: "Markets" },
   { href: "/protocols", label: "Protocols" },
   { href: "/portfolio", label: "Portfolio" },
@@ -27,7 +26,7 @@ export function TopNav() {
         className="mx-auto flex h-14 w-full max-w-content items-center justify-between gap-4 px-4 md:px-8"
       >
         <Link
-          href="/discover"
+          href="/markets"
           className="inline-flex items-center gap-2.5 group"
         >
           <Image
@@ -47,7 +46,7 @@ export function TopNav() {
           {LINKS.map((l) => {
             const active =
               pathname === l.href ||
-              (l.href !== "/discover" && pathname?.startsWith(l.href));
+              (l.href !== "/markets" && pathname?.startsWith(l.href));
             return (
               <li key={l.href}>
                 <Link
