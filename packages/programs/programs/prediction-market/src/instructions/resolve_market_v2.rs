@@ -214,6 +214,27 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
             }
         }
 
+        MARKET_KIND_RATE_BARRIER => {
+            let threshold_bps = payload_u64(&payload, 0);
+            let _window_start = payload_u64(&payload, 8);
+            let _window_end = payload_u64(&payload, 16);
+            let selector = payload_u64(&payload, 24);
+
+            let reader = crate::rate_readers::rate_reader_for_selector(selector)
+                .ok_or(error!(MarketError::InvalidOracle))?;
+            let data = ctx.accounts.data_a.try_borrow_data()?;
+            let current_apy_bps = reader.read_apy_bps(&data)?;
+
+            msg!(
+                "resolve_v2(RateBarrier): selector={} apy_bps={} threshold={}",
+                selector,
+                current_apy_bps,
+                threshold_bps
+            );
+
+            if current_apy_bps >= threshold_bps { Outcome::Yes } else { Outcome::No }
+        }
+
         _ => return Err(error!(MarketError::InvalidKind)),
     };
 
