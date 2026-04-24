@@ -1,0 +1,16 @@
+{
+  "cluster": "devnet",
+  "rootPda": "4ZKCQT1DgxQ7L4TggUMr4SS3zH4SLyVT1FWbCq4qrjEy",
+  "alice": {
+    "vaultPubkey": "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm",
+    "snsPda": "FH6FhVQ1hw7sHQdbg1p5cdKkHGr3yu5Re9Yx8VTDr4Nb",
+    "name": "alice.bundie",
+    "signature": "5HdskJyBWG7aipQxESCbgmmHsAvnAx9PccCFpdCMZVqUAw7ms8VKBiFVyvGcs1WtzGm5v2nobXa7ERC6CfqQfUJ1"
+  },
+  "bob": {
+    "vaultPubkey": "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb",
+    "snsPda": "D8BRLTc6j4cpkMvpP7QfQR6cbw9QJ3LgXAEYzx9JQEzV",
+    "name": "bob.bundie",
+    "signature": "4XaKfZxmLeQJGGxunL1U1RtgGmAwZeSYEWEVNcxzP6dBfmCjU9dA7CMk9x5nQybuc8xvHxYsQiK6EkPMDWNqTedz"
+  }
+}

@@ -898,9 +898,6 @@ pub enum DepositContext<'info> {
     #[cfg(feature = "jupiter-deposit")]
     Jupiter(crate::jupiter::JupiterEarnDepositAccounts<'info>),
 
-    #[cfg(feature = "drift-deposit")]
-    Drift(crate::drift::DriftDepositAccounts<'info>),
-
     #[cfg(feature = "marginfi-deposit")]
     Marginfi(crate::marginfi::MarginfiDepositAccounts<'info>),
 
@@ -913,9 +910,6 @@ pub enum DepositContext<'info> {
     #[cfg(feature = "spl-stake-pool-deposit")]
     SplStakePool(crate::spl_stake_pool::SplStakePoolDepositSolAccounts<'info>),
 
-    #[cfg(feature = "drift-vaults-deposit")]
-    DriftVaults(crate::drift_vaults::DriftVaultsDepositAccounts<'info>),
-
     #[cfg(feature = "meteora-vaults-deposit")]
     MeteoraVaults(crate::meteora_vaults::MeteoraVaultsDepositAccounts<'info>),
 }
@@ -926,8 +920,6 @@ pub enum DepositData {
     Kamino(()),
     #[cfg(feature = "jupiter-deposit")]
     Jupiter(()),
-    #[cfg(feature = "drift-deposit")]
-    Drift(crate::drift::DriftDepositData),
     #[cfg(feature = "marginfi-deposit")]
     Marginfi(crate::marginfi::MarginfiDepositData),
     #[cfg(feature = "marinade-deposit")]
@@ -936,8 +928,6 @@ pub enum DepositData {
     Solend(()),
     #[cfg(feature = "spl-stake-pool-deposit")]
     SplStakePool(crate::spl_stake_pool::SplStakePoolDepositSolData),
-    #[cfg(feature = "drift-vaults-deposit")]
-    DriftVaults(()),
     #[cfg(feature = "meteora-vaults-deposit")]
     MeteoraVaults(crate::meteora_vaults::MeteoraVaultsDepositData),
 }
@@ -953,12 +943,6 @@ impl<'a> DepositContext<'a> {
 
             #[cfg(feature = "jupiter-deposit")]
             DepositContext::Jupiter(_) => Ok((DepositData::Jupiter(()), &[])),
-
-            #[cfg(feature = "drift-deposit")]
-            DepositContext::Drift(_) => Ok((
-                DepositData::Drift(crate::drift::DriftDepositData::try_from(data)?),
-                &[],
-            )),
 
             #[cfg(feature = "marginfi-deposit")]
             DepositContext::Marginfi(_) => Ok((
@@ -982,9 +966,6 @@ impl<'a> DepositContext<'a> {
                 ),
                 &[],
             )),
-
-            #[cfg(feature = "drift-vaults-deposit")]
-            DepositContext::DriftVaults(_) => Ok((DepositData::DriftVaults(()), &[])),
 
             #[cfg(feature = "meteora-vaults-deposit")]
             DepositContext::MeteoraVaults(_) => Ok((
@@ -1019,15 +1000,6 @@ impl<'info> Deposit<'info> for DepositContext<'info> {
             #[cfg(feature = "jupiter-deposit")]
             DepositContext::Jupiter(accounts) => {
                 crate::jupiter::JupiterEarn::deposit_signed(accounts, amount, &(), signer_seeds)
-            }
-
-            #[cfg(feature = "drift-deposit")]
-            DepositContext::Drift(accounts) => {
-                if let DepositData::Drift(data) = data {
-                    crate::drift::Drift::deposit_signed(accounts, amount, data, signer_seeds)
-                } else {
-                    Err(ProgramError::InvalidInstructionData)
-                }
             }
 
             #[cfg(feature = "marginfi-deposit")]
@@ -1065,16 +1037,6 @@ impl<'info> Deposit<'info> for DepositContext<'info> {
                 } else {
                     Err(ProgramError::InvalidInstructionData)
                 }
-            }
-
-            #[cfg(feature = "drift-vaults-deposit")]
-            DepositContext::DriftVaults(accounts) => {
-                crate::drift_vaults::DriftVaults::deposit_signed(
-                    accounts,
-                    amount,
-                    &(),
-                    signer_seeds,
-                )
             }
 
             #[cfg(feature = "meteora-vaults-deposit")]
@@ -1124,12 +1086,6 @@ pub fn try_from_deposit_context<'info>(
         return Ok(DepositContext::Jupiter(ctx));
     }
 
-    #[cfg(feature = "drift-deposit")]
-    if address_eq(detector_account.address(), &crate::drift::DRIFT_PROGRAM_ID) {
-        let ctx = crate::drift::DriftDepositAccounts::try_from(accounts)?;
-        return Ok(DepositContext::Drift(ctx));
-    }
-
     #[cfg(feature = "marginfi-deposit")]
     if address_eq(
         detector_account.address(),
@@ -1166,15 +1122,6 @@ pub fn try_from_deposit_context<'info>(
         return Ok(DepositContext::SplStakePool(ctx));
     }
 
-    #[cfg(feature = "drift-vaults-deposit")]
-    if address_eq(
-        detector_account.address(),
-        &crate::drift_vaults::DRIFT_VAULTS_PROGRAM_ID,
-    ) {
-        let ctx = crate::drift_vaults::DriftVaultsDepositAccounts::try_from(accounts)?;
-        return Ok(DepositContext::DriftVaults(ctx));
-    }
-
     #[cfg(feature = "meteora-vaults-deposit")]
     if address_eq(
         detector_account.address(),
@@ -1190,21 +1137,13 @@ pub fn try_from_deposit_context<'info>(
 // ─── Perps context ────────────────────────────────────────────────────────
 //
 // Mirrors the Swap/Deposit pattern for perpetual-futures operations.
-// Mango v4 + Zeta wired today; Drift Perps / Adrena slot in here the same
-// way. The entire block is cfg-gated on "any perps protocol enabled" so
-// builds without a perps feature simply omit PerpsContext + its dispatcher.
-#[cfg(any(
-    feature = "mango-perps",
-    feature = "zeta-perps",
-    feature = "drift-perps"
-))]
+// Mango v4 + Zeta wired today. The entire block is cfg-gated on "any perps
+// protocol enabled" so builds without a perps feature simply omit
+// PerpsContext + its dispatcher.
+#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
 pub use perps_ctx::*;
 
-#[cfg(any(
-    feature = "mango-perps",
-    feature = "zeta-perps",
-    feature = "drift-perps"
-))]
+#[cfg(any(feature = "mango-perps", feature = "zeta-perps"))]
 mod perps_ctx {
     use super::*;
     use crate::Perps;
@@ -1214,8 +1153,6 @@ mod perps_ctx {
         Mango(crate::mango::MangoPlaceOrderAccounts<'info>),
         #[cfg(feature = "zeta-perps")]
         Zeta(crate::zeta::ZetaPlacePerpOrderAccounts<'info>),
-        #[cfg(feature = "drift-perps")]
-        Drift(crate::drift_perps::DriftPlacePerpOrderAccounts<'info>),
     }
 
     pub enum PerpsData {
@@ -1223,8 +1160,6 @@ mod perps_ctx {
         Mango(crate::mango::MangoPlaceOrderData),
         #[cfg(feature = "zeta-perps")]
         Zeta(crate::zeta::ZetaPlacePerpOrderData),
-        #[cfg(feature = "drift-perps")]
-        Drift(crate::drift_perps::DriftPlacePerpOrderData),
     }
 
     impl<'info> Perps<'info> for PerpsContext<'info> {
@@ -1245,10 +1180,6 @@ mod perps_ctx {
                 (PerpsContext::Zeta(accounts), PerpsData::Zeta(d)) => {
                     crate::zeta::Zeta::place_order_signed(accounts, d, signer_seeds)
                 }
-                #[cfg(feature = "drift-perps")]
-                (PerpsContext::Drift(accounts), PerpsData::Drift(d)) => {
-                    crate::drift_perps::Drift::place_order_signed(accounts, d, signer_seeds)
-                }
                 #[allow(unreachable_patterns)]
                 _ => Err(ProgramError::InvalidAccountData),
             }
@@ -1260,7 +1191,7 @@ mod perps_ctx {
     }
 
     /// Detect the perps protocol from the first remaining account and return
-    /// a typed context. Strategy-token feeds the `remaining_accounts` slice in
+    /// a typed context. Callers feed the `remaining_accounts` slice in
     /// directly — first account is always the target program id.
     pub fn try_from_perps_context<'info>(
         accounts: &'info [AccountView],
@@ -1282,15 +1213,6 @@ mod perps_ctx {
             return Ok(PerpsContext::Zeta(ctx));
         }
 
-        #[cfg(feature = "drift-perps")]
-        if address_eq(
-            detector_account.address(),
-            &crate::drift_perps::DRIFT_PROGRAM_ID,
-        ) {
-            let ctx = crate::drift_perps::DriftPlacePerpOrderAccounts::try_from(accounts)?;
-            return Ok(PerpsContext::Drift(ctx));
-        }
-
         let _ = detector_account;
         Err(ProgramError::InvalidAccountData)
     }
@@ -1301,21 +1223,13 @@ mod perps_ctx {
 // For protocols whose deposit path needs a per-user state account
 // (obligation, metadata, margin account) created once before any deposit.
 // Gated on "any deposit-init-capable protocol enabled" (today: kamino,
-// drift, marginfi). Jupiter is intentionally NOT included — see its
-// crate-level doc comment for the rationale (it composes Kamino-style
-// state under the hood and uses standard ATAs for the user position).
-#[cfg(any(
-    feature = "kamino-deposit",
-    feature = "drift-deposit",
-    feature = "marginfi-deposit"
-))]
+// marginfi). Jupiter is intentionally NOT included — see its crate-level
+// doc comment for the rationale (it composes Kamino-style state under the
+// hood and uses standard ATAs for the user position).
+#[cfg(any(feature = "kamino-deposit", feature = "marginfi-deposit"))]
 pub use deposit_init_ctx::*;
 
-#[cfg(any(
-    feature = "kamino-deposit",
-    feature = "drift-deposit",
-    feature = "marginfi-deposit"
-))]
+#[cfg(any(feature = "kamino-deposit", feature = "marginfi-deposit"))]
 mod deposit_init_ctx {
     use super::*;
     use crate::DepositInit;
@@ -1323,9 +1237,6 @@ mod deposit_init_ctx {
     pub enum DepositInitContext<'info> {
         #[cfg(feature = "kamino-deposit")]
         Kamino(crate::kamino::KaminoInitAccounts<'info>),
-
-        #[cfg(feature = "drift-deposit")]
-        Drift(crate::drift::DriftInitAccounts<'info>),
 
         #[cfg(feature = "marginfi-deposit")]
         Marginfi(crate::marginfi::MarginfiInitAccounts<'info>),
@@ -1339,10 +1250,6 @@ mod deposit_init_ctx {
                 #[cfg(feature = "kamino-deposit")]
                 DepositInitContext::Kamino(accounts) => {
                     crate::kamino::Kamino::init_signed(accounts, signer_seeds)
-                }
-                #[cfg(feature = "drift-deposit")]
-                DepositInitContext::Drift(accounts) => {
-                    crate::drift::Drift::init_signed(accounts, signer_seeds)
                 }
                 #[cfg(feature = "marginfi-deposit")]
                 DepositInitContext::Marginfi(accounts) => {
@@ -1370,12 +1277,6 @@ mod deposit_init_ctx {
         ) {
             let ctx = crate::kamino::KaminoInitAccounts::try_from(accounts)?;
             return Ok(DepositInitContext::Kamino(ctx));
-        }
-
-        #[cfg(feature = "drift-deposit")]
-        if address_eq(detector_account.address(), &crate::drift::DRIFT_PROGRAM_ID) {
-            let ctx = crate::drift::DriftInitAccounts::try_from(accounts)?;
-            return Ok(DepositInitContext::Drift(ctx));
         }
 
         #[cfg(feature = "marginfi-deposit")]

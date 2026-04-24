@@ -2,17 +2,18 @@ import { ProtocolGrid, type Protocol } from "@/components/ProtocolGrid";
 import { Stat } from "@/components/ui/Stat";
 
 /**
- * The full set of Beethoven protocols wired into the strategy-token program.
+ * The full set of Beethoven adapters still enabled after the Drift
+ * removal.
  *
  * Source of truth:
- *   - packages/programs/programs/strategy-token/Cargo.toml (`beethoven` features)
+ *   - packages/beethoven/Cargo.toml (`[features]`)
  *   - packages/beethoven/crates/{deposit,swap,perps}/<name>/src/lib.rs
  *     (each crate exposes a `<NAME>_PROGRAM_ID` constant — copied verbatim).
  *
- * 9 deposit + 22 swap + 2 perps = 33 protocols.
+ * 7 deposit + 22 swap + 2 perps = 31 protocols.
  */
 const PROTOCOLS: Protocol[] = [
-  // ── Deposit (9) ──────────────────────────────────────────────────────
+  // ── Deposit (7) ──────────────────────────────────────────────────────
   {
     name: "Kamino Lend",
     category: "Deposit",
@@ -25,13 +26,6 @@ const PROTOCOLS: Protocol[] = [
     category: "Deposit",
     subCategory: "vault aggregator",
     programId: "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9",
-    devnet: true,
-  },
-  {
-    name: "Drift Deposit",
-    category: "Deposit",
-    subCategory: "lending / borrow",
-    programId: "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
     devnet: true,
   },
   {
@@ -60,13 +54,6 @@ const PROTOCOLS: Protocol[] = [
     category: "Deposit",
     subCategory: "liquid staking",
     programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
-    devnet: true,
-  },
-  {
-    name: "Drift Vaults",
-    category: "Deposit",
-    subCategory: "vault aggregator",
-    programId: "vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR",
     devnet: true,
   },
   {
@@ -253,7 +240,7 @@ const PROTOCOLS: Protocol[] = [
 export const metadata = {
   title: "Protocols — Bundie",
   description:
-    "All 33 Beethoven protocols wired into the Bundie strategy-token program: deposit vaults, swap routers, and perps DEXes — live on Solana devnet.",
+    "The 31 Beethoven adapters that back Bundie's rate-prediction markets: deposit vaults, swap routers, and perps DEXes — live on Solana devnet.",
 };
 
 export default function ProtocolsPage() {

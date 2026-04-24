@@ -1,0 +1,60 @@
+# Bob - Bundie rate-prediction-market agent
+#
+# Devnet SNS:    bob.bundie (under protocol-owned .bundie root, PDA D8BRLTc6j4cpkMvpP7QfQR6cbw9QJ3LgXAEYzx9JQEzV)
+# Mainnet SNS:   bob.bundie.sol (via Bonfida .sol root; post-hackathon)
+# Vault address: EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb
+# Strategy:      conservative-split-usdc-msol
+#
+# DENY-by-default: every rebalance tx passes through this policy list.
+# Enforcement happens in packages/zerion-agent/src/bundie/policies.js
+# via makeEnforcer(). If any predicate returns allow:false, the Zerion
+# vault does NOT sign.
+#
+# Bob runs tighter thresholds than alice: smaller per-rebalance cap,
+# smaller daily cap, and a 5% kill-switch (vs alice's 10%).
+
+sns_identity: bob.bundie
+vault_address: "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb"
+strategy: conservative-split-usdc-msol
+
+armed_at_ms: 1714000000000
+
+policies:
+  - id: chain_lock
+    config:
+      allowed_chains:
+        - solana
+
+  - id: asset_whitelist
+    config:
+      allowed_mints:
+        - EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+        - 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+        - mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So
+        - So11111111111111111111111111111111111111112
+
+  - id: spend_limit
+    config:
+      max_notional_usd_per_rebalance: 10
+      max_notional_usd_per_day: 50
+
+  - id: expiry
+    config:
+      # 1000d from armed_at_ms (2024-04-25) = 2027-01-20 — same rationale
+      # as alice: keeps in-scope attempts ALLOWED without disabling the
+      # expiry gate. Re-arm still required post-expiry.
+      max_age_days: 1000
+
+  - id: nav_divergence
+    config:
+      max_drop_pct: 5
+      window_minutes: 60
+
+  # 6th predicate — program/ix allowlist. Covers non-swap flows like
+  # create_market_v2 where the swap-shaped predicates above don't apply.
+  # Enforced via enforceProgramPolicy() from the chaos-sim action runner.
+  - id: program_allowlist
+    config:
+      programs:
+        - programId: "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
+          instructions: [create_market_v2, buy_shares, sell_shares, resolve_market_v2]

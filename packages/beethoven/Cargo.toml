@@ -15,12 +15,10 @@ upstream-bpf = []
 deposit = [
     "kamino-deposit",
     "jupiter-deposit",
-    "drift-deposit",
     "marginfi-deposit",
     "marinade-deposit",
     "solend-deposit",
     "spl-stake-pool-deposit",
-    "drift-vaults-deposit",
     "meteora-vaults-deposit",
 ]
 swap = [
@@ -47,23 +45,20 @@ swap = [
     "phoenix-swap",
     "openbook-v2-swap",
 ]
-perps = ["mango-perps", "zeta-perps", "drift-perps"]
+perps = ["mango-perps", "zeta-perps"]
 
 # Deposit protocols
 kamino-deposit = ["dep:beethoven-deposit-kamino"]
 jupiter-deposit = ["dep:beethoven-deposit-jupiter"]
-drift-deposit = ["dep:beethoven-deposit-drift"]
 marginfi-deposit = ["dep:beethoven-deposit-marginfi"]
 marinade-deposit = ["dep:beethoven-deposit-marinade"]
 solend-deposit = ["dep:beethoven-deposit-solend"]
 spl-stake-pool-deposit = ["dep:beethoven-deposit-spl-stake-pool"]
-drift-vaults-deposit = ["dep:beethoven-deposit-drift-vaults"]
 meteora-vaults-deposit = ["dep:beethoven-deposit-meteora-vaults"]
 
 # Perps protocols
 mango-perps = ["dep:beethoven-perps-mango"]
 zeta-perps = ["dep:beethoven-perps-zeta"]
-drift-perps = ["dep:beethoven-perps-drift"]
 
 # Swap protocols
 perena-swap = ["dep:beethoven-swap-perena"]
@@ -99,7 +94,6 @@ solana-program-error = "3.0.0"
 # Optional protocol crates
 beethoven-deposit-kamino = { path = "crates/deposit/kamino", optional = true }
 beethoven-deposit-jupiter = { path = "crates/deposit/jupiter", optional = true }
-beethoven-deposit-drift = { path = "crates/deposit/drift", optional = true }
 beethoven-deposit-marginfi = { path = "crates/deposit/marginfi", optional = true }
 beethoven-swap-perena = { path = "crates/swap/perena", optional = true }
 beethoven-swap-solfi = { path = "crates/swap/solfi", optional = true }
@@ -126,18 +120,15 @@ beethoven-swap-openbook-v2 = { path = "crates/swap/openbook-v2", optional = true
 beethoven-deposit-marinade = { path = "crates/deposit/marinade", optional = true }
 beethoven-deposit-solend = { path = "crates/deposit/solend", optional = true }
 beethoven-deposit-spl-stake-pool = { path = "crates/deposit/spl-stake-pool", optional = true }
-beethoven-deposit-drift-vaults = { path = "crates/deposit/drift-vaults", optional = true }
 beethoven-deposit-meteora-vaults = { path = "crates/deposit/meteora-vaults", optional = true }
 beethoven-perps-mango = { path = "crates/perps/mango", optional = true }
 beethoven-perps-zeta = { path = "crates/perps/zeta", optional = true }
-beethoven-perps-drift = { path = "crates/perps/drift", optional = true }
 
 [workspace]
 members = [
     "crates/core",
     "crates/deposit/kamino",
     "crates/deposit/jupiter",
-    "crates/deposit/drift",
     "crates/deposit/marginfi",
     "crates/swap/perena",
     "crates/swap/solfi",
@@ -164,11 +155,9 @@ members = [
     "crates/deposit/marinade",
     "crates/deposit/solend",
     "crates/deposit/spl-stake-pool",
-    "crates/deposit/drift-vaults",
     "crates/deposit/meteora-vaults",
     "crates/perps/mango",
     "crates/perps/zeta",
-    "crates/perps/drift",
     "program-test",
     "crates/client",
 ]

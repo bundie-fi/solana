@@ -214,6 +214,72 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
             }
         }
 
+        MARKET_KIND_RATE_BARRIER => {
+            let threshold_bps = payload_u64(&payload, 0);
+            let _window_start = payload_u64(&payload, 8);
+            let _window_end = payload_u64(&payload, 16);
+            let selector = payload_u64(&payload, 24);
+
+            let reader = crate::rate_readers::rate_reader_for_selector(selector)
+                .ok_or(error!(MarketError::InvalidOracle))?;
+            let data = ctx.accounts.data_a.try_borrow_data()?;
+            let current_apy_bps = reader.read_apy_bps(&data)?;
+
+            msg!(
+                "resolve_v2(RateBarrier): selector={} apy_bps={} threshold={}",
+                selector,
+                current_apy_bps,
+                threshold_bps
+            );
+
+            if current_apy_bps >= threshold_bps { Outcome::Yes } else { Outcome::No }
+        }
+
+        MARKET_KIND_AGENT_VS_BENCHMARK => {
+            let spread_bps = payload_u64(&payload, 0);
+            let _window_start = payload_u64(&payload, 8);
+            let _window_end = payload_u64(&payload, 16);
+            let benchmark_selector = payload_u64(&payload, 24);
+            let initial_agent_nav = payload_u64(&payload, 32);
+
+            // data_a must be the agent's vault SPL Token Account. Amount lives
+            // at offset 64 (the `amount: u64` field after mint+owner+delegate).
+            let vault_data = ctx.accounts.data_a.try_borrow_data()?;
+            require!(vault_data.len() >= 72, MarketError::InvalidOracle);
+            let current_agent_nav = u64::from_le_bytes(
+                vault_data[64..72]
+                    .try_into()
+                    .map_err(|_| error!(MarketError::InvalidOracle))?,
+            );
+
+            // data_b is the benchmark reader's pool account.
+            let benchmark_reader =
+                crate::rate_readers::rate_reader_for_selector(benchmark_selector)
+                    .ok_or(error!(MarketError::InvalidOracle))?;
+            let benchmark_data = ctx.accounts.data_b.try_borrow_data()?;
+            let benchmark_apy_bps = benchmark_reader.read_apy_bps(&benchmark_data)?;
+
+            let agent_return_bps = if initial_agent_nav > 0 {
+                ((current_agent_nav.saturating_sub(initial_agent_nav)) as u128 * 10_000u128
+                    / initial_agent_nav as u128) as u64
+            } else {
+                0
+            };
+
+            msg!(
+                "resolve_v2(AgentVsBenchmark): agent_return_bps={} benchmark_bps={} spread_bps={}",
+                agent_return_bps,
+                benchmark_apy_bps,
+                spread_bps
+            );
+
+            if agent_return_bps >= benchmark_apy_bps.saturating_add(spread_bps) {
+                Outcome::Yes
+            } else {
+                Outcome::No
+            }
+        }
+
         _ => return Err(error!(MarketError::InvalidKind)),
     };
 

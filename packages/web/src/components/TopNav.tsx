@@ -4,9 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINKS: { href: string; label: string }[] = [
-  { href: "/discover", label: "Discover" },
+// `activePrefix` lets the Agents tab light up on any `/agent/<sns>` route
+// without us having to hardcode that SNS name into the match logic.
+const LINKS: {
+  href: string;
+  label: string;
+  activePrefix?: string;
+}[] = [
   { href: "/markets", label: "Markets" },
+  { href: "/agent/alice.bundie", label: "Agents", activePrefix: "/agent" },
   { href: "/protocols", label: "Protocols" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/identity", label: "Identity" },
@@ -27,7 +33,7 @@ export function TopNav() {
         className="mx-auto flex h-14 w-full max-w-content items-center justify-between gap-4 px-4 md:px-8"
       >
         <Link
-          href="/discover"
+          href="/markets"
           className="inline-flex items-center gap-2.5 group"
         >
           <Image
@@ -45,9 +51,11 @@ export function TopNav() {
 
         <ul className="flex items-center gap-1 overflow-x-auto">
           {LINKS.map((l) => {
+            const matchPrefix = l.activePrefix ?? l.href;
             const active =
               pathname === l.href ||
-              (l.href !== "/discover" && pathname?.startsWith(l.href));
+              (matchPrefix !== "/markets" &&
+                pathname?.startsWith(matchPrefix));
             return (
               <li key={l.href}>
                 <Link

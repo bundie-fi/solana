@@ -1,0 +1,33 @@
+{
+  "cluster": "devnet",
+  "rpc": "https://api.devnet.solana.com",
+  "programId": "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4",
+  "timestamp": "2026-04-24T19:11:02.235Z",
+  "agent": {
+    "sns": "alice.bundie",
+    "vaultPubkey": "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm"
+  },
+  "tx": {
+    "signature": "2AmVnss8NR9HTvo4T4XboTcJnauZNLsCRh5B8TBXsDT4P2wH7fdgzcKafADFBqogri7FJSwAcqsCzCaYae8cL5UL",
+    "explorerUrl": "https://explorer.solana.com/tx/2AmVnss8NR9HTvo4T4XboTcJnauZNLsCRh5B8TBXsDT4P2wH7fdgzcKafADFBqogri7FJSwAcqsCzCaYae8cL5UL?cluster=devnet"
+  },
+  "market": {
+    "kind": 5,
+    "kindName": "RateBarrier",
+    "marketId": "1777057861462",
+    "question": "Will Kamino USDC supply APY cross 8% in the next 4 days?",
+    "marketPda": "DN1wWEP572wnZshrHZdW1d8Af1KB3iDLC5X8vKPaaqDo",
+    "vaultPda": "7X6Sx3iUeoYnrW4x47TKjBC2sDrqzkMgg9yZ7MXgxtsu",
+    "yesMintPda": "GiK9KZxay6DfzpxSHrbwrFnkya8xojiKme5SfNx4BRf9",
+    "noMintPda": "5CtYD8gzJvHbTwbQwLi37WZivbDQrT54CTboCWsnRUU4",
+    "thresholdBps": "800",
+    "windowStartSlot": "457812890",
+    "windowEndSlot": "458812890",
+    "resolutionSlot": "458812890",
+    "selector": "1",
+    "initialSubsidy": "1000000",
+    "feeBps": 100
+  },
+  "balanceDeltaLamports": -9651560,
+  "balanceDeltaSol": -0.00965156
+}

@@ -1,0 +1,57 @@
+# Alice - Bundie rate-prediction-market agent
+#
+# Devnet SNS:    alice.bundie (under protocol-owned .bundie root, PDA FH6FhVQ1hw7sHQdbg1p5cdKkHGr3yu5Re9Yx8VTDr4Nb)
+# Mainnet SNS:   alice.bundie.sol (via Bonfida .sol root; post-hackathon)
+# Vault address: 5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm
+# Strategy:      basis-trade-usdc
+#
+# DENY-by-default: every rebalance tx passes through this policy list.
+# Enforcement happens in packages/zerion-agent/src/bundie/policies.js
+# via makeEnforcer(). If any predicate returns allow:false, the Zerion
+# vault does NOT sign.
+
+sns_identity: alice.bundie
+vault_address: "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm"
+strategy: basis-trade-usdc
+
+armed_at_ms: 1714000000000
+
+policies:
+  - id: chain_lock
+    config:
+      allowed_chains:
+        - solana
+
+  - id: asset_whitelist
+    config:
+      allowed_mints:
+        - EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+        - 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+        - mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So
+        - So11111111111111111111111111111111111111112
+
+  - id: spend_limit
+    config:
+      max_notional_usd_per_rebalance: 25
+      max_notional_usd_per_day: 100
+
+  - id: expiry
+    config:
+      # 1000d from armed_at_ms (2024-04-25) = 2027-01-20 — keeps the
+      # refusal demo's in-scope attempt ALLOWED while the agent is
+      # still effectively gated (re-arm still required post-expiry).
+      max_age_days: 1000
+
+  - id: nav_divergence
+    config:
+      max_drop_pct: 10
+      window_minutes: 60
+
+  # 6th predicate — program/ix allowlist. Covers non-swap flows like
+  # create_market_v2 where the swap-shaped predicates above don't apply.
+  # Enforced via enforceProgramPolicy() from the chaos-sim action runner.
+  - id: program_allowlist
+    config:
+      programs:
+        - programId: "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
+          instructions: [create_market_v2, buy_shares, sell_shares, resolve_market_v2]

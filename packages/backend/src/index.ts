@@ -2,7 +2,6 @@ import "dotenv/config";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
-import { strategies } from "./routes/strategies.js";
 import { markets } from "./routes/markets.js";
 import { portfolio } from "./routes/portfolio.js";
 import { tx } from "./routes/tx.js";
@@ -16,7 +15,6 @@ app.use("*", cors({ origin: "*" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
 // Route groups
-app.route("/api/strategies", strategies);
 app.route("/api/markets", markets);
 app.route("/api/portfolio", portfolio);
 app.route("/api/tx", tx);

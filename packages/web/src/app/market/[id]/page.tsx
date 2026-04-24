@@ -1,437 +1,191 @@
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import {
-  fetchMarket,
-  fetchStrategy,
-  fetchCurrentSlot,
-} from '@/lib/chain'
-import { PriceBar } from '@/components/ui/PriceBar'
-import { PayoffCalculator } from '@/components/PayoffCalculator'
-import { SnsName } from '@/components/SnsName'
-import type { StrategyDisplay } from '@bundie/common'
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getDevnetConnection } from "@/lib/rpc";
+import { fetchMarketByAddress } from "@/lib/markets";
+import { rateCategoryById } from "@/lib/rate-categories";
+import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
+import { MarketCreatorStrip } from "@/components/market-creator-strip";
 
-export const revalidate = 30
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const SLOT_SECONDS = 0.4
-
-function explorer(address: string): string {
-  return `https://orbmarkets.io/address/${address}?cluster=devnet`
-}
-
-function truncate(addr: string, head = 6, tail = 6): string {
-  if (addr.length <= head + tail + 1) return addr
-  return `${addr.slice(0, head)}…${addr.slice(-tail)}`
-}
-
-function formatCountdown(slotsRemaining: number): string {
-  if (slotsRemaining <= 0) return 'Resolution slot reached'
-  const totalSeconds = slotsRemaining * SLOT_SECONDS
-  const days = Math.floor(totalSeconds / 86_400)
-  const hours = Math.floor((totalSeconds % 86_400) / 3_600)
-  const minutes = Math.floor((totalSeconds % 3_600) / 60)
-  if (days > 0) return `≈ ${days} day${days === 1 ? '' : 's'}, ${hours} hour${hours === 1 ? '' : 's'}`
-  if (hours > 0) return `≈ ${hours} hour${hours === 1 ? '' : 's'}, ${minutes} min`
-  return `≈ ${minutes} min`
-}
-
-function formatUsdc(base: bigint | number): string {
-  const n = typeof base === 'bigint' ? Number(base) : base
-  return (n / 1e6).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
+/**
+ * Single-market detail page.
+ *
+ * Structure:
+ *   1. Back link + category + question (the what).
+ *   2. MarketCreatorStrip — the SNS provenance story (the who).
+ *   3. Kind-specific resolution prose (the how).
+ *   4. Decorative YES/NO buy buttons (the demo surface — trading wiring
+ *      lands in Phase 5.5).
+ *   5. Raw resolution metadata.
+ */
 export default async function MarketDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: { id: string };
 }) {
-  const market = await fetchMarket(params.id).catch(() => null)
-  if (!market) notFound()
+  const connection = getDevnetConnection();
+  const market = await fetchMarketByAddress(connection, params.id);
 
-  // Pull current slot + strategy in parallel — both are best-effort and
-  // degrade to "unknown" rather than failing the route.
-  const [currentSlot, strategy] = await Promise.all([
-    fetchCurrentSlot(),
-    fetchStrategy(market.strategy).catch(() => null) as Promise<StrategyDisplay | null>,
-  ])
+  if (!market) notFound();
 
-  const slotsRemaining =
-    currentSlot !== null ? Math.max(0, market.resolutionSlot - currentSlot) : null
-  const countdown =
-    slotsRemaining !== null ? formatCountdown(slotsRemaining) : 'Slot lookup unavailable'
+  const category = rateCategoryById(market.rateReaderSelector);
+  const creatorSns = resolveSns(market.createdBy);
+  const creatorLabel =
+    creatorSns?.devnetName ?? truncatePubkey(market.createdBy);
 
-  const yesPct = Math.round(market.yesPrice * 100)
-  const noPct = Math.round(market.noPrice * 100)
-  const volumeUsdc = formatUsdc(market.totalVolume)
-  const thresholdPct = (market.thresholdBps / 100).toFixed(2)
-
-  const isResolved = market.status === 'resolved'
-
-  // Settlement preview — only meaningful for absolute markets where we have
-  // an APY to compare against the threshold. Otherwise leave it null.
-  const liveApy = strategy?.apy
-  const settlementOutcome =
-    !isResolved &&
-    market.marketType === 'absolute' &&
-    typeof liveApy === 'number' &&
-    Number.isFinite(liveApy) &&
-    liveApy > 0
-      ? liveApy * 10_000 >= market.thresholdBps
-        ? 'yes'
-        : 'no'
-      : null
-
-  // Threshold gauge progress for absolute markets.
-  const thresholdProgress =
-    market.marketType === 'absolute' && typeof liveApy === 'number' && liveApy > 0
-      ? Math.min(1.5, (liveApy * 10_000) / market.thresholdBps)
-      : null
-
-  // Subsidy reconstruction. The `subsidyProvider` seeded the vault with USDC
-  // before any trades. We don't have the seed amount stored separately, so
-  // surface (totalYesCost + totalNoCost) − totalVolume as a best-effort
-  // figure — this equals the seed when no fees have accrued. If it can't be
-  // reasoned about (e.g. negative due to fee accrual), show "—".
-  const subsidyEst =
-    Number(market.totalYesCost) +
-    Number(market.totalNoCost) -
-    Number(market.totalVolume)
-
-  // Pull the question apart — anything wrapped in <em>…</em> renders italic.
-  const renderedQuestion = renderQuestion(market.question)
+  // Kind-specific resolution description
+  let resolutionProse: string;
+  if (market.kind === 5 && category && market.thresholdBps != null) {
+    resolutionProse =
+      `Rate Barrier: Will ${category.label} (${category.pool}) cross ` +
+      `${(market.thresholdBps / 100).toFixed(2)}% APY by slot ` +
+      `${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
+  } else if (market.kind === 6 && category && market.spreadBps != null) {
+    resolutionProse =
+      `Agent vs Benchmark: Will ${creatorLabel} beat ${category.label} ` +
+      `(${category.pool}) by ${(market.spreadBps / 100).toFixed(2)}% ` +
+      `over the window ending at slot ` +
+      `${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
+  } else {
+    resolutionProse =
+      market.question ||
+      `Kind ${market.kind} market — resolves via program-native NAV reads.`;
+  }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
-      {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-purple-300">
-          Market · {market.marketType === 'absolute' ? 'Absolute' : 'Relative'}
+    <main className="max-w-3xl mx-auto px-4 py-10">
+      <Link
+        href="/markets"
+        className="font-mono text-[11px] uppercase tracking-[0.18em] text-purple-300 hover:text-purple-200"
+      >
+        ← Back to markets
+      </Link>
+
+      {/* ─── Category + question ─── */}
+      <div className="mt-6 mb-4 flex items-center gap-2">
+        <span className="text-xl" aria-hidden="true">
+          {category?.emoji ?? "📊"}
         </span>
-        <h1 className="font-serif text-display text-neutral-900 mt-1 leading-tight">
-          {renderedQuestion}
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-3 mt-4">
-          <Link
-            href={`/strategy/${market.strategy}`}
-            className="text-xs font-mono text-amber-400 hover:underline"
-          >
-            {strategy?.name ?? truncate(market.strategy)}
-          </Link>
-          <span className="text-neutral-600">·</span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              isResolved
-                ? 'bg-neutral-300 text-neutral-700'
-                : 'bg-success-400/10 text-success-400'
-            }`}
-          >
-            {isResolved
-              ? `Settled: ${market.outcome?.toUpperCase() ?? '—'}`
-              : 'Active'}
-          </span>
-          {!isResolved && (
-            <span className="text-xs text-neutral-700 font-mono">
-              {countdown}
-            </span>
-          )}
-        </div>
-
-        <p className="text-xs text-neutral-600 mt-4 font-mono">
-          <a
-            href={explorer(market.address)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-          >
-            {market.address}
-          </a>
-        </p>
-      </div>
-
-      {/* ── YES/NO price card ─────────────────────────────────────────────── */}
-      <section className="rounded-xl border border-neutral-300 bg-surface p-6 mb-6">
-        <div className="flex items-baseline justify-between mb-3">
-          <span className="font-serif text-[40px] leading-none text-success-400 font-bold">
-            YES <span className="font-mono nums text-3xl">{yesPct}¢</span>
-          </span>
-          <span className="font-serif text-[40px] leading-none text-danger-400 font-bold">
-            <span className="font-mono nums text-3xl">{noPct}¢</span> NO
-          </span>
-        </div>
-        <PriceBar yesPrice={market.yesPrice} height="h-3" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 text-sm">
-          <Stat label="Volume" value={`$${volumeUsdc}`} />
-          <Stat label="Liquidity (b)" value={Number(market.liquidityParam).toLocaleString()} />
-          <Stat
-            label="Threshold"
-            value={
-              market.marketType === 'absolute'
-                ? `${thresholdPct}% APY`
-                : 'A vs B'
-            }
-          />
-        </div>
-      </section>
-
-      {/* ── Threshold gauge (absolute markets only) ───────────────────────── */}
-      {market.marketType === 'absolute' && (
-        <section className="rounded-xl border border-neutral-300 bg-surface p-6 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-amber-400">
-              Threshold gauge
-            </h2>
-            <span className="font-mono text-xs text-neutral-700">
-              Target: {thresholdPct}% APY
-            </span>
-          </div>
-          {thresholdProgress !== null ? (
-            <div>
-              <div className="h-3 bg-neutral-300 rounded-full overflow-hidden relative">
-                <div
-                  className={`h-full ${
-                    thresholdProgress >= 1 ? 'bg-success-400' : 'bg-amber-400'
-                  }`}
-                  style={{
-                    width: `${Math.min(100, (thresholdProgress / 1.5) * 100)}%`,
-                  }}
-                />
-                {/* threshold marker at 2/3 of the bar (1.0x of 1.5x scale) */}
-                <div
-                  className="absolute top-0 bottom-0 w-px bg-neutral-700"
-                  style={{ left: `${(1 / 1.5) * 100}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-2 font-mono text-[11px] text-neutral-600">
-                <span>0%</span>
-                <span>Current: {(liveApy! * 100).toFixed(2)}% APY</span>
-                <span>{(thresholdPct)}%</span>
-              </div>
-            </div>
-          ) : (
-            <p className="font-mono text-xs text-neutral-600">
-              Strategy NAV history not available yet — settlement will use
-              on-chain APY at slot{' '}
-              <span className="text-neutral-900">{market.resolutionSlot.toLocaleString()}</span>.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* ── Settlement preview ────────────────────────────────────────────── */}
-      {settlementOutcome && (
-        <section
-          className={`rounded-xl border p-4 mb-6 ${
-            settlementOutcome === 'yes'
-              ? 'border-success-400/40 bg-success-400/5'
-              : 'border-danger-400/40 bg-danger-400/5'
-          }`}
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
+          {category?.label ?? `Kind ${market.kind}`}
+        </span>
+        <span
+          className={[
+            "ml-auto font-mono text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full",
+            market.status === "active"
+              ? "bg-success-400/10 text-success-400"
+              : "bg-neutral-0/40 text-neutral-600",
+          ].join(" ")}
         >
-          <p className="text-sm">
-            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-neutral-600 mr-2">
-              If resolved now
-            </span>
-            <span
-              className={`font-semibold ${
-                settlementOutcome === 'yes' ? 'text-success-400' : 'text-danger-400'
-              }`}
-            >
-              {settlementOutcome.toUpperCase()} would win
-            </span>
-            <span className="text-neutral-700 ml-2 font-mono text-xs">
-              ({(liveApy! * 100).toFixed(2)}% vs {thresholdPct}%)
-            </span>
-          </p>
-        </section>
-      )}
-
-      {/* ── Payoff calculator ─────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <PayoffCalculator
-          yesShares={market.yesShares}
-          noShares={market.noShares}
-          liquidityParam={market.liquidityParam}
-          feeBps={market.feeBps}
-        />
+          {market.status === "active" ? "active" : "resolved"}
+        </span>
       </div>
 
-      {/* ── Subsidy + fee + addresses ─────────────────────────────────────── */}
-      <section className="rounded-xl border border-neutral-300 bg-surface p-6 mb-6">
-        <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-600 mb-4">
-          Market parameters
+      <h1 className="font-serif text-display text-neutral-900 leading-tight mb-6">
+        {market.question || "—"}
+      </h1>
+
+      {/* ─── SNS provenance strip (the hero element) ─── */}
+      <MarketCreatorStrip
+        creator={market.createdBy}
+        createdAt={market.createdAt}
+      />
+
+      {/* ─── Kind-specific resolution prose ─── */}
+      <section className="mt-8">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600 mb-2">
+          Resolution criteria
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <DetailRow
-            label="Initial subsidy"
-            value={
-              subsidyEst > 0
-                ? `${formatUsdc(subsidyEst)} USDC`
-                : '— (fully traded)'
-            }
-            // SNS-aware subsidy provider — surface `<provider>.sol` when one resolves.
-            subNode={
-              <SnsName
-                addr={market.subsidyProvider}
-                head={6}
-                tail={6}
-                prefix="by "
-                className="font-mono text-[11px] text-neutral-600 hover:text-amber-400"
-                linkToExplorer
-              />
-            }
-          />
-          <DetailRow
-            label="Trading fee"
-            value={`${(market.feeBps / 100).toFixed(2)}%`}
-          />
-          <DetailRow
-            label="Vault"
-            value={truncate(market.vault ?? '')}
-            valueHref={market.vault ? explorer(market.vault) : undefined}
-          />
-          <DetailRow
-            label="Collateral mint"
-            value={truncate(market.collateralMint ?? '')}
-            valueHref={
-              market.collateralMint ? explorer(market.collateralMint) : undefined
-            }
-          />
-          <DetailRow
-            label="Authority"
-            // SNS-aware authority. valueNode wins over value when present.
-            valueNode={
-              <SnsName
-                addr={market.authority}
-                head={6}
-                tail={6}
-                className="font-mono text-sm text-amber-400 hover:underline mt-1 inline-block"
-                linkToExplorer
-              />
-            }
-          />
-          <DetailRow
-            label="Resolution slot"
-            value={market.resolutionSlot.toLocaleString()}
-            sub={
-              currentSlot !== null
-                ? `Current: ${currentSlot.toLocaleString()}`
-                : undefined
-            }
-          />
-          {market.createdAt > 0 && (
-            <DetailRow
-              label="Created"
-              value={new Date(market.createdAt * 1000).toLocaleString()}
-            />
-          )}
-          {market.resolvedAt && (
-            <DetailRow
-              label="Resolved"
-              value={new Date(market.resolvedAt * 1000).toLocaleString()}
-            />
-          )}
-        </div>
+        <p className="text-neutral-900">{resolutionProse}</p>
       </section>
 
-      {/* ── Holders distribution ─────────────────────────────────────────── */}
-      <section className="rounded-xl border border-dashed border-neutral-300 bg-surface p-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-neutral-600">
-          Holders distribution
+      {/* ─── Decorative YES/NO buttons ─── */}
+      <section className="mt-8 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          disabled
+          aria-label="Buy YES shares (coming in Phase 5.5)"
+          className="rounded-xl border border-success-400/40 bg-success-400/10 px-5 py-4 text-success-400 font-mono text-sm uppercase tracking-[0.14em] disabled:opacity-70"
+        >
+          Buy YES
+        </button>
+        <button
+          type="button"
+          disabled
+          aria-label="Buy NO shares (coming in Phase 5.5)"
+          className="rounded-xl border border-neutral-300 bg-surface px-5 py-4 text-neutral-800 font-mono text-sm uppercase tracking-[0.14em] disabled:opacity-70"
+        >
+          Buy NO
+        </button>
+        <p className="col-span-2 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
+          Trading wiring ships in Phase 5.5
         </p>
-        <p className="text-xs text-neutral-700 mt-2">
-          TODO — scanning YES / NO mint token accounts is RPC-heavy on public
-          devnet. Will surface top holders once an indexer-backed query is
-          available.
-        </p>
+      </section>
+
+      {/* ─── Raw metadata ─── */}
+      <section className="mt-10">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600 mb-3">
+          Resolution data
+        </h2>
+        <dl className="grid grid-cols-1 sm:grid-cols-[max-content_1fr] gap-x-6 gap-y-2 font-mono text-xs">
+          <dt className="text-neutral-600">Rate reader</dt>
+          <dd className="text-neutral-900">
+            {category ? `#${category.id} — ${category.label}` : "—"}
+          </dd>
+
+          <dt className="text-neutral-600">Resolution slot</dt>
+          <dd className="nums text-neutral-900">
+            {market.resolutionSlot.toLocaleString()}
+          </dd>
+
+          {market.windowStartSlot != null && (
+            <>
+              <dt className="text-neutral-600">Window start slot</dt>
+              <dd className="nums text-neutral-900">
+                {market.windowStartSlot.toLocaleString()}
+              </dd>
+            </>
+          )}
+          {market.windowEndSlot != null && (
+            <>
+              <dt className="text-neutral-600">Window end slot</dt>
+              <dd className="nums text-neutral-900">
+                {market.windowEndSlot.toLocaleString()}
+              </dd>
+            </>
+          )}
+
+          <dt className="text-neutral-600">Fee</dt>
+          <dd className="nums text-neutral-900">
+            {(market.feeBps / 100).toFixed(2)}%
+          </dd>
+
+          <dt className="text-neutral-600">Total volume</dt>
+          <dd className="nums text-neutral-900">
+            {(market.totalVolume / 1e6).toFixed(2)} USDC
+          </dd>
+
+          <dt className="text-neutral-600">Status</dt>
+          <dd className="text-neutral-900">
+            {market.status}
+            {market.outcome ? ` · ${market.outcome}` : ""}
+          </dd>
+
+          <dt className="text-neutral-600">Market PDA</dt>
+          <dd>
+            <a
+              href={`https://explorer.solana.com/address/${market.address}?cluster=devnet`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline text-amber-400 break-all"
+            >
+              {market.address}
+            </a>
+          </dd>
+        </dl>
       </section>
     </main>
-  )
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function renderQuestion(question: string): React.ReactNode {
-  // Minimal <em>…</em> handling: split on the first em pair, render the
-  // middle as italic. Anything more complex falls through as plain text.
-  const match = /^(.*?)<em>(.*?)<\/em>(.*)$/s.exec(question)
-  if (!match) return question
-  const [, before, em, after] = match
-  return (
-    <>
-      {before}
-      <em className="italic text-purple-300">{em}</em>
-      {after}
-    </>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600">
-        {label}
-      </p>
-      <p className="font-mono nums text-sm text-neutral-900 mt-1">{value}</p>
-    </div>
-  )
-}
-
-function DetailRow({
-  label,
-  value,
-  valueHref,
-  valueNode,
-  sub,
-  subHref,
-  subNode,
-}: {
-  label: string
-  value?: string
-  valueHref?: string
-  // valueNode/subNode are escape hatches for SNS-aware rows that need to
-  // render a client component (SnsName) inside an otherwise-static table.
-  valueNode?: React.ReactNode
-  sub?: string
-  subHref?: string
-  subNode?: React.ReactNode
-}) {
-  return (
-    <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600">
-        {label}
-      </p>
-      {valueNode ? (
-        <div className="mt-1">{valueNode}</div>
-      ) : valueHref ? (
-        <a
-          href={valueHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-mono text-sm text-amber-400 hover:underline mt-1 inline-block"
-        >
-          {value}
-        </a>
-      ) : (
-        <p className="font-mono text-sm text-neutral-900 mt-1">{value}</p>
-      )}
-      {subNode ? (
-        <div className="mt-1">{subNode}</div>
-      ) : sub ? (
-        subHref ? (
-          <a
-            href={subHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-[11px] text-neutral-600 hover:text-amber-400 mt-1 inline-block"
-          >
-            {sub}
-          </a>
-        ) : (
-          <p className="font-mono text-[11px] text-neutral-600 mt-1">{sub}</p>
-        )
-      ) : null}
-    </div>
-  )
+  );
 }

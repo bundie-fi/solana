@@ -555,8 +555,6 @@ dependencies = [
  "base64 0.22.1",
  "beethoven-client",
  "beethoven-core",
- "beethoven-deposit-drift",
- "beethoven-deposit-drift-vaults",
  "beethoven-deposit-jupiter",
  "beethoven-deposit-kamino",
  "beethoven-deposit-marginfi",
@@ -564,7 +562,6 @@ dependencies = [
  "beethoven-deposit-meteora-vaults",
  "beethoven-deposit-solend",
  "beethoven-deposit-spl-stake-pool",
- "beethoven-perps-drift",
  "beethoven-perps-mango",
  "beethoven-perps-zeta",
  "beethoven-swap-aldrin",
@@ -631,28 +628,6 @@ dependencies = [
 name = "beethoven-core"
 version = "0.0.1"
 dependencies = [
- "solana-instruction-view",
- "solana-program-error",
-]
-
-[[package]]
-name = "beethoven-deposit-drift"
-version = "0.0.1"
-dependencies = [
- "beethoven-core",
- "solana-account-view",
- "solana-address 2.6.0",
- "solana-instruction-view",
- "solana-program-error",
-]
-
-[[package]]
-name = "beethoven-deposit-drift-vaults"
-version = "0.0.1"
-dependencies = [
- "beethoven-core",
- "solana-account-view",
- "solana-address 2.6.0",
  "solana-instruction-view",
  "solana-program-error",
 ]
@@ -725,17 +700,6 @@ dependencies = [
 
 [[package]]
 name = "beethoven-deposit-spl-stake-pool"
-version = "0.0.1"
-dependencies = [
- "beethoven-core",
- "solana-account-view",
- "solana-address 2.6.0",
- "solana-instruction-view",
- "solana-program-error",
-]
-
-[[package]]
-name = "beethoven-perps-drift"
 version = "0.0.1"
 dependencies = [
  "beethoven-core",

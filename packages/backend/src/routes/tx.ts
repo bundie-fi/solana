@@ -6,16 +6,11 @@ export const tx = new Hono();
 // Types
 // ---------------------------------------------------------------------------
 
-type TxType =
-  | "buy_shares"
-  | "redeem_shares"
-  | "buy_prediction"
-  | "sell_prediction";
+type TxType = "buy_prediction" | "sell_prediction";
 
 interface BuildTxRequest {
   type: TxType;
   wallet: string;
-  strategyAddress?: string;
   marketAddress?: string;
   amount?: number;
   outcome?: "yes" | "no";
@@ -72,12 +67,7 @@ tx.post("/build", async (c) => {
     return c.json({ error: "type and wallet are required" }, 400);
   }
 
-  const validTypes: TxType[] = [
-    "buy_shares",
-    "redeem_shares",
-    "buy_prediction",
-    "sell_prediction",
-  ];
+  const validTypes: TxType[] = ["buy_prediction", "sell_prediction"];
   if (!validTypes.includes(body.type)) {
     return c.json(
       { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
@@ -107,7 +97,7 @@ tx.post("/simulate", async (c) => {
       "Program log: Instruction: TransferChecked",
       "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
       "Program log: Instruction: MintTo",
-      "Program log: Strategy shares minted successfully",
+      "Program log: Prediction market shares minted successfully",
       "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4500 of 200000 compute units",
       "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
       "Program 11111111111111111111111111111111 consumed 150000 of 200000 compute units",

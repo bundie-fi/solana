@@ -1,14 +1,13 @@
 /**
- * Static catalog of every Beethoven-wired protocol available to the
- * strategy-token program (devnet `Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm`).
+ * Static catalog of every Beethoven-wired protocol adapter that backs
+ * the rate-prediction markets.
  *
  * Source of truth for program IDs:
  *   packages/beethoven/crates/{deposit,swap,perps}/<protocol>/src/lib.rs
  *   (`pub const <NAME>_PROGRAM_ID: Address = ...`)
  *
- * Keep this file in sync whenever a new protocol is wired into Beethoven and
- * the strategy-token dispatch table. There are 33 entries today
- * (9 Deposit + 22 Swap + 2 Perps).
+ * Keep this file in sync whenever a new protocol is wired into Beethoven.
+ * There are 31 entries today (7 Deposit + 22 Swap + 2 Perps).
  */
 
 export type ProtocolCategory = "deposit" | "swap" | "perps";
@@ -41,20 +40,6 @@ export const PROTOCOLS: Protocol[] = [
     category: "deposit",
     programId: "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9",
     description: "Aggregated yield vaults curated by Jupiter.",
-  },
-  {
-    id: "drift",
-    name: "Drift Spot",
-    category: "deposit",
-    programId: "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
-    description: "Spot deposit into Drift's borrow/lend markets.",
-  },
-  {
-    id: "drift-vaults",
-    name: "Drift Vaults",
-    category: "deposit",
-    programId: "vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR",
-    description: "Manager-run vaults built on top of Drift.",
   },
   {
     id: "marginfi",

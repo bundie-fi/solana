@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-/** A single Beethoven protocol wired into the strategy-token program. */
+/** A single Beethoven protocol adapter. */
 export type Protocol = {
   /** Display name, e.g. "Orca Whirlpools" */
   name: string;

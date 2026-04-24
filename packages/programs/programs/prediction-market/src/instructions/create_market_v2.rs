@@ -97,7 +97,10 @@ pub fn handler(
 ) -> Result<()> {
     require!(question.len() <= 128, MarketError::QuestionTooLong);
     require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
-    require!(kind <= MARKET_KIND_BACKER_COUNT, MarketError::InvalidKind);
+    require!(
+        kind <= MARKET_KIND_AGENT_VS_BENCHMARK,
+        MarketError::InvalidKind
+    );
 
     // Per-kind invariants. Catch obviously-broken configs at create time
     // so resolve never has to inspect a malformed payload.
@@ -132,6 +135,35 @@ pub fn handler(
             require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
             MarketType::Absolute
         }
+        MARKET_KIND_RATE_BARRIER => {
+            // payload[0..8]   = threshold_bps          (must be > 0)
+            // payload[8..16]  = window_start_slot
+            // payload[16..24] = window_end_slot        (must be > start)
+            // payload[24..32] = rate_reader_selector   (must be > 0)
+            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
+            require!(
+                payload_u64(&payload, 8) < payload_u64(&payload, 16),
+                MarketError::InvalidPayload
+            );
+            require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
+            MarketType::Absolute
+        }
+        MARKET_KIND_AGENT_VS_BENCHMARK => {
+            // payload[0..8]   = spread_bps                (must be > 0)
+            // payload[8..16]  = window_start_slot
+            // payload[16..24] = window_end_slot           (must be > start)
+            // payload[24..32] = benchmark_reader_selector (must be > 0)
+            // payload[32..40] = initial_agent_nav         (must be > 0)
+            // Agent vault pubkey rides on `market.created_by` — no extra field.
+            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
+            require!(
+                payload_u64(&payload, 8) < payload_u64(&payload, 16),
+                MarketError::InvalidPayload
+            );
+            require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
+            require!(payload_u64(&payload, 32) > 0, MarketError::InvalidPayload);
+            MarketType::Absolute
+        }
         _ => unreachable!(),
     };
 
@@ -145,6 +177,11 @@ pub fn handler(
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
     market.authority = ctx.accounts.creator.key();
+    // Record the v2 signer as `created_by`. For agent markets this is the
+    // Zerion-managed agent vault; for `MARKET_KIND_AGENT_VS_BENCHMARK` it
+    // is the vault whose NAV is compared against the benchmark (no extra
+    // field — the agent identity rides on `created_by`).
+    market.created_by = ctx.accounts.creator.key();
     market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
     market.market_type = market_type;

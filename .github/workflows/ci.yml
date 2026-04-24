@@ -92,11 +92,11 @@ jobs:
         run: pnpm --filter @bundie/web build || true
         continue-on-error: true
 
-  # ─── NAV-reader byte-offset regression probes ───────────────────────────────
-  # Every NAV reader in packages/programs/programs/strategy-token/src/nav_readers
-  # slices protocol state by hard-coded byte offsets. Drift and marginfi have
-  # both shifted struct layouts in the past, silently corrupting NAV until we
-  # caught it manually. These probes hit live PDAs on devnet (and mainnet for
+  # ─── Rate-reader byte-offset regression probes ──────────────────────────────
+  # Every rate reader under packages/programs/programs/prediction-market
+  # slices protocol state by hard-coded byte offsets. Marginfi has shifted
+  # struct layouts in the past, silently corrupting readings until we caught
+  # it manually. These probes hit live PDAs on devnet (and mainnet for
   # marginfi, whose v2 is not reliably on devnet) and fail the PR if the bytes
   # at our offsets stop looking sane. See packages/programs/scripts/probes/README.md.
   nav-offset-probes:

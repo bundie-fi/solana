@@ -175,6 +175,58 @@ export function navDivergence(ctx, cfg /*, runtime */) {
 }
 
 // -----------------------------------------------------------------------------
+// 6. Program / instruction allowlist
+// -----------------------------------------------------------------------------
+
+/**
+ * Validates that a tx is touching a whitelisted (programId, instruction) pair.
+ * Used for non-swap flows like create_market_v2 where the swap-shaped policies
+ * (chain_lock, spend_limit, asset_whitelist) don't apply.
+ *
+ * Config:
+ *   programs:
+ *     - programId: "<base58>"
+ *       instructions: [<snake_case ix names>]
+ *
+ * Context:
+ *   { programId: string, instructionName: string }
+ */
+export function programAllowlist(ctx, cfg /*, runtime */) {
+  const entries = Array.isArray(cfg?.programs) ? cfg.programs : [];
+  if (entries.length === 0) {
+    return {
+      allow: false,
+      code: "program_allowlist_misconfigured",
+      reason: "program_allowlist policy requires non-empty 'programs' list",
+    };
+  }
+  if (typeof ctx?.programId !== "string" || typeof ctx?.instructionName !== "string") {
+    return {
+      allow: false,
+      code: "program_allowlist_missing_context",
+      reason: "programAllowlist requires ctx.programId and ctx.instructionName",
+    };
+  }
+  const entry = entries.find((e) => e?.programId === ctx.programId);
+  if (!entry) {
+    return {
+      allow: false,
+      code: "program_allowlist_unknown_program",
+      reason: `Program ${ctx.programId} not in allowlist`,
+    };
+  }
+  const ixs = Array.isArray(entry.instructions) ? entry.instructions : [];
+  if (!ixs.includes(ctx.instructionName)) {
+    return {
+      allow: false,
+      code: "program_allowlist_ix_not_permitted",
+      reason: `${ctx.programId}.${ctx.instructionName} not in allowed instructions [${ixs.join(", ")}]`,
+    };
+  }
+  return { allow: true };
+}
+
+// -----------------------------------------------------------------------------
 // Registry + enforcer
 // -----------------------------------------------------------------------------
 
@@ -184,6 +236,7 @@ export const POLICY_REGISTRY = Object.freeze({
   asset_whitelist: assetWhitelist,
   expiry,
   nav_divergence: navDivergence,
+  program_allowlist: programAllowlist,
 });
 
 /**
