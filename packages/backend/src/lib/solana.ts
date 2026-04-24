@@ -8,8 +8,8 @@ import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
 // node ESM (used by tsx) can't resolve. We import the IDL JSON directly,
 // which works in both tsc and runtime ESM. The PredictionMarket TYPE comes
 // from the .ts companion file (type-only imports get erased at build time).
-import predictionMarketIdl from "@bundie/common/src/idl/prediction_market.json" with { type: "json" };
-import type { PredictionMarket } from "@bundie/common/src/idl/prediction_market.js";
+import predictionMarketIdl from "../idl/prediction_market.json" with { type: "json" };
+import type { PredictionMarket } from "../idl/prediction_market.js";
 import { createHash } from "crypto";
 
 const rpcUrl = process.env.RPC_URL || "https://api.devnet.solana.com";
