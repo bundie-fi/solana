@@ -1,16 +1,17 @@
 # Alice - Bundie rate-prediction-market agent
 #
-# SNS identity:   alice.bundie.sol
-# Vault address:  <REPLACE_WITH_ALICE_VAULT_PUBKEY>   filled in Phase 6 post-deploy
-# Strategy:       basis-trade-usdc
+# Devnet SNS:    alice.bundie (under protocol-owned .bundie root, PDA FH6FhVQ1hw7sHQdbg1p5cdKkHGr3yu5Re9Yx8VTDr4Nb)
+# Mainnet SNS:   alice.bundie.sol (via Bonfida .sol root; post-hackathon)
+# Vault address: 5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm
+# Strategy:      basis-trade-usdc
 #
 # DENY-by-default: every rebalance tx passes through this policy list.
 # Enforcement happens in packages/zerion-agent/src/bundie/policies.js
 # via makeEnforcer(). If any predicate returns allow:false, the Zerion
 # vault does NOT sign.
 
-sns_identity: alice.bundie.sol
-vault_address: "REPLACE_WITH_ALICE_VAULT_PUBKEY"
+sns_identity: alice.bundie
+vault_address: "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm"
 strategy: basis-trade-usdc
 
 armed_at_ms: 1714000000000

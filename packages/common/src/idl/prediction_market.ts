@@ -535,6 +535,196 @@ export type PredictionMarket = {
       ]
     },
     {
+      "name": "createMarketV2",
+      "docs": [
+        "V2 — open a market of any of the five `MarketKind` variants. v1",
+        "`create_market` continues to work and produces ApyThreshold-equivalent",
+        "markets that resolve via the v1 `resolve` ix."
+      ],
+      "discriminator": [
+        193,
+        18,
+        155,
+        62,
+        161,
+        124,
+        80,
+        25
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "strategy"
+              },
+              {
+                "kind": "arg",
+                "path": "marketId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "strategy"
+        },
+        {
+          "name": "strategyB",
+          "docs": [
+            "that do not need it (ApyThreshold, NavTarget, Drawdown, BackerCount)."
+          ]
+        },
+        {
+          "name": "collateralMint"
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yesMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "noMint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "question",
+          "type": "string"
+        },
+        {
+          "name": "marketId",
+          "type": "u64"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "payload",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "resolutionSlot",
+          "type": "u64"
+        },
+        {
+          "name": "initialSubsidy",
+          "type": "u64"
+        },
+        {
+          "name": "feeBps",
+          "type": "u16"
+        },
+        {
+          "name": "initialNavA",
+          "type": "u64"
+        },
+        {
+          "name": "initialNavB",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "redeem",
       "docs": [
         "Redeem winning shares for payout"
@@ -651,6 +841,54 @@ export type PredictionMarket = {
           "docs": [
             "NavOracle for strategy B (Relative markets only).",
             "Pass SystemProgram id for Absolute markets — ignored and not validated."
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolveMarketV2",
+      "docs": [
+        "V2 — branch on `market.kind` and read the relevant on-chain quantity",
+        "(NavOracle TWAP, Strategy.backer_count, ...) to set the outcome."
+      ],
+      "discriminator": [
+        120,
+        229,
+        79,
+        121,
+        41,
+        238,
+        193,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "resolver",
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "dataA",
+          "docs": [
+            "Primary on-chain data source for strategy A.",
+            "- kinds 0/1/2/3 → expected to be the NavOracle PDA for `market.strategy`",
+            "(seeds: [\"nav\", market.strategy])",
+            "- kind 4        → expected to be the Strategy account itself",
+            "(i.e. equal to `market.strategy`)",
+            ""
+          ]
+        },
+        {
+          "name": "dataB",
+          "docs": [
+            "Secondary data source.",
+            "- kind 2 (Relative) → NavOracle PDA for `market.strategy_b`",
+            "- all other kinds   → ignored (pass SystemProgram)",
+            ""
           ]
         }
       ],
@@ -834,6 +1072,21 @@ export type PredictionMarket = {
       "code": 6013,
       "name": "wrongStrategyForMarket",
       "msg": "Strategy account does not match the market's strategy"
+    },
+    {
+      "code": 6014,
+      "name": "invalidKind",
+      "msg": "Unknown market kind discriminator"
+    },
+    {
+      "code": 6015,
+      "name": "invalidPayload",
+      "msg": "Per-kind payload failed validation (zero/oversized/missing field)"
+    },
+    {
+      "code": 6016,
+      "name": "resolveDeferredKind",
+      "msg": "This market kind is not yet implemented (Drawdown awaits NavOracle history extension)"
     }
   ],
   "types": [
@@ -1049,6 +1302,45 @@ export type PredictionMarket = {
           {
             "name": "vaultBump",
             "type": "u8"
+          },
+          {
+            "name": "kind",
+            "docs": [
+              "V2 market kind discriminator. See `MARKET_KIND_*` constants.",
+              "V1 markets created via `create_market` are written with kind=0",
+              "(ApyThreshold) for compatibility, but their resolution still flows",
+              "through the original `resolve` ix (which only branches on",
+              "`market_type`). v2 markets created via `create_market_v2` set this",
+              "field explicitly and resolve via `resolve_market_v2`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "payload",
+            "docs": [
+              "Per-kind config payload. Layout documented on `MarketKind`. Fixed",
+              "size so the Market account never grows; v1 markets carry zeroes."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "createdBy",
+            "docs": [
+              "Identity that signed `create_market_v2` — for Bundie agent markets",
+              "this is the Zerion-managed agent vault pubkey (the `creator` signer",
+              "in the v2 ix context). For `MARKET_KIND_AGENT_VS_BENCHMARK` this",
+              "pubkey IS the agent's vault under measurement (no extra field).",
+              "",
+              "For v1 markets created via `create_market`, this mirrors `authority`",
+              "so every Market account has a populated `created_by` — clients can",
+              "read it uniformly without branching on kind."
+            ],
+            "type": "pubkey"
           }
         ]
       }
@@ -1070,8 +1362,10 @@ export type PredictionMarket = {
     {
       "name": "marketType",
       "docs": [
-        "Absolute: \"will strategy exceed X% APY?\"",
-        "Relative: \"will strategy A outperform strategy B?\""
+        "V1 market type. Kept for back-compat with existing markets created via",
+        "the original `create_market` ix.",
+        "- Absolute: \"will strategy exceed X% APY?\"",
+        "- Relative: \"will strategy A outperform strategy B?\""
       ],
       "type": {
         "kind": "enum",

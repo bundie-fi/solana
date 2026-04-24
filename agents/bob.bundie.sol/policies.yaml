@@ -1,8 +1,9 @@
 # Bob - Bundie rate-prediction-market agent
 #
-# SNS identity:   bob.bundie.sol
-# Vault address:  <REPLACE_WITH_BOB_VAULT_PUBKEY>   filled in Phase 6 post-deploy
-# Strategy:       conservative-split-usdc-msol
+# Devnet SNS:    bob.bundie (under protocol-owned .bundie root, PDA D8BRLTc6j4cpkMvpP7QfQR6cbw9QJ3LgXAEYzx9JQEzV)
+# Mainnet SNS:   bob.bundie.sol (via Bonfida .sol root; post-hackathon)
+# Vault address: EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb
+# Strategy:      conservative-split-usdc-msol
 #
 # DENY-by-default: every rebalance tx passes through this policy list.
 # Enforcement happens in packages/zerion-agent/src/bundie/policies.js
@@ -12,8 +13,8 @@
 # Bob runs tighter thresholds than alice: smaller per-rebalance cap,
 # smaller daily cap, and a 5% kill-switch (vs alice's 10%).
 
-sns_identity: bob.bundie.sol
-vault_address: "REPLACE_WITH_BOB_VAULT_PUBKEY"
+sns_identity: bob.bundie
+vault_address: "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb"
 strategy: conservative-split-usdc-msol
 
 armed_at_ms: 1714000000000
