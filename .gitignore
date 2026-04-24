@@ -65,3 +65,4 @@ HANDOFF-*.md
 .superstack/
 .claude/
 docs/superpowers/
+.zerion-bundie-state.json

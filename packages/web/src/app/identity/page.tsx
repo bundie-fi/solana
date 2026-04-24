@@ -23,6 +23,7 @@ import { PublicKey } from "@solana/web3.js";
 
 import { Button } from "@/components/ui/button";
 import { SnsName } from "@/components/SnsName";
+import { SnsProvenance } from "@/components/SnsProvenance";
 import { invalidateSnsLookup, lookupSnsForAddress, setSnsCacheEntry, truncatePubkey } from "@/lib/sns";
 import {
   AvailabilityResult,
@@ -214,6 +215,8 @@ function IdentityHasNameView({ name, owner }: { name: string; owner: string }) {
           Discover strategies
         </Link>
       </div>
+
+      <SnsProvenance variant="footer" />
     </main>
   );
 }
@@ -400,6 +403,8 @@ function ClaimFlow({
             </Link>
           </div>
         </div>
+
+        <SnsProvenance variant="footer" />
       </main>
     );
   }
@@ -422,6 +427,7 @@ function ClaimFlow({
             ? "Checking for an existing .bundie identity…"
             : `No .bundie identity found yet — ${walletLabel} can claim one below.`}
         </p>
+        <SnsProvenance variant="stat" />
       </div>
 
       {/* Name search */}
@@ -497,6 +503,8 @@ function ClaimFlow({
           onConfirm={handleClaim}
         />
       )}
+
+      <SnsProvenance variant="footer" />
     </main>
   );
 }

@@ -5,25 +5,32 @@
  * reaching into the program directly — that way the harness exercises the
  * same surface a third-party agent (or human) would use.
  *
- * --- Two signing paths (chosen per-wallet) ---
+ * --- Two execution paths (chosen per-wallet) ---
  *
  * 1. signWith === 'file' (legacy fallback)
  *    - Bundie-sol is invoked with `--keypair <path>` AND `--execute`.
  *    - Bundie-sol signs + submits in one shot.
  *    - Kept for backwards-compat until all wallets are migrated to the vault.
  *
- * 2. signWith === 'zerion-vault'
+ * 2. signWith === 'zerion-vault'  (the canonical path for Bundie agents)
  *    - Bundie-sol is invoked WITHOUT `--execute` (prepare-only). It emits a
  *      `PreparedTx` JSON envelope with `tx` = base64 of the serialized,
  *      blockhash-set, partial-signed tx.
- *    - We pass that base64 to `zerion-bundie agent sign --name <role>
- *      --tx <b64>` which shells out to OWS; Zerion's vault writes the
- *      agent's positional signature and returns the fully-signed tx.
- *    - We broadcast with a plain `connection.sendRawTransaction` —
- *      bundie-sol never touches the key material.
+ *    - We hand that base64 to `zerion-bundie agent execute --name <role>
+ *      --action <kind> --tx <b64> --notional-usd <n>`. The Zerion CLI:
+ *        a. Runs the DENY-by-default policy framework (chain_lock,
+ *           spend_limit, expiry — plus asset_whitelist + nav_divergence
+ *           for swap-style actions).
+ *        b. Signs via the OWS vault (~/.ows/wallets/<role>).
+ *        c. Broadcasts via the configured RPC + confirms.
+ *        d. Appends to the in-vault action log.
+ *    - Bundie-sol never sees the key material; the chaos harness never
+ *      sees the signature primitives. Every agent op flows through the
+ *      Zerion-managed funnel.
  *
- * This matches option (b) in the task spec: Zerion-mediated signing happens
- * OUTSIDE bundie-sol's --execute path, so bundie-sol stays unchanged.
+ * This matches the task: agent COMPOSE (create-strategy) and CREATE-MARKET
+ * operations both run through Zerion. The human web-app flow uses the
+ * standard wallet-adapter path (no Zerion in the loop).
  */
 import {
   Connection,
@@ -32,21 +39,57 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CLI_BIN, RPC_URL, TX_JITTER_MAX_MS, TX_JITTER_MIN_MS } from "./config.js";
 import { ChaosWallet } from "./wallets.js";
-import { signWithVault } from "./vault-signer.js";
+// Note: `signWithVault` (vault-signer.ts) is now used ONLY by sns.ts —
+// .bundie subdomain registration needs a special two-signer dance
+// (root_owner + payer) that sits outside the agent-execute funnel.
+// Every other agent action flows through `zerion-bundie agent execute`.
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const KEYS_DIR = join(__dirname, "..", "keys");
+
+const ZERION_BUNDIE_BIN =
+  process.env.ZERION_BUNDIE_BIN ||
+  resolve(__dirname, "..", "..", "..", "..", "zerion-agent", "src", "cli.js");
 
 export interface CliResult {
   ok: boolean;
   stdout: string;
   stderr: string;
   durationMs: number;
+}
+
+/**
+ * Map the chaos-sim's bundie-sol subcommand to the Zerion `--action` label
+ * the policy framework picks bundles for. Unknown subcommands fall back
+ * to "other" which gets the conservative 3-policy bundle (chain_lock +
+ * spend_limit + expiry).
+ *
+ * Notional defaults are sane devnet placeholders — well under the
+ * spend_limit caps so the chaos sim doesn't hit them. Production
+ * integrations should compute notional from the actual ix payload.
+ */
+function actionFromArgs(args: string[]): { action: string; notionalUsd: number } {
+  const sub = args[0] ?? "other";
+  switch (sub) {
+    case "create-strategy":
+      return { action: "create-strategy", notionalUsd: 0.5 };
+    case "create-market":
+      return { action: "create-market", notionalUsd: 0.5 };
+    case "rebalance":
+      return { action: "rebalance", notionalUsd: 0.1 };
+    case "predict":
+    case "trade":
+      return { action: "predict", notionalUsd: 0.1 };
+    case "redeem":
+      return { action: "redeem", notionalUsd: 0.1 };
+    default:
+      return { action: sub, notionalUsd: 0.1 };
+  }
 }
 
 function jitter(): Promise<void> {
@@ -94,10 +137,16 @@ function runWithFile(wallet: ChaosWallet, args: string[]): {
 }
 
 /**
- * Vault-managed path: bundie-sol builds the PreparedTx; we sign with Zerion
- * and broadcast ourselves. Returns a CliResult that preserves bundie-sol's
- * stdout (so downstream parsers like extractStrategyAddress still work)
- * with the signature injected under `txSignature`.
+ * Vault-managed path: bundie-sol builds the PreparedTx; we hand it to
+ * `zerion-bundie agent execute` which runs the policy framework, signs
+ * via OWS, broadcasts, confirms, and records. Returns a CliResult that
+ * preserves bundie-sol's metadata (so downstream parsers like
+ * extractStrategyAddress keep working) with the signature injected under
+ * `txSignature` and `signedBy: "zerion-execute"`.
+ *
+ * On policy DENY, the Zerion CLI exits non-zero with the deny reason in
+ * stderr — we surface that as a CliResult failure so the chaos recorder
+ * marks the event with the policy that blocked it.
  */
 async function runWithVault(
   wallet: ChaosWallet,
@@ -105,18 +154,9 @@ async function runWithVault(
 ): Promise<{ stdout: string; stderr: string; ok: boolean; durationMs: number }> {
   const start = Date.now();
   const [cmd, ...preargs] = splitCliBin();
-  // Prepare-only (no --execute). We pass a --payer hint so bundie-sol knows
-  // whose signature to reserve — it writes `feePayer` into the tx buffer.
-  // If the CLI lacks `--payer` for a given subcommand, it defaults to the
-  // keypair of the currently configured wallet; we pass --keypair too so
-  // the pubkey is readable from disk even though we don't sign with it.
-  //
-  // We DO NOT pass --execute. We DO pass --keypair because bundie-sol uses
-  // it purely as the payer pubkey source in prepare mode — it never touches
-  // the secret bytes when --execute is absent. (See CLI README: prepare
-  // mode only reads `publicKey` from the keypair file.) For vault-managed
-  // wallets we still need a file on disk to satisfy this; we write a
-  // pubkey-only placeholder via writePubkeyOnlyFile below.
+  // Prepare-only (no --execute). bundie-sol reads --keypair only for the
+  // pubkey in prepare mode — never touches the secret bytes. For
+  // vault-managed wallets we hand it a pubkey-only placeholder file.
   const keyfile = pubkeyOnlyFile(wallet);
   const full = [
     ...preargs,
@@ -151,46 +191,94 @@ async function runWithVault(
       durationMs: Date.now() - start,
     };
   }
-  try {
-    const signedB64 = signWithVault(wallet.role, envelope.tx as string);
-    const conn = new Connection(RPC_URL, "confirmed");
-    const raw = Buffer.from(signedB64, "base64");
-    const sig = await conn.sendRawTransaction(raw, { skipPreflight: false });
-    // Confirm with bundie-sol's blockhash-height if present.
-    if (typeof envelope.blockhash === "string" && typeof envelope.lastValidBlockHeight === "number") {
-      await conn.confirmTransaction(
-        {
-          signature: sig,
-          blockhash: envelope.blockhash as string,
-          lastValidBlockHeight: envelope.lastValidBlockHeight as number,
-        },
-        "confirmed",
-      );
-    }
-    // Emit a CLI-compatible JSON envelope so extractSignature / extractStrategyAddress
-    // keep working. We merge bundie-sol's metadata (strategyAddress, marketAddress,
-    // etc.) with our freshly-minted signature.
-    const merged = {
-      ...(envelope.metadata as Record<string, unknown> || {}),
-      txSignature: sig,
-      signedBy: "zerion-vault",
-      role: wallet.role,
-    };
-    return {
-      ok: true,
-      stdout: JSON.stringify(merged),
-      stderr: built.stderr || "",
-      durationMs: Date.now() - start,
-    };
-  } catch (err) {
+
+  // Hand off to `zerion-bundie agent execute`. The Zerion CLI does
+  // policy → sign → broadcast → confirm → record. We never call
+  // sendRawTransaction ourselves anymore — every Bundie-agent action
+  // flows through the single Zerion-mediated funnel.
+  //
+  // ZERION_BUNDIE_STATE is pinned so every chaos invocation writes its
+  // action log to the same file under chaos-sim/logs/, regardless of
+  // which cwd pnpm runs from. Audit trail then survives a chaos run for
+  // post-hoc analysis.
+  const { action, notionalUsd } = actionFromArgs(args);
+  const execRes = spawnSync(
+    "node",
+    [
+      ZERION_BUNDIE_BIN,
+      "agent",
+      "execute",
+      "--name", wallet.role,
+      "--action", action,
+      "--tx", envelope.tx as string,
+      "--notional-usd", String(notionalUsd),
+      "--rpc", RPC_URL,
+    ],
+    {
+      encoding: "utf-8",
+      maxBuffer: 16 * 1024 * 1024,
+      env: {
+        ...process.env,
+        ZERION_BUNDIE_STATE: process.env.ZERION_BUNDIE_STATE ||
+          join(__dirname, "..", "logs", "zerion-action-log.json"),
+      },
+    },
+  );
+
+  if (execRes.status !== 0) {
+    // `agent execute` writes structured-error JSON to stderr on policy
+    // DENY or sign/broadcast failure. Pass through unchanged so the
+    // chaos recorder logs the deny reason.
     return {
       ok: false,
-      stdout: built.stdout || "",
+      stdout: execRes.stdout || "",
       stderr:
-        (built.stderr || "") + `\nvault-runner: ${(err as Error).message}`,
+        (built.stderr || "") +
+        (execRes.stderr || execRes.stdout || "agent execute failed without output"),
       durationMs: Date.now() - start,
     };
   }
+
+  let execJson: { ok?: boolean; signature?: string };
+  try {
+    execJson = JSON.parse(execRes.stdout.trim());
+  } catch (err) {
+    return {
+      ok: false,
+      stdout: execRes.stdout || "",
+      stderr:
+        (built.stderr || "") +
+        `\nvault-runner: agent execute stdout was not JSON: ${(err as Error).message}`,
+      durationMs: Date.now() - start,
+    };
+  }
+  if (!execJson.ok || typeof execJson.signature !== "string") {
+    return {
+      ok: false,
+      stdout: execRes.stdout || "",
+      stderr:
+        (built.stderr || "") +
+        `\nvault-runner: agent execute returned unexpected payload: ${execRes.stdout}`,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  // Merge bundie-sol's metadata (strategyAddress, marketAddress, etc.)
+  // with the freshly-confirmed signature so extractSignature /
+  // extractStrategyAddress keep working downstream.
+  const merged = {
+    ...(envelope.metadata as Record<string, unknown> || {}),
+    txSignature: execJson.signature,
+    signedBy: "zerion-execute",
+    role: wallet.role,
+    action,
+  };
+  return {
+    ok: true,
+    stdout: JSON.stringify(merged),
+    stderr: built.stderr || "",
+    durationMs: Date.now() - start,
+  };
 }
 
 /**

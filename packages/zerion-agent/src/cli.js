@@ -19,9 +19,10 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { loadPoliciesFromFile } from "./bundie/policy-loader.js";
-import { readState, setStrategyTarget, setPaused, statePath } from "./bundie/state-store.js";
+import { readState, setStrategyTarget, setPaused, statePath, appendActionLog } from "./bundie/state-store.js";
 import { startLoop, runOnce, defaultDevnetConnection } from "./bundie/rebalance-loop.js";
 import { loadStrategyState } from "./bundie/strategy-monitor.js";
+import { makeEnforcer } from "./bundie/policies.js";
 import {
   createAgent,
   findAgent,
@@ -218,6 +219,187 @@ async function cmdAgentSign(flags) {
   printJson({ ok: true, role: name, signedTx: signedB64 });
 }
 
+// ---- agent execute ---------------------------------------------------------
+//
+// `execute` is the canonical "agent does a thing" surface. It runs the
+// DENY-by-default policy framework BEFORE signing, then signs via OWS, then
+// broadcasts via the configured RPC. Callers (chaos-sim, future autonomous
+// agents) hand it a prepared tx and an action label; the rest is owned here.
+//
+// This is what makes the "agent execution flows through Zerion" claim
+// honest — the chaos-sim's create-strategy / create-market / rebalance /
+// predict events all pass through this single funnel rather than going
+// agent-sign + raw-broadcast.
+//
+// Per-action policy bundles
+// ─────────────────────────
+// The five policies in `policies.js` are tuned for swap-style operations
+// (asset_whitelist + nav_divergence assume fromMint/toMint). Non-swap
+// program calls (create-strategy, create-market, predict, redeem,
+// sns-register) are routed through a smaller bundle: chain_lock +
+// spend_limit + expiry. Rebalances get the full five.
+//
+// Note: this v1 keeps policy CONFIG hardcoded (sane devnet defaults) so
+// the chaos-sim doesn't need to ship a policies.yaml for every action.
+// Production integrations should pass --policies <file>.
+
+const DEFAULT_DEVNET_POLICIES = Object.freeze({
+  chain_lock: { allowed_chains: ["solana"] },
+  // Generous devnet caps — the chaos sim moves <1 USDC per tx; production
+  // integrations should override via --policies to lock these down.
+  spend_limit: {
+    max_notional_usd_per_rebalance: 100,
+    max_notional_usd_per_day: 10_000,
+  },
+  asset_whitelist: {
+    // Devnet USDC + WSOL + the live protocol mints we touch from chaos.
+    allowed_mints: [
+      "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // devnet USDC
+      "So11111111111111111111111111111111111111112",  // wSOL
+    ],
+  },
+  expiry: { max_age_days: 365 },
+  nav_divergence: { max_drop_pct: 50, window_minutes: 60 },
+});
+
+function policyBundleFor(action) {
+  // Non-swap actions don't carry from/to mints, so asset_whitelist + the
+  // NAV-divergence kill-switch don't apply. Use the 3-policy bundle.
+  const SWAP_LIKE = new Set(["rebalance"]);
+  const cfg = DEFAULT_DEVNET_POLICIES;
+  if (SWAP_LIKE.has(action)) {
+    return [
+      { id: "chain_lock", config: cfg.chain_lock },
+      { id: "spend_limit", config: cfg.spend_limit },
+      { id: "asset_whitelist", config: cfg.asset_whitelist },
+      { id: "expiry", config: cfg.expiry },
+      { id: "nav_divergence", config: cfg.nav_divergence },
+    ];
+  }
+  return [
+    { id: "chain_lock", config: cfg.chain_lock },
+    { id: "spend_limit", config: cfg.spend_limit },
+    { id: "expiry", config: cfg.expiry },
+  ];
+}
+
+async function cmdAgentExecute(flags) {
+  const name = flags.name;
+  const txB64 = flags.tx;
+  const action = flags.action || "other";
+  const notionalUsd = Number(flags["notional-usd"] || 0.5);
+  const rpcUrl = flags.rpc || process.env.ZERION_BUNDIE_RPC || "https://api.devnet.solana.com";
+  if (!name || !txB64) {
+    printErr(
+      "missing_args",
+      "Usage: zerion-bundie agent execute --name <role> --tx <base64> --action <kind> [--notional-usd <num>] [--rpc <url>]",
+    );
+    process.exit(1);
+  }
+
+  const startedAtMs = Date.now();
+
+  // 1. Policy enforcement — DENY by default.
+  const enforce = makeEnforcer(policyBundleFor(action));
+  const ctx = {
+    chain: "solana",
+    // Non-swap actions: use SOL placeholders so spend_limit can still run
+    // on the SOL-equivalent fee+rent estimate. Rebalance callers should
+    // pass meaningful from/to mints in a future iteration; for v1 the
+    // chaos-sim never invokes execute for rebalances (those still run
+    // via the periodic loop), so the placeholders are safe.
+    fromMint: "So11111111111111111111111111111111111111112",
+    toMint: "So11111111111111111111111111111111111111112",
+    fromSymbol: "SOL",
+    toSymbol: "SOL",
+    notionalUsd,
+    timestampMs: startedAtMs,
+    navPerShare: 1,
+    navHistory: [],
+  };
+  const decision = enforce(ctx, {
+    spendLog: [],
+    navHistory: [],
+    armedAtMs: startedAtMs,
+  });
+
+  if (!decision.allow) {
+    appendActionLog({
+      role: name,
+      action,
+      ok: false,
+      deniedBy: decision.deniedBy,
+      durationMs: Date.now() - startedAtMs,
+    });
+    printJson({
+      ok: false,
+      role: name,
+      action,
+      deniedBy: decision.deniedBy,
+      decisions: decision.decisions,
+    });
+    process.exit(1);
+  }
+
+  // 2. Sign via OWS vault. signSolanaTx already throws DENY-by-default if
+  // the agent isn't in the vault.
+  let signedB64;
+  try {
+    signedB64 = signSolanaTx(name, txB64);
+  } catch (err) {
+    appendActionLog({
+      role: name,
+      action,
+      ok: false,
+      error: err.message,
+      durationMs: Date.now() - startedAtMs,
+    });
+    printErr("sign_failed", err.message);
+    process.exit(1);
+  }
+
+  // 3. Broadcast + confirm. We skip preflight to avoid double-sim cost
+  // (the chaos-sim already preflighted via bundie-sol prepare).
+  let signature;
+  try {
+    const { Connection } = await import("@solana/web3.js");
+    const conn = new Connection(rpcUrl, "confirmed");
+    const raw = Buffer.from(signedB64, "base64");
+    signature = await conn.sendRawTransaction(raw, { skipPreflight: false });
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    await conn.confirmTransaction(
+      { signature, blockhash, lastValidBlockHeight },
+      "confirmed",
+    );
+  } catch (err) {
+    appendActionLog({
+      role: name,
+      action,
+      ok: false,
+      error: err.message,
+      durationMs: Date.now() - startedAtMs,
+    });
+    printErr("broadcast_failed", err.message);
+    process.exit(1);
+  }
+
+  appendActionLog({
+    role: name,
+    action,
+    ok: true,
+    signature,
+    durationMs: Date.now() - startedAtMs,
+  });
+  printJson({
+    ok: true,
+    role: name,
+    action,
+    signature,
+    decisions: decision.decisions,
+    durationMs: Date.now() - startedAtMs,
+  });
+}
+
 async function cmdChaosSimMigrate(flags) {
   // Default keys dir: monorepo path. Override with --keys-dir for tests.
   const keysDir =
@@ -392,10 +574,11 @@ const flags = parseFlags(flagArgs);
           case "create": await cmdAgentCreate(flags); break;
           case "list": await cmdAgentList(flags); break;
           case "sign": await cmdAgentSign(flags); break;
+          case "execute": await cmdAgentExecute(flags); break;
           default:
             printErr(
               "unknown_subcommand",
-              `Unknown agent subcommand: ${sub}. Try: create, list, sign`,
+              `Unknown agent subcommand: ${sub}. Try: create, list, sign, execute`,
             );
             process.exit(1);
         }
@@ -416,6 +599,7 @@ const flags = parseFlags(flagArgs);
             "agent create --name <role>": "Provision a Bundie agent in the Zerion vault",
             "agent list": "List Bundie agents in the Zerion vault",
             "agent sign --name <role> --tx <base64>": "Sign a Solana tx with a vault-managed agent key",
+            "agent execute --name <role> --tx <base64> --action <kind> [--notional-usd <n>] [--rpc <url>]": "Run policy framework → sign via OWS → broadcast → record. Single Zerion-mediated execution funnel for all agent ops.",
             "chaos-sim-migrate [--keys-dir <path>]": "Import existing chaos-sim keys/*.json into the Zerion vault (idempotent, leaves files on disk)",
           },
           stateFile: statePath(),

@@ -1,17 +1,22 @@
 "use client";
 
 /**
- * SnsName — render a `<name>.sol` for a Solana address, with graceful
+ * SnsName — render an SNS name for a Solana address, with graceful
  * fallback to a truncated pubkey while we resolve.
  *
  * Resolution order (delegated to lib/sns):
- *   1) Static chaos-pool map  (devnet agent identities — authoritative)
- *   2) Bonfida mainnet reverse lookup (cached 5min)
+ *   1) Static chaos-pool map  (devnet `.bundie` agent identities)
+ *   2) Bonfida mainnet reverse lookup (cached 5min, `.sol`)
  *   3) Truncated pubkey fallback (always available, never blocks render)
  *
  * The component is non-blocking: it renders the truncated pubkey
- * immediately, then upgrades to `name.sol` when resolution finishes. If
- * SNS RPC is down, the truncated pubkey stays — UI never breaks.
+ * immediately, then upgrades when resolution finishes. If SNS RPC is
+ * down, the truncated pubkey stays — UI never breaks.
+ *
+ * Hover tooltip surfaces the resolution path: which program (always SPL
+ * Name Service), which TLD (.bundie on devnet vs .sol mainnet), and the
+ * full owner pubkey. Helps judges + curious users see we're using real
+ * SNS infrastructure, not a Bundie-internal namespace.
  *
  * DENY-by-default: never displays a name without it coming from one of
  * the verified sources above. No client-supplied / user-supplied names.
@@ -82,8 +87,19 @@ export function SnsName({
   }, [addr]);
 
   const display = name ?? truncatePubkey(addr, head, tail);
+  // Tooltip: surface the resolution path so users see this is real SNS
+  // infra, not a Bundie-internal lookup. When unresolved, we just show
+  // the full pubkey (existing behavior).
+  const tldHint = name?.endsWith(".bundie")
+    ? "SPL Name Service · .bundie root (devnet, owned by Bundie)"
+    : name?.endsWith(".sol")
+      ? "SPL Name Service · .sol root (Bonfida)"
+      : null;
+  const tooltip = tldHint
+    ? `${name}\n${tldHint}\nProgram: namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX\nOwner:   ${addr}`
+    : addr;
   const inner = (
-    <span className={className} title={addr} data-sns-resolved={name ? "true" : "false"}>
+    <span className={className} title={tooltip} data-sns-resolved={name ? "true" : "false"}>
       {prefix}
       {display}
     </span>

@@ -54,3 +54,27 @@ export function setPaused(paused, path = statePath()) {
   writeState(state, path);
   return state;
 }
+
+/**
+ * Append one entry to the agent action log. Used by `agent execute` to
+ * record every Zerion-mediated tx submission (allowed or denied) so an
+ * operator can audit what each agent has done.
+ *
+ * Cap retained entries at 1000 per state file to keep the JSON readable;
+ * older entries fall off FIFO. The full audit lives in the chaos-sim
+ * recorder.jsonl — this in-state log is just the most-recent slice.
+ *
+ * Entry shape:
+ *   { ts, role, action, ok, signature?, deniedBy?, durationMs }
+ */
+export function appendActionLog(entry, path = statePath()) {
+  const state = readState(path);
+  state.actionLog = Array.isArray(state.actionLog) ? state.actionLog : [];
+  state.actionLog.push({ ts: Date.now(), ...entry });
+  // Keep last 1000 entries (FIFO drop oldest).
+  const MAX = 1000;
+  if (state.actionLog.length > MAX) {
+    state.actionLog = state.actionLog.slice(-MAX);
+  }
+  writeState(state, path);
+}
