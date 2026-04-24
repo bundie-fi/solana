@@ -97,7 +97,7 @@ pub fn handler(
 ) -> Result<()> {
     require!(question.len() <= 128, MarketError::QuestionTooLong);
     require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
-    require!(kind <= MARKET_KIND_BACKER_COUNT, MarketError::InvalidKind);
+    require!(kind <= MARKET_KIND_RATE_BARRIER, MarketError::InvalidKind);
 
     // Per-kind invariants. Catch obviously-broken configs at create time
     // so resolve never has to inspect a malformed payload.
@@ -130,6 +130,19 @@ pub fn handler(
         }
         MARKET_KIND_BACKER_COUNT => {
             require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
+            MarketType::Absolute
+        }
+        MARKET_KIND_RATE_BARRIER => {
+            // payload[0..8]   = threshold_bps          (must be > 0)
+            // payload[8..16]  = window_start_slot
+            // payload[16..24] = window_end_slot        (must be > start)
+            // payload[24..32] = rate_reader_selector   (must be > 0)
+            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
+            require!(
+                payload_u64(&payload, 8) < payload_u64(&payload, 16),
+                MarketError::InvalidPayload
+            );
+            require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
             MarketType::Absolute
         }
         _ => unreachable!(),

@@ -65,6 +65,26 @@ pub const MARKET_KIND_RELATIVE: u8 = 2;
 pub const MARKET_KIND_DRAWDOWN: u8 = 3;
 pub const MARKET_KIND_BACKER_COUNT: u8 = 4;
 
+/// RateBarrier (5) — "will protocol/pool rate X stay above/below a
+/// threshold over a slot window?" The rate is read from an on-chain rate
+/// source (Kamino reserve, Marinade stake pool, Orca whirlpool, etc.)
+/// selected by `rate_reader_selector`. Market resolves Absolute.
+///
+///   payload[0..8]   = threshold_bps            (u64 LE) — APY threshold in bps
+///   payload[8..16]  = window_start_slot        (u64 LE)
+///   payload[16..24] = window_end_slot          (u64 LE)
+///   payload[24..32] = rate_reader_selector     (u64 LE)
+///                       1 = Kamino USDC supply APY
+///                       2 = Marinade mSOL stake APY
+///                       3 = Kamino USDC borrow APR
+///                       4 = Orca SOL-USDC Whirlpool fee APY
+///                       5 = Jupiter Perps SOL-PERP funding rate
+///                       6 = Jupiter JLP NAV growth
+///   payload[32..64] = reserved (zero)
+///
+/// `strategy_b` is unused (set to `None`).
+pub const MARKET_KIND_RATE_BARRIER: u8 = 5;
+
 /// Length of the per-kind payload, in bytes. Fixed-size array so we never
 /// need to Borsh-decode a variable enum payload — keeps deserialisation
 /// straight and the Market account size stable.
