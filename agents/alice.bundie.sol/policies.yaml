@@ -1,0 +1,44 @@
+# Alice - Bundie rate-prediction-market agent
+#
+# SNS identity:   alice.bundie.sol
+# Vault address:  <REPLACE_WITH_ALICE_VAULT_PUBKEY>   filled in Phase 6 post-deploy
+# Strategy:       basis-trade-usdc
+#
+# DENY-by-default: every rebalance tx passes through this policy list.
+# Enforcement happens in packages/zerion-agent/src/bundie/policies.js
+# via makeEnforcer(). If any predicate returns allow:false, the Zerion
+# vault does NOT sign.
+
+sns_identity: alice.bundie.sol
+vault_address: "REPLACE_WITH_ALICE_VAULT_PUBKEY"
+strategy: basis-trade-usdc
+
+armed_at_ms: 1714000000000
+
+policies:
+  - id: chain_lock
+    config:
+      allowed_chains:
+        - solana
+
+  - id: asset_whitelist
+    config:
+      allowed_mints:
+        - EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+        - 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+        - mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So
+        - So11111111111111111111111111111111111111112
+
+  - id: spend_limit
+    config:
+      max_notional_usd_per_rebalance: 25
+      max_notional_usd_per_day: 100
+
+  - id: expiry
+    config:
+      max_age_days: 38
+
+  - id: nav_divergence
+    config:
+      max_drop_pct: 10
+      window_minutes: 60
