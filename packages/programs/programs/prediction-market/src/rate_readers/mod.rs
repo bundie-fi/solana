@@ -8,8 +8,8 @@
 use anchor_lang::prelude::*;
 
 pub mod kamino_usdc;
-pub mod marinade_msol;
 pub mod marginfi_usdc;
+pub mod marinade_msol;
 pub mod spl_stake_pool;
 pub mod zeta_perp;
 
@@ -33,11 +33,11 @@ pub trait RateReader {
 
 pub fn rate_reader_for_selector(selector: u64) -> Option<Box<dyn RateReader>> {
     match selector {
-        SELECTOR_KAMINO_USDC_SUPPLY  => Some(Box::new(kamino_usdc::KaminoUsdcSupplyReader)),
+        SELECTOR_KAMINO_USDC_SUPPLY => Some(Box::new(kamino_usdc::KaminoUsdcSupplyReader)),
         SELECTOR_MARINADE_MSOL_STAKE => Some(Box::new(marinade_msol::MarinadeMsolStakeReader)),
-        SELECTOR_MARGINFI_USDC       => Some(Box::new(marginfi_usdc::MarginfiUsdcReader)),
-        SELECTOR_SPL_STAKE_POOL      => Some(Box::new(spl_stake_pool::SplStakePoolReader)),
-        SELECTOR_ZETA_SOL_PERP       => Some(Box::new(zeta_perp::ZetaPerpFundingReader)),
+        SELECTOR_MARGINFI_USDC => Some(Box::new(marginfi_usdc::MarginfiUsdcReader)),
+        SELECTOR_SPL_STAKE_POOL => Some(Box::new(spl_stake_pool::SplStakePoolReader)),
+        SELECTOR_ZETA_SOL_PERP => Some(Box::new(zeta_perp::ZetaPerpFundingReader)),
         _ => None,
     }
 }
