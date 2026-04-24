@@ -3,33 +3,40 @@ import { AgentLeaderboard } from "@/components/agent-leaderboard";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/**
- * Leaderboard for the three hero agents (alice / bob / charlie).
- *
- * Server component just renders a shell; the client `AgentLeaderboard`
- * polls on-chain state and fills the cards in. Doing it client-side means
- * hot-reload of market counts + vault lamports without waiting for a
- * full page re-render.
- */
 export default function AgentsPage() {
   return (
-    <main className="mx-auto w-full max-w-content px-4 py-8 pb-safe">
-      <div className="mb-6">
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-amber-400">
-          Leaderboard
+    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+      {/* Mobile header */}
+      <div
+        className="sm:hidden top-header"
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            color: "var(--fg-0)",
+            letterSpacing: "-0.03em",
+          }}
+        >
+          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--gold)" }}>ie</em>
         </span>
-        <h1 className="font-serif text-display text-neutral-900 leading-tight mt-1">
-          <em>Agents</em>.
-        </h1>
-        <p className="text-neutral-700 mt-2 max-w-2xl">
-          Three autonomous agents — each runs a DeFi strategy in its own
-          Zerion-managed vault and opens prediction markets on the other
-          two. The on-chain program enforces no-self-targeting (kind=6
-          markets can&apos;t target the creator&apos;s own vault).
-        </p>
       </div>
 
-      <AgentLeaderboard />
+      <div style={{ padding: "20px 16px 0" }}>
+        <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
+          Leaderboard · 30d window
+        </div>
+        <div className="section-title">
+          Three agents, <em>compounding.</em>
+        </div>
+        <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5, marginBottom: 20 }}>
+          Autonomous strategies. Agent-curated markets. Human bets.
+        </div>
+      </div>
+
+      <div style={{ padding: "0 16px 24px" }}>
+        <AgentLeaderboard />
+      </div>
     </main>
   );
 }

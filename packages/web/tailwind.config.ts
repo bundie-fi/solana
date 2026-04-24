@@ -1,101 +1,127 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Palette aligned with packages/landing-page/brand.md:
- *   bg   #0a0908   ink  #f6f3ee   amber #c2570c   purple #6d28d9
- *
- * The `earn-gold` / `predict-purple` aliases are preserved so existing
- * component code compiles, but the underlying hex values shifted from the
- * old gold #d4a853 → amber #c2570c (warmer, higher saturation) to match
- * the Solana landing surface. Predict keeps a violet tone but deepened.
+ * Bundie Seeker design system tokens.
+ * Dark terminal UI — gold (agents/earn) + purple (markets/predict).
  */
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
-        // ── Brand aliases (kept; semantic for current call-sites) ───────
-        "earn-gold": "#c2570c",
-        "predict-purple": "#8b47ee",
-        background: "#0a0908",
-        surface: "#121110",
-        border: "rgba(246,243,238,0.15)",
+        // ── Brand aliases ────────────────────────────────────────────────
+        "earn-gold": "#d4a853",
+        "predict-purple": "#a78bfa",
+        background: "#0a0a0a",
+        surface: "#111111",
 
-        // ── Amber scale (replaces former gold scale) ────────────────────
-        amber: {
-          50:  "#fdf3e8",
-          100: "#fbdfc3",
-          200: "#f5b583",
-          300: "#ee9553",
-          400: "#e28646",
-          500: "#d96a1c",
-          600: "#c2570c",
-          700: "#994307",
-          800: "#6b2f05",
-          900: "#401d04",
-          950: "#261002",
-        },
-        // Gold alias points at amber so any `gold-400` / `gold-500` classes
-        // already in components keep rendering a sensible colour.
+        // ── Design system gold ───────────────────────────────────────────
         gold: {
-          50:  "#fdf3e8",
-          100: "#fbdfc3",
-          200: "#f5b583",
-          300: "#ee9553",
-          400: "#e28646",
-          500: "#d96a1c",
-          600: "#c2570c",
-          700: "#994307",
-          800: "#6b2f05",
-          900: "#401d04",
-          950: "#261002",
+          DEFAULT: "#d4a853",
+          2: "#e6c07a",
+          tint: "rgba(212,168,83,0.08)",
+          glow: "rgba(212,168,83,0.18)",
+          50: "#fdf8ec",
+          100: "#f9edcc",
+          200: "#f2d98a",
+          300: "#e6c07a",
+          400: "#d4a853",
+          500: "#c09040",
+          600: "#9a7030",
+          700: "#735222",
+          800: "#4d3516",
+          900: "#26190b",
         },
 
-        // ── Purple / violet scale ───────────────────────────────────────
+        // ── Design system purple ─────────────────────────────────────────
         purple: {
-          50:  "#f4ecff",
-          100: "#e4d3ff",
-          200: "#cab0ff",
-          300: "#b691f1",
-          400: "#8b47ee",
-          500: "#7a34e6",
-          600: "#6d28d9",
-          700: "#561fae",
-          800: "#3f1881",
-          900: "#281054",
-          950: "#170831",
-        },
-        violet: {
-          400: "#9945ff",
-          500: "#7f2dff",
-          600: "#651fe0",
+          DEFAULT: "#a78bfa",
+          2: "#c4b5fd",
+          tint: "rgba(167,139,250,0.10)",
+          glow: "rgba(167,139,250,0.20)",
+          50: "#f5f3ff",
+          100: "#ede9fe",
+          200: "#ddd6fe",
+          300: "#c4b5fd",
+          400: "#a78bfa",
+          500: "#8b5cf6",
+          600: "#7c3aed",
+          700: "#6d28d9",
+          800: "#5b21b6",
+          900: "#4c1d95",
         },
 
-        // ── Neutral (warm ink ramp) ─────────────────────────────────────
+        // ── Amber / status ───────────────────────────────────────────────
+        amber: {
+          DEFAULT: "#f59e0b",
+          50: "#fffbeb",
+          100: "#fef3c7",
+          200: "#fde68a",
+          300: "#fcd34d",
+          400: "#fbbf24",
+          500: "#f59e0b",
+          600: "#d97706",
+          700: "#b45309",
+          800: "#92400e",
+          900: "#78350f",
+        },
+
+        // ── Green / yes ──────────────────────────────────────────────────
+        green: {
+          DEFAULT: "#22c55e",
+          2: "#4ade80",
+          tint: "rgba(34,197,94,0.12)",
+          400: "#4ade80",
+          500: "#22c55e",
+          600: "#16a34a",
+        },
+
+        // ── Red / no ─────────────────────────────────────────────────────
+        red: {
+          DEFAULT: "#ef4444",
+          2: "#f87171",
+          tint: "rgba(239,68,68,0.12)",
+          400: "#f87171",
+          500: "#ef4444",
+          600: "#dc2626",
+        },
+
+        // ── Blue / human bet ─────────────────────────────────────────────
+        blue: {
+          DEFAULT: "#60a5fa",
+          tint: "rgba(96,165,250,0.12)",
+          400: "#60a5fa",
+          500: "#3b82f6",
+        },
+
+        // ── Neutral (dark terminal ramp) ─────────────────────────────────
         neutral: {
-          0:   "#0a0908",
-          50:  "#0f0e0c",
-          100: "#121110",
-          200: "#161413",
-          300: "#1d1a17",
-          400: "#2a2622",
-          500: "#5c544c",
-          600: "#8b8278",
-          700: "#b0a89e",
-          800: "#e6e0d4",
-          900: "#f6f3ee",
+          0:   "#0a0a0a",
+          50:  "#111111",
+          100: "#161616",
+          200: "#1c1c1c",
+          300: "#232323",
+          400: "#2a2a2a",
+          500: "#383838",
+          600: "#525252",
+          700: "#737373",
+          800: "#a3a3a3",
+          900: "#e5e5e5",
+          950: "#f5f5f5",
         },
 
-        // ── Semantic ────────────────────────────────────────────────────
-        success: { 400: "#7de0a4", 500: "#38d17a" },
-        danger:  { 400: "#f87171", 500: "#ef4444" },
-        warning: { 400: "#ffc27d" },
-        info:    { 400: "#60a5fa" },
+        // ── Semantic ─────────────────────────────────────────────────────
+        success: { DEFAULT: "#22c55e", 400: "#4ade80", 500: "#22c55e" },
+        danger:  { DEFAULT: "#ef4444", 400: "#f87171", 500: "#ef4444" },
+        warning: { DEFAULT: "#f59e0b", 400: "#fbbf24" },
+        info:    { DEFAULT: "#60a5fa", 400: "#60a5fa" },
+        violet:  { 400: "#9945ff", 500: "#7f2dff" },
       },
       fontFamily: {
-        sans:  ["var(--font-sans)",  "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "Instrument Serif", "Georgia", "serif"],
-        mono:  ["var(--font-mono)",  "ui-monospace", "monospace"],
+        sans:  ["var(--font-sans)",  "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["var(--font-display)", "Playfair Display", "Instrument Serif", "Georgia", "serif"],
+        mono:  ["var(--font-mono)",  "JetBrains Mono", "ui-monospace", "monospace"],
+        display: ["var(--font-display)", "Playfair Display", "Georgia", "serif"],
       },
       fontSize: {
         stat:    ["clamp(1.5rem, 4.5vw, 2rem)",  { lineHeight: "1", fontWeight: "700" }],
@@ -106,8 +132,9 @@ const config: Config = {
         soft:  "0 1px 2px rgba(0,0,0,.45)",
         pop:   "0 8px 24px -8px rgba(0,0,0,.65)",
         sheet: "0 -16px 48px -8px rgba(0,0,0,.7)",
-        amber: "0 10px 28px -10px rgba(194,87,12,0.55)",
-        purple:"0 10px 28px -10px rgba(109,40,217,0.55)",
+        gold:  "0 10px 28px -10px rgba(212,168,83,0.35)",
+        purple:"0 10px 28px -10px rgba(167,139,250,0.35)",
+        amber: "0 10px 28px -10px rgba(245,158,11,0.35)",
       },
       transitionTimingFunction: {
         "out-quick": "cubic-bezier(.2,.8,.2,1)",
@@ -121,6 +148,7 @@ const config: Config = {
       },
       maxWidth: {
         content: "1200px",
+        phone: "390px",
       },
       keyframes: {
         "sheet-up": {
@@ -136,16 +164,40 @@ const config: Config = {
           "100%": { opacity: "1" },
         },
         shimmer: {
-          "0%":   { opacity: "0.35" },
-          "50%":  { opacity: "0.55" },
-          "100%": { opacity: "0.35" },
+          "0%":   { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        "feed-enter": {
+          "0%":   { opacity: "0", transform: "translateY(-8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "pulse-ring": {
+          "0%":   { transform: "scale(0.8)", opacity: "1" },
+          "100%": { transform: "scale(2.4)", opacity: "0" },
+        },
+        "agent-heartbeat": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0" },
+          "10%":      { transform: "scale(1)", opacity: "0.5" },
+          "60%":      { transform: "scale(1.5)", opacity: "0" },
+        },
+        "nav-pulse": {
+          "0%, 100%": { filter: "drop-shadow(0 0 0 transparent)" },
+          "50%":      { filter: "drop-shadow(0 0 6px rgba(212,168,83,0.18))" },
+        },
+        spin: {
+          "to": { transform: "rotate(360deg)" },
         },
       },
       animation: {
-        "sheet-up":    "sheet-up 260ms cubic-bezier(.34,1.56,.64,1)",
-        "sheet-right": "sheet-right 260ms cubic-bezier(.34,1.56,.64,1)",
-        "fade-in":     "fade-in 180ms cubic-bezier(.2,.8,.2,1)",
-        shimmer:       "shimmer 1.2s ease-in-out infinite",
+        "sheet-up":       "sheet-up 260ms cubic-bezier(.34,1.56,.64,1)",
+        "sheet-right":    "sheet-right 260ms cubic-bezier(.34,1.56,.64,1)",
+        "fade-in":        "fade-in 180ms cubic-bezier(.2,.8,.2,1)",
+        shimmer:          "shimmer 1.6s linear infinite",
+        "feed-enter":     "feed-enter 280ms cubic-bezier(.25,.4,.25,1) both",
+        "pulse-ring":     "pulse-ring 2s cubic-bezier(.25,.4,.25,1) infinite",
+        "agent-heartbeat":"agent-heartbeat 2.6s ease-out infinite",
+        "nav-pulse":      "nav-pulse 3s ease-in-out infinite",
+        spin:             "spin 0.9s linear infinite",
       },
     },
   },

@@ -2,37 +2,48 @@
 
 import { useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import dynamic from "next/dynamic";
 import { buildBuySharesTx, buildRedeemTx } from "@/lib/tx-builders";
 import type { MarketView } from "@/lib/markets";
+import { ZerionBadge } from "@/components/zerion-badge";
+import { ChainBadge } from "@/components/chain-badge";
+
+const WalletButton = dynamic(
+  () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
+  { ssr: false },
+);
 
 interface MarketBuyPanelProps {
   market: MarketView;
   yesProbability: number; // 0..1
 }
 
+type Stage = "idle" | "preview" | "confirm" | "success";
+
 /**
- * YES / NO buy panel for a prediction market. Sticky to the top of
- * the fold on mobile (where screen real-estate is precious) and
- * full-width on desktop.
- *
- * Hand-encodes the `buy_shares` ix via `lib/tx-builders.ts` — no Anchor
- * method-builder on the client bundle.
+ * Bet panel with 3-stage flow: idle → preview → confirm (Zerion routing) → success.
+ * Matches the BetOverlay pattern from the Seeker design.
  */
 export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { publicKey, sendTransaction, connected } = wallet;
 
-  const [amount, setAmount] = useState("10");
+  const [amount, setAmount] = useState("0.5");
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
+  const [stage, setStage] = useState<Stage>("idle");
 
   const isResolved = market.status === "resolved";
-  const resolvable =
-    market.status === "active" && market.resolutionSlot > 0;
+
+  const yesPrice = yesProbability;
+  const noPrice = 1 - yesProbability;
+  const price = side === "yes" ? yesPrice : noPrice;
+  const amountNum = parseFloat(amount) || 0;
+  const shares = price > 0 ? amountNum / price : 0;
+  const payout = shares;
 
   async function handleBuy() {
     if (!publicKey || !connected) return;
@@ -45,6 +56,7 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
     setError(null);
     setTxSig(null);
     setLoading(true);
+    setStage("confirm");
 
     try {
       const amountLamports = BigInt(Math.round(parsed * 1_000_000));
@@ -57,10 +69,12 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
       const sig = await sendTransaction(tx, connection);
       await connection.confirmTransaction(sig, "confirmed");
       setTxSig(sig);
+      setStage("success");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("User rejected")) setError("Transaction rejected.");
       else setError(msg.slice(0, 160));
+      setStage("idle");
     } finally {
       setLoading(false);
     }
@@ -87,111 +101,259 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
     }
   }
 
-  const yesPrice = yesProbability; // 0..1, treat as "cents per share"
-  const noPrice = 1 - yesProbability;
-
-  if (!connected) {
-    return (
-      <div className="rounded-2xl border border-neutral-300 bg-gradient-to-br from-neutral-200 to-neutral-100 p-5 flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <DisabledOutcomeButton
-            label="Buy YES"
-            priceCents={Math.round(yesPrice * 100)}
-            color="success"
-          />
-          <DisabledOutcomeButton
-            label="Buy NO"
-            priceCents={Math.round(noPrice * 100)}
-            color="amber"
-          />
-        </div>
-        <div className="pt-2 border-t border-neutral-300 flex flex-col items-center gap-2">
-          <p className="text-xs text-neutral-700 text-center">
-            Connect a wallet to bet on this market.
-          </p>
-          <WalletMultiButton
-            style={{
-              background: "rgba(109,40,217,0.18)",
-              border: "1px solid rgba(109,40,217,0.4)",
-              borderRadius: "10px",
-              color: "#b691f1",
-              fontSize: "13px",
-              height: "40px",
-              padding: "0 16px",
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
-
   if (isResolved) {
     return (
-      <div className="rounded-2xl border border-neutral-300 bg-surface p-5 flex flex-col gap-3">
-        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600">
-          Market resolved
-        </div>
-        <p className="text-sm text-neutral-800">
+      <div className="card" style={{ padding: 16 }}>
+        <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Market resolved</div>
+        <div style={{ fontSize: 13, marginBottom: 14 }}>
           Outcome:{" "}
           <span
-            className={
-              market.outcome === "yes"
-                ? "text-success-400 font-semibold"
-                : "text-amber-400 font-semibold"
-            }
+            style={{
+              color: market.outcome === "yes" ? "var(--green-2)" : "var(--red-2)",
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+            }}
           >
             {(market.outcome ?? "—").toUpperCase()}
           </span>
-        </p>
-        <button
-          type="button"
-          onClick={handleRedeem}
-          disabled={loading || market.outcome == null}
-          className="h-12 rounded-xl bg-success-400/20 border border-success-400/40 text-success-400 font-mono text-sm uppercase tracking-[0.14em] hover:bg-success-400/30 transition disabled:opacity-50"
-        >
-          {loading ? "Redeeming…" : "Redeem winning shares"}
-        </button>
+        </div>
+        {connected ? (
+          <button
+            type="button"
+            onClick={handleRedeem}
+            disabled={loading || market.outcome == null}
+            className="btn btn-primary"
+            style={{ width: "100%", padding: "13px" }}
+          >
+            {loading ? "Redeeming…" : "Redeem winning shares"}
+          </button>
+        ) : (
+          <WalletButton
+            style={{
+              width: "100%",
+              background: "var(--fg-0)",
+              border: "none",
+              borderRadius: "8px",
+              color: "#0a0a0a",
+              fontSize: "13px",
+              fontFamily: "var(--font-sans)",
+              fontWeight: 600,
+              height: "46px",
+              padding: "0 16px",
+            }}
+          />
+        )}
         <TxStatus error={error} sig={txSig} />
       </div>
     );
   }
 
-  return (
-    <div className="rounded-2xl border border-neutral-300 bg-gradient-to-br from-neutral-200 to-neutral-100 p-5 flex flex-col gap-4">
-      {/* Side toggle */}
-      <div className="grid grid-cols-2 gap-2">
-        <OutcomeToggleButton
-          label="YES"
-          priceCents={Math.round(yesPrice * 100)}
-          selected={side === "yes"}
-          onClick={() => setSide("yes")}
-          color="success"
-        />
-        <OutcomeToggleButton
-          label="NO"
-          priceCents={Math.round(noPrice * 100)}
-          selected={side === "no"}
-          onClick={() => setSide("no")}
-          color="amber"
+  if (!connected) {
+    return (
+      <div className="card" style={{ padding: 16 }}>
+        <div className="bd-eyebrow" style={{ marginBottom: 12 }}>Place bet</div>
+
+        {/* Side toggle (disabled) */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div
+            className="btn btn-yes"
+            style={{ flex: 1, padding: "12px", fontSize: 13, fontWeight: 600, opacity: 0.6, cursor: "default" }}
+          >
+            YES · {Math.round(yesPrice * 100)}¢
+          </div>
+          <div
+            className="btn btn-no"
+            style={{ flex: 1, padding: "12px", fontSize: 13, fontWeight: 600, opacity: 0.6, cursor: "default" }}
+          >
+            NO · {Math.round(noPrice * 100)}¢
+          </div>
+        </div>
+
+        <p style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 14, textAlign: "center" }}>
+          Connect a wallet to bet on this market.
+        </p>
+        <WalletButton
+          style={{
+            width: "100%",
+            background: "var(--fg-0)",
+            border: "none",
+            borderRadius: "8px",
+            color: "#0a0a0a",
+            fontSize: "13px",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 600,
+            height: "46px",
+            padding: "0 16px",
+          }}
         />
       </div>
+    );
+  }
 
-      {/* Amount input */}
-      <div>
-        <label
-          htmlFor="bet-usdc"
-          className="block font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600 mb-1"
+  // Confirm stage overlay
+  if (stage === "confirm" && loading) {
+    return (
+      <div className="card" style={{ padding: 32, textAlign: "center" }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            border: "2px solid var(--line-2)",
+            borderTopColor: "var(--gold)",
+            margin: "0 auto 16px",
+            animation: "spin 0.9s linear infinite",
+          }}
+        />
+        <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Submitting</div>
+        <div style={{ fontSize: 14, color: "var(--fg-1)" }}>Routing through Zerion…</div>
+        <div className="dim mono-tiny" style={{ marginTop: 6, fontSize: 10 }}>
+          waiting for devnet confirmation
+        </div>
+      </div>
+    );
+  }
+
+  // Success stage
+  if (stage === "success" && txSig) {
+    return (
+      <div className="card" style={{ padding: 18 }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "var(--green-tint)",
+            border: "1px solid rgba(34,197,94,0.4)",
+            margin: "0 auto 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 0 24px rgba(34,197,94,0.25)",
+          }}
         >
-          Collateral (USDC)
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 text-sm">
-            $
-          </span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12.5l4.5 4.5L19 7" stroke="var(--green-2)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            textAlign: "center",
+            marginBottom: 8,
+            letterSpacing: "-0.02em",
+            color: "var(--fg-0)",
+          }}
+        >
+          Bet placed.
+        </div>
+        <div className="muted" style={{ fontSize: 12.5, textAlign: "center", marginBottom: 18 }}>
+          You hold{" "}
+          <span
+            className="mono"
+            style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)", fontSize: 12 }}
+          >
+            {shares.toFixed(2)} {side.toUpperCase()}
+          </span>{" "}
+          shares.
+        </div>
+
+        <div className="card inset" style={{ padding: 14, marginBottom: 16 }}>
+          <BetRow label="Tx" value={<span className="mono dim" style={{ fontSize: 10 }}>{txSig.slice(0, 8)}…{txSig.slice(-6)}</span>} />
+          <BetRow label="Routed by" value={<ZerionBadge />} />
+          <BetRow label="Chain" value={<ChainBadge chain="devnet" />} last />
+        </div>
+
+        <button
+          className="btn btn-primary"
+          style={{ width: "100%", padding: "14px", fontSize: 13 }}
+          onClick={() => { setStage("idle"); setTxSig(null); }}
+        >
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  // Preview stage
+  if (stage === "preview") {
+    return (
+      <div className="card" style={{ padding: 18 }}>
+        <div className="bd-eyebrow" style={{ marginBottom: 6 }}>Confirm bet</div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            marginBottom: 16,
+            letterSpacing: "-0.02em",
+            color: "var(--fg-0)",
+          }}
+        >
+          Bet <em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}>{side.toLowerCase()}.</em>
+        </div>
+        <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 18 }}>
+          {market.question}
+        </div>
+
+        <div className="card inset" style={{ padding: 14, marginBottom: 16 }}>
+          <BetRow label="Side" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}>{side.toUpperCase()}</span>} />
+          <BetRow label="Stake" value={`${amountNum.toFixed(2)} USDC`} />
+          <BetRow label="Shares" value={`${shares.toFixed(2)} ${side.toUpperCase()}`} />
+          <BetRow label="Max payout" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)", fontFamily: "var(--font-mono)" }}>◎{payout.toFixed(2)}</span>} last />
+        </div>
+
+        <button
+          className="btn btn-primary"
+          style={{ width: "100%", padding: "14px", fontSize: 13, marginBottom: 8 }}
+          onClick={handleBuy}
+        >
+          Confirm bet
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ width: "100%", padding: "12px", fontSize: 12 }}
+          onClick={() => setStage("idle")}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // Idle state — main bet panel
+  return (
+    <div className="card" style={{ padding: 16 }}>
+      <div className="bd-eyebrow" style={{ marginBottom: 12 }}>Place bet</div>
+
+      {/* Side toggle */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <button
+          className={`btn btn-yes flex-1${side === "yes" ? " solid" : ""}`}
+          style={{ padding: "12px", fontSize: 13, fontWeight: 600 }}
+          onClick={() => setSide("yes")}
+        >
+          YES · {Math.round(yesPrice * 100)}%
+        </button>
+        <button
+          className={`btn btn-no flex-1${side === "no" ? " solid" : ""}`}
+          style={{ padding: "12px", fontSize: 13, fontWeight: 600 }}
+          onClick={() => setSide("no")}
+        >
+          NO · {Math.round(noPrice * 100)}%
+        </button>
+      </div>
+
+      {/* Amount */}
+      <div className="bd-eyebrow" style={{ marginBottom: 6, fontSize: 9 }}>Amount</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
+        <div
+          className="card inset"
+          style={{ flex: 1, padding: "10px 14px", display: "flex", alignItems: "center" }}
+        >
           <input
-            id="bet-usdc"
             type="number"
-            step="0.01"
+            step="0.1"
             min="0"
             value={amount}
             onChange={(e) => {
@@ -199,88 +361,105 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
               setError(null);
             }}
             disabled={loading}
-            className="w-full h-12 rounded-xl border border-neutral-300 bg-background pl-7 pr-4 text-neutral-900 text-base focus:outline-none focus:border-amber-400/70 transition-colors"
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: 0,
+              outline: 0,
+              color: "var(--fg-0)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 18,
+              fontWeight: 600,
+              padding: 0,
+              WebkitAppearance: "none",
+            }}
           />
+          <span className="mono muted" style={{ fontSize: 12 }}>USDC</span>
+        </div>
+        <button
+          className="btn btn-ghost"
+          style={{ padding: "10px 14px", fontSize: 11 }}
+          onClick={() => setAmount("10")}
+        >
+          MAX
+        </button>
+      </div>
+
+      {/* Quick amounts */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[0.1, 0.5, 1.0, 2.0].map((v) => (
+          <button
+            key={v}
+            className="btn btn-ghost flex-1"
+            style={{ padding: "8px", fontSize: 11, fontFamily: "var(--font-mono)" }}
+            onClick={() => setAmount(v.toString())}
+          >
+            ◎{v.toFixed(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Preview */}
+      <div className="card inset" style={{ padding: 12, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span className="muted" style={{ fontSize: 11 }}>You receive</span>
+          <span className="mono hl" style={{ fontSize: 13, fontWeight: 600 }}>
+            {shares.toFixed(2)} {side.toUpperCase()} shares
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span className="muted" style={{ fontSize: 11 }}>Avg price</span>
+          <span className="mono" style={{ fontSize: 12 }}>◎{price.toFixed(3)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span className="muted" style={{ fontSize: 11 }}>Payout if correct</span>
+          <span
+            className="mono"
+            style={{ fontSize: 13, fontWeight: 600, color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}
+          >
+            ◎{payout.toFixed(2)}
+          </span>
         </div>
       </div>
 
       <button
-        type="button"
-        onClick={handleBuy}
-        disabled={loading || !amount || parseFloat(amount) <= 0 || !resolvable}
-        className={[
-          "h-14 rounded-xl font-mono text-sm uppercase tracking-[0.14em] transition-all",
-          side === "yes"
-            ? "bg-success-500 text-background hover:bg-success-400"
-            : "bg-amber-500 text-background hover:bg-amber-400",
-          "disabled:opacity-40 disabled:cursor-not-allowed",
-          "shadow-pop",
-        ].join(" ")}
+        className="btn btn-primary"
+        style={{ width: "100%", padding: "14px", fontSize: 13 }}
+        disabled={loading || amountNum <= 0}
+        onClick={() => setStage("preview")}
       >
-        {loading ? "Confirming…" : `Buy ${side.toUpperCase()}`}
+        Review bet
       </button>
+      <div className="dim mono-tiny" style={{ textAlign: "center", marginTop: 10, fontSize: 9.5 }}>
+        0.3% slippage · 0 fees on devnet
+      </div>
 
-      <TxStatus error={error} sig={txSig} />
+      <TxStatus error={error} sig={null} />
     </div>
   );
 }
 
-function OutcomeToggleButton({
+function BetRow({
   label,
-  priceCents,
-  selected,
-  onClick,
-  color,
+  value,
+  last,
 }: {
   label: string;
-  priceCents: number;
-  selected: boolean;
-  onClick: () => void;
-  color: "success" | "amber";
+  value: React.ReactNode;
+  last?: boolean;
 }) {
-  const activeClass =
-    color === "success"
-      ? "bg-success-400/20 border-success-400 text-success-400"
-      : "bg-amber-400/20 border-amber-400 text-amber-400";
-  const idleClass = "bg-surface border-neutral-300 text-neutral-700";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "h-14 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all font-mono",
-        selected ? activeClass : idleClass,
-      ].join(" ")}
-    >
-      <span className="text-base font-semibold tracking-[0.14em]">{label}</span>
-      <span className="text-[11px] uppercase tracking-[0.14em] nums">
-        {priceCents}¢
-      </span>
-    </button>
-  );
-}
-
-function DisabledOutcomeButton({
-  label,
-  priceCents,
-  color,
-}: {
-  label: string;
-  priceCents: number;
-  color: "success" | "amber";
-}) {
-  const tone =
-    color === "success"
-      ? "bg-success-400/10 border-success-400/40 text-success-400"
-      : "bg-amber-400/10 border-amber-400/40 text-amber-400";
   return (
     <div
-      className={`h-14 rounded-xl border-2 ${tone} flex flex-col items-center justify-center gap-0.5 font-mono opacity-80`}
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "7px 0",
+        borderBottom: last ? "none" : "1px solid var(--line-1)",
+      }}
     >
-      <span className="text-base font-semibold tracking-[0.14em]">{label}</span>
-      <span className="text-[11px] uppercase tracking-[0.14em] nums">
-        {priceCents}¢
-      </span>
+      <span className="muted" style={{ fontSize: 11 }}>{label}</span>
+      <span className="mono hl" style={{ fontSize: 12, fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
@@ -288,20 +467,37 @@ function DisabledOutcomeButton({
 function TxStatus({ error, sig }: { error: string | null; sig: string | null }) {
   if (!error && !sig) return null;
   return (
-    <div className="text-xs">
+    <div style={{ marginTop: 10, fontSize: 12 }}>
       {error && (
-        <p className="rounded-lg border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-danger-400 break-words">
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: "var(--red-tint)",
+            border: "1px solid rgba(239,68,68,0.24)",
+            color: "var(--red-2)",
+            fontSize: 11,
+            wordBreak: "break-word",
+          }}
+        >
           {error}
-        </p>
+        </div>
       )}
       {sig && (
-        <div className="rounded-lg border border-success-400/30 bg-success-400/10 px-3 py-2">
-          <p className="text-success-400 font-medium">Confirmed.</p>
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: "var(--green-tint)",
+            border: "1px solid rgba(34,197,94,0.24)",
+          }}
+        >
+          <div style={{ color: "var(--green-2)", fontWeight: 600, fontSize: 11, marginBottom: 4 }}>Confirmed.</div>
           <a
             href={`https://explorer.solana.com/tx/${sig}?cluster=devnet`}
             target="_blank"
             rel="noreferrer"
-            className="text-amber-400 hover:underline font-mono break-all"
+            style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}
           >
             {sig.slice(0, 20)}…{sig.slice(-8)}
           </a>

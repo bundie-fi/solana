@@ -13,13 +13,6 @@ import { MarketBuyPanel } from "@/components/market-buy-panel";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/**
- * Market detail page.
- *
- * Mobile-first layout: the YES/NO buy CTA sits above the fold. On
- * desktop we flip to a two-column split so the prose doesn't push the
- * CTA offscreen.
- */
 export default async function MarketDetailPage({
   params,
 }: {
@@ -45,17 +38,14 @@ export default async function MarketDetailPage({
     ? (HERO_AGENTS.find((a) => a.vault === market.targetAgent)?.emoji ?? "🤖")
     : null;
 
-  // Probability estimate: LS-LMSR actual price would require on-chain
-  // liquidity-param math; for the gauge we use the naive yes/no share
-  // ratio which is a good-enough visual proxy. Default 50/50 when
-  // no shares have been traded yet.
   const totalShares = market.yesShares + market.noShares;
   const yesProbability =
     totalShares > 0 ? market.yesShares / totalShares : 0.5;
+  const yesPct = Math.round(yesProbability * 100);
+  const noPct = 100 - yesPct;
+  const yesPrice = yesProbability;
+  const noPrice = 1 - yesProbability;
 
-  // Creator "accuracy" — for the mini card we show, count markets this
-  // creator has resolved. Cheap; fetchMarketsByCreator is already memoised
-  // through the connection singleton's page-local cache.
   const allByCreator = await fetchMarketsByCreator(
     connection,
     market.createdBy,
@@ -69,7 +59,6 @@ export default async function MarketDetailPage({
       : creatorResolved.filter((m) => m.outcome === "no").length /
         creatorResolved.length;
 
-  // Kind-specific resolution prose
   let resolutionProse: string;
   if (market.kind === 5 && category && market.thresholdBps != null) {
     resolutionProse =
@@ -88,253 +77,306 @@ export default async function MarketDetailPage({
       `Kind ${market.kind} market — resolves via program-native NAV reads.`;
   }
 
-  return (
-    <main className="mx-auto w-full max-w-content px-4 py-6 pb-safe">
-      <Link
-        href="/markets"
-        className="font-mono text-[11px] uppercase tracking-[0.18em] text-purple-300 hover:text-purple-200"
-      >
-        ← All markets
-      </Link>
+  const isRateBarrier = market.kind === 5;
+  const totalVolumeUsdc = (market.totalVolume / 1e6).toFixed(2);
 
-      {/* Category + status */}
-      <div className="mt-4 flex items-center gap-2">
-        <span className="text-xl" aria-hidden="true">
-          {category?.emoji ?? "📊"}
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-          {category?.label ?? `Kind ${market.kind}`}
-        </span>
-        <span
-          className={[
-            "ml-auto font-mono text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full",
-            market.status === "active"
-              ? "bg-success-400/10 text-success-400 border border-success-400/30"
-              : "bg-neutral-0/40 text-neutral-600 border border-neutral-300",
-          ].join(" ")}
+  return (
+    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+      {/* Mobile header with back button */}
+      <div className="sm:hidden top-header" style={{ paddingLeft: 8 }}>
+        <Link
+          href="/markets"
+          className="btn btn-ghost"
+          style={{ padding: "7px 10px", fontSize: 11, gap: 6, textDecoration: "none" }}
         >
-          {market.status}
-          {market.outcome ? ` · ${market.outcome}` : ""}
+          <span style={{ fontSize: 14, lineHeight: 1 }}>‹</span> Markets
+        </Link>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="pulse-dot" />
+          <span className="mono-tiny" style={{ color: "var(--green-2)" }}>LIVE</span>
         </span>
       </div>
 
-      <h1 className="font-serif text-display text-neutral-900 leading-tight mt-3 mb-6">
-        {market.question || "—"}
-      </h1>
+      {/* Desktop back link */}
+      <div className="hidden sm:block" style={{ padding: "12px 20px 0" }}>
+        <Link
+          href="/markets"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: "0.18em",
+            color: "var(--purple)",
+            textDecoration: "none",
+          }}
+        >
+          ← All markets
+        </Link>
+      </div>
 
-      {/* Two-column split on desktop: buy panel beside prose */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
-        <div className="flex flex-col gap-6 order-2 lg:order-1">
-          {/* Probability gauge */}
-          <ProbabilityGauge yesProbability={yesProbability} />
-
-          {/* Creator + Target cards (side-by-side on md+, stacked on mobile) */}
-          <section
-            className={
-              market.kind === 6 && targetLabel
-                ? "grid grid-cols-1 md:grid-cols-2 gap-3"
-                : "grid grid-cols-1 gap-3"
-            }
-          >
-            <AgentMiniCard
-              badge="Created by"
-              sns={creatorLabel}
-              emoji={creatorEmoji}
-              href={`/agent/${creatorSns?.devnetName ?? market.createdBy}`}
-              detail={
-                creatorAccuracy == null
-                  ? "no resolved markets yet"
-                  : `accuracy ${(creatorAccuracy * 100).toFixed(0)}% · ${creatorResolved.length} resolved`
-              }
-            />
-            {market.kind === 6 && targetLabel && market.targetAgent && (
-              <AgentMiniCard
-                badge="Betting on"
-                sns={targetLabel}
-                emoji={targetEmoji ?? "🤖"}
-                href={`/agent/${targetSns?.devnetName ?? market.targetAgent}`}
-                detail={`vault ${market.targetAgent.slice(0, 4)}…${market.targetAgent.slice(-4)}`}
-              />
+      <div className="scroll-area" style={{ overflowY: "auto" }}>
+        {/* Question section */}
+        <div style={{ padding: "18px 16px 14px" }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+            {isRateBarrier ? (
+              <span className="pill pill-gold">Rate barrier</span>
+            ) : (
+              <span className="pill pill-purple">Agent vs benchmark</span>
             )}
-          </section>
+            <span
+              className={`pill ${market.status === "active" ? "pill-green" : "pill-muted"}`}
+              style={{ fontSize: 9 }}
+            >
+              {market.status}
+              {market.outcome ? ` · ${market.outcome.toUpperCase()}` : ""}
+            </span>
+          </div>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 22,
+              lineHeight: 1.2,
+              letterSpacing: "-0.02em",
+              color: "var(--fg-0)",
+              margin: 0,
+            }}
+          >
+            {market.question || "—"}
+          </h1>
+        </div>
 
-          {/* Resolution prose */}
-          <section>
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600 mb-2">
-              Resolution criteria
-            </h2>
-            <p className="text-neutral-900">{resolutionProse}</p>
-          </section>
+        {/* Creator / Target row */}
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div
+              className="card hairline"
+              style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}
+            >
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "var(--bg-3)",
+                  border: "1px solid var(--line-2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  flexShrink: 0,
+                }}
+              >
+                {creatorEmoji}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>Created by</span>
+                <span className="mono gold" style={{ fontSize: 11 }}>{creatorLabel}</span>
+              </div>
+            </div>
+            {targetLabel && (
+              <div
+                className="card hairline"
+                style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: "var(--bg-3)",
+                    border: "1px solid var(--line-2)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    flexShrink: 0,
+                  }}
+                >
+                  {targetEmoji}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                  <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>About</span>
+                  <span className="mono purple" style={{ fontSize: 11 }}>{targetLabel}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-          {/* Insider-trading attestation (kind=6 only) */}
-          {market.kind === 6 && (
-            <InsiderAttestationStrip
-              creator={market.createdBy}
-              target={market.targetAgent}
-            />
-          )}
+        {/* Probability gauge */}
+        <div style={{ padding: "0 16px 18px" }}>
+          <ProbabilityGauge
+            yesPct={yesPct}
+            noPct={noPct}
+            yesPrice={yesPrice}
+            noPrice={noPrice}
+            volume={totalVolumeUsdc}
+            windowEndSlot={market.windowEndSlot}
+          />
+        </div>
 
-          {/* Raw metadata */}
-          <section>
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600 mb-3">
-              Resolution data
-            </h2>
-            <dl className="grid grid-cols-1 sm:grid-cols-[max-content_1fr] gap-x-6 gap-y-2 font-mono text-xs">
-              <dt className="text-neutral-600">Rate reader</dt>
-              <dd className="text-neutral-900">
-                {category ? `#${category.id} — ${category.label}` : "—"}
-              </dd>
+        {/* Resolution method */}
+        <div style={{ padding: "0 16px 18px" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+            <span className="pill pill-green" style={{ fontSize: 9 }}>
+              <span style={{ fontSize: 11, lineHeight: 1 }}>✓</span> {resolutionProse.slice(0, 40)}…
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+            <span className="green" style={{ fontSize: 11 }}>✓</span>
+            <span className="muted" style={{ lineHeight: 1.4 }}>
+              Creator cannot bet on own vault — enforced on-chain
+            </span>
+          </div>
+        </div>
 
-              <dt className="text-neutral-600">Resolution slot</dt>
-              <dd className="nums text-neutral-900">
-                {market.resolutionSlot.toLocaleString()}
-              </dd>
+        {/* Bet panel */}
+        <div style={{ padding: "0 16px 18px" }}>
+          <MarketBuyPanel market={market} yesProbability={yesProbability} />
+        </div>
 
-              {market.windowStartSlot != null && (
-                <>
-                  <dt className="text-neutral-600">Window start slot</dt>
-                  <dd className="nums text-neutral-900">
-                    {market.windowStartSlot.toLocaleString()}
-                  </dd>
-                </>
-              )}
-              {market.windowEndSlot != null && (
-                <>
-                  <dt className="text-neutral-600">Window end slot</dt>
-                  <dd className="nums text-neutral-900">
-                    {market.windowEndSlot.toLocaleString()}
-                  </dd>
-                </>
-              )}
-
-              <dt className="text-neutral-600">Fee</dt>
-              <dd className="nums text-neutral-900">
-                {(market.feeBps / 100).toFixed(2)}%
-              </dd>
-
-              <dt className="text-neutral-600">Total volume</dt>
-              <dd className="nums text-neutral-900">
-                {(market.totalVolume / 1e6).toFixed(2)} USDC
-              </dd>
-
-              <dt className="text-neutral-600">Market PDA</dt>
-              <dd>
+        {/* Resolution data */}
+        <div style={{ padding: "0 16px 18px" }}>
+          <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Resolution data</div>
+          <div className="card inset" style={{ padding: 14 }}>
+            <DataRow label="Rate reader" value={category ? `#${category.id} — ${category.label}` : "—"} />
+            <DataRow label="Resolution slot" value={market.resolutionSlot.toLocaleString()} />
+            {market.windowStartSlot != null && (
+              <DataRow label="Window start" value={market.windowStartSlot.toLocaleString()} />
+            )}
+            {market.windowEndSlot != null && (
+              <DataRow label="Window end" value={market.windowEndSlot.toLocaleString()} />
+            )}
+            <DataRow label="Fee" value={`${(market.feeBps / 100).toFixed(2)}%`} />
+            <DataRow label="Volume" value={`${totalVolumeUsdc} USDC`} />
+            <DataRow
+              label="Market PDA"
+              value={
                 <a
                   href={`https://explorer.solana.com/address/${market.address}?cluster=devnet`}
                   target="_blank"
                   rel="noreferrer"
-                  className="underline text-amber-400 break-all"
+                  style={{ color: "var(--gold)", textDecoration: "underline", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}
                 >
-                  {market.address}
+                  {market.address.slice(0, 12)}…{market.address.slice(-8)}
                 </a>
-              </dd>
-            </dl>
-          </section>
+              }
+              last
+            />
+          </div>
         </div>
 
-        {/* Buy panel — lives above the fold on mobile, sidebar on desktop */}
-        <aside className="lg:sticky lg:top-20 h-fit order-1 lg:order-2">
-          <MarketBuyPanel market={market} yesProbability={yesProbability} />
-        </aside>
+        {/* Footer breadcrumb */}
+        <div style={{ padding: "0 16px 32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="pill pill-blue" style={{ padding: "2px 7px", fontSize: 9 }}>devnet</span>
+            <span className="dim mono-tiny">·</span>
+            <span className="dim mono-tiny" style={{ fontSize: 9 }}>
+              market {market.address.slice(0, 6)}…
+            </span>
+          </div>
+        </div>
       </div>
     </main>
   );
 }
 
-function ProbabilityGauge({ yesProbability }: { yesProbability: number }) {
-  const pct = Math.max(0, Math.min(1, yesProbability)) * 100;
+function ProbabilityGauge({
+  yesPct,
+  noPct,
+  yesPrice,
+  noPrice,
+  volume,
+  windowEndSlot,
+}: {
+  yesPct: number;
+  noPct: number;
+  yesPrice: number;
+  noPrice: number;
+  volume: string;
+  windowEndSlot?: number | null;
+}) {
   return (
-    <div className="rounded-2xl border border-neutral-300 bg-surface p-4">
-      <div className="flex items-center justify-between mb-2 font-mono text-[10px] uppercase tracking-[0.18em]">
-        <span className="text-success-400">YES {pct.toFixed(1)}%</span>
-        <span className="text-amber-400">NO {(100 - pct).toFixed(1)}%</span>
+    <div className="card" style={{ padding: 18 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 14,
+          alignItems: "baseline",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span className="bd-eyebrow" style={{ fontSize: 9 }}>YES</span>
+          <span className="mono" style={{ fontSize: 28, fontWeight: 600, color: "var(--green-2)" }}>
+            {yesPct}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+          </span>
+          <span className="mono-tiny dim">◎ {yesPrice.toFixed(2)} / share</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
+          <span className="bd-eyebrow" style={{ fontSize: 9 }}>NO</span>
+          <span className="mono" style={{ fontSize: 28, fontWeight: 600, color: "var(--red-2)" }}>
+            {noPct}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+          </span>
+          <span className="mono-tiny dim">◎ {noPrice.toFixed(2)} / share</span>
+        </div>
       </div>
-      <div className="h-3 w-full rounded-full overflow-hidden flex border border-neutral-300">
-        <div
-          className="h-full bg-success-500"
-          style={{ width: `${pct}%` }}
-        />
-        <div
-          className="h-full bg-amber-500 flex-1"
-          style={{ width: `${100 - pct}%` }}
-        />
+
+      {/* Inline prob bar */}
+      <div className="probbar" style={{ height: 10 }}>
+        <div className="yes" style={{ width: `${yesPct}%` }} />
+        <div className="hairline" />
+        <div className="no" style={{ width: `${noPct}%` }} />
       </div>
-      <p className="mt-2 text-[11px] text-neutral-600">
-        Implied by YES/NO share ratio.{" "}
-        <span className="nums">
-          {Math.round(pct)}¢ / {Math.round(100 - pct)}¢
-        </span>{" "}
-        per share (1.00 USDC = 1 guaranteed winning share).
-      </p>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 14,
+          fontSize: 11.5,
+        }}
+      >
+        <div style={{ display: "flex", gap: 8 }}>
+          <span className="muted mono-tiny">Volume</span>
+          <span className="hl mono" style={{ fontSize: 11 }}>{volume} USDC</span>
+        </div>
+        {windowEndSlot != null && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <span className="muted mono-tiny">Window end</span>
+            <span className="hl mono" style={{ fontSize: 11 }}>
+              slot {windowEndSlot.toLocaleString()}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function AgentMiniCard({
-  badge,
-  sns,
-  emoji,
-  href,
-  detail,
+function DataRow({
+  label,
+  value,
+  last,
 }: {
-  badge: string;
-  sns: string;
-  emoji: string;
-  href: string;
-  detail: string;
+  label: string;
+  value: React.ReactNode;
+  last?: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      className="rounded-xl border border-neutral-300 bg-gradient-to-b from-neutral-200 to-neutral-100 p-4 flex items-start gap-3 hover:border-amber-400/70 transition-colors"
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "7px 0",
+        borderBottom: last ? "none" : "1px solid var(--line-1)",
+      }}
     >
-      <div className="h-11 w-11 shrink-0 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl">
-        {emoji}
-      </div>
-      <div className="min-w-0">
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-          {badge}
-        </div>
-        <div className="font-serif text-lg text-neutral-900 truncate">
-          <em>{sns}</em>
-        </div>
-        <div className="text-xs text-neutral-600 truncate">{detail}</div>
-      </div>
-    </Link>
-  );
-}
-
-function InsiderAttestationStrip({
-  creator,
-  target,
-}: {
-  creator: string;
-  target: string | null;
-}) {
-  const distinct = target != null && creator !== target;
-  return (
-    <section className="rounded-xl border border-success-400/30 bg-success-400/10 p-4 flex items-start gap-3">
-      <div className="h-8 w-8 shrink-0 rounded-full bg-success-400/20 flex items-center justify-center text-success-400 font-bold">
-        ✓
-      </div>
-      <div className="text-sm text-neutral-800">
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-400 mb-1">
-          Insider-trading protection
-        </div>
-        <p>
-          The on-chain program rejects kind=6 markets where{" "}
-          <span className="font-mono">creator == target_agent</span>.
-          {distinct && (
-            <>
-              {" "}This market passes that guard — the creator and the
-              targeted vault are distinct pubkeys.
-            </>
-          )}
-        </p>
-        <p className="mt-1 font-mono text-[10px] text-neutral-600">
-          policy: InsiderMarketForbidden · pm program 547afea
-        </p>
-      </div>
-    </section>
+      <span className="muted" style={{ fontSize: 11 }}>{label}</span>
+      <span className="mono hl" style={{ fontSize: 12, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
+        {value}
+      </span>
+    </div>
   );
 }

@@ -69,33 +69,34 @@ export default function IdentityPage() {
   // ─── State A — wallet not connected ───────────────────────────────────
   if (!connected) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-12 md:py-16">
+      <main style={{ background: "var(--bg-0)", minHeight: "100vh", maxWidth: 768, margin: "0 auto", padding: "0 16px 32px" }}>
         <Header />
-        <div className="mt-10 rounded-2xl border border-neutral-300 bg-surface p-8 md:p-12">
-          <h2 className="font-serif text-h1 text-neutral-900">
-            Claim your <em className="text-amber-400">.bundie</em> identity
-          </h2>
-          <p className="mt-3 max-w-prose text-body text-neutral-700">
+        <div className="card" style={{ marginTop: 24, padding: 24 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--fg-0)", letterSpacing: "-0.02em", marginBottom: 12 }}>
+            Claim your <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>.bundie</em> identity
+          </div>
+          <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
             Your name appears on every strategy you back, every market you
             trade, every prediction you make. Connect your wallet to claim a
             human-readable identity that follows you across Bundie.
           </p>
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <WalletMultiButton
               style={{
-                background: "var(--amber-tint)",
-                border: "1px solid var(--amber-ring)",
-                borderRadius: "10px",
-                color: "#e28646",
-                fontSize: "14px",
-                height: "44px",
-                padding: "0 20px",
-                fontWeight: 600,
+                background: "var(--gold-tint)",
+                border: "1px solid rgba(212,168,83,0.3)",
+                borderRadius: "8px",
+                color: "var(--gold)",
+                fontSize: "13px",
+                fontFamily: "var(--font-mono)",
+                height: "42px",
+                padding: "0 16px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 500,
               }}
             />
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600">
-              Devnet · SPL Name Service
-            </p>
+            <span className="mono-tiny dim">Devnet · SPL Name Service</span>
           </div>
         </div>
       </main>

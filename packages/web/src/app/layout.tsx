@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
-import { Figtree, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { TopNav } from "@/components/TopNav";
-import { IdentityBanner } from "@/components/IdentityBanner";
+import { BottomNav } from "@/components/BottomNav";
 import "./globals.css";
 
-const figtree = Figtree({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
-  variable: "--font-serif",
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0a0908",
+  themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -62,13 +62,18 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${figtree.variable} ${instrumentSerif.variable} ${jetbrains.variable} dark`}
+      className={`${inter.variable} ${playfairDisplay.variable} ${jetbrains.variable}`}
     >
-      <body className="bg-background text-neutral-900 antialiased min-h-screen font-sans">
+      <body className="antialiased min-h-screen" style={{ background: "var(--bg-0)", color: "var(--fg-1)", fontFamily: "var(--font-sans)" }}>
         <Providers>
-          <IdentityBanner />
-          <TopNav />
+          {/* Desktop top nav — hidden on mobile where BottomNav takes over */}
+          <div className="hidden sm:block">
+            <TopNav />
+          </div>
+          {/* Mobile top header is rendered per-page via the design's top-header pattern */}
           {children}
+          {/* Bottom nav — mobile only */}
+          <BottomNav />
         </Providers>
       </body>
     </html>

@@ -110,21 +110,24 @@ export default function PortfolioPage() {
 
   if (!connected) {
     return (
-      <main className="mx-auto w-full max-w-content px-4 py-8 pb-safe">
+      <main style={{ background: "var(--bg-0)", minHeight: "100vh", padding: "0 16px 32px" }}>
         <PageHeader />
-        <div className="rounded-xl border border-neutral-300 bg-surface p-10 flex flex-col items-center gap-4">
-          <p className="text-neutral-700 text-sm text-center">
+        <div className="card" style={{ padding: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <p className="muted" style={{ fontSize: 13, textAlign: "center" }}>
             Connect your wallet to view your YES / NO positions.
           </p>
           <WalletMultiButton
             style={{
-              background: "rgba(109,40,217,0.18)",
-              border: "1px solid rgba(109,40,217,0.4)",
-              borderRadius: "10px",
-              color: "#b691f1",
-              fontSize: "14px",
+              background: "var(--purple-tint)",
+              border: "1px solid rgba(167,139,250,0.3)",
+              borderRadius: "8px",
+              color: "var(--purple)",
+              fontSize: "13px",
+              fontFamily: "var(--font-mono)",
               height: "42px",
               padding: "0 20px",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
             }}
           />
         </div>
@@ -133,42 +136,33 @@ export default function PortfolioPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-content px-4 py-8 pb-safe">
+    <main style={{ background: "var(--bg-0)", minHeight: "100vh", padding: "0 16px 32px" }}>
       <PageHeader />
 
       {/* Wallet summary */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-            Connected
-          </div>
-          <div className="font-mono text-xs text-neutral-800 mt-1 break-all">
-            {publicKey?.toBase58().slice(0, 6)}…
-            {publicKey?.toBase58().slice(-4)}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(1, 1fr)", gap: 8, marginBottom: 24 }}>
+        <div className="card" style={{ padding: "10px 14px" }}>
+          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>Connected</div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)", wordBreak: "break-all" }}>
+            {publicKey?.toBase58().slice(0, 8)}…{publicKey?.toBase58().slice(-4)}
           </div>
         </div>
-        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-            SOL balance
-          </div>
-          <div className="font-serif text-2xl text-neutral-900 nums mt-1">
-            {solBalance == null
-              ? "—"
-              : `${solBalance.toFixed(4)} SOL`}
+        <div className="card" style={{ padding: "10px 14px" }}>
+          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>SOL balance</div>
+          <div className="mono" style={{ fontSize: 20, fontWeight: 600, color: "var(--gold)" }}>
+            {solBalance == null ? "—" : `${solBalance.toFixed(4)} SOL`}
           </div>
         </div>
-        <div className="rounded-xl border border-neutral-300 bg-surface p-4">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-            Markets scanned
-          </div>
-          <div className="font-serif text-2xl text-neutral-900 nums mt-1">
+        <div className="card" style={{ padding: "10px 14px" }}>
+          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>Markets scanned</div>
+          <div className="mono" style={{ fontSize: 20, fontWeight: 600, color: "var(--fg-0)" }}>
             {markets.length}
           </div>
         </div>
       </section>
 
       {err && (
-        <div className="rounded-lg border border-danger-400/40 bg-danger-400/10 p-3 text-xs text-danger-400 mb-4">
+        <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--red-tint)", border: "1px solid rgba(239,68,68,0.24)", color: "var(--red-2)", fontSize: 11, marginBottom: 16 }}>
           {err}
         </div>
       )}
@@ -176,14 +170,17 @@ export default function PortfolioPage() {
       {loading && positions.length === 0 && <LoadingSkeleton />}
 
       {!loading && positions.length === 0 && (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-surface p-10 text-center">
-          <p className="font-serif text-[18px] text-neutral-900 mb-1">
+        <div className="card hairline" style={{ padding: 32, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--fg-0)", letterSpacing: "-0.015em", marginBottom: 6 }}>
             No positions yet.
-          </p>
-          <p className="text-xs text-neutral-600">
-            Head over to <Link href="/markets" className="underline text-amber-400">/markets</Link> and
-            pick a side.
-          </p>
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Head over to{" "}
+            <Link href="/markets" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+              /markets
+            </Link>{" "}
+            and pick a side.
+          </div>
         </div>
       )}
 
@@ -211,16 +208,14 @@ export default function PortfolioPage() {
 
 function PageHeader() {
   return (
-    <div className="mb-6">
-      <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-purple-300">
-        Portfolio
-      </span>
-      <h1 className="font-serif text-display text-neutral-900 mt-1 leading-tight">
-        My <em className="text-amber-400">bets</em>.
-      </h1>
-      <p className="text-neutral-700 mt-2 max-w-2xl">
+    <div style={{ padding: "20px 0 16px" }}>
+      <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Portfolio</div>
+      <div className="section-title">
+        My <em>bets.</em>
+      </div>
+      <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
         Every YES / NO position you hold across Bundie prediction markets.
-      </p>
+      </div>
     </div>
   );
 }
@@ -237,38 +232,40 @@ function PositionSection({
   positions: Position[];
 }) {
   if (positions.length === 0) return null;
-  const tintClass =
+  const tintColor =
     tint === "success"
-      ? "text-success-400"
+      ? "var(--green-2)"
       : tint === "amber"
-        ? "text-amber-400"
-        : "text-purple-300";
+        ? "var(--amber)"
+        : "var(--purple)";
   return (
-    <section className="mb-8">
-      <div className="mb-3">
-        <h2
-          className={`font-mono text-[11px] uppercase tracking-[0.18em] ${tintClass}`}
+    <section style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 10 }}>
+        <div
+          className="mono"
+          style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.18em", color: tintColor, fontWeight: 500 }}
         >
           {title} · {positions.length}
-        </h2>
-        <p className="text-xs text-neutral-600">{subtitle}</p>
+        </div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{subtitle}</div>
       </div>
-      <ul className="flex flex-col gap-3">
+      <div className="card-stack">
         {positions.map((p) => (
           <PositionCard key={`${p.market.address}:${p.side}`} position={p} />
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="card-stack">
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-24 rounded-xl border border-neutral-300 bg-surface animate-pulse"
+          className="skeleton"
+          style={{ height: 80, borderRadius: 12 }}
         />
       ))}
     </div>

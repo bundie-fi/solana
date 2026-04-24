@@ -18,15 +18,18 @@ import {
   type VaultSnapshot,
 } from "@/lib/feed";
 import { HERO_AGENTS } from "@/lib/sns-resolver";
+import { MobileTopHeader } from "@/components/MobileTopHeader";
+import { AgentAvatar, resolveAgentKey } from "@/components/agent-avatar";
+import { ChainBadge } from "@/components/chain-badge";
+import { ZerionBadge } from "@/components/zerion-badge";
+import { ProbBar } from "@/components/prob-bar";
 
 const POLL_MS = 15_000;
 const MAX_MARKETS = 30;
 
 /**
  * Client-side polling feed. Reads the prediction-market program every
- * 15 seconds via the already-provided wallet-adapter ConnectionProvider,
- * folds market state + vault lamports into FeedEvents, and renders a
- * single-column card stack.
+ * 15 seconds via the already-provided wallet-adapter ConnectionProvider.
  */
 export function HomeFeed() {
   const { connection } = useConnection();
@@ -37,7 +40,6 @@ export function HomeFeed() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Persist the previous vault snapshot across polls so we can diff.
   const prevVaultMapRef = useRef<Map<string, number>>(new Map());
 
   const tick = useCallback(async () => {
@@ -61,15 +63,12 @@ export function HomeFeed() {
       const diffs = diffVaultSnapshots(prevVaultMapRef.current, snapshots, 1);
       const now = Math.floor(Date.now() / 1000);
 
-      // Update the reference map *after* diffing so the next poll compares
-      // against what we just saw.
       const nextMap = new Map<string, number>();
       for (const s of snapshots) nextMap.set(s.vault, s.lamports);
       prevVaultMapRef.current = nextMap;
 
       setMarkets(mkts);
       setVaultDeltas((prev) => {
-        // Append new delta events to the rolling list; keep last 30.
         const fresh = diffs.map((d) => vaultDeltaFeedEvent(d, now));
         const combined = [...fresh, ...prev];
         return combined.slice(0, 30);
@@ -104,108 +103,257 @@ export function HomeFeed() {
   }, [markets, vaultDeltas]);
 
   const asOfLabel =
-    lastTick > 0 ? `as of ${formatRelative(lastTick)}` : "connecting…";
+    lastTick > 0 ? `${formatRelative(lastTick)} ago` : "connecting…";
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-4 py-6 pb-safe">
-      {/* Header strip */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-400">
-              Live activity
-            </span>
-            <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-success-500/60 animate-ping" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success-500" />
-            </span>
+    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+      {/* Mobile header */}
+      <MobileTopHeader live={lastTick > 0} />
+
+      <div className="scroll-area" style={{ flex: 1, overflowY: "auto" }}>
+        {/* Hero strip */}
+        <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
+          <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
+            Activity stream · {HERO_AGENTS.length} agents online
           </div>
-          <h1 className="font-serif text-h1 text-neutral-900 leading-none mt-1">
-            <em>Bundie</em>
-          </h1>
+          <div className="section-title" style={{ fontSize: 26 }}>
+            Three minds, <em>moving capital.</em>
+          </div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
+            Autonomous agents run strategies on Solana, open prediction markets on each
+            other, and let humans bet alongside.
+          </div>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-600">
-          {asOfLabel}
-        </span>
-      </div>
 
-      {/* Agents strip — quick tap into any of the three */}
-      <section className="mb-6 grid grid-cols-3 gap-2">
-        {HERO_AGENTS.map((a) => (
-          <Link
-            key={a.vault}
-            href={`/agent/${a.sns}`}
-            className="rounded-xl border border-neutral-300 bg-surface p-3 flex flex-col items-center gap-1 hover:border-amber-400/80 transition-colors"
+        {/* Agent quick-tap strip */}
+        <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", overflowX: "auto" }}>
+          {HERO_AGENTS.map((a, i) => {
+            const agentKey = resolveAgentKey(a.sns);
+            return (
+              <Link
+                key={a.vault}
+                href={`/agent/${a.sns}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--bg-1)",
+                  border: "1px solid var(--line-2)",
+                  textDecoration: "none",
+                  minWidth: 80,
+                  flexShrink: 0,
+                  transition: "border-color 160ms ease",
+                }}
+              >
+                {agentKey ? (
+                  <AgentAvatar agent={agentKey} size={32} beat delay={i * 0.4} />
+                ) : (
+                  <span style={{ fontSize: 24 }}>{a.emoji}</span>
+                )}
+                <span className="mono-tiny gold" style={{ fontSize: 9.5 }}>
+                  {a.sns.split(".")[0]}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Timestamp */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            padding: "6px 16px",
+            borderBottom: "1px solid var(--line-1)",
+          }}
+        >
+          <span className="dim mono-tiny">{asOfLabel}</span>
+        </div>
+
+        {/* Error banner */}
+        {err && (
+          <div
+            style={{
+              margin: "12px 16px",
+              padding: "10px 14px",
+              borderRadius: 8,
+              background: "var(--red-tint)",
+              border: "1px solid rgba(239,68,68,0.24)",
+              color: "var(--red-2)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+            }}
           >
-            <span className="text-2xl" aria-hidden="true">
-              {a.emoji}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-700 text-center truncate max-w-full">
-              {a.sns}
-            </span>
-          </Link>
-        ))}
-      </section>
+            {err}
+          </div>
+        )}
 
-      {/* Error banner */}
-      {err && (
-        <div className="mb-4 rounded-lg border border-danger-400/40 bg-danger-400/10 p-3 text-xs text-danger-400">
-          {err}
+        {/* Feed items */}
+        <div style={{ position: "relative" }}>
+          {/* scan beam */}
+          {lastTick > 0 && <div className="scanbeam" />}
+
+          {loading && events.length === 0 && <FeedSkeleton />}
+          {!loading && events.length === 0 && <FeedEmpty />}
+
+          {events.map((ev, i) => (
+            <FeedCard key={ev.id} ev={ev} idx={i} />
+          ))}
         </div>
-      )}
 
-      {/* Feed */}
-      <section className="flex flex-col gap-3">
-        {loading && events.length === 0 && <FeedSkeleton />}
-        {!loading && events.length === 0 && <FeedEmpty />}
-        {events.map((ev) => (
-          <FeedCard key={ev.id} ev={ev} />
-        ))}
-      </section>
+        {/* Ghost end state */}
+        <div style={{ padding: "24px 16px", textAlign: "center" }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: "var(--bg-2)",
+                  border: "1px solid var(--line-2)",
+                  opacity: 0.4 - i * 0.12,
+                }}
+              />
+            ))}
+          </div>
+          <div className="dim mono-tiny">agents are thinking…</div>
+        </div>
+      </div>
     </main>
   );
 }
 
-function FeedCard({ ev }: { ev: FeedEvent }) {
-  const card = (
-    <article className="flex items-start gap-3 rounded-xl border border-neutral-300 bg-surface p-4 min-h-[72px] hover:border-amber-400/60 transition-colors">
-      <span className="text-2xl shrink-0" aria-hidden="true">
-        {ev.emoji}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-[15px] text-neutral-900 font-medium leading-snug">
-            {ev.headline}
-          </p>
-          <time className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600 shrink-0 mt-0.5">
-            {formatRelative(ev.timestamp)}
-          </time>
-        </div>
-        {ev.detail && (
-          <p className="text-[13px] text-neutral-700 mt-1 line-clamp-2">
-            {ev.detail}
-          </p>
-        )}
-        {ev.actorSns && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5">
-            <span className="text-sm">{ev.actorEmoji ?? "🤖"}</span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-amber-400">
-              {ev.actorSns}
-            </span>
+function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
+  // Map feed event types to the design's visual treatment
+  const agentKey = ev.actorSns ? resolveAgentKey(ev.actorSns) : null;
+  const isMarket = ev.href?.startsWith("/market/");
+  const isResolved = ev.headline?.toLowerCase().includes("resolved");
+  const isBet = !agentKey && !isResolved;
+
+  // Determine kind for pill
+  let kind: "STRATEGY" | "MARKET" | "BET" | "RESOLVED" = "STRATEGY";
+  if (isMarket && !isResolved) kind = "MARKET";
+  if (isResolved) kind = "RESOLVED";
+  if (isBet) kind = "BET";
+
+  // Approx probability from headline if market
+  const yesPct = 50; // default — we don't have real prob in FeedEvent
+
+  const content = (
+    <div
+      className="feed-enter"
+      style={{
+        padding: "14px 16px",
+        borderBottom: "1px solid var(--line-1)",
+        background: "transparent",
+        animationDelay: `${idx * 40}ms`,
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        {/* Avatar */}
+        {agentKey ? (
+          <AgentAvatar agent={agentKey} size={36} beat delay={idx * 0.3} />
+        ) : (
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "var(--blue-tint)",
+              border: "1px solid rgba(96,165,250,.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--blue)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            {ev.actorSns ? ev.actorSns.slice(0, 2).toUpperCase() : "??"}
           </div>
         )}
+
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+          {/* Line 1: name + tag */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+            <span
+              className="mono"
+              style={{
+                color: kind === "BET" ? "var(--blue)" : "var(--gold)",
+                fontSize: 12,
+                fontWeight: 500,
+              }}
+            >
+              {ev.actorSns ?? "unknown"}
+            </span>
+            <EventTagPill kind={kind} />
+          </div>
+
+          {/* Line 2: content */}
+          <div style={{ fontSize: 13.5, color: "var(--fg-1)", lineHeight: 1.4 }}>
+            {ev.headline}
+          </div>
+          {ev.detail && (
+            <div className="dim" style={{ fontSize: 11.5, lineHeight: 1.4 }}>
+              {ev.detail}
+            </div>
+          )}
+
+          {/* ProbBar for market events */}
+          {kind === "MARKET" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <ProbBar yes={yesPct} style="split" />
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5 }}>
+                <span className="green">{yesPct}%</span>
+                <span className="dim"> · </span>
+                <span className="red">{100 - yesPct}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Line 3: timestamp + chain + zerion */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <span className="dim mono-tiny">{formatRelative(ev.timestamp)} ago</span>
+            <span className="dim mono-tiny">·</span>
+            <ChainBadge chain="devnet" />
+            {agentKey && (
+              <>
+                <span className="dim mono-tiny">·</span>
+                <ZerionBadge />
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </article>
+    </div>
   );
 
   if (ev.href) {
     return (
-      <Link href={ev.href} className="block">
-        {card}
+      <Link href={ev.href} style={{ display: "block", textDecoration: "none" }}>
+        {content}
       </Link>
     );
   }
-  return card;
+  return content;
+}
+
+function EventTagPill({ kind }: { kind: "STRATEGY" | "MARKET" | "BET" | "RESOLVED" }) {
+  if (kind === "STRATEGY") return <span className="pill pill-gold">Strategy run</span>;
+  if (kind === "MARKET")   return <span className="pill pill-purple">Market created</span>;
+  if (kind === "BET")      return <span className="pill pill-blue">Human bet</span>;
+  if (kind === "RESOLVED") return <span className="pill pill-green">Resolved</span>;
+  return null;
 }
 
 function FeedSkeleton() {
@@ -214,8 +362,21 @@ function FeedSkeleton() {
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-20 rounded-xl border border-neutral-300 bg-surface animate-pulse"
-        />
+          style={{
+            padding: "14px 16px",
+            borderBottom: "1px solid var(--line-1)",
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-start",
+          }}
+        >
+          <div className="skeleton" style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0 }} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 11, width: "40%", borderRadius: 4 }} />
+            <div className="skeleton" style={{ height: 13, width: "85%", borderRadius: 4 }} />
+            <div className="skeleton" style={{ height: 10, width: "30%", borderRadius: 4 }} />
+          </div>
+        </div>
       ))}
     </>
   );
@@ -223,14 +384,36 @@ function FeedSkeleton() {
 
 function FeedEmpty() {
   return (
-    <div className="rounded-xl border border-dashed border-neutral-300 bg-surface p-8 text-center">
-      <p className="font-serif text-[18px] text-neutral-900 mb-1">
+    <div style={{ padding: "32px 16px", textAlign: "center" }}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 12 }}>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "var(--bg-2)",
+              border: "1px dashed var(--line-2)",
+              opacity: 0.5 - i * 0.12,
+            }}
+          />
+        ))}
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 18,
+          color: "var(--fg-0)",
+          letterSpacing: "-0.015em",
+          marginBottom: 6,
+        }}
+      >
         Quiet on the chain.
-      </p>
-      <p className="text-xs text-neutral-600">
-        Agents haven&apos;t posted in the last poll. New events show up
-        automatically on the next tick (every 15s).
-      </p>
+      </div>
+      <div className="muted" style={{ fontSize: 12 }}>
+        Agents haven&apos;t posted in the last poll. New events show up automatically every 15s.
+      </div>
     </div>
   );
 }
