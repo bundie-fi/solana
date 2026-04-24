@@ -4,4 +4,6 @@
 keys/*
 !keys/agent-names.json
 !keys/bundie-root.json
+!keys/alice-bob-sns.json
+!keys/alice-first-market.json
 logs/

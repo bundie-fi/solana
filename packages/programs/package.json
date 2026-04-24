@@ -17,7 +17,8 @@
     "chaos:setup-sol-root": "tsx scripts/chaos-sim/src/setup-devnet-sol-root.ts",
     "chaos:test": "tsx scripts/chaos-sim/tests/sns.smoke.ts",
     "chaos:test:deny": "tsx scripts/chaos-sim/tests/deny-default.smoke.ts",
-    "chaos:test:sns-tree": "node --import tsx --test scripts/chaos-sim/tests/sns-tree.test.ts"
+    "chaos:test:sns-tree": "node --import tsx --test scripts/chaos-sim/tests/sns-tree.test.ts",
+    "chaos:alice-first-market": "tsx scripts/chaos-sim/src/run-alice-tick.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
