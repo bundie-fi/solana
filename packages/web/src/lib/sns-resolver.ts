@@ -17,8 +17,12 @@
  */
 
 // ---------------------------------------------------------------------------
-// Alice / Bob — the "hero" vaults with real on-chain SNS registrations.
-// Keep in sync with packages/programs/scripts/chaos-sim/keys/alice-bob-sns.json
+// Alice / Bob / Charlie — the three "hero" vaults with real on-chain SNS
+// registrations. Keep in sync with packages/programs/scripts/chaos-sim/keys/
+// alice-bob-sns.json and the three-agent roster the rate-prediction-markets-v2
+// work introduced. Charlie's SNS NameRegistry PDA isn't yet surfaced in the
+// chaos-sim keys file, so we point the explorer link at the vault itself —
+// the same fallback we use for CHAOS_AGENTS below.
 // ---------------------------------------------------------------------------
 
 const ALICE_VAULT = "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm";
@@ -26,6 +30,46 @@ const ALICE_SNS_PDA = "FH6FhVQ1hw7sHQdbg1p5cdKkHGr3yu5Re9Yx8VTDr4Nb";
 
 const BOB_VAULT = "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb";
 const BOB_SNS_PDA = "D8BRLTc6j4cpkMvpP7QfQR6cbw9QJ3LgXAEYzx9JQEzV";
+
+const CHARLIE_VAULT = "8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg";
+const CHARLIE_SNS_PDA = CHARLIE_VAULT;
+
+/**
+ * The three-agent roster exposed as a stable array so pages that need to
+ * render every agent (home feed, /agents leaderboard) have a single source
+ * of truth for the emoji + display name + vault pubkey triple.
+ *
+ * Keep ordering stable: alice, bob, charlie — consumers rely on this for
+ * consistent visual layout (3-across on desktop, stacked on mobile).
+ */
+export interface HeroAgent {
+  sns: string;
+  vault: string;
+  emoji: string;
+  /** One-line strategy handle surfaced on the leaderboard card. */
+  strategyHandle: string;
+}
+
+export const HERO_AGENTS: HeroAgent[] = [
+  {
+    sns: "alice.bundie",
+    vault: ALICE_VAULT,
+    emoji: "🌱",
+    strategyHandle: "conservative-lst",
+  },
+  {
+    sns: "bob.bundie",
+    vault: BOB_VAULT,
+    emoji: "💰",
+    strategyHandle: "stable-lending",
+  },
+  {
+    sns: "charlie.bundie",
+    vault: CHARLIE_VAULT,
+    emoji: "⚖️",
+    strategyHandle: "balanced-mix",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Chaos-sim agents — 10 stable identities (5 creators + 5 traders).
@@ -84,6 +128,14 @@ export function resolveSns(vaultPubkey: string): SnsIdentity | null {
     };
   }
 
+  if (vaultPubkey === CHARLIE_VAULT) {
+    return {
+      devnetName: "charlie.bundie",
+      mainnetName: "charlie.bundie.sol",
+      devnetSnsPda: CHARLIE_SNS_PDA,
+    };
+  }
+
   const chaosName = CHAOS_AGENTS[vaultPubkey];
   if (chaosName) {
     // Chaos agents share the .bundie root on devnet but don't yet have
@@ -115,6 +167,12 @@ export function resolveVaultFromSns(name: string): string | null {
   if (normalized === "bob.bundie" || normalized === "bob.bundie.sol") {
     return BOB_VAULT;
   }
+  if (
+    normalized === "charlie.bundie" ||
+    normalized === "charlie.bundie.sol"
+  ) {
+    return CHARLIE_VAULT;
+  }
 
   for (const [vault, chaosName] of Object.entries(CHAOS_AGENTS)) {
     if (chaosName === normalized) return vault;
@@ -142,6 +200,14 @@ export function listKnownIdentities(): Array<{
         devnetName: "bob.bundie",
         mainnetName: "bob.bundie.sol",
         devnetSnsPda: BOB_SNS_PDA,
+      },
+    },
+    {
+      vault: CHARLIE_VAULT,
+      identity: {
+        devnetName: "charlie.bundie",
+        mainnetName: "charlie.bundie.sol",
+        devnetSnsPda: CHARLIE_SNS_PDA,
       },
     },
   ];
