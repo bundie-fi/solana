@@ -232,7 +232,11 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
                 threshold_bps
             );
 
-            if current_apy_bps >= threshold_bps { Outcome::Yes } else { Outcome::No }
+            if current_apy_bps >= threshold_bps {
+                Outcome::Yes
+            } else {
+                Outcome::No
+            }
         }
 
         MARKET_KIND_AGENT_VS_BENCHMARK => {

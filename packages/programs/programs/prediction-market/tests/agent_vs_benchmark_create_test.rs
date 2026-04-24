@@ -51,10 +51,7 @@ fn agent_vs_benchmark_payload_roundtrip() {
 /// Pure-logic reproduction of the create-side insider-trading guard.
 /// Mirrors the algebra in create_market_v2.rs — see that file for the
 /// `require!` pair that enforces this on-chain.
-fn create_guard(
-    creator: Pubkey,
-    payload: &[u8; MARKET_PAYLOAD_LEN],
-) -> Result<(), &'static str> {
+fn create_guard(creator: Pubkey, payload: &[u8; MARKET_PAYLOAD_LEN]) -> Result<(), &'static str> {
     let target_bytes: [u8; 32] = payload[32..64].try_into().unwrap();
     let target = Pubkey::new_from_array(target_bytes);
     if target == Pubkey::default() {
@@ -81,7 +78,10 @@ fn create_rejects_self_target() {
     let creator = Pubkey::new_unique();
     // Agent tries to create a kind=6 market targeting its own vault — forbidden.
     let payload = valid_payload_targeting(creator);
-    assert_eq!(create_guard(creator, &payload), Err("InsiderMarketForbidden"));
+    assert_eq!(
+        create_guard(creator, &payload),
+        Err("InsiderMarketForbidden")
+    );
 }
 
 #[test]

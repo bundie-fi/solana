@@ -7,9 +7,7 @@
 //! and position in the struct.
 
 use anchor_lang::prelude::Pubkey;
-use prediction_market::state::{
-    Market, MarketStatus, MarketType, Outcome, MARKET_PAYLOAD_LEN,
-};
+use prediction_market::state::{Market, MarketStatus, MarketType, Outcome, MARKET_PAYLOAD_LEN};
 
 #[test]
 fn market_carries_created_by_field() {

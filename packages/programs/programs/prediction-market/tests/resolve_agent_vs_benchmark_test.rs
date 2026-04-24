@@ -17,10 +17,15 @@ fn payload_u64(p: &[u8; MARKET_PAYLOAD_LEN], off: usize) -> u64 {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Outcome { Yes, No }
+enum Outcome {
+    Yes,
+    No,
+}
 
 #[derive(Debug, PartialEq, Eq)]
-enum ResolveError { WrongTargetAgent }
+enum ResolveError {
+    WrongTargetAgent,
+}
 
 // Pure reproduction of kind=6 decision. Keep in sync with resolve_market_v2.rs.
 //

@@ -10,7 +10,10 @@ fn set_payload_u64(p: &mut [u8; MARKET_PAYLOAD_LEN], off: usize, v: u64) {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Outcome { Yes, No }
+enum Outcome {
+    Yes,
+    No,
+}
 
 // Pure reproduction of the kind=5 resolver body. Keep in sync with
 // resolve_market_v2.rs — the test is the canary on divergence.
@@ -20,7 +23,11 @@ fn resolve_rate_barrier(current_apy_bps: u64, payload: &[u8; MARKET_PAYLOAD_LEN]
         b.copy_from_slice(&payload[0..8]);
         u64::from_le_bytes(b)
     };
-    if current_apy_bps >= threshold_bps { Outcome::Yes } else { Outcome::No }
+    if current_apy_bps >= threshold_bps {
+        Outcome::Yes
+    } else {
+        Outcome::No
+    }
 }
 
 fn payload_with_threshold(bps: u64) -> [u8; MARKET_PAYLOAD_LEN] {
@@ -28,7 +35,7 @@ fn payload_with_threshold(bps: u64) -> [u8; MARKET_PAYLOAD_LEN] {
     set_payload_u64(&mut p, 0, bps);
     set_payload_u64(&mut p, 8, 1_000_000); // window start
     set_payload_u64(&mut p, 16, 1_500_000); // window end
-    set_payload_u64(&mut p, 24, 1);         // selector = Kamino USDC supply
+    set_payload_u64(&mut p, 24, 1); // selector = Kamino USDC supply
     p
 }
 
