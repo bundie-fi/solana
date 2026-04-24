@@ -55,7 +55,7 @@ pub trait Deposit<'info> {
 
 /// Core trait for one-time position initialization across protocols.
 ///
-/// Some protocols (Kamino, Marginfi, Drift) require per-user state accounts
+/// Some protocols (Kamino, Marginfi) require per-user state accounts
 /// — obligations, user metadata, margin accounts — to exist before any
 /// deposit or borrow can be made. When the position owner is a PDA of a
 /// wrapping program (a vault, strategy, etc.) the wrapping program signs
@@ -83,8 +83,8 @@ pub trait DepositInit<'info> {
 /// position are both `place_order` calls from the protocol's perspective
 /// (closing = opposite-side order), so this trait exposes a single op.
 ///
-/// Some protocols (Drift) do expose dedicated close-position ixs. When a
-/// protocol benefits from a distinct close path, it may provide
+/// Some protocols expose dedicated close-position ixs. When a protocol
+/// benefits from a distinct close path, it may provide
 /// `close_signed`/`close` — the default delegates to `place_order_signed`.
 pub trait Perps<'info> {
     /// Protocol-specific accounts required for the order CPI

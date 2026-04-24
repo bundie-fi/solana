@@ -2,10 +2,10 @@
 /**
  * run-all.ts - drives every NAV-reader offset regression probe in sequence.
  *
- * Per-probe RPC defaults are baked in (drift/marinade/kamino default to
- * devnet; marginfi defaults to mainnet because marginfi-v2 is not
- * reliably deployed on devnet). Override via per-probe env vars:
- *   DRIFT_RPC_URL, MARGINFI_RPC_URL, MARINADE_RPC_URL, KAMINO_RPC_URL
+ * Per-probe RPC defaults are baked in (marinade/kamino default to devnet;
+ * marginfi defaults to mainnet because marginfi-v2 is not reliably
+ * deployed on devnet). Override via per-probe env vars:
+ *   MARGINFI_RPC_URL, MARINADE_RPC_URL, KAMINO_RPC_URL
  * or with a global RPC_URL that applies to every probe (overrides defaults).
  *
  * Exits non-zero if ANY probe fails. Used by `pnpm probe:nav` and CI.
@@ -26,14 +26,6 @@ interface Probe {
 }
 
 const PROBES: Probe[] = [
-  {
-    name: "drift",
-    file: "probe-drift-spotmarket.ts",
-    // Drift devnet has hand-crafted test data where deposit interest reads
-    // < 1.0 (impossible economically). Mainnet is the source of truth.
-    defaultRpc: "https://api.mainnet-beta.solana.com",
-    rpcEnv: "DRIFT_RPC_URL",
-  },
   {
     name: "marginfi",
     file: "probe-marginfi-bank.ts",

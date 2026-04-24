@@ -35,10 +35,10 @@ pub const DEPOSIT_DATA_LEN: usize = 18;
 // bytes incl. discriminator) and
 // programs/marginfi/src/state/marginfi_group.rs (Bank).
 //
-// TODO(NAV-MARGINFI): implement once strategy-token has a verified
-// marginfi deposit on devnet. Like Drift, this needs the position account
-// (MarginfiAccount) AND each referenced Bank, so the wire format will
-// need to grow to N accounts per marginfi position.
+// TODO(NAV-MARGINFI): implement once a caller has a verified marginfi
+// deposit on devnet. This needs the position account (MarginfiAccount)
+// AND each referenced Bank, so the wire format will need to grow to N
+// accounts per marginfi position.
 // ───────────────────────────────────────────────────────────────────────────
 
 /// Compute the underlying-token value of a marginfi account.
