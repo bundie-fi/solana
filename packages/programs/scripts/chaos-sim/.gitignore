@@ -3,10 +3,14 @@
 # specific file — git can't unignore files inside an ignored directory.
 keys/*
 !keys/agent-names.json
+!keys/agent-subdomains.json
 !keys/bundie-root.json
 !keys/alice-bob-sns.json
 !keys/alice-first-market.json
 !keys/alice-first-market-policy-gated.json
+# Agent-daemon activity feed (append-only JSONL — webapp tails this).
+# Left out of git on purpose: grows unbounded per run.
+keys/activity.jsonl
 logs/
 
 .env
