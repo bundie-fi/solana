@@ -289,6 +289,18 @@ function toMarketView(
 
 // ─── Public API ──────────────────────────────────────────────────────────
 
+// Only show markets created from this point forward. Filters out all
+// pre-existing chaos-sim test markets so the UI starts with a clean slate.
+// Unix seconds: 2026-04-24 22:00 UTC
+const MARKET_FRESH_START_TS = 1745535600;
+
+// Hero agent vaults — only markets from these signers are shown.
+const HERO_VAULTS = new Set([
+  "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm", // alice.bundie
+  "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb", // bob.bundie
+  "8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg", // charlie.bundie
+]);
+
 export async function fetchAllMarkets(
   connection: Connection,
 ): Promise<MarketView[]> {
@@ -297,11 +309,15 @@ export async function fetchAllMarkets(
     const accounts = await program.account.market.all();
     return accounts
       .map((a) => toMarketView(a.publicKey, a.account))
-      // newest first — most relevant for the home feed
+      .filter(
+        (m) =>
+          HERO_VAULTS.has(m.createdBy) &&
+          m.createdAt >= MARKET_FRESH_START_TS,
+      )
+      // newest first
       .sort((a, b) => b.createdAt - a.createdAt);
   } catch (err) {
-    // Swallow RPC errors so the page renders an empty state rather than
-    // a 500. The stub empty-state messaging is clear enough for the demo.
+    // Swallow RPC errors so the page renders an empty state rather than a 500.
     console.error("[markets] fetchAllMarkets failed:", err);
     return [];
   }

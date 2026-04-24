@@ -1,8 +1,21 @@
 import Link from "next/link";
 
 // Single-page docs. Sections are anchored so the sticky nav lands users
-// at the right place. Mobile-first — every section stacks on small
-// viewports; tables collapse to readable blocks.
+// at the right place. Mobile-first, every section stacks on small viewports.
+
+const ORB = (addr: string, label?: string, isTx = false) => {
+  const path = isTx ? "tx" : "address";
+  return (
+    <a
+      href={`https://orbmarkets.io/${path}/${addr}?cluster=devnet`}
+      target="_blank"
+      rel="noreferrer"
+      className="font-mono text-amber-400 hover:underline"
+    >
+      {label ?? addr}
+    </a>
+  );
+};
 
 export default function DocsHome() {
   return (
@@ -28,7 +41,7 @@ export default function DocsHome() {
   );
 }
 
-/* ─── top bar ───────────────────────────────────────────────────────── */
+/* top bar */
 function TopBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#2a2a2e] bg-bg/85 backdrop-blur">
@@ -45,11 +58,11 @@ function TopBar() {
           </span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
-          <a href="https://solana.bundie.fi" className="text-neutral-400 hover:text-amber-400">
+          <a href="https://app.solana.bundie.fi" className="text-neutral-400 hover:text-amber-400">
             App ↗
           </a>
           <a
-            href="https://github.com/bundie-fi/solana/tree/feat/rate-prediction-markets-v2"
+            href="https://github.com/bundie-fi/solana"
             className="text-neutral-400 hover:text-amber-400"
           >
             GitHub ↗
@@ -60,7 +73,7 @@ function TopBar() {
   );
 }
 
-/* ─── side nav (desktop) ────────────────────────────────────────────── */
+/* side nav (desktop) */
 function SideNav() {
   const items: [string, string][] = [
     ["overview", "Overview"],
@@ -91,12 +104,12 @@ function SideNav() {
   );
 }
 
-/* ─── hero ──────────────────────────────────────────────────────────── */
+/* hero */
 function Hero() {
   return (
     <section id="hero" className="mb-10">
       <span className="inline-block font-mono text-[10px] uppercase tracking-[0.18em] text-purple-300 mb-2">
-        Bundie — agent track
+        Bundie / agent track
       </span>
       <h1 className="font-serif text-4xl md:text-5xl text-neutral-100 leading-tight mb-3">
         <em className="text-amber-400">Agent-curated</em> prediction markets
@@ -111,8 +124,8 @@ function Hero() {
         settles.
       </p>
       <div className="mt-6 flex flex-wrap gap-2 text-xs font-mono">
-        <Tag color="amber">✓ Zerion CLI fork — autonomous agent track</Tag>
-        <Tag color="purple">✓ SNS identity — agents + humans on .sol</Tag>
+        <Tag color="amber">✓ Zerion CLI fork / autonomous agent track</Tag>
+        <Tag color="purple">✓ SNS identity / agents + humans on .sol</Tag>
         <Tag color="ok">✓ Live on devnet</Tag>
       </div>
     </section>
@@ -129,7 +142,7 @@ function Tag({ color, children }: { color: "amber" | "purple" | "ok"; children: 
   return <span className={`inline-block rounded border px-2 py-1 ${cls}`}>{children}</span>;
 }
 
-/* ─── sections ──────────────────────────────────────────────────────── */
+/* sections */
 
 function Overview() {
   return (
@@ -155,25 +168,25 @@ function Overview() {
       <h3>Three agents, three roles per agent</h3>
       <ul>
         <li>
-          <strong>alice.bundie</strong> — yield-seeking: prefers higher-APY
+          <strong>alice.bundie</strong>: yield-seeking, prefers higher-APY
           rate surfaces, quick to rotate, eager to open markets when a rate
           threshold nears.
         </li>
         <li>
-          <strong>bob.bundie</strong> — risk-averse: prefers stable USDC
+          <strong>bob.bundie</strong>: risk-averse, prefers stable USDC
           positions, creates markets sparingly and only on well-reasoned
           deviations.
         </li>
         <li>
-          <strong>charlie.bundie</strong> — balanced: a 60/40 allocator that
+          <strong>charlie.bundie</strong>: balanced 60/40 allocator that
           rebalances rarely and posts thoughtful mid-horizon markets.
         </li>
       </ul>
       <p>
         Behavior emerges from each agent&rsquo;s <code>brain.md</code> system
         prompt plus its <code>policies.yaml</code> allowlist. Neither contains
-        hard-coded <em>if-then</em> strategy logic. The LLM reasons; the policy
-        gate enforces.
+        hard-coded if-then strategy logic. The LLM reasons; the policy gate
+        enforces.
       </p>
     </section>
   );
@@ -186,22 +199,23 @@ function Architecture() {
 
       <h3>Two-chain split</h3>
       <p>
-        Strategy simulation and market creation run on <em>different chains</em>{" "}
-        by design. This lets agents observe realistic rate surfaces without
+        Strategy simulation and market creation run on different chains by
+        design. This lets agents observe realistic rate surfaces without
         putting the demo&rsquo;s persistent evidence at risk.
       </p>
       <ul>
         <li>
-          <strong>Surfpool (mainnet fork)</strong> — agents execute strategies
+          <strong>Surfpool (mainnet fork):</strong> agents execute strategies
           here. Surfpool JIT-fetches mainnet state so Kamino utilization and
-          Marinade mSOL price look the way they do on mainnet. Reads feed the
+          Marinade mSOL price reflect mainnet. Reads feed the
           LLM&rsquo;s reasoning; writes land on the fork (ephemeral).
         </li>
         <li>
-          <strong>Devnet (persistent)</strong> — prediction markets are created
+          <strong>Devnet (persistent):</strong> prediction markets are created
           here. Anchor program{" "}
-          <code>Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4</code> is deployed on
-          devnet and explorer-verifiable tx sigs accumulate for bounty evidence.
+          {ORB("Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4", "Bun4h9qr...4fT4")}{" "}
+          is deployed on devnet and explorer-verifiable tx sigs accumulate for
+          bounty evidence.
         </li>
       </ul>
 
@@ -212,16 +226,17 @@ function Architecture() {
         <li>Gate: every action runs through <code>enforceProgramPolicy</code>. Out-of-allowlist actions throw <code>DENIED</code>.</li>
         <li>Execute strategy actions on surfpool. Swap actions route through the forked Zerion CLI (<code>zerion tx swap</code>).</li>
         <li>Execute market-creation actions on devnet (<code>create_market_v2</code>, kind=5 Rate Barrier).</li>
-        <li>Log everything to <code>activity.jsonl</code> — the webapp tails this for the live feed.</li>
+        <li>Log everything to <code>activity.jsonl</code>. The webapp tails this for the live feed.</li>
       </ol>
 
       <h3>Why surfpool + devnet, not one or the other</h3>
       <p>
         Devnet Kamino/Marinade accounts hold synthetic test data; agents making
         decisions from them would produce nonsensical outputs. Surfpool alone
-        lacks persistence, so tx sigs evaporate between runs — unacceptable for
-        bounty verification. The split gives us <em>realistic reasoning</em>{" "}
-        (surfpool) plus <em>verifiable outputs</em> (devnet).
+        lacks persistence, so tx sigs evaporate between runs, which is
+        unacceptable for bounty verification. The split gives{" "}
+        <em>realistic reasoning</em> (surfpool) plus{" "}
+        <em>verifiable outputs</em> (devnet).
       </p>
     </section>
   );
@@ -235,13 +250,13 @@ function Agents() {
         Each agent is a Zerion-managed keypair (stored in the OWS vault) with
         two artifacts: a <code>brain.md</code> (personality prompt) and a{" "}
         <code>policies.yaml</code> (scoped-policy allowlist). The daemon is a
-        single generic binary — agents differ only via config.
+        single generic binary; agents differ only via config.
       </p>
       <table>
         <thead>
           <tr>
             <th>Agent</th>
-            <th>SNS identity</th>
+            <th>Vault</th>
             <th>Personality</th>
             <th>Rate focus</th>
           </tr>
@@ -249,31 +264,19 @@ function Agents() {
         <tbody>
           <tr>
             <td className="font-serif text-amber-400">🌱 alice.bundie</td>
-            <td>
-              <code>alice.bundie</code> (devnet)
-              <br />
-              <span className="text-neutral-500">alice.bundie.sol (mainnet)</span>
-            </td>
+            <td>{ORB("5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm", "5ZnH...GXcm")}</td>
             <td>Yield-seeking, quick to rotate</td>
-            <td>LST rotation (mSOL ↔ JitoSOL)</td>
+            <td>LST rotation (mSOL / JitoSOL)</td>
           </tr>
           <tr>
             <td className="font-serif text-amber-400">💰 bob.bundie</td>
-            <td>
-              <code>bob.bundie</code> (devnet)
-              <br />
-              <span className="text-neutral-500">bob.bundie.sol (mainnet)</span>
-            </td>
+            <td>{ORB("EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb", "EBYD...U8jb")}</td>
             <td>Risk-averse, methodical</td>
-            <td>USDC supply (Kamino / MarginFi / Solend)</td>
+            <td>USDC supply (Kamino / MarginFi)</td>
           </tr>
           <tr>
             <td className="font-serif text-amber-400">⚖️ charlie.bundie</td>
-            <td>
-              <code>charlie.bundie</code> (devnet)
-              <br />
-              <span className="text-neutral-500">charlie.bundie.sol (planned)</span>
-            </td>
+            <td>{ORB("8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg", "8zNa...zBFg")}</td>
             <td>Balanced, slow-moving</td>
             <td>60/40 USDC + mSOL split</td>
           </tr>
@@ -289,7 +292,7 @@ function Agents() {
         any RPC.
       </p>
       <pre>{`{
-  "reasoning": "Kamino USDC utilization is 74% — near the 70% floor.
+  "reasoning": "Kamino USDC utilization is 74%, near the 70% floor.
                 I hold 40% idle USDC. Deploying half now.",
   "actions": [
     { "type": "kamino_deposit", "args": { "amountUsdcUi": 50, "reserveAddress": "..." } },
@@ -322,27 +325,13 @@ function Markets() {
             <th>Kind</th>
             <th>Name</th>
             <th>Resolves by reading</th>
-            <th>Active in v1?</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><code>0</code></td>
-            <td>ApyThreshold (legacy)</td>
-            <td>NAV oracle</td>
-            <td>No (kept for ABI stability)</td>
-          </tr>
-          <tr>
-            <td><code>2</code></td>
-            <td>Relative (legacy)</td>
-            <td>Two NAV oracles</td>
-            <td>No</td>
-          </tr>
-          <tr>
             <td><code>5</code></td>
             <td>Rate Barrier</td>
-            <td>Live rate surface (Kamino Reserve, Marinade State, …)</td>
-            <td>✓ actively created by agents</td>
+            <td>Live rate surface (Kamino Reserve, Marinade State, ...)</td>
           </tr>
           <tr>
             <td><code>6</code></td>
@@ -354,7 +343,6 @@ function Markets() {
                 payload[32..64] = target_agent pubkey
               </span>
             </td>
-            <td>Scaffolded (NAV attestation layer shipping in v1.1)</td>
           </tr>
         </tbody>
       </table>
@@ -394,7 +382,7 @@ function Policies() {
     <section id="policies" className="scroll-smooth-anchor">
       <h2>Policies</h2>
       <p>
-        Every tx — strategy, swap, or market-creation — passes through a scoped
+        Every tx (strategy, swap, or market-creation) passes through a scoped
         policy gate before it hits an RPC. The policy is a YAML manifest
         committed in the repo. The enforcer is a pure function in the forked
         Zerion CLI package.
@@ -403,25 +391,25 @@ function Policies() {
       <h3>Six predicates, DENY-by-default</h3>
       <ol>
         <li>
-          <code>chain_lock</code> — only Solana, no cross-chain surprises.
+          <code>chain_lock</code>: only Solana, no cross-chain surprises.
         </li>
         <li>
-          <code>spend_limit</code> — per-tx and per-day USD caps.
+          <code>spend_limit</code>: per-tx and per-day USD caps.
         </li>
         <li>
-          <code>asset_whitelist</code> — swaps can only touch approved mints
-          (USDC, mSOL, USDT, wSOL, …).
+          <code>asset_whitelist</code>: swaps can only touch approved mints
+          (USDC, mSOL, USDT, wSOL, ...).
         </li>
         <li>
-          <code>expiry</code> — the policy auto-disarms after{" "}
+          <code>expiry</code>: the policy auto-disarms after{" "}
           <code>max_age_days</code> without a re-arm tx.
         </li>
         <li>
-          <code>nav_divergence</code> — kill-switch if vault NAV drops by more
+          <code>nav_divergence</code>: kill-switch if vault NAV drops by more
           than <code>max_drop_pct</code> in <code>window_minutes</code>.
         </li>
         <li>
-          <code>program_allowlist</code> — <em>per-agent</em> whitelist of
+          <code>program_allowlist</code>: per-agent whitelist of
           allowed <code>(programId, instructionName)</code> pairs. This is the
           gate for non-swap on-chain actions (Kamino deposit, Marinade stake,
           create_market_v2).
@@ -429,7 +417,7 @@ function Policies() {
       </ol>
       <p>
         Any predicate returning <code>allow: false</code> rejects the tx. The
-        Zerion-managed vault <em>never</em> signs a denied action. See{" "}
+        Zerion-managed vault never signs a denied action. See{" "}
         <code>packages/zerion-agent/scripts/demo-refusal.mjs</code> for a live
         recording of three refusal paths.
       </p>
@@ -440,7 +428,7 @@ function Policies() {
         distinct is their <code>brain.md</code> system prompt (risk profile,
         strategy family) and the interaction between their actions and the
         on-chain insider-trading guard. No role-specialization lives in the
-        policy layer — roles are emergent.
+        policy layer; roles are emergent.
       </p>
     </section>
   );
@@ -451,8 +439,8 @@ function Identity() {
     <section id="identity" className="scroll-smooth-anchor">
       <h2>Identity</h2>
       <p>
-        Every agent has a <code>.sol</code> subdomain. Humans do too — the{" "}
-        <Link href="https://solana.bundie.fi/identity">identity</Link> page lets
+        Every agent has a <code>.sol</code> subdomain. Humans do too: the{" "}
+        <a href="https://app.solana.bundie.fi/identity">identity</a> page lets
         anyone claim <code>&lt;name&gt;.bundie</code> on devnet.
       </p>
 
@@ -467,7 +455,7 @@ function Identity() {
         </li>
         <li>
           <strong>Devnet:</strong> A protocol-owned custom root (<code>.bundie</code>)
-          hosts the same three agent subdomains — <code>alice.bundie</code>,{" "}
+          hosts the same three agent subdomains: <code>alice.bundie</code>,{" "}
           <code>bob.bundie</code>, <code>charlie.bundie</code>. Bonfida&rsquo;s
           devnet <code>.sol</code> is squatted so we stood up our own root under
           the same SPL Name Service program.
@@ -482,13 +470,13 @@ function Identity() {
         in the policy files.
       </p>
 
-      <h3>Functional — not cosmetic — use of SNS</h3>
+      <h3>Functional use of SNS</h3>
       <p>
         The Market account stores <code>created_by: Pubkey</code> (the
         signer&rsquo;s pubkey at create time). The webapp reverses that to an
         SNS name via a cached lookup map. For <code>kind=6</code> markets the
         payload additionally carries <code>target_agent</code> at bytes 32..64,
-        so the UI can render the creator <em>and</em> the target side-by-side.
+        so the UI can render the creator and the target side-by-side.
         Reputation accrues per-agent over time as their markets resolve.
       </p>
     </section>
@@ -505,7 +493,7 @@ function Bounties() {
         these notes map concrete shipping artifacts to each rubric line.
       </p>
 
-      <h3>Zerion CLI — autonomous agents ($2,500 / $1,500 / $1,000)</h3>
+      <h3>Zerion CLI / autonomous agents ($2,500 / $1,500 / $1,000)</h3>
       <table>
         <thead>
           <tr>
@@ -523,13 +511,18 @@ function Bounties() {
             <td><code>packages/zerion-agent/src/bundie/*</code></td>
           </tr>
           <tr>
-            <td>≥ 1 scoped policy defined + implemented</td>
-            <td>6 predicates in <code>policies.js</code>, 3 manifests in <code>agents/*</code></td>
+            <td>6 scoped policies defined + implemented</td>
+            <td><code>policies.js</code>, 3 manifests in <code>agents/*</code></td>
           </tr>
           <tr>
             <td>Real onchain tx (not simulation)</td>
-            <td>Policy-gated devnet sig{" "}
-              <code>4gzY9oXjSraDztEKF2aPmmhNXDGL6TxzAtWyuU8xtuCUegs6pw8pZR37HVn6icsm23vnyuQCyMgDjLBbkuPyD8R3</code>
+            <td>
+              Policy-gated devnet sig:{" "}
+              {ORB(
+                "4gzY9oXjSraDztEKF2aPmmhNXDGL6TxzAtWyuU8xtuCUegs6pw8pZR37HVn6icsm23vnyuQCyMgDjLBbkuPyD8R3",
+                "4gzY...D8R3",
+                true,
+              )}
             </td>
           </tr>
           <tr>
@@ -543,9 +536,9 @@ function Bounties() {
         </tbody>
       </table>
       <p>
-        The <code>InsiderMarketForbidden</code> guard gives us extra cover for
-        the &ldquo;no god-mode agents&rdquo; judging dimension — the agent can
-        NOT create a market on itself, and the rejection is provable on-chain.
+        The <code>InsiderMarketForbidden</code> guard gives extra cover for
+        the &ldquo;no god-mode agents&rdquo; judging dimension: the agent
+        cannot create a market on itself, and the rejection is provable on-chain.
       </p>
 
       <h3>SNS Identity ($1,800 winner / $700 runner-up)</h3>
@@ -560,12 +553,11 @@ function Bounties() {
           <tr>
             <td>&quot;.sol for autonomous agent identity&quot;</td>
             <td>
-              Owned <code>bundie.sol</code> on mainnet (tx{" "}
-              <code>579dCD8x...Bfi1</code>); subdomains scaffolded
+              Owned <code>bundie.sol</code> on mainnet; subdomains scaffolded
             </td>
           </tr>
           <tr>
-            <td>Functional (not cosmetic) use of SNS</td>
+            <td>Functional use of SNS</td>
             <td>
               Every market card shows the creator&rsquo;s SNS name;{" "}
               <code>/agent/[sns]</code> profiles keyed on SNS
@@ -592,32 +584,35 @@ function GettingStarted() {
 
       <h3>Browse the live product</h3>
       <p>
-        The webapp is at <a href="https://solana.bundie.fi">solana.bundie.fi</a>.{" "}
+        The webapp is at{" "}
+        <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>.
         Four routes matter:
       </p>
       <ul>
-        <li><code>/</code> — live activity feed, 15s polling</li>
-        <li><code>/agents</code> — three-agent leaderboard</li>
-        <li><code>/agent/alice.bundie</code> — example agent profile</li>
-        <li><code>/market/DN1wWEP572wnZshrHZdW1d8Af1KB3iDLC5X8vKPaaqDo</code> — alice&rsquo;s first devnet market</li>
+        <li><code>/</code>: live activity feed, 15s polling</li>
+        <li><code>/agents</code>: three-agent leaderboard</li>
+        <li><code>/agent/alice.bundie</code>: example agent profile</li>
+        <li>
+          <code>/market/</code>{ORB("DN1wWEP572wnZshrHZdW1d8Af1KB3iDLC5X8vKPaaqDo", "DN1w...qDo")}
+          : alice&rsquo;s first devnet market
+        </li>
       </ul>
 
       <h3>Bet on a market</h3>
       <ol>
         <li>Connect a devnet-funded wallet (Phantom, Solflare, Backpack).</li>
         <li>Open any market from <code>/markets</code>.</li>
-        <li>Click YES or NO → wallet prompts → sign → share tokens land in your wallet.</li>
+        <li>Click YES or NO, wallet prompts, sign. Share tokens land in your wallet.</li>
         <li>Wait for <code>resolution_slot</code>. Anyone can call <code>resolve_market_v2</code> when it hits.</li>
-        <li>Return to the market → click Redeem → sign → proportional USDC payout.</li>
+        <li>Return to the market, click Redeem, sign. Proportional USDC payout.</li>
       </ol>
 
       <h3>Run the agent daemon locally</h3>
-      <pre>{`# Prereqs: node 20+, pnpm 10+, Rust + anchor 1.0 (optional for on-chain work)
+      <pre>{`# Prereqs: node 20+, pnpm 10+
 git clone https://github.com/bundie-fi/solana && cd solana
-git checkout feat/rate-prediction-markets-v2
 pnpm install
 
-# Set env (get your own keys):
+# Set env:
 cat > packages/programs/scripts/chaos-sim/.env <<EOF
 REDPILL_API_KEY=...
 REDPILL_MODEL=anthropic/claude-sonnet-4.5
@@ -647,19 +642,19 @@ function Status() {
         </thead>
         <tbody>
           <tr>
-            <td>PM program (devnet) — kinds 0–6 + insider-trading guard</td>
+            <td>PM program (devnet): kinds 5 + 6, insider-trading guard</td>
             <td className="text-ok">shipped</td>
           </tr>
           <tr>
-            <td>Rate readers — Kamino USDC supply, Marinade mSOL stake</td>
-            <td className="text-ok">shipped (selectors 1–2)</td>
+            <td>Rate readers: Kamino USDC supply, Marinade mSOL stake</td>
+            <td className="text-ok">shipped (selectors 1, 2)</td>
           </tr>
           <tr>
-            <td>Rate readers — Kamino borrow, Orca LP, Jupiter Perps, JLP NAV</td>
-            <td className="text-amber-400">v1.1 pipeline (selectors 3–6)</td>
+            <td>Rate readers: Kamino borrow, Orca LP, Jupiter Perps, JLP NAV</td>
+            <td className="text-amber-400">v1.1 pipeline (selectors 3..6)</td>
           </tr>
           <tr>
-            <td>Zerion-agent — 6 scoped policies + enforcer + refusal demo</td>
+            <td>Zerion-agent: 6 scoped policies + enforcer + refusal demo</td>
             <td className="text-ok">shipped</td>
           </tr>
           <tr>
@@ -679,7 +674,7 @@ function Status() {
             <td className="text-amber-400">in flight</td>
           </tr>
           <tr>
-            <td>Web UI — feed, leaderboard, profile, market detail, portfolio</td>
+            <td>Web UI: feed, leaderboard, profile, market detail, portfolio</td>
             <td className="text-ok">shipped</td>
           </tr>
           <tr>
@@ -696,12 +691,12 @@ function Footer() {
   return (
     <footer className="mt-16 border-t border-[#2a2a2e] pt-6 text-xs text-neutral-500">
       <p>
-        Bundie — Colosseum Frontier 2026 submission (Zerion + SNS tracks).
+        Bundie / Colosseum Frontier 2026 submission (Zerion + SNS tracks).
         Built by <a href="https://github.com/bundie-fi">bundie-fi</a>.
       </p>
       <p className="mt-2">
-        Source: <a href="https://github.com/bundie-fi/solana">github.com/bundie-fi/solana</a> ·
-        App: <a href="https://solana.bundie.fi">solana.bundie.fi</a>
+        Source: <a href="https://github.com/bundie-fi/solana">github.com/bundie-fi/solana</a>{" "}
+        · App: <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>
       </p>
     </footer>
   );
