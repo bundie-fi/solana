@@ -16,11 +16,6 @@ const rpcUrl = process.env.RPC_URL || "https://api.devnet.solana.com";
 
 export const connection = new Connection(rpcUrl, "confirmed");
 
-/** Strategy Token Program ID */
-export const strategyProgramId = new PublicKey(
-  process.env.STRATEGY_PROGRAM_ID || "Bun4tBew11dWjx1mRuMmJZFmxsGsxYSYhdfe1w7JaHVm"
-);
-
 /** Prediction Market Program ID */
 export const predictionProgramId = new PublicKey(
   process.env.PREDICTION_PROGRAM_ID || "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
@@ -40,15 +35,14 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 );
 
-/** Devnet USDC mint (Circle) — default `deposit_mint` for strategy buys. */
+/** Devnet USDC mint (Circle) — default `collateral_mint` for prediction markets. */
 export const DEVNET_USDC = new PublicKey(
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
 );
 
 /**
  * Compute an Associated Token Account address without `@solana/spl-token`.
- * `allowOwnerOffCurve` MUST be true when the owner is a PDA (e.g. the
- * strategy `wallet` PDA).
+ * `allowOwnerOffCurve` MUST be true when the owner is a PDA.
  */
 export function getAssociatedTokenAddress(
   mint: PublicKey,
@@ -66,50 +60,18 @@ export function getAssociatedTokenAddress(
 }
 
 // ---------------------------------------------------------------------------
-// Strategy-token PDAs (pinocchio program — seeds documented in
-// programs/strategy-token/src/state/*.rs)
-// ---------------------------------------------------------------------------
-
-/** strategy PDA: seeds = ["strategy", creator, name32] */
-export function strategyPDA(
-  creator: PublicKey,
-  name32: Buffer
-): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("strategy"), creator.toBuffer(), name32],
-    strategyProgramId
-  );
-}
-
-/** wallet PDA: seeds = ["wallet", strategy] */
-export function walletPDA(strategy: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("wallet"), strategy.toBuffer()],
-    strategyProgramId
-  );
-}
-
-/** nav oracle PDA: seeds = ["nav", strategy] */
-export function navOraclePDA(strategy: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("nav"), strategy.toBuffer()],
-    strategyProgramId
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Prediction-market PDAs (Anchor program)
 // ---------------------------------------------------------------------------
 
-/** market PDA: seeds = ["market", strategy, market_id_le8] */
+/** market PDA: seeds = ["market", creator, market_id_le8] */
 export function marketPDA(
-  strategy: PublicKey,
+  creator: PublicKey,
   marketId: bigint
 ): [PublicKey, number] {
   const idBuf = Buffer.allocUnsafe(8);
   idBuf.writeBigUInt64LE(marketId);
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("market"), strategy.toBuffer(), idBuf],
+    [Buffer.from("market"), creator.toBuffer(), idBuf],
     predictionProgramId
   );
 }
@@ -142,14 +104,6 @@ export function noMintPDA(market: PublicKey): [PublicKey, number] {
 // Encoding helpers
 // ---------------------------------------------------------------------------
 
-/** Zero-pad a UTF-8 name string to exactly 32 bytes (strategy `name` field). */
-export function encodeName(name: string): Buffer {
-  const buf = Buffer.alloc(32, 0);
-  const encoded = Buffer.from(name, "utf8");
-  encoded.copy(buf, 0, 0, Math.min(32, encoded.length));
-  return buf;
-}
-
 /** 8-byte Anchor instruction discriminator (sha256("global:<name>")[0..8]). */
 export function anchorDisc(ixName: string): Buffer {
   return createHash("sha256").update(`global:${ixName}`).digest().subarray(0, 8);
@@ -158,17 +112,13 @@ export function anchorDisc(ixName: string): Buffer {
 // ---------------------------------------------------------------------------
 // Anchor program plumbing
 //
-// Strategy-token is a pinocchio program — there is no Anchor IDL, so we never
-// expose a `getStrategyProgram`. Instructions are encoded by hand in
-// `lib/builders.ts` using the single-byte discriminator dispatch table
-// documented in @bundie/common/src/idl/index.ts (STRATEGY_TOKEN_INSTRUCTIONS).
-//
-// Prediction-market IS a real Anchor program. The helpers below give us a
+// Prediction-market is a real Anchor program. The helpers below give us a
 // typed `Program<PredictionMarket>` for read paths (decoding accounts,
 // fetching state). For tx BUILDING we still encode the discriminator + Borsh
-// args by hand — this is intentional. Anchor's `program.methods.*().instruction()`
-// path requires a full provider with a wallet, which is the wrong shape for
-// an unsigned-tx server. We keep the typed Program for read-only usage.
+// args by hand — this is intentional. Anchor's
+// `program.methods.*().instruction()` path requires a full provider with a
+// wallet, which is the wrong shape for an unsigned-tx server. We keep the
+// typed Program for read-only usage.
 // ---------------------------------------------------------------------------
 
 /** Build an AnchorProvider bound to our shared `connection`. */
