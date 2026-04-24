@@ -14,8 +14,10 @@
     "chaos:doctor": "tsx scripts/chaos-sim/src/index.ts doctor",
     "chaos:register-names": "tsx scripts/chaos-sim/src/index.ts register-names",
     "chaos:setup-root": "tsx scripts/chaos-sim/src/setup-bundie-root.ts",
+    "chaos:setup-sol-root": "tsx scripts/chaos-sim/src/setup-devnet-sol-root.ts",
     "chaos:test": "tsx scripts/chaos-sim/tests/sns.smoke.ts",
-    "chaos:test:deny": "tsx scripts/chaos-sim/tests/deny-default.smoke.ts"
+    "chaos:test:deny": "tsx scripts/chaos-sim/tests/deny-default.smoke.ts",
+    "chaos:test:sns-tree": "node --import tsx --test scripts/chaos-sim/tests/sns-tree.test.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",

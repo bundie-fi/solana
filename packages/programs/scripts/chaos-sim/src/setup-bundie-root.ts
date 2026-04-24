@@ -41,17 +41,16 @@
  * Rent: getMinimumBalanceForRentExemption(SPACE + 96). The 96 covers the
  * NameRecordHeader (state.rs:36); the previous bypass forgot it and would
  * have under-funded the account even if the parent slot had been correct.
+ *
+ * REFACTOR NOTE (Phase 4.1): the low-level encoding + submit lives in
+ * sns-tree.ts now. This entrypoint is a thin wrapper that keeps the
+ * `chaos:setup-root` pnpm script + the `keys/bundie-root.json` metadata
+ * contract unchanged.
  */
 import {
   Connection,
   Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -63,16 +62,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { RPC_URL } from "./config.js";
-
-const NAME_PROGRAM_ID = new PublicKey(
-  "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
-);
-const HASH_PREFIX = "SPL Name Service";
+import {
+  deriveNameRecord,
+  ensureNameRecord,
+  NAME_PROGRAM_ID,
+} from "./sns-tree.js";
 
 // 96-byte NameRecordHeader (state.rs:36) + 256B body. The body holds
 // arbitrary data the owner can write later via `Update` — for the root we
 // don't actually use it, but the SPL program won't accept space=0.
-const NAME_RECORD_HEADER_BYTES = 96;
 const ROOT_BODY_SPACE = 256;
 
 const ROOT_LABEL = "bundie";
@@ -103,39 +101,6 @@ function loadOrCreateRootOwner(): Keypair {
   return kp;
 }
 
-function deriveRootPda(label: string): { pda: PublicKey; hashed: Buffer } {
-  const hashed = createHash("sha256")
-    .update(HASH_PREFIX + label, "utf8")
-    .digest();
-  const seeds = [
-    Uint8Array.from(hashed),
-    new Uint8Array(32), // class = default
-    new Uint8Array(32), // parent = default
-  ];
-  const [pda] = PublicKey.findProgramAddressSync(seeds, NAME_PROGRAM_ID);
-  return { pda, hashed };
-}
-
-function buildCreateData(hashed: Buffer, lamports: bigint, space: number): Buffer {
-  // Borsh-encoded NameRegistryInstruction::Create
-  //   tag: u8 = 0x00
-  //   hashed_name: Vec<u8> (u32 LE length + bytes)
-  //   lamports: u64 LE
-  //   space: u32 LE
-  const data = Buffer.alloc(1 + 4 + hashed.length + 8 + 4);
-  let off = 0;
-  data.writeUInt8(0x00, off);
-  off += 1;
-  data.writeUInt32LE(hashed.length, off);
-  off += 4;
-  hashed.copy(data, off);
-  off += hashed.length;
-  data.writeBigUInt64LE(lamports, off);
-  off += 8;
-  data.writeUInt32LE(space, off);
-  return data;
-}
-
 interface RootMetadata {
   label: string;
   domainSuffix: string; // ".bundie"
@@ -154,7 +119,7 @@ async function main(): Promise<void> {
   const conn = new Connection(RPC_URL, "confirmed");
   const deployer = loadDeployer();
   const rootOwner = loadOrCreateRootOwner();
-  const { pda, hashed } = deriveRootPda(ROOT_LABEL);
+  const { pda } = deriveNameRecord(ROOT_LABEL, { programId: NAME_PROGRAM_ID });
 
   console.log(`SPL Name Service program: ${NAME_PROGRAM_ID.toBase58()}`);
   console.log(`Root label:               ${ROOT_LABEL}`);
@@ -164,83 +129,29 @@ async function main(): Promise<void> {
   console.log(`RPC:                      ${RPC_URL}`);
   console.log("");
 
-  const existing = await conn.getAccountInfo(pda, "confirmed");
-  if (existing) {
-    if (!existing.owner.equals(NAME_PROGRAM_ID)) {
-      throw new Error(
-        `Root PDA ${pda.toBase58()} exists but is owned by ${existing.owner.toBase58()}, not the SPL Name Service program. Refusing to proceed.`,
-      );
-    }
-    // Header layout (state.rs:11-37): parent_name(32) | owner(32) | class(32)
-    if (existing.data.length < NAME_RECORD_HEADER_BYTES) {
-      throw new Error(
-        `Root PDA exists but data is shorter than NameRecordHeader (${existing.data.length} < ${NAME_RECORD_HEADER_BYTES}).`,
-      );
-    }
-    const onchainOwner = new PublicKey(existing.data.subarray(32, 64));
-    if (!onchainOwner.equals(rootOwner.publicKey)) {
-      throw new Error(
-        `Root PDA exists but on-chain owner is ${onchainOwner.toBase58()}, not our local rootOwner ${rootOwner.publicKey.toBase58()}. ` +
-          `If you regenerated keys/bundie-root-owner.json, restore the original or pick a new ROOT_LABEL.`,
-      );
-    }
-    console.log("Root already exists and is owned by our local rootOwner. Persisting metadata.");
-    writeMetadata({
-      label: ROOT_LABEL,
-      domainSuffix: `.${ROOT_LABEL}`,
-      rootPda: pda.toBase58(),
-      rootOwnerPubkey: rootOwner.publicKey.toBase58(),
-      programId: NAME_PROGRAM_ID.toBase58(),
-      createdAt: new Date().toISOString(),
-      createdSig: null,
-    });
-    console.log(`metadata: ${ROOT_METADATA_PATH}`);
-    return;
-  }
-
-  const totalSpace = NAME_RECORD_HEADER_BYTES + ROOT_BODY_SPACE;
-  const lamports = BigInt(
-    await conn.getMinimumBalanceForRentExemption(totalSpace),
-  );
-  console.log(
-    `Creating root account: ${totalSpace} bytes (${NAME_RECORD_HEADER_BYTES} header + ${ROOT_BODY_SPACE} body), rent ${lamports} lamports`,
-  );
-
-  // Body field of the on-chain Create ix is `space` — the program adds the
-  // 96B header itself in the allocate CPI (processor.rs:101). So we pass
-  // ROOT_BODY_SPACE as `space`, but compute rent for the full size.
-  const data = buildCreateData(hashed, lamports, ROOT_BODY_SPACE);
-
-  const EMPTY_PUBKEY = new PublicKey(new Uint8Array(32));
-  const ix = new TransactionInstruction({
+  const result = await ensureNameRecord(conn, {
     programId: NAME_PROGRAM_ID,
-    keys: [
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: deployer.publicKey, isSigner: true, isWritable: true }, // payer
-      { pubkey: pda, isSigner: false, isWritable: true }, // name PDA
-      { pubkey: rootOwner.publicKey, isSigner: false, isWritable: false }, // name owner
-      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // class = default
-      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // parent = default
-      // slot 6 (parent_owner) intentionally omitted — only required when
-      // parent ≠ default (processor.rs:66-78)
-    ],
-    data,
+    label: ROOT_LABEL,
+    parent: null,
+    owner: rootOwner,
+    bodySpace: ROOT_BODY_SPACE,
+    payer: deployer,
   });
 
-  const tx = new Transaction().add(ix);
-  const sig = await sendAndConfirmTransaction(conn, tx, [deployer], {
-    commitment: "confirmed",
-  });
-  console.log(`root created: ${sig}`);
+  if (result.existed) {
+    console.log("Root already exists and is owned by our local rootOwner. Persisting metadata.");
+  } else {
+    console.log(`root created: ${result.signature}`);
+  }
 
   writeMetadata({
     label: ROOT_LABEL,
     domainSuffix: `.${ROOT_LABEL}`,
-    rootPda: pda.toBase58(),
+    rootPda: result.pda.toBase58(),
     rootOwnerPubkey: rootOwner.publicKey.toBase58(),
     programId: NAME_PROGRAM_ID.toBase58(),
     createdAt: new Date().toISOString(),
-    createdSig: sig,
+    createdSig: result.signature,
   });
   console.log(`metadata: ${ROOT_METADATA_PATH}`);
 }
