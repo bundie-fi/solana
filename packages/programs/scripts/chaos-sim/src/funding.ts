@@ -41,6 +41,13 @@ import { ChaosWallet } from "./wallets.js";
 
 const USDC_DECIMALS = 6;
 
+/** ChaosWallet exposes only `pubkeyB58` post-Zerion-vault migration. funding.ts
+ *  only needs the destination pubkey (never the secret), so we lift it via a
+ *  small helper instead of accessing `keypair` (which is now optional). */
+function chaosPub(w: ChaosWallet): PublicKey {
+  return new PublicKey(w.pubkeyB58);
+}
+
 function loadDeployer(): Keypair {
   const path = process.env.SOLANA_KEYPAIR || join(homedir(), ".config/solana/id.json");
   const raw = JSON.parse(readFileSync(path, "utf8")) as number[];
@@ -61,12 +68,12 @@ async function buildPlan(
   const needsSol: ChaosWallet[] = [];
   const needsUsdc: ChaosWallet[] = [];
   for (const w of wallets) {
-    const sol = await conn.getBalance(w.keypair.publicKey, "confirmed");
+    const sol = await conn.getBalance(chaosPub(w), "confirmed");
     if (sol < SEED_SOL_LAMPORTS) needsSol.push(w);
 
     const ata = getAssociatedTokenAddressSync(
       DEVNET_USDC_MINT,
-      w.keypair.publicKey,
+      chaosPub(w),
     );
     let usdc = 0n;
     try {
@@ -103,7 +110,7 @@ async function fundSol(
       tx.add(
         SystemProgram.transfer({
           fromPubkey: deployer.publicKey,
-          toPubkey: t.keypair.publicKey,
+          toPubkey: chaosPub(t),
           lamports: SEED_SOL_LAMPORTS,
         }),
       );
@@ -137,13 +144,13 @@ async function fundUsdc(
     for (const t of chunk) {
       const ata = getAssociatedTokenAddressSync(
         DEVNET_USDC_MINT,
-        t.keypair.publicKey,
+        chaosPub(t),
       );
       tx.add(
         createAssociatedTokenAccountIdempotentInstruction(
           deployer.publicKey,
           ata,
-          t.keypair.publicKey,
+          chaosPub(t),
           DEVNET_USDC_MINT,
         ),
       );

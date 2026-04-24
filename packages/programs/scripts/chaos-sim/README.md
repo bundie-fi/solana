@@ -21,7 +21,9 @@ mismatches) into `logs/run-<timestamp>.jsonl`.
 ## Setup
 
 ```bash
-# 1. Generate a fresh wallet pool (writes to keys/wallet-{0..N}.json)
+# 1. Provision the wallet pool inside the Zerion vault (~/.ows/wallets/)
+#    Idempotent — re-running won't duplicate. NEVER calls Keypair.generate()
+#    directly; every agent is a Zerion-managed OWS wallet.
 pnpm --filter @bundie/programs chaos:setup
 
 # 2. Fund them from your default solana keypair (sends SOL + USDC)
@@ -31,11 +33,22 @@ pnpm --filter @bundie/programs chaos:fund
 pnpm --filter @bundie/programs chaos:run
 ```
 
+If you already have an existing pool in `keys/<role>.json` from before the
+Zerion-vault migration, run `node packages/zerion-agent/src/cli.js
+chaos-sim-migrate` to import them into the vault preserving role + pubkey.
+The legacy `keys/<role>.json` files are left on disk as a fallback —
+delete them yourself after `chaos:doctor` confirms vault-managed status.
+
 ## Wallet pool
 
-5 wallets × 0.05 SOL × 2.5 devnet USDC each = 0.25 SOL + 12.5 USDC drawn
-from your default keypair (`solana address`). Fits the deployer's current
-14.99 USDC budget with reserve.
+5 creators + 5 traders × 0.05 SOL × 1.2 devnet USDC each = 0.5 SOL + 12
+USDC drawn from your default keypair (`solana address`). Fits the
+deployer's current 14.99 USDC budget with reserve.
+
+Bundie agents ARE Zerion-managed wallets — they live in
+`~/.ows/wallets/` (override via `BUNDIE_AGENT_VAULT_PATH`). Signing
+flows through `zerion-bundie agent sign`, never through raw
+`Keypair.fromSecretKey` for vault-managed roles.
 
 ## Anomaly detection
 
