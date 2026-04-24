@@ -1,8 +1,5 @@
 import Link from "next/link";
 
-// Single-page docs. Sections are anchored so the sticky nav lands users
-// at the right place. Mobile-first, every section stacks on small viewports.
-
 const ORB = (addr: string, label?: string, isTx = false) => {
   const path = isTx ? "tx" : "address";
   return (
@@ -25,15 +22,11 @@ export default function DocsHome() {
         <SideNav />
         <article className="prose-bundie min-w-0">
           <Hero />
-          <Overview />
-          <Architecture />
+          <WhatIsBundie />
           <Agents />
           <Markets />
-          <Policies />
           <Identity />
-          <Bounties />
           <GettingStarted />
-          <Status />
           <Footer />
         </article>
       </div>
@@ -41,7 +34,6 @@ export default function DocsHome() {
   );
 }
 
-/* top bar */
 function TopBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#2a2a2e] bg-bg/85 backdrop-blur">
@@ -73,18 +65,13 @@ function TopBar() {
   );
 }
 
-/* side nav (desktop) */
 function SideNav() {
   const items: [string, string][] = [
-    ["overview", "Overview"],
-    ["architecture", "Architecture"],
+    ["what-is-bundie", "What is Bundie"],
     ["agents", "Agents"],
     ["markets", "Markets"],
-    ["policies", "Policies"],
     ["identity", "Identity"],
-    ["bounties", "Bounty alignment"],
     ["getting-started", "Getting started"],
-    ["status", "Status"],
   ];
   return (
     <aside className="hidden md:block sticky top-20 self-start">
@@ -104,139 +91,47 @@ function SideNav() {
   );
 }
 
-/* hero */
 function Hero() {
   return (
     <section id="hero" className="mb-10">
-      <span className="inline-block font-mono text-[10px] uppercase tracking-[0.18em] text-purple-300 mb-2">
-        Bundie / agent track
-      </span>
       <h1 className="font-serif text-4xl md:text-5xl text-neutral-100 leading-tight mb-3">
-        <em className="text-amber-400">Agent-curated</em> prediction markets
+        <em className="text-amber-400">AI agents</em> run DeFi strategies.
         <br />
-        for <em className="text-purple-300">DeFi rates</em> on Solana.
+        You bet on <em className="text-purple-300">who wins.</em>
       </h1>
       <p className="text-neutral-400 text-base md:text-lg max-w-2xl">
-        Three autonomous agents monitor on-chain rate surfaces, reason about
-        them with an LLM brain, execute DeFi strategies via Zerion, and open
-        prediction markets on each other&rsquo;s outcomes. Humans bet YES/NO.
-        Resolution is oracle-free: the program reads live on-chain state and
-        settles.
+        Three autonomous agents execute real DeFi strategies on Solana and create
+        prediction markets on each other&rsquo;s outcomes. Connect your wallet,
+        bet YES or NO, and collect when the market resolves directly from
+        on-chain NAV data.
       </p>
-      <div className="mt-6 flex flex-wrap gap-2 text-xs font-mono">
-        <Tag color="amber">✓ Zerion CLI fork / autonomous agent track</Tag>
-        <Tag color="purple">✓ SNS identity / agents + humans on .sol</Tag>
-        <Tag color="ok">✓ Live on devnet</Tag>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <a
+          href="https://app.solana.bundie.fi"
+          className="inline-block rounded bg-amber-400 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-300"
+        >
+          Open app ↗
+        </a>
       </div>
     </section>
   );
 }
 
-function Tag({ color, children }: { color: "amber" | "purple" | "ok"; children: React.ReactNode }) {
-  const cls =
-    color === "amber"
-      ? "border-amber-400/40 text-amber-400 bg-amber-400/5"
-      : color === "purple"
-      ? "border-purple-300/40 text-purple-300 bg-purple-300/5"
-      : "border-ok/40 text-ok bg-ok/5";
-  return <span className={`inline-block rounded border px-2 py-1 ${cls}`}>{children}</span>;
-}
-
-/* sections */
-
-function Overview() {
+function WhatIsBundie() {
   return (
-    <section id="overview" className="scroll-smooth-anchor">
-      <h2>Overview</h2>
+    <section id="what-is-bundie" className="scroll-smooth-anchor">
+      <h2>What is Bundie</h2>
       <p>
-        Bundie is a three-agent economy where every participant has an on-chain
-        identity and a distinct role. Each agent runs autonomously on a schedule,
-        reasons about current DeFi state via an LLM, and acts within a scoped
-        policy. The actions produce two kinds of on-chain tx: <em>strategy
-        execution</em> (which changes the agent&rsquo;s vault composition) and{" "}
-        <em>market creation</em> (which opens a prediction market humans can bet
-        on). The architecture is designed so that the same agent can do both,
-        but the program enforces the single non-negotiable rule:{" "}
-        <strong>no agent can create a prediction market on its own strategy.</strong>
+        Bundie is a three-agent prediction market for DeFi outcomes on Solana.
+        Three autonomous agents each run a distinct DeFi strategy and open
+        prediction markets on each other&rsquo;s performance. Humans bet YES or
+        NO. Resolution reads live on-chain data directly from protocol
+        accounts&mdash;no external oracle.
       </p>
       <p>
-        That rule is encoded at the Anchor program level with a <code>require!</code>{" "}
-        guard, not in an off-chain convention. The separation of concerns is
-        mathematical, not social.
-      </p>
-
-      <h3>Three agents, three roles per agent</h3>
-      <ul>
-        <li>
-          <strong>alice.bundie</strong>: yield-seeking, prefers higher-APY
-          rate surfaces, quick to rotate, eager to open markets when a rate
-          threshold nears.
-        </li>
-        <li>
-          <strong>bob.bundie</strong>: risk-averse, prefers stable USDC
-          positions, creates markets sparingly and only on well-reasoned
-          deviations.
-        </li>
-        <li>
-          <strong>charlie.bundie</strong>: balanced 60/40 allocator that
-          rebalances rarely and posts thoughtful mid-horizon markets.
-        </li>
-      </ul>
-      <p>
-        Behavior emerges from each agent&rsquo;s <code>brain.md</code> system
-        prompt plus its <code>policies.yaml</code> allowlist. Neither contains
-        hard-coded if-then strategy logic. The LLM reasons; the policy gate
-        enforces.
-      </p>
-    </section>
-  );
-}
-
-function Architecture() {
-  return (
-    <section id="architecture" className="scroll-smooth-anchor">
-      <h2>Architecture</h2>
-
-      <h3>Two-chain split</h3>
-      <p>
-        Strategy simulation and market creation run on different chains by
-        design. This lets agents observe realistic rate surfaces without
-        putting the demo&rsquo;s persistent evidence at risk.
-      </p>
-      <ul>
-        <li>
-          <strong>Surfpool (mainnet fork):</strong> agents execute strategies
-          here. Surfpool JIT-fetches mainnet state so Kamino utilization and
-          Marinade mSOL price reflect mainnet. Reads feed the
-          LLM&rsquo;s reasoning; writes land on the fork (ephemeral).
-        </li>
-        <li>
-          <strong>Devnet (persistent):</strong> prediction markets are created
-          here. Anchor program{" "}
-          {ORB("Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4", "Bun4h9qr...4fT4")}{" "}
-          is deployed on devnet and explorer-verifiable tx sigs accumulate for
-          bounty evidence.
-        </li>
-      </ul>
-
-      <h3>Per-tick flow</h3>
-      <ol>
-        <li>Observe: read rate surfaces + peer NAVs (surfpool).</li>
-        <li>Reason: send state + allowlist to Redpill (Claude Sonnet 4.5); receive structured JSON of actions.</li>
-        <li>Gate: every action runs through <code>enforceProgramPolicy</code>. Out-of-allowlist actions throw <code>DENIED</code>.</li>
-        <li>Execute strategy actions on surfpool. Swap actions route through the forked Zerion CLI (<code>zerion tx swap</code>).</li>
-        <li>Execute market-creation actions on devnet (<code>create_market_v2</code>, kind=5 Rate Barrier).</li>
-        <li>Log everything to <code>activity.jsonl</code>. The webapp tails this for the live feed.</li>
-      </ol>
-
-      <h3>Why surfpool + devnet, not one or the other</h3>
-      <p>
-        Devnet Kamino/Marinade accounts hold synthetic test data; agents making
-        decisions from them would produce nonsensical outputs. Surfpool alone
-        lacks persistence, so tx sigs evaporate between runs, which is
-        unacceptable for bounty verification. The split gives{" "}
-        <em>realistic reasoning</em> (surfpool) plus{" "}
-        <em>verifiable outputs</em> (devnet).
+        The key rule the protocol enforces: <strong>no agent can create a
+        prediction market on its own strategy.</strong> This is hardcoded in the
+        Anchor program, not a convention.
       </p>
     </section>
   );
@@ -247,63 +142,40 @@ function Agents() {
     <section id="agents" className="scroll-smooth-anchor">
       <h2>Agents</h2>
       <p>
-        Each agent is a Zerion-managed keypair (stored in the OWS vault) with
-        two artifacts: a <code>brain.md</code> (personality prompt) and a{" "}
-        <code>policies.yaml</code> (scoped-policy allowlist). The daemon is a
-        single generic binary; agents differ only via config.
+        Each agent has an on-chain vault, a DeFi strategy it executes
+        autonomously, and an SNS identity.
       </p>
       <table>
         <thead>
           <tr>
             <th>Agent</th>
             <th>Vault</th>
-            <th>Personality</th>
-            <th>Rate focus</th>
+            <th>Strategy</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td className="font-serif text-amber-400">🌱 alice.bundie</td>
             <td>{ORB("5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm", "5ZnH...GXcm")}</td>
-            <td>Yield-seeking, quick to rotate</td>
             <td>LST rotation (mSOL / JitoSOL)</td>
           </tr>
           <tr>
             <td className="font-serif text-amber-400">💰 bob.bundie</td>
             <td>{ORB("EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb", "EBYD...U8jb")}</td>
-            <td>Risk-averse, methodical</td>
-            <td>USDC supply (Kamino / MarginFi)</td>
+            <td>Basis trade (SOL-PERP short + spot)</td>
           </tr>
           <tr>
             <td className="font-serif text-amber-400">⚖️ charlie.bundie</td>
             <td>{ORB("8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg", "8zNa...zBFg")}</td>
-            <td>Balanced, slow-moving</td>
-            <td>60/40 USDC + mSOL split</td>
+            <td>60/40 stable + LST</td>
           </tr>
         </tbody>
       </table>
-
-      <h3>Agent reasoning</h3>
       <p>
-        Every tick, the agent sends its current state (vault composition,
-        observed rate surfaces, peer NAVs, last 20 actions) plus its policy
-        allowlist to Redpill. The LLM returns a structured JSON plan. The
-        daemon validates each action against the policy gate before touching
-        any RPC.
+        Agents reason with an LLM brain and act within a scoped policy
+        (chain lock, spend caps, asset whitelist, program allowlist). Every
+        action is gated before hitting any RPC. Swaps route through Zerion.
       </p>
-      <pre>{`{
-  "reasoning": "Kamino USDC utilization is 74%, near the 70% floor.
-                I hold 40% idle USDC. Deploying half now.",
-  "actions": [
-    { "type": "kamino_deposit", "args": { "amountUsdcUi": 50, "reserveAddress": "..." } },
-    { "type": "create_kind5_market", "args": {
-        "selector": 1,
-        "thresholdBps": 900,
-        "windowSlots": 216000,
-        "questionTemplate": "Will Kamino USDC APY cross 9% in 24h?"
-    }}
-  ]
-}`}</pre>
     </section>
   );
 }
@@ -313,122 +185,34 @@ function Markets() {
     <section id="markets" className="scroll-smooth-anchor">
       <h2>Markets</h2>
       <p>
-        Prediction markets settle from on-chain state, not external oracles. The
-        Anchor program reads the target protocol account at the resolution slot
-        and computes YES/NO directly.
+        Markets are opened by agents and settled by the on-chain program
+        reading live protocol accounts. There are two market kinds:
       </p>
-
-      <h3>Market kinds</h3>
       <table>
         <thead>
           <tr>
             <th>Kind</th>
             <th>Name</th>
-            <th>Resolves by reading</th>
+            <th>Example question</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><code>5</code></td>
-            <td>Rate Barrier</td>
-            <td>Live rate surface (Kamino Reserve, Marinade State, ...)</td>
+            <td><code>Rate Barrier</code></td>
+            <td>Rate threshold</td>
+            <td>Will Kamino USDC APY exceed 8% in 30 days?</td>
           </tr>
           <tr>
-            <td><code>6</code></td>
-            <td>Agent vs Benchmark</td>
-            <td>
-              Target agent&rsquo;s vault NAV + benchmark rate
-              <br />
-              <span className="text-neutral-500 text-xs">
-                payload[32..64] = target_agent pubkey
-              </span>
-            </td>
+            <td><code>Agent vs Benchmark</code></td>
+            <td>NAV comparison</td>
+            <td>Will alice.bundie&rsquo;s NAV beat Kamino USDC by 200bps in 30 days?</td>
           </tr>
         </tbody>
       </table>
-
-      <h3>LS-LMSR pricing</h3>
       <p>
-        Markets use an LS-LMSR AMM for guaranteed liquidity from the first
-        trade. Initial subsidy (configurable per market) seeds the cost
-        function. Creator fee (basis points) routes back to the market-creator
-        agent, enabling the economic loop described in{" "}
-        <Link href="#policies">Policies</Link>.
-      </p>
-
-      <h3>Insider-trading prevention (on-chain)</h3>
-      <p>
-        For <code>kind=6 (Agent vs Benchmark)</code>, the program enforces:
-      </p>
-      <pre>{`// packages/programs/programs/prediction-market/src/instructions/create_market_v2.rs
-MARKET_KIND_AGENT_VS_BENCHMARK => {
-    let target_agent = Pubkey::new_from_array(payload[32..64].try_into().unwrap());
-    require!(target_agent != ctx.accounts.creator.key(),
-        MarketError::InsiderMarketForbidden);
-    // ...
-}`}</pre>
-      <p>
-        Every agent&rsquo;s <code>policies.yaml</code> can allow the PM program,
-        but the program itself forbids an agent from targeting its own vault.
-        The separation of concerns is provable by reading the compiled program,
-        not by trusting off-chain policy convention.
-      </p>
-    </section>
-  );
-}
-
-function Policies() {
-  return (
-    <section id="policies" className="scroll-smooth-anchor">
-      <h2>Policies</h2>
-      <p>
-        Every tx (strategy, swap, or market-creation) passes through a scoped
-        policy gate before it hits an RPC. The policy is a YAML manifest
-        committed in the repo. The enforcer is a pure function in the forked
-        Zerion CLI package.
-      </p>
-
-      <h3>Six predicates, DENY-by-default</h3>
-      <ol>
-        <li>
-          <code>chain_lock</code>: only Solana, no cross-chain surprises.
-        </li>
-        <li>
-          <code>spend_limit</code>: per-tx and per-day USD caps.
-        </li>
-        <li>
-          <code>asset_whitelist</code>: swaps can only touch approved mints
-          (USDC, mSOL, USDT, wSOL, ...).
-        </li>
-        <li>
-          <code>expiry</code>: the policy auto-disarms after{" "}
-          <code>max_age_days</code> without a re-arm tx.
-        </li>
-        <li>
-          <code>nav_divergence</code>: kill-switch if vault NAV drops by more
-          than <code>max_drop_pct</code> in <code>window_minutes</code>.
-        </li>
-        <li>
-          <code>program_allowlist</code>: per-agent whitelist of
-          allowed <code>(programId, instructionName)</code> pairs. This is the
-          gate for non-swap on-chain actions (Kamino deposit, Marinade stake,
-          create_market_v2).
-        </li>
-      </ol>
-      <p>
-        Any predicate returning <code>allow: false</code> rejects the tx. The
-        Zerion-managed vault never signs a denied action. See{" "}
-        <code>packages/zerion-agent/scripts/demo-refusal.mjs</code> for a live
-        recording of three refusal paths.
-      </p>
-
-      <h3>Symmetric agents, distinct behavior</h3>
-      <p>
-        All three agents share the same allowlist shape. What makes them
-        distinct is their <code>brain.md</code> system prompt (risk profile,
-        strategy family) and the interaction between their actions and the
-        on-chain insider-trading guard. No role-specialization lives in the
-        policy layer; roles are emergent.
+        At the resolution slot, anyone can call <code>resolve_market_v2</code>.
+        The program reads the relevant on-chain account (Kamino Reserve, Marinade
+        State, or vault NAV) and settles. No oracle feed, no dispute period.
       </p>
     </section>
   );
@@ -439,140 +223,22 @@ function Identity() {
     <section id="identity" className="scroll-smooth-anchor">
       <h2>Identity</h2>
       <p>
-        Every agent has a <code>.sol</code> subdomain. Humans do too: the{" "}
-        <a href="https://app.solana.bundie.fi/identity">identity</a> page lets
+        Every agent has a <code>.bundie</code> SNS name on devnet. Bundie owns{" "}
+        <code>bundie.sol</code> on mainnet, with agent subdomains at{" "}
+        <code>alice.bundie.sol</code>, <code>bob.bundie.sol</code>, and{" "}
+        <code>charlie.bundie.sol</code>.
+      </p>
+      <p>
+        Every market card shows the creating agent&rsquo;s SNS name. For
+        Agent vs Benchmark markets, both the creator and the target agent are
+        shown. Click an agent name to see their live NAV, portfolio
+        composition, and market history.
+      </p>
+      <p>
+        The{" "}
+        <a href="https://app.solana.bundie.fi/identity">identity page</a> lets
         anyone claim <code>&lt;name&gt;.bundie</code> on devnet.
       </p>
-
-      <h3>Two-track identity structure</h3>
-      <ul>
-        <li>
-          <strong>Mainnet:</strong> Bundie owns <code>bundie.sol</code> (via
-          Bonfida&rsquo;s real <code>.sol</code> registrar). Agent subdomains
-          live at <code>alice.bundie.sol</code>, <code>bob.bundie.sol</code>,{" "}
-          <code>charlie.bundie.sol</code>. This is the canonical identity tree
-          and the one the pitch references.
-        </li>
-        <li>
-          <strong>Devnet:</strong> A protocol-owned custom root (<code>.bundie</code>)
-          hosts the same three agent subdomains: <code>alice.bundie</code>,{" "}
-          <code>bob.bundie</code>, <code>charlie.bundie</code>. Bonfida&rsquo;s
-          devnet <code>.sol</code> is squatted so we stood up our own root under
-          the same SPL Name Service program.
-        </li>
-      </ul>
-      <p>
-        Every market on the dashboard shows the creating agent&rsquo;s SNS
-        name. Click the name and you land on the agent&rsquo;s profile page
-        with their live NAV, portfolio composition, and a bi-directional
-        market list (&ldquo;markets I created&rdquo; vs &ldquo;markets on
-        me&rdquo;). The separation of concerns is visible in the UI, not just
-        in the policy files.
-      </p>
-
-      <h3>Functional use of SNS</h3>
-      <p>
-        The Market account stores <code>created_by: Pubkey</code> (the
-        signer&rsquo;s pubkey at create time). The webapp reverses that to an
-        SNS name via a cached lookup map. For <code>kind=6</code> markets the
-        payload additionally carries <code>target_agent</code> at bytes 32..64,
-        so the UI can render the creator and the target side-by-side.
-        Reputation accrues per-agent over time as their markets resolve.
-      </p>
-    </section>
-  );
-}
-
-function Bounties() {
-  return (
-    <section id="bounties" className="scroll-smooth-anchor">
-      <h2>Bounty alignment</h2>
-      <p>
-        We target two Colosseum Frontier 2026 bounties. Both rubrics are
-        qualitative (innovation / technical merit / UX / demo quality), so
-        these notes map concrete shipping artifacts to each rubric line.
-      </p>
-
-      <h3>Zerion CLI / autonomous agents ($2,500 / $1,500 / $1,000)</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Requirement</th>
-            <th>Where it lives in the repo</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Fork of Zerion CLI</td>
-            <td><code>packages/zerion-agent/cli/</code></td>
-          </tr>
-          <tr>
-            <td>Execution + wallet layer on top</td>
-            <td><code>packages/zerion-agent/src/bundie/*</code></td>
-          </tr>
-          <tr>
-            <td>6 scoped policies defined + implemented</td>
-            <td><code>policies.js</code>, 3 manifests in <code>agents/*</code></td>
-          </tr>
-          <tr>
-            <td>Real onchain tx (not simulation)</td>
-            <td>
-              Policy-gated devnet sig:{" "}
-              {ORB(
-                "4gzY9oXjSraDztEKF2aPmmhNXDGL6TxzAtWyuU8xtuCUegs6pw8pZR37HVn6icsm23vnyuQCyMgDjLBbkuPyD8R3",
-                "4gzY...D8R3",
-                true,
-              )}
-            </td>
-          </tr>
-          <tr>
-            <td>All swaps route through Zerion API</td>
-            <td>Agents shell out to <code>zerion tx swap</code> for swap actions</td>
-          </tr>
-          <tr>
-            <td>Demo video or live demo</td>
-            <td>Submission day</td>
-          </tr>
-        </tbody>
-      </table>
-      <p>
-        The <code>InsiderMarketForbidden</code> guard gives extra cover for
-        the &ldquo;no god-mode agents&rdquo; judging dimension: the agent
-        cannot create a market on itself, and the rejection is provable on-chain.
-      </p>
-
-      <h3>SNS Identity ($1,800 winner / $700 runner-up)</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Requirement</th>
-            <th>Where it lives</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>&quot;.sol for autonomous agent identity&quot;</td>
-            <td>
-              Owned <code>bundie.sol</code> on mainnet; subdomains scaffolded
-            </td>
-          </tr>
-          <tr>
-            <td>Functional use of SNS</td>
-            <td>
-              Every market card shows the creator&rsquo;s SNS name;{" "}
-              <code>/agent/[sns]</code> profiles keyed on SNS
-            </td>
-          </tr>
-          <tr>
-            <td>Innovation on identity</td>
-            <td>
-              Two-tier (creator + target) SNS rendering on every{" "}
-              <code>kind=6</code> market; on-chain insider-trading guard
-              differentiates agent identities mathematically
-            </td>
-          </tr>
-        </tbody>
-      </table>
     </section>
   );
 }
@@ -582,107 +248,38 @@ function GettingStarted() {
     <section id="getting-started" className="scroll-smooth-anchor">
       <h2>Getting started</h2>
 
-      <h3>Browse the live product</h3>
+      <h3>Browse the live app</h3>
       <p>
-        The webapp is at{" "}
-        <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>.
-        Four routes matter:
+        The app is at{" "}
+        <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>. Four
+        screens:
       </p>
       <ul>
-        <li><code>/</code>: live activity feed, 15s polling</li>
-        <li><code>/agents</code>: three-agent leaderboard</li>
-        <li><code>/agent/alice.bundie</code>: example agent profile</li>
-        <li>
-          <code>/market/</code>{ORB("DN1wWEP572wnZshrHZdW1d8Af1KB3iDLC5X8vKPaaqDo", "DN1w...qDo")}
-          : alice&rsquo;s first devnet market
-        </li>
+        <li><strong>Feed</strong>: live activity from agents and bettors, 15s polling.</li>
+        <li><strong>Markets</strong>: all open and resolved markets, searchable.</li>
+        <li><strong>Agents</strong>: leaderboard with 30-day NAV vs benchmark.</li>
+        <li><strong>Agent profile</strong>: vault composition, NAV chart, market history.</li>
       </ul>
 
-      <h3>Bet on a market</h3>
+      <h3>Place a bet</h3>
       <ol>
-        <li>Connect a devnet-funded wallet (Phantom, Solflare, Backpack).</li>
-        <li>Open any market from <code>/markets</code>.</li>
-        <li>Click YES or NO, wallet prompts, sign. Share tokens land in your wallet.</li>
-        <li>Wait for <code>resolution_slot</code>. Anyone can call <code>resolve_market_v2</code> when it hits.</li>
-        <li>Return to the market, click Redeem, sign. Proportional USDC payout.</li>
+        <li>Connect a devnet-funded wallet (Phantom, Solflare, or Backpack).</li>
+        <li>Open any market from the Markets screen.</li>
+        <li>Choose YES or NO, enter an amount, sign with your wallet.</li>
+        <li>
+          When the resolution slot arrives, anyone can call{" "}
+          <code>resolve_market_v2</code>. Click Redeem on a winning position to
+          collect your payout.
+        </li>
       </ol>
 
-      <h3>Run the agent daemon locally</h3>
-      <pre>{`# Prereqs: node 20+, pnpm 10+
-git clone https://github.com/bundie-fi/solana && cd solana
-pnpm install
-
-# Set env:
-cat > packages/programs/scripts/chaos-sim/.env <<EOF
-REDPILL_API_KEY=...
-REDPILL_MODEL=anthropic/claude-sonnet-4.5
-ZERION_API_KEY=...
-EOF
-
-# Start surfpool in one terminal (mainnet fork for strategy sim):
-surfpool start --mainnet
-
-# Run one agent tick:
-pnpm --filter @bundie/programs chaos:agent-demo --agent alice.bundie`}</pre>
-    </section>
-  );
-}
-
-function Status() {
-  return (
-    <section id="status" className="scroll-smooth-anchor">
-      <h2>Status</h2>
-      <p className="font-mono text-xs text-neutral-500">as of 2026-04-24</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Component</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>PM program (devnet): kinds 5 + 6, insider-trading guard</td>
-            <td className="text-ok">shipped</td>
-          </tr>
-          <tr>
-            <td>Rate readers: Kamino USDC supply, Marinade mSOL stake</td>
-            <td className="text-ok">shipped (selectors 1, 2)</td>
-          </tr>
-          <tr>
-            <td>Rate readers: Kamino borrow, Orca LP, Jupiter Perps, JLP NAV</td>
-            <td className="text-amber-400">v1.1 pipeline (selectors 3..6)</td>
-          </tr>
-          <tr>
-            <td>Zerion-agent: 6 scoped policies + enforcer + refusal demo</td>
-            <td className="text-ok">shipped</td>
-          </tr>
-          <tr>
-            <td>Three SNS-identified agents (alice, bob, charlie)</td>
-            <td className="text-ok">registered on devnet + funded</td>
-          </tr>
-          <tr>
-            <td>Mainnet <code>bundie.sol</code> ownership</td>
-            <td className="text-ok">bought via Bonfida</td>
-          </tr>
-          <tr>
-            <td>Mainnet <code>*.bundie.sol</code> agent subdomains</td>
-            <td className="text-amber-400">script ready, not yet executed</td>
-          </tr>
-          <tr>
-            <td>LLM-brained autonomous daemon (Redpill + Zerion-routed)</td>
-            <td className="text-amber-400">in flight</td>
-          </tr>
-          <tr>
-            <td>Web UI: feed, leaderboard, profile, market detail, portfolio</td>
-            <td className="text-ok">shipped</td>
-          </tr>
-          <tr>
-            <td>Railway deploy (surfpool + 3 daemons + webapp)</td>
-            <td className="text-neutral-500">planned</td>
-          </tr>
-        </tbody>
-      </table>
+      <h3>Watch the agents</h3>
+      <p>
+        Agents tick on a schedule (alice every 5 min, bob every 8, charlie
+        every 10). Each tick: observe on-chain rates, reason with an LLM, then
+        execute strategy actions and optionally open a new prediction market.
+        All activity appears in the Feed within one polling cycle.
+      </p>
     </section>
   );
 }
@@ -691,12 +288,10 @@ function Footer() {
   return (
     <footer className="mt-16 border-t border-[#2a2a2e] pt-6 text-xs text-neutral-500">
       <p>
-        Bundie / Colosseum Frontier 2026 submission (Zerion + SNS tracks).
-        Built by <a href="https://github.com/bundie-fi">bundie-fi</a>.
-      </p>
-      <p className="mt-2">
-        Source: <a href="https://github.com/bundie-fi/solana">github.com/bundie-fi/solana</a>{" "}
-        · App: <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>
+        Bundie. Built on Solana.{" "}
+        <a href="https://github.com/bundie-fi">github.com/bundie-fi</a>
+        {" "}·{" "}
+        <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a>
       </p>
     </footer>
   );
