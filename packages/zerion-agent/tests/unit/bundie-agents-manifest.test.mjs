@@ -25,7 +25,8 @@ describe("agent manifests", () => {
 
   test("alice chain_lock rejects ethereum swap", () => {
     const { policies } = loadPoliciesFromFile(ALICE);
-    const enforce = makeEnforcer(policies);
+    // Swap-path: exclude program_allowlist (fast-path gate, not applicable to swaps)
+    const enforce = makeEnforcer(policies.filter((p) => p.id !== "program_allowlist"));
     const ctx = {
       chain: "ethereum",
       fromMint: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC-ETH
@@ -44,7 +45,7 @@ describe("agent manifests", () => {
 
   test("alice asset_whitelist rejects unknown mint", () => {
     const { policies } = loadPoliciesFromFile(ALICE);
-    const enforce = makeEnforcer(policies);
+    const enforce = makeEnforcer(policies.filter((p) => p.id !== "program_allowlist"));
     const ctx = {
       chain: "solana",
       fromMint: "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ", // not in whitelist
@@ -63,7 +64,7 @@ describe("agent manifests", () => {
 
   test("alice allows usdc->mSOL within spend limit", () => {
     const { policies } = loadPoliciesFromFile(ALICE);
-    const enforce = makeEnforcer(policies);
+    const enforce = makeEnforcer(policies.filter((p) => p.id !== "program_allowlist"));
     const ctx = {
       chain: "solana",
       fromMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",

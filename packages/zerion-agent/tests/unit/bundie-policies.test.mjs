@@ -12,6 +12,7 @@ import {
   assetWhitelist,
   expiry,
   navDivergence,
+  programAllowlist,
   makeEnforcer,
   POLICY_REGISTRY,
 } from "../../src/bundie/policies.js";
@@ -200,6 +201,58 @@ test("nav_divergence ignores points outside the window", () => {
   assert.equal(r.allow, true);
 });
 
+// 6. program_allowlist -----------------------------------------------------
+
+const PM_PROGRAM = "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4";
+
+test("program_allowlist denies when programs list is empty (misconfigured)", () => {
+  const r = programAllowlist(
+    { programId: PM_PROGRAM, instructionName: "create_market_v2" },
+    { programs: [] },
+  );
+  assert.equal(r.allow, false);
+  assert.equal(r.code, "program_allowlist_misconfigured");
+});
+
+test("program_allowlist denies when ctx lacks programId/instructionName", () => {
+  const r = programAllowlist(
+    { /* missing both */ },
+    { programs: [{ programId: PM_PROGRAM, instructions: ["create_market_v2"] }] },
+  );
+  assert.equal(r.allow, false);
+  assert.equal(r.code, "program_allowlist_missing_context");
+});
+
+test("program_allowlist denies when programId is not in the allowlist", () => {
+  const r = programAllowlist(
+    { programId: "SomeOtherProgram1111111111111111111111111111", instructionName: "create_market_v2" },
+    { programs: [{ programId: PM_PROGRAM, instructions: ["create_market_v2"] }] },
+  );
+  assert.equal(r.allow, false);
+  assert.equal(r.code, "program_allowlist_unknown_program");
+});
+
+test("program_allowlist denies when instruction is not permitted for that program", () => {
+  const r = programAllowlist(
+    { programId: PM_PROGRAM, instructionName: "nuke_the_world" },
+    { programs: [{ programId: PM_PROGRAM, instructions: ["create_market_v2", "buy_shares"] }] },
+  );
+  assert.equal(r.allow, false);
+  assert.equal(r.code, "program_allowlist_ix_not_permitted");
+});
+
+test("program_allowlist allows known program + listed instruction", () => {
+  const r = programAllowlist(
+    { programId: PM_PROGRAM, instructionName: "create_market_v2" },
+    {
+      programs: [
+        { programId: PM_PROGRAM, instructions: ["create_market_v2", "buy_shares", "sell_shares", "resolve_market_v2"] },
+      ],
+    },
+  );
+  assert.equal(r.allow, true);
+});
+
 // PolicyEnforcer / DENY-by-default ----------------------------------------
 
 test("makeEnforcer denies when any policy denies (DENY-by-default)", () => {
@@ -225,9 +278,9 @@ test("makeEnforcer denies when a policy throws", () => {
   assert.equal(r.allow, false);
 });
 
-test("POLICY_REGISTRY exposes exactly five policies", () => {
+test("POLICY_REGISTRY exposes exactly six policies", () => {
   assert.deepEqual(
     Object.keys(POLICY_REGISTRY).sort(),
-    ["asset_whitelist", "chain_lock", "expiry", "nav_divergence", "spend_limit"]
+    ["asset_whitelist", "chain_lock", "expiry", "nav_divergence", "program_allowlist", "spend_limit"]
   );
 });

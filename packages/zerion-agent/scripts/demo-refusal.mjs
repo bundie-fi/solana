@@ -66,8 +66,14 @@ function runtime() {
 async function main() {
   console.log(`\nLoading policies from ${ALICE_POLICIES}`);
   const { policies } = loadPoliciesFromFile(ALICE_POLICIES);
-  console.log(`Enabled predicates: ${policies.map((p) => p.id).join(", ")}`);
-  const enforce = makeEnforcer(policies);
+  // Swap-only predicates for the refusal demo. program_allowlist is a
+  // non-swap gate (guards create_market_v2 etc) enforced via the
+  // enforceProgramPolicy() fast-path; running it here against swap
+  // contexts would incorrectly deny every swap.
+  const swapPolicies = policies.filter((p) => p.id !== "program_allowlist");
+  console.log(`Enabled predicates (swap path): ${swapPolicies.map((p) => p.id).join(", ")}`);
+  console.log(`Non-swap predicates (fast-path): ${policies.filter((p) => p.id === "program_allowlist").map((p) => p.id).join(", ") || "(none)"}`);
+  const enforce = makeEnforcer(swapPolicies);
 
   hr("Attempt 1 — solana usdc->mSOL, $5 (in-scope)");
   printDecision(enforce(ctx(), runtime()));

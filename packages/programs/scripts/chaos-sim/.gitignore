@@ -6,4 +6,5 @@ keys/*
 !keys/bundie-root.json
 !keys/alice-bob-sns.json
 !keys/alice-first-market.json
+!keys/alice-first-market-policy-gated.json
 logs/

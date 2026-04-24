@@ -38,6 +38,11 @@ import {
 } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { createHash } from "node:crypto";
+// Policy fast-path for non-swap ix. Throws on DENY, no-op on ALLOW.
+// Relative import keeps this a workspace-local dependency without
+// pulling @bundie/zerion-agent into package.json.
+// @ts-expect-error — JS module, no type declarations provided
+import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
 export const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
   "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4",
@@ -67,6 +72,13 @@ export interface CreateRateBarrierArgs {
   initialSubsidy: bigint;
   feeBps: number;
   collateralMint?: PublicKey;
+  /**
+   * Optional — absolute path to the agent's `policies.yaml`. When set, the tx
+   * is routed through `enforceProgramPolicy()` BEFORE signing. Throws with a
+   * clear `DENIED ...` message if the program_allowlist predicate rejects it.
+   * Omit to skip the gate (legacy call-sites; not recommended in production).
+   */
+  policyPath?: string;
 }
 
 export interface CreateRateBarrierResult {
@@ -75,6 +87,11 @@ export interface CreateRateBarrierResult {
   vaultPda: string;
   yesMintPda: string;
   noMintPda: string;
+  /**
+   * Set when `policyPath` was supplied AND the program_allowlist predicate
+   * allowed the ix. Absent when no policy gate was run.
+   */
+  policyGate?: string;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -194,6 +211,18 @@ export async function createRateBarrierMarket(
     throw new Error("question exceeds 128 chars (program invariant)");
   }
 
+  // ─── Policy gate (program_allowlist) ─────────────────────────────────────
+  // Runs BEFORE we build/sign the tx. Throws on DENY with err.code/err.reason
+  // attached. This closes the "create_market_v2 bypasses the enforcer" gap —
+  // the fast-path validates (programId, ix) instead of swap-shaped context.
+  if (args.policyPath) {
+    enforceProgramPolicy({
+      policyPath: args.policyPath,
+      programId: PREDICTION_MARKET_PROGRAM_ID.toBase58(),
+      instructionName: "create_market_v2",
+    });
+  }
+
   const creator = agentVault.publicKey;
   const { strategy, marketPda, vaultPda, yesMintPda, noMintPda } = derivePdas(
     creator,
@@ -258,5 +287,8 @@ export async function createRateBarrierMarket(
     vaultPda: vaultPda.toBase58(),
     yesMintPda: yesMintPda.toBase58(),
     noMintPda: noMintPda.toBase58(),
+    policyGate: args.policyPath
+      ? `enforceProgramPolicy passed (program_allowlist allowed ${PREDICTION_MARKET_PROGRAM_ID.toBase58().slice(0, 4)}...create_market_v2)`
+      : undefined,
   };
 }
