@@ -77,3 +77,9 @@ policies:
         # was not the real program id).
         - programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy"
           instructions: [deposit_sol, withdraw_sol]
+        # MarginFi Lend
+        - programId: "MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE"
+          instructions: [lending_account_deposit, lending_account_withdraw]
+        # Solend
+        - programId: "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo"
+          instructions: [deposit_reserve_liquidity, redeem_reserve_collateral]

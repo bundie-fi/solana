@@ -13,18 +13,23 @@
 
 // Node 20+ exposes global fetch — no import needed.
 
+export type LendProtocol = "kamino" | "marginfi" | "solend";
+export type LstProtocol = "marinade" | "jito";
+
 export type BrainAction =
   | { type: "noop" }
   | {
-      type: "kamino_deposit";
-      args: { amountUsdcUi: number; reserveAddress: string };
+      type: "lend_deposit";
+      protocol: LendProtocol;
+      args: { amountUsdcUi: number; reserveAddress?: string };
     }
   | {
-      type: "kamino_withdraw";
-      args: { amountKtokensUi: number; reserveAddress: string };
+      type: "lend_withdraw";
+      protocol: LendProtocol;
+      args: { amountUi: number; reserveAddress?: string };
     }
-  | { type: "marinade_stake"; args: { amountSolUi: number } }
-  | { type: "marinade_unstake"; args: { amountMsolUi: number } }
+  | { type: "lst_stake";   protocol: LstProtocol; args: { amountSolUi: number } }
+  | { type: "lst_unstake"; protocol: LstProtocol; args: { amountMsolUi: number } }
   | {
       type: "zerion_swap";
       args: {
@@ -37,7 +42,7 @@ export type BrainAction =
   | {
       type: "create_kind5_market";
       args: {
-        selector: 1 | 2;
+        selector: number;
         thresholdBps: number;
         windowSlots: number;
         questionTemplate: string;

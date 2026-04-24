@@ -1,61 +1,55 @@
 #!/bin/bash
 # Bundie agent daemon entrypoint.
-# 1. Decodes keypairs from base64 env vars → writes to keys dir
-# 2. Starts surfpool in background (mainnet fork on localhost:8899)
-# 3. Waits for surfpool to accept connections (up to 30s)
-# 4. Starts the LLM-brained agent daemon
+# 1. Decode keypairs from base64 env vars
+# 2. Start surfpool (mainnet fork, localhost:8899)
+# 3. Run all three agent daemons in parallel, staggered by 30s each
 set -e
 
 KEYS_DIR=/app/packages/programs/scripts/chaos-sim/keys
+mkdir -p "$KEYS_DIR"
 
-echo "=== Bundie Agent Daemon — Option X ==="
-echo "Decoding agent keypairs..."
-
+echo "=== Bundie Agent Daemon ==="
 for agent in alice bob charlie; do
   varname="${agent^^}_VAULT_KEYPAIR_B64"
   val="${!varname}"
   if [ -n "$val" ]; then
     echo "$val" | base64 -d > "$KEYS_DIR/${agent}-vault.json"
-    echo "  ✓ ${agent}-vault.json written"
+    echo "  ok: ${agent}-vault.json"
   else
-    echo "  WARN: $varname not set — ${agent} will be skipped"
+    echo "  WARN: $varname not set -- ${agent} will noop"
   fi
 done
 
-# ── surfpool sidecar ──────────────────────────────────────────────────────
-if command -v surfpool >/dev/null 2>&1; then
-  echo ""
-  echo "=== Starting surfpool (mainnet fork) ==="
-  surfpool start \
-    --airdrop-keypair-path "$KEYS_DIR/alice-vault.json" \
-    --airdrop-keypair-path "$KEYS_DIR/bob-vault.json" \
-    --airdrop-keypair-path "$KEYS_DIR/charlie-vault.json" \
-    &
+echo ""
+echo "=== Starting surfpool (mainnet fork) ==="
+surfpool start --network mainnet --no-tui &
+SURFPOOL_PID=$!
 
-  SURFPOOL_PID=$!
-  echo "Surfpool PID: $SURFPOOL_PID"
-
-  # Wait up to 30s for surfpool RPC to accept connections
-  echo "Waiting for surfpool RPC at localhost:8899..."
-  for i in $(seq 1 15); do
-    if curl -sf -X POST http://127.0.0.1:8899 \
-      -H "Content-Type: application/json" \
-      -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' \
-      > /dev/null 2>&1; then
-      echo "  ✓ Surfpool ready (${i}x2s)"
-      export SURFPOOL_RPC_URL=http://127.0.0.1:8899
-      break
-    fi
-    sleep 2
-  done
-
-  if [ -z "$SURFPOOL_RPC_URL" ]; then
-    echo "  WARN: Surfpool did not become ready in 30s — running in devnet-only mode"
+echo "Waiting for surfpool..."
+for i in $(seq 1 30); do
+  if curl -sf -X POST http://127.0.0.1:8899 \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' > /dev/null 2>&1; then
+    echo "  ok (${i}x2s)"
+    export SURFPOOL_RPC_URL=http://127.0.0.1:8899
+    break
   fi
-else
-  echo "WARN: surfpool binary not found — running in devnet-only mode"
-fi
+  sleep 2
+done
+[ -z "$SURFPOOL_RPC_URL" ] && echo "  WARN: surfpool not ready -- running devnet-only"
 
 echo ""
-echo "=== Starting agent daemon ==="
-exec pnpm --filter @bundie/programs chaos:agent-daemon
+echo "=== Launching agent daemons ==="
+# Alice: 5 min interval, Bob: 8 min, Charlie: 10 min
+# Staggered 30s so RPC calls don't overlap at startup
+pnpm --filter @bundie/programs chaos:agent-daemon --agent alice.bundie   --interval 300000 &
+sleep 30
+pnpm --filter @bundie/programs chaos:agent-daemon --agent bob.bundie     --interval 480000 &
+sleep 30
+pnpm --filter @bundie/programs chaos:agent-daemon --agent charlie.bundie --interval 600000 &
+
+# Keep container alive; restart if surfpool dies
+wait $SURFPOOL_PID || true
+echo "surfpool exited -- restarting"
+sleep 5
+exec "$0"
