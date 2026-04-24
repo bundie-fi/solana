@@ -17,6 +17,7 @@ import {
   getNameForAgent,
   listAllAgents,
   lookupAgentByPubkey,
+  registerNameOnDevnet,
 } from "../src/sns.js";
 
 interface TestResult {
@@ -123,6 +124,18 @@ test("deriveNamePda strips .sol suffix", () => {
   const bare = deriveNamePda("alpha-hunter").toBase58();
   const withSuffix = deriveNamePda("alpha-hunter.sol").toBase58();
   assertEq(bare, withSuffix, ".sol suffix is normalized away");
+});
+
+test("registerNameOnDevnet signature: 3-arg shape (no USDC params)", () => {
+  // Compile-time / runtime contract check — registerNameOnDevnet is now
+  // (conn, wallet, name) only. The Bonfida USDC-pricing path is gone.
+  // `Function.length` counts required positional params, which excludes
+  // optional ones; we expect exactly 3.
+  assertEq(
+    registerNameOnDevnet.length,
+    3,
+    "registerNameOnDevnet should have 3 required params (conn, wallet, name) — no buyerUsdcAta/usdcMint",
+  );
 });
 
 // ───────────────────────────────────────────────────────────────────────────

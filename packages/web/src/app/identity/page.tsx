@@ -93,7 +93,7 @@ export default function IdentityPage() {
               }}
             />
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600">
-              Devnet · Bonfida registrar
+              Devnet · SPL Name Service
             </p>
           </div>
         </div>
@@ -470,10 +470,13 @@ function ClaimFlow({
       <aside className="mt-8 rounded-xl border border-amber-600/30 bg-amber-600/5 p-4 text-xs text-neutral-700">
         <p>
           <span className="font-mono text-amber-400">Cost</span>: ≈{" "}
-          {DEVNET_REGISTRATION_COST_SOL} SOL devnet rent for the 1 kB name
-          account, plus a small Bonfida fee in mock USDC. Make sure your wallet
-          has both before claiming. (Use the Solana devnet faucet for SOL; the
-          Bundie chaos-fund flow seeds USDC.)
+          {DEVNET_REGISTRATION_COST_SOL} SOL devnet rent (no USDC required).
+          Make sure your wallet has a small SOL balance before claiming — use
+          the Solana devnet faucet if needed.
+        </p>
+        <p className="mt-2 text-[11px] text-neutral-600">
+          (uses SPL Name Service directly — Bonfida pricing layer skipped on
+          devnet)
         </p>
       </aside>
 
@@ -592,12 +595,16 @@ function ConfirmModal({
         <dl className="mt-4 space-y-2 text-sm">
           <Row label="Owner" value={truncatePubkey(owner, 8, 8)} mono />
           <Row label="Network" value="Devnet" />
-          <Row label="Registrar" value="Bonfida (@bonfida/spl-name-service)" />
+          <Row label="Registrar" value="SPL Name Service (direct)" />
           <Row
             label="Approx. cost"
-            value={`≈ ${DEVNET_REGISTRATION_COST_SOL} SOL + Bonfida USDC fee`}
+            value={`≈ ${DEVNET_REGISTRATION_COST_SOL} SOL devnet rent + tx fee`}
           />
         </dl>
+        <p className="mt-3 text-[11px] text-neutral-600">
+          (uses SPL Name Service directly — Bonfida pricing layer skipped on
+          devnet)
+        </p>
         <p className="mt-4 text-xs text-neutral-700">
           Your wallet will pop up to sign one transaction. We don&apos;t store
           the keypair — every signature stays on-device.

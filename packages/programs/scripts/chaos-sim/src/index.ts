@@ -12,6 +12,8 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
+// DEVNET_USDC_MINT is still used by `doctor` for balance display, even
+// though the SNS registration path no longer touches USDC.
 import { DEVNET_USDC_MINT, RPC_URL } from "./config.js";
 import { fundPool } from "./funding.js";
 import { runChaos } from "./orchestrator.js";
@@ -63,13 +65,17 @@ async function registerNames(): Promise<void> {
   // Explicit, opt-in. Spends devnet SOL (rent for a 1kB name account
   // ~0.011 SOL each + tx fee). Iterates the pool, skips names that are
   // already on-chain. Reports namePda + signature per agent.
+  //
+  // Uses the SPL Name Service `Create` ix directly — Bonfida's
+  // `registerDomainName` requires a Pyth feed for the payment mint that
+  // doesn't exist on devnet. No USDC needed; just rent + tx fee.
   const conn = new Connection(RPC_URL, "confirmed");
   const pool = loadPool();
 
   console.log(`SNS register-names — ${pool.length} agents`);
   console.log(`RPC: ${RPC_URL}`);
   console.log(
-    "NOTE: this writes to devnet. Each new registration costs ~0.011 SOL rent + fee.",
+    "NOTE: this writes to devnet. Each new registration costs ~0.011 SOL rent + fee (no USDC required).",
   );
   console.log("");
   console.log("ROLE         DOMAIN                 STATUS");
@@ -99,28 +105,8 @@ async function registerNames(): Promise<void> {
       continue;
     }
 
-    // Need a USDC ATA — Bonfida devnet registrar requires it.
-    const ata = getAssociatedTokenAddressSync(
-      DEVNET_USDC_MINT,
-      chaosPub(w),
-    );
     try {
-      await getAccount(conn, ata, "confirmed");
-    } catch {
-      console.log(
-        `${w.role.padEnd(12)} ${domain.padEnd(22)} skip-no-usdc-ata    (run chaos:fund first)`,
-      );
-      continue;
-    }
-
-    try {
-      const result = await registerNameOnDevnet(
-        conn,
-        w,
-        domain,
-        ata,
-        DEVNET_USDC_MINT,
-      );
+      const result = await registerNameOnDevnet(conn, w, domain);
       console.log(
         `${w.role.padEnd(12)} ${domain.padEnd(22)} REGISTERED          pda=${result.namePda} sig=${result.signature}`,
       );

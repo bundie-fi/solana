@@ -30,7 +30,12 @@
  * the Solana Name Service program (`namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkx`
  * on mainnet/devnet alike).
  */
-import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -51,13 +56,17 @@ import { ChaosWallet } from "./wallets.js";
 // so we don't have to load the package at module-init.
 //   https://sns.guide/  (canonical SNS docs)
 // Identical on mainnet and devnet — name service program IDs match.
-const NAME_PROGRAM_ID = new PublicKey(
+export const NAME_PROGRAM_ID = new PublicKey(
   "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
 );
 const ROOT_DOMAIN_ACCOUNT = new PublicKey(
   "58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx",
 );
 const HASH_PREFIX = "SPL Name Service";
+
+// SPL Name Service `Create` discriminator. See sns-register.ts comment block
+// for the full ix layout — same here.
+const CREATE_INSTRUCTION_DISCRIMINATOR = 0x00;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const NAMES_FILE = join(__dirname, "..", "keys", "agent-names.json");
@@ -216,21 +225,27 @@ export interface RegistrationResult {
 /**
  * Register `<name>.sol` on devnet to the wallet.
  *
- * Implementation note: Bonfida ships a `devnet` namespace with the same
- * binding API but pointing at devnet program IDs. We use
- * `bonfidaDevnet.bindings.registerDomainName` which mirrors the V1 mainnet
- * path. Cost: ~0.011 SOL of rent for a 1kB name account + tx fee. We pass
- * `space=1000` (1kB, the SDK's typical small default).
+ * Implementation note — why we skip Bonfida's `registerDomainName`
+ * ─────────────────────────────────────────────────────────────────
+ * Bonfida's high-level devnet binding (`devnet.bindings.registerDomainName`)
+ * tries to fetch a Pyth oracle for the buyer's payment mint to convert the
+ * registrar's USDC fee. On devnet there is no live Pyth feed for our
+ * payment mint, so the binding throws "The Pyth account for the provided
+ * mint was not found" before any tx is built. That's a Bonfida
+ * monetization-layer limitation, not an SNS limitation — the underlying
+ * on-chain identity is just an SPL Name Service `Create` ix (discriminator
+ * 0x00) that allocates the name account. No payment required, just rent.
  *
- * Caveats:
- *  - Bonfida's devnet registrar still requires the buyer's USDC ATA. We
- *    pass the wallet's devnet USDC ATA — funded by the same `chaos:fund`
- *    that funds the rest of the pool. If unfunded, registration will
- *    revert and we surface the error as `alreadyRegistered=false` +
- *    rethrow.
- *  - The Bonfida registrar program on devnet is sometimes flaky (the
- *    upstream team primarily maintains mainnet). The caller should wrap
- *    in try/catch and treat failures as non-fatal.
+ * We use the lower-level `createNameRegistry` binding instead, which wraps
+ * the SPL Name Service `createInstruction` directly. Same NameRegistry PDA
+ * (the deterministic derivation in `deriveNamePda` above), same
+ * reverse-lookup behavior, no Pyth dependency, no USDC ATA needed.
+ *
+ * Cost: ~0.011 SOL of rent for a 1kB name account + tx fee.
+ *
+ * DENY-by-default: failures from `createNameRegistry` propagate to the
+ * caller. We never silently fall back to the Bonfida USDC path because
+ * that path is exactly what we're working around.
  *
  * Returns the tx signature on success, or a sentinel result if the name is
  * already taken (idempotent re-runs).
@@ -239,8 +254,6 @@ export async function registerNameOnDevnet(
   conn: Connection,
   wallet: ChaosWallet,
   name: string,
-  buyerUsdcAta: PublicKey,
-  usdcMint: PublicKey,
 ): Promise<RegistrationResult> {
   const bare = name.replace(/\.sol$/i, "");
   const domain = `${bare}.sol`;
@@ -257,35 +270,57 @@ export async function registerNameOnDevnet(
     };
   }
 
-  // Lazy imports — see file-header note about Bonfida's transitive
-  // spl-token version pin.
+  // Lazy import — Transaction is fine to pull eagerly (we already use the
+  // PublicKey export at the top), but keeping it grouped here matches the
+  // historical lazy-load posture.
   const { Transaction, sendAndConfirmTransaction, PublicKey: PK } = await import(
     "@solana/web3.js"
   );
-  const bonfida = await import("@bonfida/spl-name-service");
 
   // 1kB name account (typical small storage for a profile).
   const SPACE = 1_000;
 
   const buyerPubkey = new PK(wallet.pubkeyB58);
 
-  // Bonfida devnet binding: returns nested ix arrays, one per "step" of
-  // the registration. We flatten into a single tx because all steps share
-  // the buyer signature.
-  const ixGroups = await bonfida.devnet.bindings.registerDomainName(
-    conn,
-    bare,
-    SPACE,
-    buyerPubkey,
-    buyerUsdcAta,
-    usdcMint,
-  );
-  const ixs = ixGroups.flat();
+  // Build the SPL Name Service `Create` ix directly. We don't use Bonfida's
+  // `createNameRegistry` helper because the package's transitive borsh
+  // import fails under strict Node ESM resolution. The on-chain layout is
+  // tiny (see CREATE_INSTRUCTION_DISCRIMINATOR comment block above) and
+  // lets us stay decoupled from the Bonfida runtime.
+  const hashed = createHash("sha256")
+    .update(HASH_PREFIX + bare, "utf8")
+    .digest();
+  const lamports = BigInt(await conn.getMinimumBalanceForRentExemption(SPACE));
+  const data = Buffer.alloc(1 + 4 + hashed.length + 8 + 4);
+  let off = 0;
+  data.writeUInt8(CREATE_INSTRUCTION_DISCRIMINATOR, off);
+  off += 1;
+  data.writeUInt32LE(hashed.length, off);
+  off += 4;
+  hashed.copy(data, off);
+  off += hashed.length;
+  data.writeBigUInt64LE(lamports, off);
+  off += 8;
+  data.writeUInt32LE(SPACE, off);
+
+  const EMPTY_PUBKEY = new PK(new Uint8Array(32));
+  const ix = new TransactionInstruction({
+    programId: NAME_PROGRAM_ID,
+    keys: [
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: buyerPubkey, isSigner: true, isWritable: true }, // payer
+      { pubkey: namePda, isSigner: false, isWritable: true }, // name account
+      { pubkey: buyerPubkey, isSigner: false, isWritable: false }, // name_owner
+      { pubkey: EMPTY_PUBKEY, isSigner: false, isWritable: false }, // name_class
+      { pubkey: ROOT_DOMAIN_ACCOUNT, isSigner: false, isWritable: false }, // parent
+    ],
+    data,
+  });
 
   let sig: string;
   if (wallet.signWith === "file" && wallet.keypair) {
     // Backwards-compat path: sign locally with the on-disk keypair.
-    const tx = new Transaction().add(...ixs);
+    const tx = new Transaction().add(ix);
     sig = await sendAndConfirmTransaction(conn, tx, [wallet.keypair], {
       commitment: "confirmed",
     });
@@ -294,7 +329,7 @@ export async function registerNameOnDevnet(
     // broadcast the signed bytes via plain RPC. We import lazily to keep
     // the smoke tests dependency-light.
     const { signWithVault } = await import("./vault-signer.js");
-    const tx = new Transaction().add(...ixs);
+    const tx = new Transaction().add(ix);
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash(
       "confirmed",
     );
