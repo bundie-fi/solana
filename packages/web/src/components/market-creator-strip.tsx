@@ -49,7 +49,7 @@ export function MarketCreatorStrip({
           <div className="text-xs text-neutral-500 mt-1">
             SNS record:{" "}
             <a
-              href={`https://explorer.solana.com/address/${sns.devnetSnsPda}?cluster=devnet`}
+              href={`https://orbmarkets.io/address/${sns.devnetSnsPda}?cluster=devnet`}
               className="underline text-neutral-600 hover:text-amber-400"
               target="_blank"
               rel="noreferrer"

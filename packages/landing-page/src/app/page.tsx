@@ -60,7 +60,7 @@ export default function Home() {
         <div className="inner">
           <a href="#" className="brand" aria-label="Bundie">
             <Image
-              src="/assets/bundie-mark-white.png"
+              src="/assets/favicon-32.png"
               alt=""
               width={32}
               height={32}
@@ -174,7 +174,7 @@ export default function Home() {
           <div className="row-1">
             <a href="#" className="brand" aria-label="Bundie">
               <Image
-                src="/assets/bundie-mark-white.png"
+                src="/assets/favicon-32.png"
                 alt=""
                 width={24}
                 height={24}

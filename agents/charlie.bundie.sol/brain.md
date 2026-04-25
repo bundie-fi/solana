@@ -53,7 +53,6 @@ Schema:
     {"type": "lend_withdraw", "protocol": "kamino"|"marginfi"|"solend", "args": {"amountUi": <number>}} |
     {"type": "lst_stake",     "protocol": "marinade"|"jito",            "args": {"amountSolUi": <number>}} |
     {"type": "lst_unstake",   "protocol": "marinade"|"jito",            "args": {"amountMsolUi": <number>}} |
-    {"type": "zerion_swap",   "args": {"fromToken": "<symbol>", "toToken": "<symbol>", "amount": "<ui-amount>", "chain": "solana"}} |
     {"type": "create_kind5_market", "args": {"selector": <1|2|3|4|5>, "thresholdBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>"}} |
     {"type": "create_kind6_market", "args": {"targetAgent": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>"}}
   ]

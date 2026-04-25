@@ -180,7 +180,7 @@ export default async function AgentProfilePage({
           >
             <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>Vault</span>
             <a
-              href={`https://explorer.solana.com/address/${vault}?cluster=devnet`}
+              href={`https://orbmarkets.io/address/${vault}?cluster=devnet`}
               target="_blank"
               rel="noreferrer"
               className="mono"
@@ -332,7 +332,7 @@ export default async function AgentProfilePage({
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>NameRegistry PDA</span>
                 <a
-                  href={`https://explorer.solana.com/address/${sns.devnetSnsPda}?cluster=devnet`}
+                  href={`https://orbmarkets.io/address/${sns.devnetSnsPda}?cluster=devnet`}
                   target="_blank"
                   rel="noreferrer"
                   className="mono"

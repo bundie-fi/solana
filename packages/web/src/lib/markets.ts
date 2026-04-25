@@ -291,8 +291,8 @@ function toMarketView(
 
 // Only show markets created from this point forward. Filters out all
 // pre-existing chaos-sim test markets so the UI starts with a clean slate.
-// Unix seconds: 2026-04-24 22:00 UTC
-const MARKET_FRESH_START_TS = 1745535600;
+// Unix seconds: 2026-04-25 02:00 UTC
+const MARKET_FRESH_START_TS = 1745553600;
 
 // Hero agent vaults — only markets from these signers are shown.
 const HERO_VAULTS = new Set([

@@ -253,7 +253,7 @@ export default async function MarketDetailPage({
               label="Market PDA"
               value={
                 <a
-                  href={`https://explorer.solana.com/address/${market.address}?cluster=devnet`}
+                  href={`https://orbmarkets.io/address/${market.address}?cluster=devnet`}
                   target="_blank"
                   rel="noreferrer"
                   style={{ color: "var(--gold)", textDecoration: "underline", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}

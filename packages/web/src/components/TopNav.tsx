@@ -33,7 +33,7 @@ export function TopNav() {
         alignItems: "center",
         justifyContent: "space-between",
         padding: "12px 20px 10px",
-        background: "rgba(10,10,10,0.92)",
+        background: "rgba(244,241,234,0.92)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         borderBottom: "1px solid var(--line-1)",
@@ -44,6 +44,8 @@ export function TopNav() {
     >
       {/* Brand + live dot */}
       <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/assets/favicon-32.png" alt="Bundie" style={{ width: 24, height: 24 }} />
         <span
           style={{
             fontFamily: "var(--font-display)",
@@ -105,10 +107,10 @@ export function TopNav() {
       {/* Wallet button */}
       <WalletButton
         style={{
-          background: "var(--purple-tint)",
-          border: "1px solid rgba(167,139,250,0.3)",
+          background: "var(--gold-tint)",
+          border: "1px solid var(--line-2)",
           borderRadius: "8px",
-          color: "var(--purple)",
+          color: "var(--gold)",
           fontSize: "11px",
           fontFamily: "var(--font-mono)",
           height: "34px",

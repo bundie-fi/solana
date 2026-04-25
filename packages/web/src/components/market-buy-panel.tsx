@@ -494,7 +494,7 @@ function TxStatus({ error, sig }: { error: string | null; sig: string | null }) 
         >
           <div style={{ color: "var(--green-2)", fontWeight: 600, fontSize: 11, marginBottom: 4 }}>Confirmed.</div>
           <a
-            href={`https://explorer.solana.com/tx/${sig}?cluster=devnet`}
+            href={`https://orbmarkets.io/tx/${sig}?cluster=devnet`}
             target="_blank"
             rel="noreferrer"
             style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}

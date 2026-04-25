@@ -22,6 +22,16 @@ for agent in alice bob charlie; do
   fi
 done
 
+# Bridge MAINNET_RPC_URL → SURFPOOL_RPC_URL so the daemon's rate-surface
+# readers (Kamino, Marinade, MarginFi, SPL stake pool) always see live mainnet
+# data even when a local surfpool fork is not running.
+if [ -n "$MAINNET_RPC_URL" ] && [ -z "$SURFPOOL_RPC_URL" ]; then
+  export SURFPOOL_RPC_URL="$MAINNET_RPC_URL"
+  echo "  bridged: SURFPOOL_RPC_URL=$SURFPOOL_RPC_URL"
+else
+  echo "  SURFPOOL_RPC_URL=${SURFPOOL_RPC_URL:-<not set, will use localhost>}"
+fi
+
 echo ""
 echo "=== Launching agent daemons (devnet) ==="
 # Alice: 5 min interval, Bob: 8 min, Charlie: 10 min
