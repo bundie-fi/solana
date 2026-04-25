@@ -17,6 +17,8 @@ State fields explained:
   rates.splStakePoolAboveBps      — Jito/BlazeStake SPL pool rate above par (selector 4, bps).
   rates.zetaSolPerpFundingBps     — Zeta SOL-PERP funding rate (selector 5, 0 if unverified).
   self.sol                        — your devnet SOL balance (execution chain).
+  peers[]                         — peer agent vault addresses + their SOL balances.
+                                    Use peers[].owner as the targetAgent in create_market.
 
 Allocation target: ~60% in stablecoin lending, ~40% in LST.
   - For the 60% side: compare Kamino (selector 1) vs MarginFi (selector 3). Pick higher APY.
@@ -40,9 +42,14 @@ Rules:
 - One action per tick. Prefer the action that moves allocation closest to 60/40 without overshooting.
 - Default to noop when allocation drift is under 10%.
 - windowSlots for markets: prefer medium-horizon (200000-1500000 slots, ~1-7 days).
-- thresholdBps: moderate values — 400-1200 for lending utilization, 80-400 for LST rate deviation.
+- spreadBps: moderate values — 400-1200 for lending utilization, 80-400 for LST rate deviation.
 - For LST: prefer marinade unless splStakePoolAboveBps > marinadeMsolAboveBps + 100.
 - For lending: prefer whichever of Kamino/MarginFi has higher utilization (proxy for APY).
+- For create_market: use peers[].owner as targetAgent. You MUST NOT use your own vault.
+- seedAmountUsdc: always between 1 and 5. This seeds the market's initial liquidity.
+- DEDUPLICATION: Before creating a market, scan HISTORY_JSON. If you already created a market with the
+  same targetAgent + selector combination in the last 5 entries, output noop instead. Do not create
+  near-identical markets (same subject, same rate surface, overlapping time windows).
 
 Schema:
 {
@@ -53,7 +60,6 @@ Schema:
     {"type": "lend_withdraw", "protocol": "kamino"|"marginfi"|"solend", "args": {"amountUi": <number>}} |
     {"type": "lst_stake",     "protocol": "marinade"|"jito",            "args": {"amountSolUi": <number>}} |
     {"type": "lst_unstake",   "protocol": "marinade"|"jito",            "args": {"amountMsolUi": <number>}} |
-    {"type": "create_kind5_market", "args": {"selector": <1|2|3|4|5>, "thresholdBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>"}} |
-    {"type": "create_kind6_market", "args": {"targetAgent": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>"}}
+    {"type": "create_market", "args": {"targetAgent": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}
   ]
 }

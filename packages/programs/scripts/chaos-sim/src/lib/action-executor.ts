@@ -27,14 +27,12 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
-import { createRateBarrierMarket } from "../actions/create-rate-barrier-market.js";
 import { createAgentVsBenchmarkMarket } from "../actions/create-agent-vs-benchmark-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
 import type { BrainAction, LendProtocol, LstProtocol } from "./redpill-brain.js";
-import { executeZerionSwap } from "./zerion-swap.js";
 
 // ─── Protocol dispatch tables ────────────────────────────────────────────
 
@@ -186,62 +184,11 @@ async function executeLst(
   };
 }
 
-async function executeZerionSwapAction(
-  args: ExecuteActionArgs,
-): Promise<ExecuteActionResult> {
-  if (args.action.type !== "zerion_swap") throw new Error("type mismatch");
-  const { fromToken, toToken, amount, chain } = args.action.args;
-  const res = executeZerionSwap({ fromToken, toToken, amount, chain, walletName: args.walletName });
-  if (!res.ok) {
-    throw new Error(
-      `Zerion CLI failed (exit=${res.exitCode}): ${res.stderr.slice(0, 400) || res.stdout.slice(0, 400)}`,
-    );
-  }
-  return {
-    phase: "execute", chain: "zerion-cli", action: "zerion_swap",
-    txSig: res.txHash,
-    policyGate: "Zerion CLI policy stack (chain_lock, spend_limit, asset_whitelist, expiry, nav_divergence) applied in-CLI",
-    notes: "swap routed through forked Zerion CLI",
-  };
-}
 
 async function executeCreateMarket(
   args: ExecuteActionArgs,
 ): Promise<ExecuteActionResult> {
-  if (args.action.type !== "create_kind5_market") throw new Error("type mismatch");
-  const a = args.action.args;
-  const currentSlot = BigInt(await args.devnet.getSlot("confirmed"));
-  const windowSlots = BigInt(Math.max(1, Math.floor(a.windowSlots)));
-  const windowEndSlot = currentSlot + windowSlots;
-  const question = (a.questionTemplate?.trim() || "Rate Barrier market").slice(0, 128);
-  const result = await createRateBarrierMarket({
-    connection: args.devnet,
-    agentVault: args.kp,
-    thresholdBps: BigInt(Math.max(1, Math.floor(a.thresholdBps))),
-    windowStartSlot: currentSlot,
-    windowEndSlot,
-    selector: BigInt(a.selector),
-    question,
-    marketId: BigInt(Date.now()),
-    resolutionSlot: windowEndSlot,
-    initialSubsidy: 1_000_000n,
-    feeBps: 100,
-    policyPath: args.policyPath,
-  });
-  return {
-    phase: "execute", chain: "devnet", action: "create_kind5_market",
-    txSig: result.signature,
-    marketPda: result.marketPda,
-    explorerUrl: `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`,
-    policyGate: result.policyGate ??
-      `enforceProgramPolicy passed (${PREDICTION_MARKET_PROGRAM_ID.slice(0, 4)}...${PREDICTION_MARKET_PROGRAM_ID.slice(-4)}.create_market_v2)`,
-  };
-}
-
-async function executeCreateKind6Market(
-  args: ExecuteActionArgs,
-): Promise<ExecuteActionResult> {
-  if (args.action.type !== "create_kind6_market") throw new Error("type mismatch");
+  if (args.action.type !== "create_market") throw new Error("type mismatch");
   const a = args.action.args;
 
   let targetAgent: import("@solana/web3.js").PublicKey;
@@ -249,17 +196,21 @@ async function executeCreateKind6Market(
     const { PublicKey } = await import("@solana/web3.js");
     targetAgent = new PublicKey(a.targetAgent);
   } catch {
-    throw new Error(`create_kind6_market: invalid targetAgent pubkey "${a.targetAgent}"`);
+    throw new Error(`create_market: invalid targetAgent pubkey "${a.targetAgent}"`);
   }
 
   if (targetAgent.equals(args.kp.publicKey)) {
-    throw new Error("create_kind6_market: targetAgent must not equal creator (insider guard)");
+    throw new Error("create_market: targetAgent must not equal creator (insider guard)");
   }
 
   const currentSlot = BigInt(await args.devnet.getSlot("confirmed"));
   const windowSlots = BigInt(Math.max(1, Math.floor(a.windowSlots)));
   const windowEndSlot = currentSlot + windowSlots;
   const question = (a.questionTemplate?.trim() || "Agent vs Benchmark market").slice(0, 128);
+
+  // Seed amount: clamp to 1–10 USDC, convert to 6dp base units
+  const seedUsdc = Math.min(10, Math.max(1, a.seedAmountUsdc ?? 2));
+  const initialSubsidy = BigInt(Math.round(seedUsdc * 1_000_000));
 
   const result = await createAgentVsBenchmarkMarket({
     connection: args.devnet,
@@ -272,18 +223,19 @@ async function executeCreateKind6Market(
     question,
     marketId: BigInt(Date.now()),
     resolutionSlot: windowEndSlot,
-    initialSubsidy: 1_000_000n,
+    initialSubsidy,
     feeBps: 100,
     policyPath: args.policyPath,
   });
 
   return {
-    phase: "execute", chain: "devnet", action: "create_kind6_market",
+    phase: "execute", chain: "devnet", action: "create_market",
     txSig: result.signature,
     marketPda: result.marketPda,
-    explorerUrl: `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`,
+    explorerUrl: `https://orbmarkets.io/tx/${result.signature}?cluster=devnet`,
     policyGate: result.policyGate ??
-      `enforceProgramPolicy passed (${PREDICTION_MARKET_PROGRAM_ID.slice(0, 4)}...create_market_v2 kind=6)`,
+      `enforceProgramPolicy passed (${PREDICTION_MARKET_PROGRAM_ID.slice(0, 4)}...create_market_v2)`,
+    notes: `seeded ${seedUsdc} USDC initial liquidity`,
   };
 }
 
@@ -304,12 +256,8 @@ export async function executeAction(
       return executeLst(args, "stake", action.protocol);
     case "lst_unstake":
       return executeLst(args, "unstake", action.protocol);
-    case "zerion_swap":
-      return executeZerionSwapAction(args);
-    case "create_kind5_market":
+    case "create_market":
       return executeCreateMarket(args);
-    case "create_kind6_market":
-      return executeCreateKind6Market(args);
     default: {
       const exhaustive: never = action;
       throw new Error(`unhandled action type: ${JSON.stringify(exhaustive)}`);

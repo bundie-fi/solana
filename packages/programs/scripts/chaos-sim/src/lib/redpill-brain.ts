@@ -31,34 +31,18 @@ export type BrainAction =
   | { type: "lst_stake";   protocol: LstProtocol; args: { amountSolUi: number } }
   | { type: "lst_unstake"; protocol: LstProtocol; args: { amountMsolUi: number } }
   | {
-      type: "zerion_swap";
-      args: {
-        fromToken: string;
-        toToken: string;
-        amount: string;
-        chain: string;
-      };
-    }
-  | {
-      type: "create_kind5_market";
-      args: {
-        selector: number;
-        thresholdBps: number;
-        windowSlots: number;
-        questionTemplate: string;
-      };
-    }
-  | {
-      type: "create_kind6_market";
+      type: "create_market";
       args: {
         /** Vault pubkey of the agent being measured (must != creator). */
         targetAgent: string;
-        /** Benchmark rate selector (1-5, same table as kind=5). */
+        /** Rate surface selector (1=Kamino USDC, 2=Marinade mSOL, 3=MarginFi USDC, 4=SPL stake pool, 5=Zeta perp funding). */
         selector: number;
-        /** Required excess of agent NAV growth over benchmark, in bps. */
+        /** Required excess of target agent NAV growth over the benchmark rate, in bps. */
         spreadBps: number;
         windowSlots: number;
         questionTemplate: string;
+        /** Initial liquidity seed in USDC (UI units, e.g. 2.0). Deposited into market vault on creation. */
+        seedAmountUsdc: number;
       };
     };
 

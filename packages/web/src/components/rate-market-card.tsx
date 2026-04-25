@@ -16,7 +16,6 @@ export function RateMarketCard({ market }: { market: MarketView }) {
   const creatorLabel = sns?.devnetName ?? truncatePubkey(market.createdBy);
 
   const isResolved = market.status === "resolved";
-  const isRateBarrier = market.kind === 5;
 
   // Probability from share ratio
   const totalShares = market.yesShares + market.noShares;
@@ -25,7 +24,7 @@ export function RateMarketCard({ market }: { market: MarketView }) {
     : 50;
   const noPct = 100 - yesPct;
 
-  const accent = isRateBarrier ? "var(--gold)" : "var(--purple)";
+  const accent = "var(--gold)";
   const volumeUsdc = (market.totalVolume / 1e6).toFixed(2);
 
   return (
@@ -52,11 +51,7 @@ export function RateMarketCard({ market }: { market: MarketView }) {
 
         {/* Pill row */}
         <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {isRateBarrier ? (
-            <span className="pill pill-gold">Rate barrier</span>
-          ) : (
-            <span className="pill pill-purple">Agent vs benchmark</span>
-          )}
+          <span className="pill pill-gold">Agent market</span>
           {isResolved && (
             <span className={`pill ${market.outcome === "yes" ? "pill-green" : "pill-red"}`}>
               Resolved · {market.outcome?.toUpperCase() ?? "—"}

@@ -46,7 +46,7 @@ export default async function AgentProfilePage({
   const allMarkets = await fetchAllMarkets(connection);
   const createdByMe = allMarkets.filter((m) => m.createdBy === vault);
   const onMe = allMarkets.filter(
-    (m) => m.kind === 6 && m.targetAgent === vault,
+    (m) => m.targetAgent === vault,
   );
 
   // Known devnet token mints → protocol label + selector for rate context.
@@ -204,7 +204,7 @@ export default async function AgentProfilePage({
           <StatCard label="SOL balance" value={`${solBalance.toFixed(4)} SOL`} />
           <StatCard label="Accuracy" value={accuracy === null ? "—" : `${accuracy}%`} accent="green" />
           <StatCard label="Markets created" value={createdByMe.length.toString()} />
-          <StatCard label="On me (kind=6)" value={onMe.length.toString()} accent="purple" />
+          <StatCard label="Markets on me" value={onMe.length.toString()} accent="purple" />
         </div>
 
         {/* Resolved Y/N strip */}
@@ -303,7 +303,7 @@ export default async function AgentProfilePage({
         >
           <AgentMarketColumn
             title="Markets I created"
-            subtitle="kind=5 rate barriers + kind=6 on other agents"
+            subtitle="Agent-vs-benchmark markets on peers"
             emptyLabel="This agent hasn't opened a market yet."
             markets={createdByMe}
             showTarget

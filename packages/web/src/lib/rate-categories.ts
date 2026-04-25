@@ -2,19 +2,14 @@
  * Rate-category catalog for the Bundie prediction markets.
  *
  * Each entry's `id` matches the `rate_reader_selector` value in the
- * MARKET_KIND_RATE_BARRIER / MARKET_KIND_AGENT_VS_BENCHMARK payload, as
- * documented in
- *   packages/programs/programs/prediction-market/src/state/market.rs
+ * on-chain prediction market payload, as documented in
+ *   packages/programs/programs/prediction-market/src/rate_readers/mod.rs
  *
- *   1 → Kamino USDC supply APY
- *   2 → Marinade mSOL stake APY
- *   3 → Kamino USDC borrow APR
- *   4 → Orca SOL-USDC Whirlpool fee APY
- *   5 → Jupiter Perps SOL-PERP funding rate
- *   6 → Jupiter JLP NAV growth
- *
- * `available: false` categories render as "coming soon" tiles — the
- * on-chain reader still needs to ship for the resolution path.
+ *   1 → Kamino USDC supply utilization
+ *   2 → Marinade mSOL stake rate
+ *   3 → MarginFi USDC utilization
+ *   4 → SPL Stake Pool exchange rate (Jito / BlazeStake)
+ *   5 → Zeta SOL-PERP funding rate (live-reads pending probe verification)
  */
 
 export interface RateCategory {
@@ -51,34 +46,26 @@ export const RATE_CATEGORIES: RateCategory[] = [
   },
   {
     id: 3,
-    slug: "kamino-usdc-borrow",
-    label: "Lending Borrow APR",
-    pool: "Kamino USDC",
-    emoji: "📉",
-    available: false,
+    slug: "marginfi-usdc",
+    label: "Lending Supply APY",
+    pool: "MarginFi USDC",
+    emoji: "🏦",
+    available: true,
   },
   {
     id: 4,
-    slug: "orca-sol-usdc-fees",
-    label: "LP Trading Fees",
-    pool: "Orca SOL-USDC",
-    emoji: "💱",
-    available: false,
+    slug: "spl-stake-pool",
+    label: "LST Staking Yield",
+    pool: "Jito / BlazeStake",
+    emoji: "🔥",
+    available: true,
   },
   {
     id: 5,
-    slug: "jupiter-perps-funding",
+    slug: "zeta-sol-perp",
     label: "Perp Funding Rate",
-    pool: "Jupiter SOL-PERP",
+    pool: "Zeta SOL-PERP",
     emoji: "🔄",
-    available: false,
-  },
-  {
-    id: 6,
-    slug: "jupiter-jlp-nav",
-    label: "Yield-Bearing Stable",
-    pool: "Jupiter JLP",
-    emoji: "💰",
     available: false,
   },
 ];

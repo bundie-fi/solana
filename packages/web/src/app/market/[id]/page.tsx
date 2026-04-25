@@ -60,24 +60,16 @@ export default async function MarketDetailPage({
         creatorResolved.length;
 
   let resolutionProse: string;
-  if (market.kind === 5 && category && market.thresholdBps != null) {
+  if (category && market.spreadBps != null) {
     resolutionProse =
-      `Rate Barrier: Will ${category.label} (${category.pool}) cross ` +
-      `${(market.thresholdBps / 100).toFixed(2)}% APY by slot ` +
-      `${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
-  } else if (market.kind === 6 && category && market.spreadBps != null) {
-    resolutionProse =
-      `Agent vs Benchmark: Will ${targetLabel ?? "the target"} beat ` +
+      `Will ${targetLabel ?? "the target agent"} outperform ` +
       `${category.label} (${category.pool}) by ${(market.spreadBps / 100).toFixed(2)}% ` +
-      `over the window ending at slot ` +
-      `${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
+      `by slot ${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
   } else {
     resolutionProse =
-      market.question ||
-      `Kind ${market.kind} market — resolves via program-native NAV reads.`;
+      market.question || "Resolves via program-native NAV reads.";
   }
 
-  const isRateBarrier = market.kind === 5;
   const totalVolumeUsdc = (market.totalVolume / 1e6).toFixed(2);
 
   return (
@@ -118,11 +110,7 @@ export default async function MarketDetailPage({
         {/* Question section */}
         <div style={{ padding: "18px 16px 14px" }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            {isRateBarrier ? (
-              <span className="pill pill-gold">Rate barrier</span>
-            ) : (
-              <span className="pill pill-purple">Agent vs benchmark</span>
-            )}
+            <span className="pill pill-gold">Agent market</span>
             <span
               className={`pill ${market.status === "active" ? "pill-green" : "pill-muted"}`}
               style={{ fontSize: 9 }}
