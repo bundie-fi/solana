@@ -1,1 +1,2 @@
-worker-chaos: pnpm --filter @bundie/programs chaos-sim:daemon
+web: pnpm --filter @bundie/backend start
+worker: pnpm --filter @bundie/programs chaos-sim:daemon
