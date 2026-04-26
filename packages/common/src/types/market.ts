@@ -59,6 +59,18 @@ export interface Market {
   createdAt: number
   /** Resolution timestamp */
   resolvedAt?: number
+  /**
+   * Authority of the BundieVault snapshotted as `target_vault_a` at
+   * create-time. Pinned so resolve_market_v2 can re-derive the canonical
+   * PDA and reject substituted vaults. Null for kinds that do not flow
+   * through BundieVault.
+   */
+  targetAuthorityA: string | null
+  /**
+   * Authority of the BundieVault snapshotted as `target_vault_b` at
+   * create-time. Only populated for kind=2 (head-to-head); null otherwise.
+   */
+  targetAuthorityB: string | null
 }
 
 /** Market with computed display fields */

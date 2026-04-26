@@ -1033,20 +1033,17 @@ export type PredictionMarket = {
         {
           "name": "dataA",
           "docs": [
-            "Primary on-chain data source for strategy A.",
-            "- kinds 0/1/2/3 → expected to be the NavOracle PDA for `market.strategy`",
-            "(seeds: [\"nav\", market.strategy])",
-            "- kind 4        → expected to be the Strategy account itself",
-            "(i.e. equal to `market.strategy`)",
+            "Reserved data slot. Phase C resolution reads vault NAV directly;",
+            "the legacy NavOracle / Strategy account paths are gone. Kept in the",
+            "account list so existing client transaction layouts (which pass",
+            "SystemProgram here as a placeholder) still serialise.",
             ""
           ]
         },
         {
           "name": "dataB",
           "docs": [
-            "Secondary data source.",
-            "- kind 2 (Relative) → NavOracle PDA for `market.strategy_b`",
-            "- all other kinds   → ignored (pass SystemProgram)",
+            "Reserved data slot — same rationale as `data_a`.",
             ""
           ]
         },
@@ -1304,6 +1301,11 @@ export type PredictionMarket = {
     },
     {
       "code": 6022,
+      "name": "wrongTargetVault",
+      "msg": "Provided target vault does not match the authority pinned at create-time (PDA mismatch)"
+    },
+    {
+      "code": 6023,
       "name": "deprecatedMarketKind",
       "msg": "Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)"
     }
@@ -1620,6 +1622,30 @@ export type PredictionMarket = {
               "read it uniformly without branching on kind."
             ],
             "type": "pubkey"
+          },
+          {
+            "name": "targetAuthorityA",
+            "docs": [
+              "Authority of the BundieVault snapshotted as `target_vault_a` at",
+              "create-time. Pinned here so resolve_market_v2 can re-derive the same",
+              "PDA (`[\"bundie_vault\", target_authority_a]`) and reject any",
+              "caller-substituted vault. `None` for kinds that do not snapshot",
+              "vault A."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "targetAuthorityB",
+            "docs": [
+              "Authority of the BundieVault snapshotted as `target_vault_b` at",
+              "create-time. Only populated for kind=2 (RELATIVE / head-to-head).",
+              "`None` otherwise."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
           }
         ]
       }
