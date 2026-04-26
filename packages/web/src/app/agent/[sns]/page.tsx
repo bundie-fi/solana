@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getDevnetConnection } from "@/lib/rpc";
-import { fetchAllMarkets } from "@/lib/markets";
+import { fetchAllMarkets, fetchBundieVault } from "@/lib/markets";
+import { PROGRAM_IDS } from "@/lib/constants";
 import {
   resolveSns,
   resolveVaultFromSns,
@@ -47,6 +48,15 @@ export default async function AgentProfilePage({
   const createdByMe = allMarkets.filter((m) => m.createdBy === vault);
   const onMe = allMarkets.filter(
     (m) => m.targetAgent === vault,
+  );
+
+  // Phase B+ NAV history for this agent — null until the agent has called
+  // commit_nav at least once. Server-fetched alongside markets/balances so
+  // the page stays SSR.
+  const bundieVault = await fetchBundieVault(
+    connection,
+    PROGRAM_IDS.predictionMarket,
+    vault,
   );
 
   // Known devnet token mints → protocol label + selector for rate context.
@@ -205,6 +215,20 @@ export default async function AgentProfilePage({
           <StatCard label="Accuracy" value={accuracy === null ? "—" : `${accuracy}%`} accent="green" />
           <StatCard label="Markets created" value={createdByMe.length.toString()} />
           <StatCard label="Markets on me" value={onMe.length.toString()} accent="purple" />
+        </div>
+
+        {/* NAV history — last commit_nav snapshot from BundieVault PDA */}
+        <div style={{ padding: "0 16px 12px" }}>
+          <div className="card" style={{ padding: 14 }}>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>NAV history</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, color: "var(--fg-0)" }}>
+              {(Number(bundieVault?.navLamports ?? 0n) / 1_000_000).toFixed(2)}{" "}
+              <span className="muted" style={{ fontSize: 13 }}>bUSD</span>
+            </div>
+            <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
+              Last commit at slot {bundieVault?.navSlot?.toString() ?? "—"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"})
+            </div>
+          </div>
         </div>
 
         {/* Resolved Y/N strip */}

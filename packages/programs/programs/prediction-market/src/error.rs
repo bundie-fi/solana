@@ -40,4 +40,14 @@ pub enum MarketError {
     InsiderMarketForbidden,
     #[msg("resolve_market_v2 data_a does not match the target_agent encoded in market payload")]
     WrongTargetAgent,
+    #[msg("Vault NAV epoch must increment monotonically")]
+    StaleNavEpoch,
+    #[msg("Caller is not the vault authority")]
+    UnauthorizedVaultCommit,
+    #[msg("Required target vault account not provided")]
+    MissingTargetVault,
+    #[msg("Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)")]
+    DeprecatedMarketKind,
+    #[msg("Caller is not the vault owner_wallet — cannot close")]
+    UnauthorizedVaultClose,
 }

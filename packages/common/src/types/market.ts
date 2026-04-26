@@ -41,6 +41,10 @@ export interface Market {
   liquidityParam: bigint
   /** Total volume traded */
   totalVolume: bigint
+  /** BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A. Zero for kinds that do not flow through BundieVault. */
+  initialNavA: bigint
+  /** BundieVault NAV (lamports) snapshotted at create_market_v2 for vault B. Zero for kinds that do not flow through BundieVault (or for single-vault kinds). */
+  initialNavB: bigint
   /** Market fee in basis points (e.g., 100 = 1%) */
   feeBps: number
   /** Collateral mint (e.g. USDC) */
@@ -87,4 +91,26 @@ export interface BuySharesParams {
   market: string
   outcome: Outcome
   amount: number
+}
+
+/** On-chain BundieVault account data (PDA derived from `["bundie_vault", authority]`) */
+export interface BundieVault {
+  /** Vault authority (Bundie agent vault pubkey) */
+  authority: string
+  /** Wallet that funded / owns the agent — authorized to call `close_vault` */
+  ownerWallet: string
+  /** SPL mint of the treasury asset (e.g. bUSD) */
+  treasuryMint: string
+  /** ATA owned by the vault PDA that holds the treasury balance */
+  treasuryAta: string
+  /** Most recent committed NAV in lamports */
+  navLamports: bigint
+  /** Monotonic epoch — incremented on each commit_nav */
+  navEpoch: bigint
+  /** Slot at which the latest NAV was committed */
+  navSlot: bigint
+  /** Off-chain commit digest (e.g., signed-payload hash) */
+  commitDigest: Uint8Array
+  /** PDA bump */
+  bump: number
 }

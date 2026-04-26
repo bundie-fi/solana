@@ -339,6 +339,150 @@ export type PredictionMarket = {
       ]
     },
     {
+      "name": "closeVault",
+      "docs": [
+        "Drain the vault treasury back to `owner_wallet`, close the",
+        "treasury ATA, and close the BundieVault PDA (rent → owner).",
+        "Only the `owner_wallet` recorded at init may call this."
+      ],
+      "discriminator": [
+        141,
+        103,
+        17,
+        126,
+        72,
+        75,
+        29,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.authority",
+                "account": "bundieVault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasuryAta",
+          "writable": true
+        },
+        {
+          "name": "ownerAta",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "commitNav",
+      "docs": [
+        "Commit a new NAV value to the vault. Enforces strict monotonic",
+        "epoch increment (`new_epoch == prev + 1`) so a stale or replayed",
+        "commit cannot regress the vault. The `has_one = authority`",
+        "constraint locks writes to the vault owner."
+      ],
+      "discriminator": [
+        124,
+        190,
+        187,
+        63,
+        110,
+        124,
+        21,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "newNav",
+          "type": "u64"
+        },
+        {
+          "name": "newEpoch",
+          "type": "u64"
+        },
+        {
+          "name": "commitDigest",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "createMarket",
       "docs": [
         "Create a new prediction market on a strategy's performance"
@@ -678,6 +822,24 @@ export type PredictionMarket = {
         {
           "name": "rent",
           "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "targetVaultA",
+          "docs": [
+            "Optional BundieVault for strategy A. Required for kinds 1/2/3",
+            "(NavTarget, Relative, Drawdown) so create_market_v2 can snapshot",
+            "the live NAV baseline. Pass `None` for legacy kinds (5/6) that",
+            "do not yet flow through BundieVault."
+          ],
+          "optional": true
+        },
+        {
+          "name": "targetVaultB",
+          "docs": [
+            "Optional BundieVault for strategy B. Required only for kind=2",
+            "(RELATIVE / head-to-head). Pass `None` otherwise."
+          ],
+          "optional": true
         }
       ],
       "args": [
@@ -721,6 +883,257 @@ export type PredictionMarket = {
         {
           "name": "initialNavB",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "depositToVault",
+      "docs": [
+        "Transfer `amount` of the vault's treasury mint into its treasury",
+        "ATA. Anyone may seed an agent."
+      ],
+      "discriminator": [
+        18,
+        62,
+        110,
+        8,
+        26,
+        106,
+        248,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "signer": true
+        },
+        {
+          "name": "depositorAta",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.authority",
+                "account": "bundieVault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasuryAta",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initVault",
+      "docs": [
+        "Initialize a BundieVault PDA at epoch 0 with an initial NAV. The PDA",
+        "is derived from `[\"bundie_vault\", authority]` so each authority owns",
+        "exactly one vault. Phases B+ read NAV from this account during",
+        "market resolution instead of CPIing into protocol-specific readers."
+      ],
+      "discriminator": [
+        77,
+        79,
+        85,
+        150,
+        33,
+        217,
+        52,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasuryMint",
+          "docs": [
+            "Mint of the asset the treasury will hold (e.g. bUSD)."
+          ]
+        },
+        {
+          "name": "treasuryAta",
+          "docs": [
+            "Treasury ATA owned by the vault PDA itself. Created here so the",
+            "vault can hold balance with no extra setup step."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "treasuryMint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
+          "name": "initialNav",
+          "type": "u64"
+        },
+        {
+          "name": "ownerWallet",
+          "type": "pubkey"
+        },
+        {
+          "name": "treasuryMint",
+          "type": "pubkey"
         }
       ]
     },
@@ -890,6 +1303,23 @@ export type PredictionMarket = {
             "- all other kinds   → ignored (pass SystemProgram)",
             ""
           ]
+        },
+        {
+          "name": "targetVaultA",
+          "docs": [
+            "Optional BundieVault for strategy A.",
+            "Required for kinds 1 (NavTarget), 2 (Relative), and 3 (Drawdown) —",
+            "the resolver reads `nav_lamports` to compute the outcome."
+          ],
+          "optional": true
+        },
+        {
+          "name": "targetVaultB",
+          "docs": [
+            "Optional BundieVault for strategy B.",
+            "Required only for kind=2 (RELATIVE / head-to-head)."
+          ],
+          "optional": true
         }
       ],
       "args": []
@@ -988,6 +1418,19 @@ export type PredictionMarket = {
     }
   ],
   "accounts": [
+    {
+      "name": "bundieVault",
+      "discriminator": [
+        239,
+        32,
+        103,
+        186,
+        197,
+        8,
+        108,
+        152
+      ]
+    },
     {
       "name": "market",
       "discriminator": [
@@ -1097,9 +1540,99 @@ export type PredictionMarket = {
       "code": 6018,
       "name": "wrongTargetAgent",
       "msg": "resolve_market_v2 data_a does not match the target_agent encoded in market payload"
+    },
+    {
+      "code": 6019,
+      "name": "staleNavEpoch",
+      "msg": "Vault NAV epoch must increment monotonically"
+    },
+    {
+      "code": 6020,
+      "name": "unauthorizedVaultCommit",
+      "msg": "Caller is not the vault authority"
+    },
+    {
+      "code": 6021,
+      "name": "missingTargetVault",
+      "msg": "Required target vault account not provided"
+    },
+    {
+      "code": 6022,
+      "name": "deprecatedMarketKind",
+      "msg": "Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)"
+    },
+    {
+      "code": 6023,
+      "name": "unauthorizedVaultClose",
+      "msg": "Caller is not the vault owner_wallet — cannot close"
     }
   ],
   "types": [
+    {
+      "name": "bundieVault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "ownerWallet",
+            "docs": [
+              "Wallet that funded / owns the agent. Authorized to call",
+              "`close_vault` and reclaim treasury balance."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasuryMint",
+            "docs": [
+              "SPL mint of the treasury asset (e.g. bUSD)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasuryAta",
+            "docs": [
+              "Associated token account owned by this vault PDA that holds",
+              "`treasury_mint` balance. Created during `init_vault`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "navLamports",
+            "type": "u64"
+          },
+          {
+            "name": "navEpoch",
+            "type": "u64"
+          },
+          {
+            "name": "navSlot",
+            "type": "u64"
+          },
+          {
+            "name": "commitDigest",
+            "docs": [
+              "Opaque off-chain audit commitment (e.g. hash of the agent's",
+              "computation log for this epoch). The program does not verify or",
+              "interpret this value; it is recorded verbatim for off-chain audit."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
     {
       "name": "market",
       "type": {
@@ -1295,6 +1828,24 @@ export type PredictionMarket = {
             "name": "initialNavPerShareB",
             "docs": [
               "NAV per share at market creation time for strategy B (Relative markets only; 0 for Absolute)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initialNavA",
+            "docs": [
+              "BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A.",
+              "Phase B uses this as the baseline for kinds 1/2/3 (NavTarget/Relative/Drawdown)",
+              "when resolving against `BundieVault.nav_lamports`. Zero for kinds that",
+              "do not snapshot a vault baseline."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initialNavB",
+            "docs": [
+              "BundieVault NAV (lamports) snapshotted at create_market_v2 for vault B.",
+              "Only populated for kind=2 (RELATIVE / head-to-head). Zero otherwise."
             ],
             "type": "u64"
           },

@@ -80,6 +80,16 @@ pub struct CreateMarketV2<'info> {
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+
+    /// Optional BundieVault for strategy A. Required for kinds 1/2/3
+    /// (NavTarget, Relative, Drawdown) so create_market_v2 can snapshot
+    /// the live NAV baseline. Pass `None` for legacy kinds (5/6) that
+    /// do not yet flow through BundieVault.
+    pub target_vault_a: Option<Account<'info, crate::state::BundieVault>>,
+
+    /// Optional BundieVault for strategy B. Required only for kind=2
+    /// (RELATIVE / head-to-head). Pass `None` otherwise.
+    pub target_vault_b: Option<Account<'info, crate::state::BundieVault>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -100,6 +110,10 @@ pub fn handler(
     require!(
         kind <= MARKET_KIND_AGENT_VS_BENCHMARK,
         MarketError::InvalidKind
+    );
+    require!(
+        matches!(kind, 1 | 2 | 3),
+        crate::error::MarketError::DeprecatedMarketKind
     );
 
     // Per-kind invariants. Catch obviously-broken configs at create time
@@ -193,6 +207,36 @@ pub fn handler(
         None
     };
 
+    // Snapshot BundieVault NAVs for kinds 1/2/3. The vault NAV recorded
+    // here becomes the baseline used by resolve_market_v2 to compute
+    // returns / drawdown / relative growth. Legacy kinds (5/6) preserve
+    // the caller-supplied `initial_nav_a` / `initial_nav_b` parameters
+    // so existing flows keep working until Phase C strips them.
+    let (snap_a, snap_b) = match kind {
+        MARKET_KIND_NAV_TARGET | MARKET_KIND_DRAWDOWN => {
+            let v = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            (v.nav_lamports, 0u64)
+        }
+        MARKET_KIND_RELATIVE => {
+            let a = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            let b = ctx
+                .accounts
+                .target_vault_b
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            (a.nav_lamports, b.nav_lamports)
+        }
+        _ => (initial_nav_a, initial_nav_b),
+    };
+
     let market = &mut ctx.accounts.market;
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
@@ -231,6 +275,11 @@ pub fn handler(
     market.bump = ctx.bumps.market;
     market.initial_nav_per_share = initial_nav_a;
     market.initial_nav_per_share_b = initial_nav_b;
+    // Phase B: snapshot BundieVault NAV for kinds 1/2/3. For other kinds
+    // these mirror the legacy `initial_nav_*` parameters so consumers can
+    // read the same field uniformly.
+    market.initial_nav_a = snap_a;
+    market.initial_nav_b = snap_b;
     market.yes_mint_bump = ctx.bumps.yes_mint;
     market.no_mint_bump = ctx.bumps.no_mint;
     market.vault_bump = ctx.bumps.vault;

@@ -53,6 +53,15 @@ pub struct ResolveMarketV2<'info> {
     ///
     /// CHECK: Manual validation in handler.
     pub data_b: UncheckedAccount<'info>,
+
+    /// Optional BundieVault for strategy A.
+    /// Required for kinds 1 (NavTarget), 2 (Relative), and 3 (Drawdown) —
+    /// the resolver reads `nav_lamports` to compute the outcome.
+    pub target_vault_a: Option<Account<'info, crate::state::BundieVault>>,
+
+    /// Optional BundieVault for strategy B.
+    /// Required only for kind=2 (RELATIVE / head-to-head).
+    pub target_vault_b: Option<Account<'info, crate::state::BundieVault>>,
 }
 
 /// Read and validate a NavOracle account. Returns its TWAP value.
@@ -144,14 +153,19 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
         }
 
         MARKET_KIND_NAV_TARGET => {
-            let twap_a = read_oracle_twap(&ctx.accounts.data_a, &strategy_a)?;
-            let target_nav = payload_u64(&payload, 0);
+            // Phase B: read live NAV from BundieVault rather than NavOracle.
+            let target_nav = u64::from_le_bytes(payload[0..8].try_into().unwrap());
+            let v = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
             msg!(
-                "resolve_v2(NavTarget): twap={} target={}",
-                twap_a,
+                "resolve_v2(NavTarget): vault_nav={} target={}",
+                v.nav_lamports,
                 target_nav
             );
-            if twap_a >= target_nav {
+            if v.nav_lamports >= target_nav {
                 Outcome::Yes
             } else {
                 Outcome::No
@@ -159,37 +173,35 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
         }
 
         MARKET_KIND_RELATIVE => {
-            let strategy_b = ctx
+            // Phase B: head-to-head NAV delta from BundieVault accounts.
+            let a = ctx
                 .accounts
-                .market
-                .strategy_b
-                .ok_or(MarketError::InvalidOracle)?;
-
-            let twap_a = read_oracle_twap(&ctx.accounts.data_a, &strategy_a)?;
-            let twap_b = read_oracle_twap(&ctx.accounts.data_b, &strategy_b)?;
-
-            let initial_a = ctx.accounts.market.initial_nav_per_share;
-            let initial_b = ctx.accounts.market.initial_nav_per_share_b;
-
-            // Compare raw growth ratios (in ppm). Annualisation cancels out
-            // because both legs span the same elapsed window.
-            let growth_a = if initial_a == 0 || twap_a <= initial_a {
-                0u128
-            } else {
-                (twap_a - initial_a) as u128 * 1_000_000 / initial_a as u128
-            };
-            let growth_b = if initial_b == 0 || twap_b <= initial_b {
-                0u128
-            } else {
-                (twap_b - initial_b) as u128 * 1_000_000 / initial_b as u128
-            };
-
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            let b = ctx
+                .accounts
+                .target_vault_b
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            let init_a = ctx.accounts.market.initial_nav_a.max(1) as i128;
+            let init_b = ctx.accounts.market.initial_nav_b.max(1) as i128;
+            let return_a = ((a.nav_lamports as i128) - (ctx.accounts.market.initial_nav_a as i128))
+                .checked_mul(10_000)
+                .ok_or(MarketError::MathOverflow)?
+                .checked_div(init_a)
+                .ok_or(MarketError::MathOverflow)?;
+            let return_b = ((b.nav_lamports as i128) - (ctx.accounts.market.initial_nav_b as i128))
+                .checked_mul(10_000)
+                .ok_or(MarketError::MathOverflow)?
+                .checked_div(init_b)
+                .ok_or(MarketError::MathOverflow)?;
             msg!(
-                "resolve_v2(Relative): a_growth_ppm={} b_growth_ppm={}",
-                growth_a,
-                growth_b
+                "resolve_v2(Relative): return_a_bps={} return_b_bps={}",
+                return_a,
+                return_b
             );
-            if growth_a > growth_b {
+            if return_a > return_b {
                 Outcome::Yes
             } else {
                 Outcome::No
@@ -197,10 +209,35 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
         }
 
         MARKET_KIND_DRAWDOWN => {
-            // Deferred until NavOracle gains a snapshot ring buffer.
-            // Returning a distinct error so the resolver can surface this
-            // cleanly rather than emitting a fake outcome.
-            return Err(error!(MarketError::ResolveDeferredKind));
+            // Phase B: drawdown computed from BundieVault NAV vs the
+            // create-time snapshot. YES if the NAV dropped by at least
+            // `max_drawdown_bps`; NO if NAV is flat or up.
+            let max_drawdown_bps = u64::from_le_bytes(payload[0..8].try_into().unwrap());
+            let v = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            let initial = ctx.accounts.market.initial_nav_a;
+            if v.nav_lamports >= initial {
+                Outcome::No
+            } else {
+                let drop_bps = ((initial - v.nav_lamports) as u128)
+                    .checked_mul(10_000)
+                    .ok_or(MarketError::MathOverflow)?
+                    .checked_div((initial.max(1)) as u128)
+                    .ok_or(MarketError::MathOverflow)? as u64;
+                msg!(
+                    "resolve_v2(Drawdown): drop_bps={} max_bps={}",
+                    drop_bps,
+                    max_drawdown_bps
+                );
+                if drop_bps >= max_drawdown_bps {
+                    Outcome::Yes
+                } else {
+                    Outcome::No
+                }
+            }
         }
 
         MARKET_KIND_BACKER_COUNT => {
@@ -214,92 +251,7 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
             }
         }
 
-        MARKET_KIND_RATE_BARRIER => {
-            let threshold_bps = payload_u64(&payload, 0);
-            let _window_start = payload_u64(&payload, 8);
-            let _window_end = payload_u64(&payload, 16);
-            let selector = payload_u64(&payload, 24);
-
-            let reader = crate::rate_readers::rate_reader_for_selector(selector)
-                .ok_or(error!(MarketError::InvalidOracle))?;
-            let data = ctx.accounts.data_a.try_borrow_data()?;
-            let current_apy_bps = reader.read_apy_bps(&data)?;
-
-            msg!(
-                "resolve_v2(RateBarrier): selector={} apy_bps={} threshold={}",
-                selector,
-                current_apy_bps,
-                threshold_bps
-            );
-
-            if current_apy_bps >= threshold_bps {
-                Outcome::Yes
-            } else {
-                Outcome::No
-            }
-        }
-
-        MARKET_KIND_AGENT_VS_BENCHMARK => {
-            let spread_bps = payload_u64(&payload, 0);
-            let _window_start = payload_u64(&payload, 8);
-            let _window_end = payload_u64(&payload, 16);
-            let benchmark_selector = payload_u64(&payload, 24);
-
-            // payload[32..64] carries the target_agent Pubkey. Assert that
-            // data_a is actually the vault encoded in the payload — without
-            // this, anyone could resolve a market against an arbitrary token
-            // account of their choosing. This is the resolve-side twin of
-            // the create-side insider-trading guard.
-            let target_agent_bytes: [u8; 32] = payload[32..64].try_into().unwrap();
-            let target_agent = Pubkey::new_from_array(target_agent_bytes);
-            require!(
-                ctx.accounts.data_a.key() == target_agent,
-                MarketError::WrongTargetAgent
-            );
-
-            // data_a must be the agent's vault SPL Token Account. Amount lives
-            // at offset 64 (the `amount: u64` field after mint+owner+delegate).
-            let vault_data = ctx.accounts.data_a.try_borrow_data()?;
-            require!(vault_data.len() >= 72, MarketError::InvalidOracle);
-            let current_agent_nav = u64::from_le_bytes(
-                vault_data[64..72]
-                    .try_into()
-                    .map_err(|_| error!(MarketError::InvalidOracle))?,
-            );
-
-            // data_b is the benchmark reader's pool account.
-            let benchmark_reader =
-                crate::rate_readers::rate_reader_for_selector(benchmark_selector)
-                    .ok_or(error!(MarketError::InvalidOracle))?;
-            let benchmark_data = ctx.accounts.data_b.try_borrow_data()?;
-            let benchmark_apy_bps = benchmark_reader.read_apy_bps(&benchmark_data)?;
-
-            // NAV-from-zero model. We no longer store an initial_agent_nav at
-            // payload[32..40] (those bytes are now the low half of the
-            // target_agent Pubkey). The agent's "return" here is simply the
-            // current vault balance expressed in bps — i.e. we treat the
-            // whole vault as accumulated return over the measurement window.
-            // For the hackathon this is a reasonable approximation: all three
-            // reference agents start each market window with a freshly-funded
-            // vault, so balance == growth. Re-introducing a per-market
-            // snapshot is a post-hackathon enhancement.
-            let agent_return_bps = current_agent_nav;
-
-            msg!(
-                "resolve_v2(AgentVsBenchmark): agent_return_bps={} benchmark_bps={} spread_bps={}",
-                agent_return_bps,
-                benchmark_apy_bps,
-                spread_bps
-            );
-
-            if agent_return_bps >= benchmark_apy_bps.saturating_add(spread_bps) {
-                Outcome::Yes
-            } else {
-                Outcome::No
-            }
-        }
-
-        _ => return Err(error!(MarketError::InvalidKind)),
+        _ => return err!(MarketError::DeprecatedMarketKind),
     };
 
     let market = &mut ctx.accounts.market;
