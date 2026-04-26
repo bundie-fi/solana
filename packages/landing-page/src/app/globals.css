@@ -6,7 +6,7 @@
    Bundie · Solana landing · design tokens + section styles
    ===================================================================== */
 :root {
-  /* Paper Light — matches the main app's design tokens */
+  /* Paper Light. Matches the main app's design tokens. */
   --bg:            #F4F1EA;
   --bg-raised:     #FAF7F0;
   --bg-deep:       #EDE8DC;
@@ -1305,20 +1305,26 @@ footer .row-2 {
   gap: 14px;
 }
 .protocol-tile {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 18px 18px;
+  text-align: center;
+  gap: 6px;
+  padding: 24px 18px 20px;
   background: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: 14px;
   transition: border-color var(--dur) var(--ease),
               background var(--dur) var(--ease),
-              transform var(--dur) var(--ease);
+              transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
 }
 .protocol-tile:hover {
+  transform: translateY(-2px);
   border-color: var(--line-2);
   background: var(--bg-deep);
+  box-shadow: 0 12px 28px -16px rgba(18, 68, 58, 0.18);
 }
 .protocol-tile-cta {
   border-style: dashed;
@@ -1328,27 +1334,34 @@ footer .row-2 {
 .protocol-tile-cta:hover {
   border-color: var(--amber-ring);
   background: var(--amber-tint);
+  box-shadow: none;
 }
-.protocol-emoji {
-  font-size: 26px;
-  line-height: 1;
-  flex-shrink: 0;
+.protocol-logo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(22, 22, 24, 0.04);
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.protocol-tile-cta .protocol-emoji {
+.protocol-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.protocol-logo-plus {
   color: var(--amber-3);
   background: transparent;
   border: 1px dashed var(--line-2);
+  border-radius: 999px;
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 22px;
+  font-size: 24px;
+  line-height: 1;
 }
-.protocol-meta { flex: 1; min-width: 0; }
 .protocol-name {
   font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
   font-size: 18px;
@@ -1362,6 +1375,10 @@ footer .row-2 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-4);
+  margin-bottom: 10px;
+}
+.protocol-tile .pill-status {
+  margin-top: auto;
 }
 
 /* ---------- Agent strip (demoted examples) ---------------------------- */
@@ -1477,8 +1494,9 @@ footer .row-2 {
   .aw-grid-3 { grid-template-columns: 1fr; }
   .aw-term { min-height: 360px; }
   .agent-strip { grid-template-columns: 1fr; }
-  .protocol-tile { padding: 14px; }
-  .protocol-emoji { width: 38px; height: 38px; font-size: 22px; }
+  .protocol-tile { padding: 18px 14px 16px; }
+  .protocol-logo { width: 40px; height: 40px; margin-bottom: 10px; }
+  .protocol-logo-plus { font-size: 22px; }
 }
 
 /* Scrollbar */

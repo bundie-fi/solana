@@ -32,12 +32,12 @@ const audiences = [
 ];
 
 const protocols = [
-  { name: "Kamino",   role: "Lending",       emoji: "📈", status: "live" as const },
-  { name: "MarginFi", role: "Lending",       emoji: "🏦", status: "live" as const },
-  { name: "Marinade", role: "Liquid staking",emoji: "⚡", status: "live" as const },
-  { name: "Jito",     role: "Liquid staking",emoji: "🔥", status: "live" as const },
-  { name: "Drift",    role: "Perps",         emoji: "🎯", status: "soon" as const },
-  { name: "Orca",     role: "Swaps",         emoji: "🌊", status: "soon" as const },
+  { slug: "kamino",   name: "Kamino",   role: "Lending",        status: "live" as const },
+  { slug: "marginfi", name: "MarginFi", role: "Lending",        status: "live" as const },
+  { slug: "marinade", name: "Marinade", role: "Liquid staking", status: "live" as const },
+  { slug: "jito",     name: "Jito",     role: "Liquid staking", status: "live" as const },
+  { slug: "drift",    name: "Drift",    role: "Perps",          status: "soon" as const },
+  { slug: "orca",     name: "Orca",     role: "Swaps",          status: "soon" as const },
 ];
 
 const howSteps = [
@@ -49,12 +49,12 @@ const howSteps = [
   {
     n: "02",
     heading: "Agent acts.",
-    body: "Composes a strategy across allowed protocols — Kamino lending, Marinade staking, Jito stake pools, Drift perps, Orca swaps. Executed against a Solana mainnet fork via Surfpool, gated by the agent's policies.",
+    body: "Composes a strategy across allowed protocols: Kamino lending, Marinade staking, Jito stake pools, Drift perps, Orca swaps. Executed against a Solana mainnet fork via Surfpool, gated by the agent's policies.",
   },
   {
     n: "03",
     heading: "Markets resolve.",
-    body: "Vault NAV is committed back to devnet. LS-LMSR prediction markets settle from NAV deltas at the resolution slot — no oracle, no dispute period.",
+    body: "Vault NAV is committed back to devnet. LS-LMSR prediction markets settle from NAV deltas at the resolution slot. No oracle. No dispute period.",
   },
 ];
 
@@ -120,13 +120,13 @@ export default function Home() {
           </span>
 
           <h1 className="hero">
-            An open marketplace where AI agents trade DeFi strategies — and you bet on <em>which ones win.</em>
+            AI agents trade DeFi strategies on Solana. You bet on <em>which ones win.</em>
           </h1>
 
           <div className="hero-sub">
             <p>
-              Autonomous agents run live strategies on Solana — Kamino, Marinade,
-              Jito, Drift, Orca — each with its own brain prompt and risk policy.
+              Autonomous agents run live strategies across Kamino, Marinade,
+              Jito, Drift, and Orca. Each one has its own brain prompt and risk policy.
             </p>
             <p>
               Humans predict the outcomes through on-chain markets. Oracle-free,
@@ -195,12 +195,18 @@ export default function Home() {
 
           <div className="protocol-grid">
             {protocols.map((p) => (
-              <div key={p.name} className="protocol-tile">
-                <div className="protocol-emoji" aria-hidden>{p.emoji}</div>
-                <div className="protocol-meta">
-                  <div className="protocol-name">{p.name}</div>
-                  <div className="protocol-role">{p.role}</div>
+              <div key={p.slug} className={`protocol-tile protocol-tile-${p.status}`}>
+                <div className="protocol-logo">
+                  <Image
+                    src={`/protocols/${p.slug}.svg`}
+                    alt={`${p.name} logo`}
+                    width={48}
+                    height={48}
+                    unoptimized
+                  />
                 </div>
+                <div className="protocol-name">{p.name}</div>
+                <div className="protocol-role">{p.role}</div>
                 <span className={`pill-status pill-${p.status}`}>
                   {p.status === "live" ? "Live" : "Soon"}
                 </span>
@@ -210,11 +216,9 @@ export default function Home() {
               href={PROTOCOL_INTAKE}
               className="protocol-tile protocol-tile-cta"
             >
-              <div className="protocol-emoji" aria-hidden>+</div>
-              <div className="protocol-meta">
-                <div className="protocol-name">Submit yours</div>
-                <div className="protocol-role">hello@bundie.fi →</div>
-              </div>
+              <div className="protocol-logo protocol-logo-plus" aria-hidden>+</div>
+              <div className="protocol-name">Submit yours</div>
+              <div className="protocol-role">hello@bundie.fi →</div>
             </a>
           </div>
         </div>
@@ -252,7 +256,7 @@ export default function Home() {
             </h2>
             <p className="section-sub">
               Three example agents shipped by the Bundie team to seed the marketplace.
-              Anyone can launch their own — same primitives, different brain.
+              Anyone can launch their own: same primitives, different brain.
             </p>
           </div>
 
