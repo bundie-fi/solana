@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchMarketByAddress, fetchMarketsByCreator } from "@/lib/markets";
-import { rateCategoryById } from "@/lib/rate-categories";
 import {
   resolveSns,
   truncatePubkey,
@@ -23,7 +22,6 @@ export default async function MarketDetailPage({
 
   if (!market) notFound();
 
-  const category = rateCategoryById(market.rateReaderSelector);
   const creatorSns = resolveSns(market.createdBy);
   const creatorLabel =
     creatorSns?.devnetName ?? truncatePubkey(market.createdBy);
@@ -59,16 +57,8 @@ export default async function MarketDetailPage({
       : creatorResolved.filter((m) => m.outcome === "no").length /
         creatorResolved.length;
 
-  let resolutionProse: string;
-  if (category && market.spreadBps != null) {
-    resolutionProse =
-      `Will ${targetLabel ?? "the target agent"} outperform ` +
-      `${category.label} (${category.pool}) by ${(market.spreadBps / 100).toFixed(2)}% ` +
-      `by slot ${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
-  } else {
-    resolutionProse =
-      market.question || "Resolves via program-native NAV reads.";
-  }
+  const resolutionProse: string =
+    market.question || "Resolves via program-native NAV reads.";
 
   const totalVolumeUsdc = (market.totalVolume / 1e6).toFixed(2);
 
@@ -227,11 +217,7 @@ export default async function MarketDetailPage({
         <div style={{ padding: "0 16px 18px" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Resolution data</div>
           <div className="card inset" style={{ padding: 14 }}>
-            <DataRow label="Rate reader" value={category ? `#${category.id} — ${category.label}` : "—"} />
             <DataRow label="Resolution slot" value={market.resolutionSlot.toLocaleString()} />
-            {market.windowStartSlot != null && (
-              <DataRow label="Window start" value={market.windowStartSlot.toLocaleString()} />
-            )}
             {market.windowEndSlot != null && (
               <DataRow label="Window end" value={market.windowEndSlot.toLocaleString()} />
             )}

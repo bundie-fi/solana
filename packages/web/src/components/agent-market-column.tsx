@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { rateCategoryById } from "@/lib/rate-categories";
 import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import type { MarketView } from "@/lib/markets";
 
 /**
  * Two-column block used on /agent/[sns]:
  *   left: "Markets I created" (createdBy == vault)
- *   right: "Markets on me" (kind=6 and targetAgent == vault)
+ *   right: "Markets on me" (kind=2 and targetAgent == vault)
  *
  * The column is a single reusable component because the row template
  * is identical — only the creator-vs-target pill differs. Kept as a
@@ -71,13 +70,12 @@ function AgentMarketRow({
   showCreator?: boolean;
   selfVault: string;
 }) {
-  const cat = rateCategoryById(market.rateReaderSelector);
   const targetSns = market.targetAgent ? resolveSns(market.targetAgent) : null;
   const creatorSns = resolveSns(market.createdBy);
 
   let pillLabel: string | null = null;
-  if (showTarget && market.kind === 6 && market.targetAgent) {
-    pillLabel = `on ${targetSns?.devnetName ?? truncatePubkey(market.targetAgent)}`;
+  if (showTarget && market.kind === 2 && market.targetAgent) {
+    pillLabel = `vs ${targetSns?.devnetName ?? truncatePubkey(market.targetAgent)}`;
   } else if (showCreator) {
     pillLabel = `by ${creatorSns?.devnetName ?? truncatePubkey(market.createdBy)}`;
   }
@@ -87,6 +85,15 @@ function AgentMarketRow({
     pillLabel = null;
   }
 
+  const kindLabel =
+    market.kind === 1
+      ? "NAV target"
+      : market.kind === 2
+        ? "Head-to-head"
+        : market.kind === 3
+          ? "Drawdown"
+          : `Kind ${market.kind}`;
+
   return (
     <li>
       <Link
@@ -94,11 +101,11 @@ function AgentMarketRow({
         className="flex items-start gap-3 rounded-lg border border-neutral-300 bg-surface p-3 hover:border-amber-400/70 transition-colors"
       >
         <span className="text-lg shrink-0" aria-hidden="true">
-          {cat?.emoji ?? "📊"}
+          📊
         </span>
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600">
-            {cat?.label ?? `Kind ${market.kind}`}
+            {kindLabel}
           </div>
           <div className="font-serif text-[15px] text-neutral-900 line-clamp-2 mt-0.5">
             {market.question || "—"}

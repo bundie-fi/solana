@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { buildRedeemTx } from "@/lib/tx-builders";
-import { rateCategoryById } from "@/lib/rate-categories";
 import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import type { MarketView } from "@/lib/markets";
 
@@ -28,7 +27,6 @@ export function PositionCard({ position: p }: { position: Position }) {
   const [redeeming, setRedeeming] = useState(false);
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
 
-  const category = rateCategoryById(p.market.rateReaderSelector);
   const creatorSns = resolveSns(p.market.createdBy);
   const creatorLabel =
     creatorSns?.devnetName ?? truncatePubkey(p.market.createdBy);
@@ -66,12 +64,12 @@ export function PositionCard({ position: p }: { position: Position }) {
     <li className="rounded-xl border border-neutral-300 bg-surface p-4">
       <div className="flex items-start gap-3">
         <span className="text-lg shrink-0" aria-hidden="true">
-          {category?.emoji ?? "📊"}
+          📊
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600">
-              {category?.label ?? `Kind ${p.market.kind}`}
+              Agent market
             </span>
             <span
               className={`font-mono text-[10px] uppercase tracking-[0.14em] px-1.5 py-0.5 rounded border ${sideColor}`}

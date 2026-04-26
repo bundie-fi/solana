@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { MarketView } from "@/lib/markets";
-import { rateCategoryById } from "@/lib/rate-categories";
 import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import { ProbBar } from "@/components/prob-bar";
 
@@ -11,7 +10,6 @@ import { ProbBar } from "@/components/prob-bar";
  * YES/NO buttons. Matches MarketCard from the design handoff.
  */
 export function RateMarketCard({ market }: { market: MarketView }) {
-  const category = rateCategoryById(market.rateReaderSelector);
   const sns = resolveSns(market.createdBy);
   const creatorLabel = sns?.devnetName ?? truncatePubkey(market.createdBy);
 
@@ -55,11 +53,6 @@ export function RateMarketCard({ market }: { market: MarketView }) {
           {isResolved && (
             <span className={`pill ${market.outcome === "yes" ? "pill-green" : "pill-red"}`}>
               Resolved · {market.outcome?.toUpperCase() ?? "—"}
-            </span>
-          )}
-          {category && (
-            <span className="pill pill-muted" style={{ fontSize: 9 }}>
-              {category.emoji} {category.label}
             </span>
           )}
         </div>
