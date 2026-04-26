@@ -20,7 +20,8 @@
     "chaos:test:sns-tree": "node --import tsx --test scripts/chaos-sim/tests/sns-tree.test.ts",
     "chaos:alice-first-market": "tsx scripts/chaos-sim/src/run-alice-tick.ts",
     "chaos:agent-daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
-    "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once"
+    "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
+    "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
