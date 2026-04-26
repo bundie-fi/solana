@@ -20,6 +20,7 @@
     "chaos:test:sns-tree": "node --import tsx --test scripts/chaos-sim/tests/sns-tree.test.ts",
     "chaos:agent-daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
+    "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts"
   },
   "devDependencies": {
@@ -45,6 +46,7 @@
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^3.0.21",
+    "@supabase/supabase-js": "^2",
     "dotenv": "^16.4.7"
   }
 }
