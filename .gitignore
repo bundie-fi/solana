@@ -16,6 +16,9 @@ out/
 # Solana keypair files (contain private keys)
 *keypair*.json
 Y13*.json
+# bUSD mint authority secret (created by scripts/setup-busd)
+busd-mint.json
+**/busd-mint.json
 android/app/build/
 ios/build/
 ios/Pods/
