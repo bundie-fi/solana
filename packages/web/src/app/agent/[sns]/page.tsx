@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets, fetchBundieVault } from "@/lib/markets";
+import { fetchRegisteredVaultSet } from "@/lib/registry";
 import { PROGRAM_IDS } from "@/lib/constants";
 import {
   resolveSns,
@@ -43,12 +44,27 @@ export default async function AgentProfilePage({
   const vault = vaultFromName ?? decoded;
   const sns = resolveSns(vault);
 
+  // Authoritative agent set is the Supabase registry. If the resolved
+  // vault isn't in it, this is an unknown / zombie agent — surface 404
+  // rather than rendering chain data for a creator the protocol no
+  // longer recognises. Registry unreachable → empty set → 404 (we
+  // deliberately don't fall through to HERO_AGENTS so old chaos-sim
+  // pubkeys can't keep their profile pages alive).
+  const allowedCreators = await fetchRegisteredVaultSet({
+    cache: "no-store",
+  });
+  if (!allowedCreators.has(vault)) {
+    notFound();
+  }
+
   if (!sns && !vaultFromName) {
     notFound();
   }
 
   const connection = getDevnetConnection();
-  const allMarkets = await fetchAllMarkets(connection);
+  // Pass the registry through so "markets on me" doesn't surface bets
+  // opened by unregistered creators against this vault either.
+  const allMarkets = await fetchAllMarkets(connection, { allowedCreators });
   const createdByMe = allMarkets.filter((m) => m.createdBy === vault);
   const onMe = allMarkets.filter(
     (m) => m.targetAgent === vault,

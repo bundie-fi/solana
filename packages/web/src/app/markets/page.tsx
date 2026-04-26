@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets } from "@/lib/markets";
+import { fetchRegisteredVaultSet } from "@/lib/registry";
 import { RateMarketCard } from "@/components/rate-market-card";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,13 @@ export const revalidate = 0;
 
 export default async function MarketsPage() {
   const connection = getDevnetConnection();
-  const markets = await fetchAllMarkets(connection);
+  // Filter to creators in the Supabase agent registry so historical
+  // devnet markets created by unregistered agents stop leaking through.
+  // Empty set (registry unreachable) → empty list, by design.
+  const allowedCreators = await fetchRegisteredVaultSet({
+    cache: "no-store",
+  });
+  const markets = await fetchAllMarkets(connection, { allowedCreators });
 
   const totalVolumeUsdc = markets.reduce((s, m) => s + m.totalVolume / 1e6, 0);
 

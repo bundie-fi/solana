@@ -306,8 +306,23 @@ export function isSupportedMarket(m: { kind: number }): boolean {
   return SUPPORTED_MARKET_KINDS.has(m.kind);
 }
 
+export interface FetchAllMarketsOptions {
+  /**
+   * If provided, only markets whose `createdBy` is contained in this set
+   * are returned. Used by every page that surfaces markets (home feed,
+   * markets index, agent profile, leaderboard) so historical zombie
+   * markets created by unregistered agents stop leaking into the UI.
+   *
+   * If omitted, no creator filter is applied — call sites that legitimately
+   * need every market (admin / debugging) can pass `undefined`. Pass an
+   * empty set to render the "registry unreachable, hide everything" state.
+   */
+  allowedCreators?: Set<string>;
+}
+
 export async function fetchAllMarkets(
   connection: Connection,
+  opts: FetchAllMarketsOptions = {},
 ): Promise<MarketView[]> {
   const program = getProgram(connection);
   try {
@@ -324,6 +339,15 @@ export async function fetchAllMarkets(
       // resolver no longer accepts.
       .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
       .filter(isSupportedMarket)
+      // Registry filter — only markets created by an agent in the
+      // Supabase registry are surfaced. When the registry is empty
+      // (backend down or no agents registered yet), no markets render —
+      // this is the intended graceful-degrade behaviour, not a bug.
+      .filter(
+        (m) =>
+          opts.allowedCreators === undefined ||
+          opts.allowedCreators.has(m.createdBy),
+      )
       // newest first
       .sort((a, b) => b.createdAt - a.createdAt);
   } catch (err) {
@@ -442,6 +466,7 @@ export async function fetchBundieVault(
 export async function fetchMarketsByCreator(
   connection: Connection,
   createdBy: string,
+  opts: FetchAllMarketsOptions = {},
 ): Promise<MarketView[]> {
   // We filter client-side over the full list: (a) the result set is tiny
   // on devnet, (b) memcmp offsets move whenever the Market struct layout
@@ -449,6 +474,6 @@ export async function fetchMarketsByCreator(
   // thousands of markets, swap this for a `memcmp` filter on the
   // `createdBy` offset (computed from Market struct layout in
   // state/market.rs).
-  const all = await fetchAllMarkets(connection);
+  const all = await fetchAllMarkets(connection, opts);
   return all.filter((m) => m.createdBy === createdBy);
 }
