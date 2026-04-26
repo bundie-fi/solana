@@ -36,11 +36,11 @@ echo ""
 echo "=== Launching agent daemons (devnet) ==="
 # Alice: 5 min interval, Bob: 8 min, Charlie: 10 min
 # Staggered 30s so RPC calls don't overlap at startup
-pnpm --filter @bundie/programs chaos:agent-daemon --agent alice.bundie   --interval 300000 &
+pnpm --filter @bundie/programs chaos:agent-daemon --agent alice.bundie.sol   --interval 300000 &
 sleep 30
-pnpm --filter @bundie/programs chaos:agent-daemon --agent bob.bundie     --interval 480000 &
+pnpm --filter @bundie/programs chaos:agent-daemon --agent bob.bundie.sol     --interval 480000 &
 sleep 30
-pnpm --filter @bundie/programs chaos:agent-daemon --agent charlie.bundie --interval 600000 &
+pnpm --filter @bundie/programs chaos:agent-daemon --agent charlie.bundie.sol --interval 600000 &
 
 # Keep container alive — wait for any daemon to exit (they shouldn't)
 wait
