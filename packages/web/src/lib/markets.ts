@@ -360,6 +360,68 @@ export function deriveMarketPdas(
   return { yesMint, noMint, vault };
 }
 
+// ─── BundieVault reader ──────────────────────────────────────────────────
+
+/**
+ * Server-safe BundieVault snapshot. Mirrors the on-chain account layout
+ * from `state/bundie_vault.rs` but converts u64 values to bigint so the
+ * RSC boundary doesn't choke on BN. The `commitDigest` is omitted — the
+ * UI doesn't surface it and skipping it keeps the type plain-serialisable.
+ */
+export interface BundieVaultView {
+  authority: string;
+  navLamports: bigint;
+  navEpoch: bigint;
+  navSlot: bigint;
+}
+
+/** Derive the BundieVault PDA: `["bundie_vault", authority]`. */
+export function deriveBundieVaultPda(
+  programId: PublicKey,
+  authority: PublicKey,
+): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("bundie_vault"), authority.toBuffer()],
+    programId,
+  );
+  return pda;
+}
+
+/**
+ * Fetch the BundieVault for the given authority. Returns null when the
+ * account doesn't exist yet (e.g. an agent that hasn't committed any NAV)
+ * — callers should render an em-dash placeholder.
+ */
+export async function fetchBundieVault(
+  connection: Connection,
+  programId: PublicKey,
+  authority: PublicKey | string,
+): Promise<BundieVaultView | null> {
+  let auth: PublicKey;
+  try {
+    auth =
+      typeof authority === "string" ? new PublicKey(authority) : authority;
+  } catch {
+    return null;
+  }
+  const program = getProgram(connection);
+  const pda = deriveBundieVaultPda(programId, auth);
+  try {
+    const raw = await program.account.bundieVault.fetch(pda);
+    return {
+      authority: (raw.authority as PublicKey).toBase58(),
+      navLamports: toBigInt(
+        raw.navLamports as BN | bigint | number | undefined,
+      ),
+      navEpoch: toBigInt(raw.navEpoch as BN | bigint | number | undefined),
+      navSlot: toBigInt(raw.navSlot as BN | bigint | number | undefined),
+    };
+  } catch {
+    // Anchor throws when the account doesn't exist; treat as "no NAV yet".
+    return null;
+  }
+}
+
 export async function fetchMarketsByCreator(
   connection: Connection,
   createdBy: string,
