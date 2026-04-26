@@ -58,10 +58,23 @@ export function CapitalStep({ state, dispatch }: Props) {
       // Give the chain a moment, then re-read.
       setTimeout(refreshBalance, 1500);
     } catch (e) {
+      const msg = String(e instanceof Error ? e.message : e);
+      let friendly: string;
+      if (msg.includes("429") || msg.toLowerCase().includes("cooldown")) {
+        friendly =
+          "You've already claimed today. Try again in 24 hours, or use existing bUSD in your wallet.";
+      } else if (msg.includes("400")) {
+        friendly = "Faucet rejected the request. Try reconnecting your wallet.";
+      } else if (msg.includes("503")) {
+        friendly =
+          "Faucet is temporarily unavailable. Try again in a few minutes.";
+      } else {
+        friendly = `Faucet error: ${msg}`;
+      }
       dispatch({
         type: "CAPITAL/FAUCET_DONE",
         txSig: null,
-        error: e instanceof Error ? e.message : "faucet failed",
+        error: friendly,
       });
     }
   }, [publicKey, dispatch, refreshBalance]);
