@@ -1091,6 +1091,126 @@ section.content {
 .aw-flow-step.teal.active   { border-color: rgba(125, 224, 164, 0.32); color: #7de0a4; background: rgba(125, 224, 164, 0.10); }
 .aw-flow-arrow { color: var(--ink-4); }
 
+/* ---------- Live activity bar ---------------------------------------- */
+.activity-bar-wrap {
+  position: relative;
+  margin-top: -16px;
+  padding: 0 0 8px;
+}
+.activity-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 14px 18px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset,
+              0 6px 22px -16px rgba(18, 68, 58, 0.18);
+}
+.activity-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 22px;
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.activity-stat:last-child { border-right: 0; }
+.activity-num {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+}
+.activity-gain {
+  color: var(--amber-3);
+  font-weight: 600;
+}
+.activity-label {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.activity-stat-pill {
+  padding: 6px 16px;
+}
+.activity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--amber-ring);
+  background: var(--amber-tint);
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--amber-3);
+}
+.activity-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--amber-2);
+  box-shadow: 0 0 8px var(--amber-2);
+}
+
+/* Agent card meta (NAV, last commit slot) -- only renders when API exposes it */
+.agent-meta {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: rgba(22, 22, 24, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.agent-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+.agent-meta-label {
+  color: var(--ink-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.agent-meta-val {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Partner intake strip (small, below CTA, before footer) -------------- */
+.partner-strip {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  padding: 28px 0;
+}
+.partner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.partner-line {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--ink-2);
+  max-width: 540px;
+}
+
 /* Final CTA */
 .final-cta {
   text-align: center;
@@ -1497,6 +1617,28 @@ footer .row-2 {
   .protocol-tile { padding: 18px 14px 16px; }
   .protocol-logo { width: 40px; height: 40px; margin-bottom: 10px; }
   .protocol-logo-plus { font-size: 22px; }
+
+  /* Activity bar: wrap to a 2x2 grid on small screens */
+  .activity-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 8px 4px;
+  }
+  .activity-stat {
+    padding: 12px 10px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .activity-stat:nth-child(2n) { border-right: 0; }
+  .activity-stat:nth-last-child(-n + 2) { border-bottom: 0; }
+  .activity-num { font-size: 14px; }
+  .activity-stat-pill { grid-column: 1 / -1; align-items: center; padding: 10px; border-bottom: 0; }
+
+  .partner-row { gap: 16px; }
 }
 
 /* Scrollbar */
