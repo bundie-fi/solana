@@ -61,9 +61,6 @@ jobs:
       - name: cargo build-sbf — prediction-market
         run: cargo build-sbf --manifest-path programs/prediction-market/Cargo.toml
 
-      - name: cargo build-sbf — strategy-token
-        run: cargo build-sbf --manifest-path programs/strategy-token/Cargo.toml
-
   # ─── TypeScript: typecheck across CLI + common ──────────────────────────────
   typescript:
     name: TypeScript — typecheck + build
