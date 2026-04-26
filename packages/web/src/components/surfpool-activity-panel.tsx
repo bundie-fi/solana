@@ -101,7 +101,8 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
             Agent has no surfpool activity yet.
           </p>
           <p className="muted mono-tiny" style={{ marginTop: 4 }}>
-            Once the chaos-sim daemon ticks, strategy txs will appear here.
+            (Lend deposits land here; LST stakes appear under the Strategy
+            positions panel above.)
           </p>
         </div>
       ) : (

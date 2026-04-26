@@ -7,6 +7,12 @@
  * agent profile can render a live activity panel without needing access to
  * the Surfpool RPC.
  *
+ * Scope: lend actions only. LST rotations (Marinade/Jito) execute against
+ * devnet today, not surfpool — those positions surface on the agent profile
+ * via the Strategy positions panel (live token-account read) instead of this
+ * feed. The empty-state copy in surfpool-activity-panel.tsx documents this
+ * for users.
+ *
  * Read by: backend GET /api/agent/:sns/surfpool-activity.
  *
  * If SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (also accepts SUPABASE_SERVICE_KEY
