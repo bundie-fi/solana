@@ -33,16 +33,25 @@ export type BrainAction =
   | {
       type: "create_market";
       args: {
+        /**
+         * Market kind:
+         *   1 = NAV target  — agent A's vault NAV must cross thresholdLamports
+         *   2 = Head-to-head — agent A's NAV growth vs agent B's NAV growth
+         *   3 = Drawdown    — agent A's NAV must fall by drawdownBps from snapshot
+         */
+        kind: 1 | 2 | 3;
         /** Vault pubkey of the agent being measured (must != creator). */
-        targetAgent: string;
-        /** Rate surface selector (1=Kamino USDC, 2=Marinade mSOL, 3=MarginFi USDC, 4=SPL stake pool, 5=Zeta perp funding). */
-        selector: number;
-        /** Required excess of target agent NAV growth over the benchmark rate, in bps. */
-        spreadBps: number;
+        targetAgentA: string;
+        /** Vault pubkey of the second agent (only for kind=2). */
+        targetAgentB?: string | null;
+        /** kind=1 only: target NAV in bUSD base units (1 bUSD = 1_000_000). */
+        thresholdLamports?: number;
+        /** kind=3 only: drawdown threshold in bps from creation-time snapshot. */
+        drawdownBps?: number;
         windowSlots: number;
         questionTemplate: string;
-        /** Initial liquidity seed in USDC (UI units, e.g. 2.0). Deposited into market vault on creation. */
-        seedAmountUsdc: number;
+        /** Initial liquidity seed in bUSD (UI units, e.g. 2.0). Deposited into market vault on creation. */
+        seedAmountBusd: number;
       };
     };
 

@@ -27,7 +27,7 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 
-import { createAgentVsBenchmarkMarket } from "../actions/create-agent-vs-benchmark-market.js";
+import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
@@ -191,51 +191,110 @@ async function executeCreateMarket(
   if (args.action.type !== "create_market") throw new Error("type mismatch");
   const a = args.action.args;
 
-  let targetAgent: import("@solana/web3.js").PublicKey;
-  try {
-    const { PublicKey } = await import("@solana/web3.js");
-    targetAgent = new PublicKey(a.targetAgent);
-  } catch {
-    throw new Error(`create_market: invalid targetAgent pubkey "${a.targetAgent}"`);
+  // Validate kind early so a malformed brain payload fails before any RPC.
+  const kind = a.kind;
+  if (kind !== 1 && kind !== 2 && kind !== 3) {
+    throw new Error(
+      `create_market: unsupported kind ${String(kind)} (expected 1, 2, or 3)`,
+    );
   }
 
-  if (targetAgent.equals(args.kp.publicKey)) {
-    throw new Error("create_market: targetAgent must not equal creator (insider guard)");
+  const { PublicKey } = await import("@solana/web3.js");
+
+  let targetAgentA: import("@solana/web3.js").PublicKey;
+  try {
+    targetAgentA = new PublicKey(a.targetAgentA);
+  } catch {
+    throw new Error(
+      `create_market: invalid targetAgentA pubkey "${a.targetAgentA}"`,
+    );
+  }
+
+  let targetAgentB: import("@solana/web3.js").PublicKey | null = null;
+  if (kind === 2) {
+    if (!a.targetAgentB) {
+      throw new Error("create_market: kind=2 requires targetAgentB");
+    }
+    try {
+      targetAgentB = new PublicKey(a.targetAgentB);
+    } catch {
+      throw new Error(
+        `create_market: invalid targetAgentB pubkey "${a.targetAgentB}"`,
+      );
+    }
+  }
+
+  if (targetAgentA.equals(args.kp.publicKey)) {
+    throw new Error(
+      "create_market: targetAgentA must not equal creator (insider guard)",
+    );
+  }
+  if (targetAgentB && targetAgentB.equals(args.kp.publicKey)) {
+    throw new Error(
+      "create_market: targetAgentB must not equal creator (insider guard)",
+    );
+  }
+  if (targetAgentB && targetAgentA.equals(targetAgentB)) {
+    throw new Error("create_market: kind=2 needs distinct A/B");
+  }
+
+  // Per-kind payload args.
+  const thresholdLamports =
+    kind === 1
+      ? BigInt(Math.max(1, Math.floor(a.thresholdLamports ?? 0)))
+      : undefined;
+  const drawdownBps =
+    kind === 3 ? BigInt(Math.max(1, Math.floor(a.drawdownBps ?? 0))) : undefined;
+
+  if (kind === 1 && (!thresholdLamports || thresholdLamports <= 0n)) {
+    throw new Error("create_market: kind=1 requires thresholdLamports > 0");
+  }
+  if (
+    kind === 3 &&
+    (!drawdownBps || drawdownBps <= 0n || drawdownBps > 10_000n)
+  ) {
+    throw new Error("create_market: kind=3 requires drawdownBps in [1, 10000]");
   }
 
   const currentSlot = BigInt(await args.devnet.getSlot("confirmed"));
   const windowSlots = BigInt(Math.max(1, Math.floor(a.windowSlots)));
-  const windowEndSlot = currentSlot + windowSlots;
-  const question = (a.questionTemplate?.trim() || "Agent vs Benchmark market").slice(0, 128);
+  const resolutionSlot = currentSlot + windowSlots;
+  const question = (a.questionTemplate?.trim() || `NAV market kind=${kind}`).slice(
+    0,
+    128,
+  );
 
-  // Seed amount: clamp to 1–10 USDC, convert to 6dp base units
-  const seedUsdc = Math.min(10, Math.max(1, a.seedAmountUsdc ?? 2));
-  const initialSubsidy = BigInt(Math.round(seedUsdc * 1_000_000));
+  // Seed amount: clamp to 1–10 bUSD, convert to 6dp base units.
+  const seedBusd = Math.min(10, Math.max(1, a.seedAmountBusd ?? 2));
+  const initialSubsidy = BigInt(Math.round(seedBusd * 1_000_000));
 
-  const result = await createAgentVsBenchmarkMarket({
+  const result = await createNavMarket({
     connection: args.devnet,
     creatorVault: args.kp,
-    targetAgent,
-    spreadBps: BigInt(Math.max(1, Math.floor(a.spreadBps))),
-    windowStartSlot: currentSlot,
-    windowEndSlot,
-    benchmarkSelector: BigInt(a.selector),
+    kind,
+    targetAgentA,
+    targetAgentB,
+    thresholdLamports,
+    drawdownBps,
     question,
     marketId: BigInt(Date.now()),
-    resolutionSlot: windowEndSlot,
+    resolutionSlot,
     initialSubsidy,
     feeBps: 100,
     policyPath: args.policyPath,
   });
 
   return {
-    phase: "execute", chain: "devnet", action: "create_market",
+    phase: "execute",
+    chain: "devnet",
+    action: "create_market",
     txSig: result.signature,
     marketPda: result.marketPda,
     explorerUrl: `https://orbmarkets.io/tx/${result.signature}?cluster=devnet`,
-    policyGate: result.policyGate ??
+    policyGate:
+      result.policyGate ??
       `enforceProgramPolicy passed (${PREDICTION_MARKET_PROGRAM_ID.slice(0, 4)}...create_market_v2)`,
-    notes: `seeded ${seedUsdc} USDC initial liquidity`,
+    notes: `kind=${kind} seeded ${seedBusd} bUSD initial liquidity`,
   };
 }
 
