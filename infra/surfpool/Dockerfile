@@ -30,6 +30,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
 # (needed so $MAINNET_RPC_URL expands at container start).
 ENTRYPOINT []
 
-# Probe what flags this image's surfpool actually accepts. Output goes to
-# build/runtime logs so we can see the real CLI surface, then iterate the CMD.
-CMD ["sh", "-c", "surfpool --version; echo '---'; surfpool --help; echo '---'; surfpool start --help; echo '---'; sleep 3600"]
+# Surfpool flags (verified from `surfpool start --help` runtime output):
+#   --no-tui           run headless (no terminal UI)
+#   --no-studio        skip the built-in web Studio (we don't need it on Railway)
+#   -p, --port 8899    Simnet RPC port (default 8899)
+#   -u, --rpc-url ...  upstream datasource RPC (also takes SURFPOOL_DATASOURCE_RPC_URL env)
+#                      mutually exclusive with --network
+CMD ["sh", "-c", "exec surfpool start --no-tui --no-studio --port 8899 --rpc-url \"$MAINNET_RPC_URL\""]
