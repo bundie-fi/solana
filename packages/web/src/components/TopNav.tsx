@@ -54,7 +54,7 @@ export function TopNav() {
             letterSpacing: "-0.03em",
           }}
         >
-          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--gold)" }}>ie</em>
+          Bund<span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>ie</span>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className="pulse-dot" />
