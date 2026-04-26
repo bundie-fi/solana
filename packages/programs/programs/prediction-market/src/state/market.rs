@@ -175,6 +175,14 @@ pub struct Market {
     pub initial_nav_per_share: u64,
     /// NAV per share at market creation time for strategy B (Relative markets only; 0 for Absolute)
     pub initial_nav_per_share_b: u64,
+    /// BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A.
+    /// Phase B uses this as the baseline for kinds 1/2/3 (NavTarget/Relative/Drawdown)
+    /// when resolving against `BundieVault.nav_lamports`. Zero for kinds that
+    /// do not snapshot a vault baseline.
+    pub initial_nav_a: u64,
+    /// BundieVault NAV (lamports) snapshotted at create_market_v2 for vault B.
+    /// Only populated for kind=2 (RELATIVE / head-to-head). Zero otherwise.
+    pub initial_nav_b: u64,
     /// Bump seeds for PDA accounts owned by this market
     pub yes_mint_bump: u8,
     pub no_mint_bump: u8,

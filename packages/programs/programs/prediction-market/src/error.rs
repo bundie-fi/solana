@@ -44,4 +44,6 @@ pub enum MarketError {
     StaleNavEpoch,
     #[msg("Caller is not the vault authority")]
     UnauthorizedVaultCommit,
+    #[msg("Required target vault account not provided")]
+    MissingTargetVault,
 }
