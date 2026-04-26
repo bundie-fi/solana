@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^3.0.21",
+    "@supabase/supabase-js": "^2",
     "dotenv": "^16.4.7"
   }
 }
