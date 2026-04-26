@@ -30,6 +30,7 @@ import {
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
 import { isMarketCreationRateLimited } from "./agents-source.js";
+import { recordSurfpoolAction } from "./surfpool-recorder.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
@@ -140,11 +141,37 @@ async function executeLend(
     };
   }
   const txSig = await selfTransfer(args.surfpool, args.kp);
+  const notes = `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`;
+  // Persist to Supabase so the web app can render this in the agent profile
+  // surfpool feed. Surfpool has no public explorer; this is the only way for
+  // visitors to see live agent activity. Failure to persist must NOT crash
+  // the daemon — recordSurfpoolAction handles its own errors internally.
+  try {
+    const slot = await args.surfpool.getSlot("confirmed");
+    const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number } }).args;
+    const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
+    // USDC has 6 decimals — use base units (not lamports per se, but the
+    // smallest unit of the deposited token). Stored in amount_base_units;
+    // decimals are inferred per-token at read time on the web side.
+    const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
+    await recordSurfpoolAction({
+      agentSns: args.agentName,
+      slot,
+      txSig,
+      protocol,
+      actionType: `lend_${direction}`,
+      amountLamports,
+      tokenMint: null,
+      notes,
+    });
+  } catch (e) {
+    console.error(`[surfpool-recorder] persist failed for ${txSig}: ${(e as Error).message}`);
+  }
   return {
     phase: "execute", chain: "surfpool",
     action: `lend_${direction}`, protocol,
     txSig, policyGate,
-    notes: `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`,
+    notes,
   };
 }
 

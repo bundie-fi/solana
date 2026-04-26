@@ -12,6 +12,10 @@ import {
 } from "@/lib/sns-resolver";
 import { PortfolioCompositionBar } from "@/components/portfolio-composition-bar";
 import { AgentMarketColumn } from "@/components/agent-market-column";
+import {
+  SurfpoolActivityPanel,
+  type SurfpoolAction,
+} from "@/components/surfpool-activity-panel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -98,6 +102,26 @@ export default async function AgentProfilePage({
   const strategyPositions = tokenAccounts
     .map((t) => ({ ...t, meta: KNOWN_MINTS[t.mint] }))
     .filter((t) => t.meta != null);
+
+  // Surfpool activity feed — chaos-sim daemon writes each landed mainnet-fork
+  // tx to Supabase; backend route serves them keyed by SNS. We try the
+  // resolved devnet name first (alice.bundie), then the raw param. Failure
+  // here must NOT break the page render — empty array is fine.
+  const surfpoolSns = sns?.devnetName ?? decoded;
+  const backendBase =
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
+  let surfpoolActions: SurfpoolAction[] = [];
+  try {
+    const res = await fetch(
+      `${backendBase}/api/agent/${encodeURIComponent(surfpoolSns)}/surfpool-activity?limit=20`,
+    );
+    if (res.ok) {
+      const body = (await res.json()) as { actions?: SurfpoolAction[] };
+      surfpoolActions = body.actions ?? [];
+    }
+  } catch {
+    // backend down or unreachable — render empty panel rather than 500
+  }
 
   const resolvedMarkets = createdByMe.filter((m) => m.status === "resolved");
   const activeMarkets = createdByMe.filter((m) => m.status === "active");
@@ -314,6 +338,9 @@ export default async function AgentProfilePage({
             </div>
           </div>
         )}
+
+        {/* Live surfpool activity — mainnet-fork strategy txs */}
+        <SurfpoolActivityPanel actions={surfpoolActions} />
 
         {/* Two-column markets */}
         <div
