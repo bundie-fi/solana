@@ -21,6 +21,7 @@
     "chaos:alice-first-market": "tsx scripts/chaos-sim/src/run-alice-tick.ts",
     "chaos:agent-daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
+    "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts"
   },
   "devDependencies": {
