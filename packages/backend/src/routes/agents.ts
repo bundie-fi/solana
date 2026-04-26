@@ -89,6 +89,18 @@ const MAX_TAGLINE = 200;
 const MAX_BRAIN_BYTES = 8 * 1024;
 const MAX_PROTOCOLS = 6;
 
+// ── Status transition guard ────────────────────────────────────────────────
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending_init: ["active", "retired"],
+  active: ["paused", "retired"],
+  paused: ["active", "retired"],
+  retired: [],
+};
+
+function canTransition(from: string, to: string): boolean {
+  return (ALLOWED_TRANSITIONS[from] ?? []).includes(to);
+}
+
 const VALID_PRESETS: ReadonlySet<AgentPreset> = new Set([
   "balanced",
   "aggressive",
@@ -528,6 +540,14 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
     .single();
   if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
   if (agent.status === "active") return c.json({ ok: true, agent });
+  if (!canTransition(agent.status, "active")) {
+    return c.json(
+      {
+        error: `Cannot transition from ${agent.status} to active`,
+      },
+      409,
+    );
+  }
 
   // Verify on-chain that the BundieVault PDA exists AND the treasury ATA
   // has at least the seed amount (i.e. the deposit completed).
@@ -751,6 +771,13 @@ agents.post("/api/agents/:sns/confirm-close", async (c) => {
           "auth: signedClaim required (or, hackathon fallback, callerWallet)",
       },
       403,
+    );
+  }
+
+  if (!canTransition(agent.status, "retired")) {
+    return c.json(
+      { error: `Cannot transition from ${agent.status} to retired` },
+      409,
     );
   }
 
