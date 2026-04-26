@@ -177,13 +177,10 @@ export async function runTick(args: TickArgs): Promise<void> {
       console.log(
         `[tick ${args.agentName}] exec ${result.action} → ${result.chain}${sigPart}${marketPart}`,
       );
-      // Per-action Supabase log (Phase O). The action_type uses result.action
-      // which can be "create_market_skipped" for rate-limited skips — the
-      // skipped path also logs its own row inside the executor for safety,
-      // but Supabase ignores the duplicate insert because tick_at differs by
-      // microseconds and the caller can dedupe on (agent_sns, action_type, tick_at).
-      // For success path of create_market we log here (so cooldown window
-      // starts on the actual success row, not on a separate executor write).
+      // Per-action Supabase log (Phase O).
+      // result.action may be 'create_market_skipped' for rate-limited skips.
+      // The executor returns a structured result and we are the sole writer to agent_action_log here.
+      // (No Supabase deduplication — there's no unique constraint; rely on caller-side discipline.)
       await logAgentAction({
         agentSns: args.agentName,
         actionType: result.action,
