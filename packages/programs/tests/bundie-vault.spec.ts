@@ -44,7 +44,10 @@ describe("bundie_vault lifecycle", () => {
   });
 
   it("init_vault creates a vault at epoch 0", async () => {
-    const vault = vaultPda(authority.publicKey);
+    const [vault, expectedBump] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bundie_vault"), authority.publicKey.toBuffer()],
+      program.programId,
+    );
     await program.methods
       .initVault(new BN(1_000_000))
       .accounts({
@@ -59,23 +62,27 @@ describe("bundie_vault lifecycle", () => {
     expect(acc.authority.toBase58()).to.equal(authority.publicKey.toBase58());
     expect(acc.navLamports.toNumber()).to.equal(1_000_000);
     expect(acc.navEpoch.toNumber()).to.equal(0);
+    expect(acc.navSlot.toNumber()).to.be.greaterThan(0);
+    expect(acc.bump).to.equal(expectedBump);
   });
 
   it("commit_nav with epoch=1 succeeds", async () => {
     const vault = vaultPda(authority.publicKey);
     const digest = Buffer.alloc(32, 7);
+    const before = await program.account.bundieVault.fetch(vault);
     await program.methods
       .commitNav(new BN(1_050_000), new BN(1), Array.from(digest))
       .accounts({ authority: authority.publicKey, vault })
       .signers([authority])
       .rpc();
 
-    const acc = await program.account.bundieVault.fetch(vault);
-    expect(acc.navLamports.toNumber()).to.equal(1_050_000);
-    expect(acc.navEpoch.toNumber()).to.equal(1);
+    const after = await program.account.bundieVault.fetch(vault);
+    expect(after.navLamports.toNumber()).to.equal(1_050_000);
+    expect(after.navEpoch.toNumber()).to.equal(1);
     expect(
-      Buffer.from(acc.commitDigest).every((b: number) => b === 7),
+      Buffer.from(after.commitDigest).every((b: number) => b === 7),
     ).to.equal(true);
+    expect(after.navSlot.toNumber()).to.be.gte(before.navSlot.toNumber());
   });
 
   it("commit_nav with stale epoch reverts with StaleNavEpoch", async () => {

@@ -1,3 +1,4 @@
+use crate::error::MarketError;
 use crate::state::{BundieVault, BUNDIE_VAULT_SEED};
 use anchor_lang::prelude::*;
 
@@ -8,7 +9,7 @@ pub struct InitVault<'info> {
     #[account(
         init,
         payer = authority,
-        space = BundieVault::LEN,
+        space = 8 + BundieVault::INIT_SPACE,
         seeds = [BUNDIE_VAULT_SEED, authority.key().as_ref()],
         bump
     )]
@@ -17,6 +18,7 @@ pub struct InitVault<'info> {
 }
 
 pub fn handler(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
+    require!(initial_nav > 0, MarketError::InvalidPayload);
     let vault = &mut ctx.accounts.vault;
     vault.authority = ctx.accounts.authority.key();
     vault.nav_lamports = initial_nav;
