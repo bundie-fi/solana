@@ -116,23 +116,43 @@ const RATE_LIMIT_HOURS = 6;
 const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
 
 /**
- * Returns the timestamp (ms) of the agent's last create_market action, or null
- * if it has never created one (or if Supabase is unavailable).
+ * Returns the timestamp (ms) of the agent's last create_market action, plus a
+ * `queryError` flag so callers can distinguish "never created" from "Supabase
+ * errored on the query".
+ *
+ * Behaviour:
+ *   - No Supabase configured  → { ts: null, queryError: false } (explicit fail-open
+ *     for local dev — the registry isn't expected to be online).
+ *   - Supabase query errored  → { ts: null, queryError: true } (callers should
+ *     fail-CLOSED on this so a transient outage doesn't enable spam).
+ *   - No row found            → { ts: null, queryError: false } (agent has never
+ *     created a market).
+ *   - Row found               → { ts: <ms>, queryError: false }.
  */
 export async function lastMarketCreationTimestamp(
   agentSns: string,
-): Promise<number | null> {
+): Promise<{ ts: number | null; queryError: boolean }> {
   const supa = getSupabase();
-  if (!supa) return null;
-  const { data } = await supa
+  if (!supa) return { ts: null, queryError: false };
+  const { data, error } = await supa
     .from("agent_action_log")
     .select("tick_at")
     .eq("agent_sns", agentSns)
     .eq("action_type", "create_market")
     .order("tick_at", { ascending: false })
     .limit(1);
+  if (error) {
+    console.error(
+      "[agents-source] lastMarketCreationTimestamp query failed:",
+      error.message,
+    );
+    return { ts: null, queryError: true };
+  }
   const row = data?.[0] as { tick_at: string } | undefined;
-  return row ? new Date(row.tick_at).getTime() : null;
+  return {
+    ts: row ? new Date(row.tick_at).getTime() : null,
+    queryError: false,
+  };
 }
 
 export interface RateLimitCheck {
@@ -143,13 +163,21 @@ export interface RateLimitCheck {
 
 /**
  * Returns true if the agent is within its market-creation cooldown window.
- * Fail-open: if Supabase is unavailable, returns { limited: false } so the
- * legacy / local-dev path keeps working without the registry online.
+ *
+ * Failure modes:
+ *   - No Supabase configured   → { limited: false } (fail-open for local dev).
+ *   - Supabase query errored   → { limited: true, reason: "rate_check_unavailable" }
+ *     (fail-CLOSED so a transient Supabase outage doesn't enable market spam).
+ *   - Within cooldown window   → { limited: true, reason, nextAllowedAt }.
+ *   - Outside cooldown / never → { limited: false }.
  */
 export async function isMarketCreationRateLimited(
   agentSns: string,
 ): Promise<RateLimitCheck> {
-  const last = await lastMarketCreationTimestamp(agentSns);
+  const { ts: last, queryError } = await lastMarketCreationTimestamp(agentSns);
+  if (queryError) {
+    return { limited: true, reason: "rate_check_unavailable" };
+  }
   if (last == null) return { limited: false };
   const elapsed = Date.now() - last;
   if (elapsed < RATE_LIMIT_MS) {
