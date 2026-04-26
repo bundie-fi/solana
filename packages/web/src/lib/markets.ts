@@ -8,8 +8,8 @@
  *     server→client split. We convert to `number` up front (the numbers
  *     involved — bps, slots, USDC base units — all comfortably fit in
  *     Number's safe-integer range for the foreseeable future).
- *   - Kind-specific fields: we pre-parse the 64-byte `payload` for kind=5
- *     (RateBarrier) and kind=6 (AgentVsBenchmark) so page components stay
+ *   - Kind-specific fields: we pre-parse the 64-byte `payload` for the
+ *     active kinds 1/2/3 BundieVault payloads so page components stay
  *     simple. Byte offsets mirror
  *     `packages/programs/programs/prediction-market/src/state/market.rs`.
  *
