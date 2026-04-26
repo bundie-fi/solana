@@ -20,16 +20,30 @@
  * missing the script fails fast — operator must create them via
  * `solana-keygen new` (or migrate to the Zerion vault path) before
  * re-running.
+ *
+ * Phase J wire format (`init_vault(initial_nav, owner_wallet, treasury_mint)`):
+ *   - The bUSD mint is loaded from $BUSD_MINT or `<repo-root>/busd-mint.json`.
+ *   - `owner_wallet` defaults to the agent's own authority (override with
+ *     $BUNDIE_OWNER_WALLET).
+ *   - The script also creates the vault's treasury ATA (owned by the vault
+ *     PDA) atomically inside the same `init_vault` instruction, so no
+ *     follow-up ATA-creation tx is needed.
  */
 
 import {
   Connection,
   Keypair,
+  PublicKey,
   SystemProgram,
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,6 +85,42 @@ interface AgentEntry {
   keyfile: string; // relative to CHAOS_DIR
 }
 
+/**
+ * Resolve the bUSD treasury mint pubkey + the owner_wallet that will be
+ * recorded on the BundieVault PDA.
+ *
+ * Resolution order for the mint:
+ *   1. `BUSD_MINT` env var (preferred for CI / Railway)
+ *   2. `busd-mint.json` at the repo root (developer machines)
+ *
+ * Resolution order for owner_wallet:
+ *   1. `BUNDIE_OWNER_WALLET` env var
+ *   2. The agent's own authority pubkey (sensible default — the owner is
+ *      the same key that runs the daemon).
+ */
+function loadBusdMint(): PublicKey {
+  if (process.env.BUSD_MINT) {
+    return new PublicKey(process.env.BUSD_MINT);
+  }
+  const repoRoot = join(CHAOS_DIR, "..", "..", "..", "..");
+  const busdJson = join(repoRoot, "busd-mint.json");
+  if (!existsSync(busdJson)) {
+    throw new Error(
+      `bUSD mint not found. Set BUSD_MINT env var, or create ${busdJson} ` +
+        `via \`pnpm exec tsx scripts/setup-busd/index.ts\` first.`,
+    );
+  }
+  const parsed = JSON.parse(readFileSync(busdJson, "utf8")) as { mint: string };
+  return new PublicKey(parsed.mint);
+}
+
+function resolveOwnerWallet(authority: PublicKey): PublicKey {
+  if (process.env.BUNDIE_OWNER_WALLET) {
+    return new PublicKey(process.env.BUNDIE_OWNER_WALLET);
+  }
+  return authority;
+}
+
 // Mirror the AGENTS map in run-agent-daemon.ts. Keep this list in sync if
 // new agents are added.
 const AGENTS: AgentEntry[] = [
@@ -86,6 +136,8 @@ const INITIAL_NAV_LAMPORTS = 1_000_000n; // $1.00 in bUSD base units (6 dp)
 async function initVaultIfMissing(
   conn: Connection,
   kp: Keypair,
+  treasuryMint: PublicKey,
+  ownerWallet: PublicKey,
 ): Promise<{ status: "skipped" | "created"; vaultPda: string; txSig?: string }> {
   const vaultPda = bundieVaultPda(kp.publicKey);
 
@@ -94,15 +146,32 @@ async function initVaultIfMissing(
     return { status: "skipped", vaultPda: vaultPda.toBase58() };
   }
 
+  // Treasury ATA: owner = vault PDA, mint = bUSD. allowOffCurve=true since
+  // the owner is a PDA, not a regular ed25519 pubkey.
+  const treasuryAta = getAssociatedTokenAddressSync(
+    treasuryMint,
+    vaultPda,
+    true, // allowOwnerOffCurve
+  );
+
+  // Phase J wire: discriminator || initial_nav (u64) || owner_wallet (32) || treasury_mint (32)
   const data = Buffer.concat([
     anchorDiscriminator("init_vault"),
     u64LE(INITIAL_NAV_LAMPORTS),
+    ownerWallet.toBuffer(),
+    treasuryMint.toBuffer(),
   ]);
 
+  // Account ordering must match `InitVault` in
+  // programs/prediction-market/src/instructions/init_vault.rs.
   const keys = [
     { pubkey: kp.publicKey, isSigner: true, isWritable: true },
     { pubkey: vaultPda, isSigner: false, isWritable: true },
+    { pubkey: treasuryMint, isSigner: false, isWritable: false },
+    { pubkey: treasuryAta, isSigner: false, isWritable: true },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
   const ix = new TransactionInstruction({
@@ -126,10 +195,13 @@ async function main(): Promise<void> {
     process.env.DEVNET_RPC_URL ?? "https://api.devnet.solana.com";
   const conn = new Connection(devnetUrl, "confirmed");
 
+  const treasuryMint = loadBusdMint();
+
   console.log("=== Bundie init-vaults bootstrap ===");
-  console.log(`devnet RPC:   ${devnetUrl}`);
-  console.log(`program:      ${PREDICTION_MARKET_PROGRAM_ID.toBase58()}`);
-  console.log(`initial NAV:  ${INITIAL_NAV_LAMPORTS} lamports ($1.00 bUSD)`);
+  console.log(`devnet RPC:    ${devnetUrl}`);
+  console.log(`program:       ${PREDICTION_MARKET_PROGRAM_ID.toBase58()}`);
+  console.log(`treasury mint: ${treasuryMint.toBase58()}`);
+  console.log(`initial NAV:   ${INITIAL_NAV_LAMPORTS} lamports ($1.00 bUSD)`);
   console.log("");
 
   let createdCount = 0;
@@ -160,12 +232,13 @@ async function main(): Promise<void> {
     }
 
     const expectedVaultPda = bundieVaultPda(kp.publicKey).toBase58();
+    const ownerWallet = resolveOwnerWallet(kp.publicKey);
     console.log(
-      `[${agent.name}] authority=${kp.publicKey.toBase58()} vault=${expectedVaultPda}`,
+      `[${agent.name}] authority=${kp.publicKey.toBase58()} vault=${expectedVaultPda} owner=${ownerWallet.toBase58()}`,
     );
 
     try {
-      const res = await initVaultIfMissing(conn, kp);
+      const res = await initVaultIfMissing(conn, kp, treasuryMint, ownerWallet);
       if (res.status === "skipped") {
         console.log(`  → already initialised, skipping`);
         skippedCount++;

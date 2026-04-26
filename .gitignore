@@ -19,6 +19,7 @@ Y13*.json
 # bUSD mint authority secret (created by scripts/setup-busd)
 busd-mint.json
 **/busd-mint.json
+busd-mint.PENDING.txt
 android/app/build/
 ios/build/
 ios/Pods/
@@ -69,3 +70,4 @@ HANDOFF-*.md
 .claude/
 docs/superpowers/
 .zerion-bundie-state.json
+.worktrees/
