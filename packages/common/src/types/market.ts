@@ -109,6 +109,12 @@ export interface BuySharesParams {
 export interface BundieVault {
   /** Vault authority (Bundie agent vault pubkey) */
   authority: string
+  /** Wallet that funded / owns the agent — authorized to call `close_vault` */
+  ownerWallet: string
+  /** SPL mint of the treasury asset (e.g. bUSD) */
+  treasuryMint: string
+  /** ATA owned by the vault PDA that holds the treasury balance */
+  treasuryAta: string
   /** Most recent committed NAV in lamports */
   navLamports: bigint
   /** Monotonic epoch — incremented on each commit_nav */

@@ -339,6 +339,74 @@ export type PredictionMarket = {
       ]
     },
     {
+      "name": "closeVault",
+      "docs": [
+        "Drain the vault treasury back to `owner_wallet`, close the",
+        "treasury ATA, and close the BundieVault PDA (rent → owner).",
+        "Only the `owner_wallet` recorded at init may call this."
+      ],
+      "discriminator": [
+        141,
+        103,
+        17,
+        126,
+        72,
+        75,
+        29,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.authority",
+                "account": "bundieVault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasuryAta",
+          "writable": true
+        },
+        {
+          "name": "ownerAta",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "commitNav",
       "docs": [
         "Commit a new NAV value to the vault. Enforces strict monotonic",
@@ -819,6 +887,76 @@ export type PredictionMarket = {
       ]
     },
     {
+      "name": "depositToVault",
+      "docs": [
+        "Transfer `amount` of the vault's treasury mint into its treasury",
+        "ATA. Anyone may seed an agent."
+      ],
+      "discriminator": [
+        18,
+        62,
+        110,
+        8,
+        26,
+        106,
+        248,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "signer": true
+        },
+        {
+          "name": "depositorAta",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vault.authority",
+                "account": "bundieVault"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasuryAta",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "initVault",
       "docs": [
         "Initialize a BundieVault PDA at epoch 0 with an initial NAV. The PDA",
@@ -872,14 +1010,130 @@ export type PredictionMarket = {
           }
         },
         {
+          "name": "treasuryMint",
+          "docs": [
+            "Mint of the asset the treasury will hold (e.g. bUSD)."
+          ]
+        },
+        {
+          "name": "treasuryAta",
+          "docs": [
+            "Treasury ATA owned by the vault PDA itself. Created here so the",
+            "vault can hold balance with no extra setup step."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "treasuryMint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": [
         {
           "name": "initialNav",
           "type": "u64"
+        },
+        {
+          "name": "ownerWallet",
+          "type": "pubkey"
+        },
+        {
+          "name": "treasuryMint",
+          "type": "pubkey"
         }
       ]
     },
@@ -1308,6 +1562,11 @@ export type PredictionMarket = {
       "code": 6023,
       "name": "deprecatedMarketKind",
       "msg": "Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)"
+    },
+    {
+      "code": 6023,
+      "name": "unauthorizedVaultClose",
+      "msg": "Caller is not the vault owner_wallet — cannot close"
     }
   ],
   "types": [
@@ -1318,6 +1577,29 @@ export type PredictionMarket = {
         "fields": [
           {
             "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "ownerWallet",
+            "docs": [
+              "Wallet that funded / owns the agent. Authorized to call",
+              "`close_vault` and reclaim treasury balance."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasuryMint",
+            "docs": [
+              "SPL mint of the treasury asset (e.g. bUSD)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasuryAta",
+            "docs": [
+              "Associated token account owned by this vault PDA that holds",
+              "`treasury_mint` balance. Created during `init_vault`."
+            ],
             "type": "pubkey"
           },
           {

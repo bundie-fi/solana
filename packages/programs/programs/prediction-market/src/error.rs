@@ -50,4 +50,6 @@ pub enum MarketError {
     WrongTargetVault,
     #[msg("Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)")]
     DeprecatedMarketKind,
+    #[msg("Caller is not the vault owner_wallet — cannot close")]
+    UnauthorizedVaultClose,
 }

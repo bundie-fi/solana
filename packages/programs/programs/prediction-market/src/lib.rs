@@ -105,8 +105,13 @@ pub mod prediction_market {
     /// is derived from `["bundie_vault", authority]` so each authority owns
     /// exactly one vault. Phases B+ read NAV from this account during
     /// market resolution instead of CPIing into protocol-specific readers.
-    pub fn init_vault(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
-        instructions::init_vault::handler(ctx, initial_nav)
+    pub fn init_vault(
+        ctx: Context<InitVault>,
+        initial_nav: u64,
+        owner_wallet: Pubkey,
+        treasury_mint: Pubkey,
+    ) -> Result<()> {
+        instructions::init_vault::handler(ctx, initial_nav, owner_wallet, treasury_mint)
     }
 
     /// Commit a new NAV value to the vault. Enforces strict monotonic
@@ -120,5 +125,18 @@ pub mod prediction_market {
         commit_digest: [u8; 32],
     ) -> Result<()> {
         instructions::commit_nav::handler(ctx, new_nav, new_epoch, commit_digest)
+    }
+
+    /// Transfer `amount` of the vault's treasury mint into its treasury
+    /// ATA. Anyone may seed an agent.
+    pub fn deposit_to_vault(ctx: Context<DepositToVault>, amount: u64) -> Result<()> {
+        instructions::deposit_to_vault::handler(ctx, amount)
+    }
+
+    /// Drain the vault treasury back to `owner_wallet`, close the
+    /// treasury ATA, and close the BundieVault PDA (rent → owner).
+    /// Only the `owner_wallet` recorded at init may call this.
+    pub fn close_vault(ctx: Context<CloseVault>) -> Result<()> {
+        instructions::close_vault::handler(ctx)
     }
 }
