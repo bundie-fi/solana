@@ -72,6 +72,13 @@ const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
 );
 
+// ── Hard caps + patterns ────────────────────────────────────────────────────
+const SNS_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+const MAX_DISPLAY_NAME = 100;
+const MAX_TAGLINE = 200;
+const MAX_BRAIN_BYTES = 8 * 1024;
+const MAX_PROTOCOLS = 6;
+
 const VALID_PRESETS: ReadonlySet<AgentPreset> = new Set([
   "balanced",
   "aggressive",
@@ -268,8 +275,44 @@ agents.post("/api/agents", async (c) => {
   if (!body.sns || typeof body.sns !== "string") {
     return c.json({ error: "sns required (string)" }, 400);
   }
+  // Strip the .bundie.sol suffix (if present) before pattern-checking — the
+  // SNS column stores the FULL name, but the on-chain identifier is the
+  // short form.
+  const snsShortPattern = shortName(body.sns);
+  if (!SNS_PATTERN.test(snsShortPattern)) {
+    return c.json(
+      {
+        error:
+          "sns must match [a-z0-9-]+ (max 64 chars, lowercase, no leading/trailing dash)",
+      },
+      400,
+    );
+  }
   if (!body.displayName || typeof body.displayName !== "string") {
     return c.json({ error: "displayName required (string)" }, 400);
+  }
+  if (body.displayName.length > MAX_DISPLAY_NAME) {
+    return c.json(
+      { error: `displayName must be ≤ ${MAX_DISPLAY_NAME} chars` },
+      400,
+    );
+  }
+  if (
+    body.tagline !== undefined &&
+    body.tagline !== null &&
+    body.tagline.length > MAX_TAGLINE
+  ) {
+    return c.json({ error: `tagline must be ≤ ${MAX_TAGLINE} chars` }, 400);
+  }
+  if (
+    body.customBrainMd !== undefined &&
+    body.customBrainMd !== null &&
+    Buffer.byteLength(body.customBrainMd, "utf8") > MAX_BRAIN_BYTES
+  ) {
+    return c.json(
+      { error: `customBrainMd must be ≤ ${MAX_BRAIN_BYTES} bytes` },
+      400,
+    );
   }
   if (!body.ownerWallet || typeof body.ownerWallet !== "string") {
     return c.json({ error: "ownerWallet required (string)" }, 400);
@@ -293,6 +336,12 @@ agents.post("/api/agents", async (c) => {
     body.allowedProtocols.length === 0
   ) {
     return c.json({ error: "allowedProtocols must be a non-empty array" }, 400);
+  }
+  if (body.allowedProtocols.length > MAX_PROTOCOLS) {
+    return c.json(
+      { error: `allowedProtocols must have ≤ ${MAX_PROTOCOLS} entries` },
+      400,
+    );
   }
   for (const p of body.allowedProtocols) {
     if (!VALID_PROTOCOLS.has(p)) {
