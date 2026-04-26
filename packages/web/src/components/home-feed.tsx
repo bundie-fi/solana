@@ -17,7 +17,6 @@ import {
   type FeedEvent,
   type VaultSnapshot,
 } from "@/lib/feed";
-import { HERO_AGENTS } from "@/lib/sns-resolver";
 import { MobileTopHeader } from "@/components/MobileTopHeader";
 import { AgentAvatar, resolveAgentKey } from "@/components/agent-avatar";
 import { ChainBadge } from "@/components/chain-badge";
@@ -27,13 +26,33 @@ import { ProbBar } from "@/components/prob-bar";
 const POLL_MS = 15_000;
 const MAX_MARKETS = 30;
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+
+/**
+ * Minimal shape returned by `GET /api/agents`. Only the fields the home feed
+ * actually consumes are typed here — the backend may return additional
+ * columns (preset, brain_md, etc.) which we ignore.
+ */
+interface RegistryAgent {
+  sns: string;
+  vault_pda: string;
+  emoji: string | null;
+  display_name: string;
+}
+
 /**
  * Client-side polling feed. Reads the prediction-market program every
  * 15 seconds via the already-provided wallet-adapter ConnectionProvider.
+ *
+ * The agent quick-strip + per-agent vault deltas are sourced from the
+ * Supabase-backed `GET /api/agents` registry rather than a hardcoded list,
+ * so any agent the backend marks `status='active'` shows up here.
  */
 export function HomeFeed() {
   const { connection } = useConnection();
 
+  const [agents, setAgents] = useState<RegistryAgent[]>([]);
   const [markets, setMarkets] = useState<MarketView[]>([]);
   const [vaultDeltas, setVaultDeltas] = useState<FeedEvent[]>([]);
   const [lastTick, setLastTick] = useState<number>(0);
@@ -42,20 +61,44 @@ export function HomeFeed() {
 
   const prevVaultMapRef = useRef<Map<string, number>>(new Map());
 
+  // Pull the agent registry once on mount; subsequent ticks reuse the list.
+  // (Agents added via the wizard appear after a soft refresh — re-polling
+  // every 15s is wasteful for a directory that changes minute-scale at most.)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/agents?status=active`);
+        if (!res.ok) throw new Error(`backend ${res.status}`);
+        const body = (await res.json()) as { agents?: RegistryAgent[] };
+        if (cancelled) return;
+        setAgents(body.agents ?? []);
+      } catch (e) {
+        // Surface as a soft error — markets still render even if the agent
+        // strip is empty.
+        console.warn("[feed] failed to load /api/agents", e);
+        if (!cancelled) setAgents([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const tick = useCallback(async () => {
     try {
       const mkts = await fetchAllMarkets(connection);
 
       const snapshots: VaultSnapshot[] = await Promise.all(
-        HERO_AGENTS.map(async (a) => {
+        agents.map(async (a) => {
           try {
             const lamports = await connection.getBalance(
-              new PublicKey(a.vault),
+              new PublicKey(a.vault_pda),
               "confirmed",
             );
-            return { vault: a.vault, lamports };
+            return { vault: a.vault_pda, lamports };
           } catch {
-            return { vault: a.vault, lamports: 0 };
+            return { vault: a.vault_pda, lamports: 0 };
           }
         }),
       );
@@ -81,7 +124,7 @@ export function HomeFeed() {
     } finally {
       setLoading(false);
     }
-  }, [connection]);
+  }, [connection, agents]);
 
   useEffect(() => {
     tick();
@@ -114,7 +157,7 @@ export function HomeFeed() {
         {/* Hero strip */}
         <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-            Activity stream · {HERO_AGENTS.length} agents online
+            Activity stream · {agents.length} agents online
           </div>
           <div className="section-title" style={{ fontSize: 26 }}>
             Three minds, <em>moving capital.</em>
@@ -160,13 +203,13 @@ export function HomeFeed() {
           </Link>
         </div>
 
-        {/* Agent quick-tap strip */}
+        {/* Agent quick-tap strip — sourced from /api/agents (Phase L registry). */}
         <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", overflowX: "auto" }}>
-          {HERO_AGENTS.map((a, i) => {
+          {agents.map((a, i) => {
             const agentKey = resolveAgentKey(a.sns);
             return (
               <Link
-                key={a.vault}
+                key={a.vault_pda}
                 href={`/agent/${a.sns}`}
                 style={{
                   display: "flex",
@@ -186,7 +229,7 @@ export function HomeFeed() {
                 {agentKey ? (
                   <AgentAvatar agent={agentKey} size={32} beat delay={i * 0.4} />
                 ) : (
-                  <span style={{ fontSize: 24 }}>{a.emoji}</span>
+                  <span style={{ fontSize: 24 }}>{a.emoji ?? "🤖"}</span>
                 )}
                 <span className="mono-tiny gold" style={{ fontSize: 9.5 }}>
                   {a.sns.split(".")[0]}
