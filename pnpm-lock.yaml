@@ -25,16 +25,16 @@ importers:
     dependencies:
       '@coral-xyz/anchor':
         specifier: ^0.32.1
-        version: 0.32.1(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10)
+        version: 0.32.1(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)
       '@hono/node-server':
         specifier: ^1
         version: 1.19.12(hono@4.12.10)
       '@solana/web3.js':
         specifier: ^1.98
-        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10)
+        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)
       '@supabase/supabase-js':
         specifier: ^2
-        version: 2.101.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+        version: 2.101.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       dotenv:
         specifier: ^16
         version: 16.6.1
@@ -59,7 +59,7 @@ importers:
     dependencies:
       '@solana/web3.js':
         specifier: ^1.98.0
-        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)
+        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10)
     devDependencies:
       typescript:
         specifier: ^5.5.0
@@ -144,6 +144,9 @@ importers:
       '@bonfida/spl-name-service':
         specifier: ^3.0.21
         version: 3.0.21(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@supabase/supabase-js':
+        specifier: ^2
+        version: 2.101.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -10482,6 +10485,27 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@coral-xyz/anchor@0.32.1(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)':
+    dependencies:
+      '@coral-xyz/anchor-errors': 0.31.1
+      '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6))
+      '@noble/hashes': 1.8.0
+      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)
+      bn.js: 5.2.3
+      bs58: 4.0.1
+      buffer-layout: 1.2.2
+      camelcase: 6.3.0
+      cross-fetch: 3.2.0
+      eventemitter3: 4.0.7
+      pako: 2.1.0
+      superstruct: 0.15.5
+      toml: 3.0.0
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - typescript
+      - utf-8-validate
+
   '@coral-xyz/borsh@0.26.0(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10))':
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10)
@@ -10509,6 +10533,12 @@ snapshots:
   '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10))':
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      bn.js: 5.2.3
+      buffer-layout: 1.2.2
+
+  '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6))':
+    dependencies:
+      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@6.0.6)
       bn.js: 5.2.3
       buffer-layout: 1.2.2
 
@@ -14135,6 +14165,16 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@supabase/realtime-js@2.101.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
+    dependencies:
+      '@supabase/phoenix': 0.4.0
+      '@types/ws': 8.18.1
+      tslib: 2.8.1
+      ws: 8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@supabase/storage-js@2.101.1':
     dependencies:
       iceberg-js: 0.8.1
@@ -14146,6 +14186,17 @@ snapshots:
       '@supabase/functions-js': 2.101.1
       '@supabase/postgrest-js': 2.101.1
       '@supabase/realtime-js': 2.101.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@supabase/storage-js': 2.101.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@supabase/supabase-js@2.101.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)':
+    dependencies:
+      '@supabase/auth-js': 2.101.1
+      '@supabase/functions-js': 2.101.1
+      '@supabase/postgrest-js': 2.101.1
+      '@supabase/realtime-js': 2.101.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       '@supabase/storage-js': 2.101.1
     transitivePeerDependencies:
       - bufferutil
