@@ -28,10 +28,7 @@ fn require_vault_matches_pinned_authority(
     );
     let (expected_pda, _bump) =
         Pubkey::find_program_address(&[BUNDIE_VAULT_SEED, pinned_authority.as_ref()], program_id);
-    require!(
-        vault.key() == expected_pda,
-        MarketError::WrongTargetVault
-    );
+    require!(vault.key() == expected_pda, MarketError::WrongTargetVault);
     Ok(())
 }
 
