@@ -111,6 +111,10 @@ pub fn handler(
         kind <= MARKET_KIND_AGENT_VS_BENCHMARK,
         MarketError::InvalidKind
     );
+    require!(
+        matches!(kind, 1 | 2 | 3),
+        crate::error::MarketError::DeprecatedMarketKind
+    );
 
     // Per-kind invariants. Catch obviously-broken configs at create time
     // so resolve never has to inspect a malformed payload.

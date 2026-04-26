@@ -46,4 +46,6 @@ pub enum MarketError {
     UnauthorizedVaultCommit,
     #[msg("Required target vault account not provided")]
     MissingTargetVault,
+    #[msg("Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)")]
+    DeprecatedMarketKind,
 }
