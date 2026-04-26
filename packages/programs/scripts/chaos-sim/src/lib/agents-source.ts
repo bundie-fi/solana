@@ -103,3 +103,54 @@ export async function logAgentAction(opts: {
   });
   if (error) console.error("[agents-source] log insert failed:", error.message);
 }
+
+/**
+ * Throttled audit-log for skipped agents (missing keypair, pubkey mismatch,
+ * corrupt row, etc.). Inserts a row into agent_action_log only if the most
+ * recent matching skipped_* entry for this agent is older than `windowMs`
+ * (default 1h). Cheap query — no in-memory cache, so it survives daemon
+ * restarts. Failures are swallowed so the supervisor never crashes on log I/O.
+ */
+export async function logSkippedAgent(opts: {
+  agentSns: string;
+  actionType: string; // e.g. "skipped_no_keypair", "skipped_pubkey_mismatch", "skipped_corrupt_row"
+  reasoning: string;
+  windowMs?: number;
+}): Promise<void> {
+  const supa = getSupabase();
+  if (!supa) return;
+  const windowMs = opts.windowMs ?? 60 * 60_000;
+  try {
+    const { data, error } = await supa
+      .from("agent_action_log")
+      .select("created_at")
+      .eq("agent_sns", opts.agentSns)
+      .like("action_type", "skipped_%")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (error) {
+      console.error(
+        "[agents-source] skipped-log throttle query failed:",
+        error.message,
+      );
+      // Fail open — still attempt to insert so we don't lose the audit row.
+    } else if (data && data.length > 0) {
+      const last = new Date(data[0].created_at as string).getTime();
+      if (Number.isFinite(last) && Date.now() - last < windowMs) {
+        return; // throttled
+      }
+    }
+  } catch (e) {
+    console.error(
+      "[agents-source] skipped-log throttle threw:",
+      (e as Error).message,
+    );
+    // fall through and insert anyway
+  }
+
+  await logAgentAction({
+    agentSns: opts.agentSns,
+    actionType: opts.actionType,
+    reasoning: opts.reasoning,
+  }).catch(() => {});
+}

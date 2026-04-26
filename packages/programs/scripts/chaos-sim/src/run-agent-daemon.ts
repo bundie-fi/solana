@@ -38,7 +38,12 @@ import { config as loadDotEnv } from "dotenv";
 
 import { runTick, type PeerAgent } from "./agents/shared-tick.js";
 import { logActivity } from "./lib/activity-log.js";
-import { loadActiveAgents, logAgentAction, type ActiveAgent } from "./lib/agents-source.js";
+import {
+  loadActiveAgents,
+  logAgentAction,
+  logSkippedAgent,
+  type ActiveAgent,
+} from "./lib/agents-source.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHAOS_DIR = join(__dirname, "..");
@@ -194,15 +199,26 @@ function resolveSupabaseAgent(agent: ActiveAgent): TickTarget | null {
       `[supervisor] skipping ${agent.sns}: missing local keypair at ${keyPath}\n` +
         `  (Phase L backend route should write this file during provisioning)`,
     );
+    logSkippedAgent({
+      agentSns: agent.sns,
+      actionType: "skipped_no_keypair",
+      reasoning: `Daemon cannot tick: missing local keypair at ${keyPath}`,
+    }).catch(() => {});
     return null;
   }
   let kp: Keypair;
   try {
     kp = loadKeypair(keyPath);
   } catch (e) {
+    const msg = (e as Error).message;
     console.warn(
-      `[supervisor] skipping ${agent.sns}: failed to load keypair: ${(e as Error).message}`,
+      `[supervisor] skipping ${agent.sns}: failed to load keypair: ${msg}`,
     );
+    logSkippedAgent({
+      agentSns: agent.sns,
+      actionType: "skipped_no_keypair",
+      reasoning: `Daemon cannot tick: failed to load keypair (${msg})`,
+    }).catch(() => {});
     return null;
   }
   // Sanity check: the keypair pubkey must match Supabase's agent_pubkey.
@@ -211,6 +227,13 @@ function resolveSupabaseAgent(agent: ActiveAgent): TickTarget | null {
       `[supervisor] skipping ${agent.sns}: keypair pubkey ${kp.publicKey.toBase58()} ` +
         `does not match Supabase agent_pubkey ${agent.agentPubkey}`,
     );
+    logSkippedAgent({
+      agentSns: agent.sns,
+      actionType: "skipped_pubkey_mismatch",
+      reasoning:
+        `Daemon cannot tick: local keypair pubkey ${kp.publicKey.toBase58()} ` +
+        `does not match Supabase agent_pubkey ${agent.agentPubkey}`,
+    }).catch(() => {});
     return null;
   }
   return {
