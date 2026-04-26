@@ -40,4 +40,8 @@ pub enum MarketError {
     InsiderMarketForbidden,
     #[msg("resolve_market_v2 data_a does not match the target_agent encoded in market payload")]
     WrongTargetAgent,
+    #[msg("Vault NAV epoch must increment monotonically")]
+    StaleNavEpoch,
+    #[msg("Caller is not the vault authority")]
+    UnauthorizedVaultCommit,
 }

@@ -109,4 +109,17 @@ pub mod prediction_market {
     pub fn init_vault(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
         instructions::init_vault::handler(ctx, initial_nav)
     }
+
+    /// Commit a new NAV value to the vault. Enforces strict monotonic
+    /// epoch increment (`new_epoch == prev + 1`) so a stale or replayed
+    /// commit cannot regress the vault. The `has_one = authority`
+    /// constraint locks writes to the vault owner.
+    pub fn commit_nav(
+        ctx: Context<CommitNav>,
+        new_nav: u64,
+        new_epoch: u64,
+        commit_digest: [u8; 32],
+    ) -> Result<()> {
+        instructions::commit_nav::handler(ctx, new_nav, new_epoch, commit_digest)
+    }
 }
