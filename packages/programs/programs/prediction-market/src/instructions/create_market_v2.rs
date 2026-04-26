@@ -127,6 +127,17 @@ pub fn handler(
         }
         MARKET_KIND_NAV_TARGET => {
             require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
+            // On-chain insider guard — creator MUST NOT be the authority of
+            // the vault whose NAV is being predicted on.
+            let v = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            require!(
+                v.authority != ctx.accounts.creator.key(),
+                MarketError::InsiderMarketForbidden
+            );
             MarketType::Absolute
         }
         MARKET_KIND_RELATIVE => {
@@ -136,12 +147,37 @@ pub fn handler(
                 initial_nav_a > 0 && initial_nav_b > 0,
                 MarketError::InvalidPayload
             );
+            // Insider guard — creator may not author either side.
+            let a = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            let b = ctx
+                .accounts
+                .target_vault_b
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            require!(
+                a.authority != ctx.accounts.creator.key()
+                    && b.authority != ctx.accounts.creator.key(),
+                MarketError::InsiderMarketForbidden
+            );
             MarketType::Relative
         }
         MARKET_KIND_DRAWDOWN => {
             require!(
                 payload_u64(&payload, 0) > 0 && payload_u64(&payload, 0) <= 10_000,
                 MarketError::InvalidPayload
+            );
+            let v = ctx
+                .accounts
+                .target_vault_a
+                .as_ref()
+                .ok_or(MarketError::MissingTargetVault)?;
+            require!(
+                v.authority != ctx.accounts.creator.key(),
+                MarketError::InsiderMarketForbidden
             );
             MarketType::Absolute
         }
