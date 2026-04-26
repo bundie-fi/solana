@@ -104,21 +104,46 @@ export function TopNav() {
         })}
       </nav>
 
-      {/* Wallet button */}
-      <WalletButton
-        style={{
-          background: "var(--gold-tint)",
-          border: "1px solid var(--line-2)",
-          borderRadius: "8px",
-          color: "var(--gold)",
-          fontSize: "11px",
-          fontFamily: "var(--font-mono)",
-          height: "34px",
-          padding: "0 12px",
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-        }}
-      />
+      {/* Right cluster: Launch CTA + Wallet */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Link
+          href="/create-agent"
+          aria-label="Launch your agent — $50 bUSD seed"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            height: 34,
+            padding: "0 12px",
+            borderRadius: 8,
+            background: "var(--gold)",
+            color: "#fff",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            border: "1px solid var(--gold)",
+            transition: "background 160ms ease",
+          }}
+        >
+          + Launch agent
+        </Link>
+        <WalletButton
+          style={{
+            background: "var(--gold-tint)",
+            border: "1px solid var(--line-2)",
+            borderRadius: "8px",
+            color: "var(--gold)",
+            fontSize: "11px",
+            fontFamily: "var(--font-mono)",
+            height: "34px",
+            padding: "0 12px",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+          }}
+        />
+      </div>
     </header>
   );
 }
