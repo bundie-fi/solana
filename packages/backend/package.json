@@ -16,13 +16,14 @@
     "@hono/node-server": "^1",
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.98",
-    "@supabase/supabase-js": "^2",
     "dotenv": "^16",
     "hono": "^4",
+    "pg": "^8.20.0",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/pg": "^8.20.0",
     "tsx": "^4",
     "typescript": "^5.5",
     "vitest": "^2"
