@@ -43,14 +43,30 @@ export interface ZerionAgentCreateResult {
   pubkey: string;
   vaultName: string;
   role?: string;
+  mirrored?: boolean;
+  mirrorPath?: string;
 }
 
-export function zerionAgentCreate(name: string): ZerionAgentCreateResult {
-  const res = spawnSync(
-    "node",
-    [ZERION_CLI_PATH, "agent", "create", "--name", name],
-    { encoding: "utf8", timeout: 30_000 },
-  );
+/**
+ * Provision a Bundie agent in the Zerion vault.
+ *
+ * When `mirrorKeypairPath` is provided, the CLI generates the keypair itself
+ * (rather than letting OWS derive one from a fresh mnemonic) and writes the
+ * 64-byte secret key to that path as a JSON byte array — matching the format
+ * the chaos-sim daemon expects in `packages/programs/scripts/chaos-sim/keys/`.
+ *
+ * SECURITY-REGRESSION: this means the secret lives in two places (OWS vault
+ * + plaintext file). Acceptable for hackathon / devnet automation only.
+ */
+export function zerionAgentCreate(
+  name: string,
+  mirrorKeypairPath?: string,
+): ZerionAgentCreateResult {
+  const args = [ZERION_CLI_PATH, "agent", "create", "--name", name];
+  if (mirrorKeypairPath) {
+    args.push("--mirror-keypair", mirrorKeypairPath);
+  }
+  const res = spawnSync("node", args, { encoding: "utf8", timeout: 30_000 });
   if (res.status !== 0) {
     throw new Error(
       `zerion agent create failed (status=${res.status}): ${res.stderr || res.stdout}`,

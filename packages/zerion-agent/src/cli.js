@@ -16,8 +16,9 @@
  * is replaced with a logging mock so no API calls are made.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
+import { Keypair } from "@solana/web3.js";
 import { loadPoliciesFromFile } from "./bundie/policy-loader.js";
 import { readState, setStrategyTarget, setPaused, statePath, appendActionLog } from "./bundie/state-store.js";
 import { startLoop, runOnce, defaultDevnetConnection } from "./bundie/rebalance-loop.js";
@@ -174,10 +175,29 @@ async function cmdResume() {
 async function cmdAgentCreate(flags) {
   const name = flags.name;
   if (!name) {
-    printErr("missing_args", "Usage: zerion-bundie agent create --name <role>");
+    printErr("missing_args", "Usage: zerion-bundie agent create --name <role> [--mirror-keypair <path>]");
     process.exit(1);
   }
-  const created = createAgent(name);
+  const mirrorPath = flags["mirror-keypair"];
+  let created;
+  let mirrored = false;
+  if (mirrorPath && !findAgent(name)) {
+    // SECURITY-REGRESSION (hackathon scope): generate the keypair OURSELVES so
+    // we can write the 64-byte secret-key array to disk for the chaos-sim
+    // daemon to discover. This means the secret lives in TWO places now:
+    //   1. ~/.ows/wallets/<vaultName> (encrypted at rest by OWS)
+    //   2. <mirror-path> (plaintext JSON byte array — same format the chaos
+    //      sim already expects from earlier phases)
+    // Acceptable for devnet automation; do NOT use this flag in production.
+    const kp = Keypair.generate();
+    const secretArr = Array.from(kp.secretKey);
+    mkdirSync(dirname(mirrorPath), { recursive: true });
+    writeFileSync(mirrorPath, JSON.stringify(secretArr) + "\n", { mode: 0o600 });
+    created = importAgentFromKey(name, secretArr);
+    mirrored = true;
+  } else {
+    created = createAgent(name);
+  }
   // Idempotent: if the agent already existed, `created` mirrors the existing
   // record. Caller can detect newness via the `existedBefore` flag we set by
   // probing once before the create call.
@@ -186,6 +206,8 @@ async function cmdAgentCreate(flags) {
     role: created.role,
     pubkey: created.pubkey,
     vaultName: created.vaultName,
+    mirrored,
+    mirrorPath: mirrored ? mirrorPath : undefined,
   });
 }
 
@@ -596,7 +618,7 @@ const flags = parseFlags(flagArgs);
             "status": "Show configured strategies + paused state",
             "pause": "Kill-switch: stop auto-execution",
             "resume": "Re-enable auto-execution",
-            "agent create --name <role>": "Provision a Bundie agent in the Zerion vault",
+            "agent create --name <role> [--mirror-keypair <path>]": "Provision a Bundie agent in the Zerion vault. With --mirror-keypair, also write the 64-byte secret to disk for chaos-sim daemon (devnet only — security regression).",
             "agent list": "List Bundie agents in the Zerion vault",
             "agent sign --name <role> --tx <base64>": "Sign a Solana tx with a vault-managed agent key",
             "agent execute --name <role> --tx <base64> --action <kind> [--notional-usd <n>] [--rpc <url>]": "Run policy framework → sign via OWS → broadcast → record. Single Zerion-mediated execution funnel for all agent ops.",

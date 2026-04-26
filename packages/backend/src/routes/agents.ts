@@ -1,22 +1,43 @@
 /**
  * Agent CRUD routes for the Bundie marketplace wizard.
  *
- * Backend is intentionally stateless re: tx construction — the wizard builds
- * init_vault / deposit_to_vault / close_vault txs client-side using the
- * @bundie/common IDL + the connected wallet. We just:
+ * The Anchor program requires the agent keypair to sign init_vault (the
+ * vault is derived from `["bundie_vault", authority]` and `authority` must
+ * sign). The agent secret lives in the OWS vault — only the backend can
+ * orchestrate it. So the backend now does the full init_vault flow itself:
+ *
  *   1. Validate input + uniqueness.
  *   2. Generate brain.md + policies.yaml from a preset.
- *   3. Provision the OWS-vault keypair (via the zerion-bundie CLI).
- *   4. Derive the BundieVault PDA so the wizard knows where to send funds.
- *   5. Insert a row in the registry with status='pending_init'.
- *   6. After the wizard broadcasts the on-chain init, /confirm-init verifies
- *      the vault account exists and flips status to 'active'.
+ *   3. Provision the OWS-vault keypair (via the @bundie/zerion-agent CLI),
+ *      and mirror the 64-byte secret into chaos-sim/keys/<short>-vault.json
+ *      so the chaos-sim daemon can find it.
+ *   4. Fund the agent wallet from AGENT_FUNDING_SECRET (rent for the vault
+ *      PDA + treasury ATA — about 0.005 SOL on devnet).
+ *   5. Build init_vault tx server-side, sign + broadcast via the Zerion
+ *      execute funnel (which runs the same DENY-by-default policy
+ *      framework chaos-sim uses).
+ *   6. Insert a row in the registry with status='pending_init'.
+ *   7. /confirm-init verifies the treasury ATA balance ≥ seed amount
+ *      (deposit completed by the wizard) before flipping to 'active'.
+ *
+ * close_vault is still wizard-driven (owner_wallet must sign) — the backend
+ * just returns next-step params and flips status after broadcast.
  */
 import { Hono } from "hono";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+} from "@solana/web3.js";
+import { createHash } from "node:crypto";
+import { resolve as pathResolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { zerionAgentCreate } from "../lib/zerion-cli.js";
+import { zerionAgentCreate, zerionAgentExecute } from "../lib/zerion-cli.js";
 
 // `@bundie/common`'s root export uses TS-only directory imports that pure
 // node ESM (used by tsx) can't resolve at runtime — same workaround as
@@ -24,6 +45,12 @@ import { zerionAgentCreate } from "../lib/zerion-cli.js";
 const BUSD_MINT: string =
   process.env.BUSD_MINT ?? process.env.NEXT_PUBLIC_BUSD_MINT ?? "REPLACE_AFTER_SETUP";
 const BUSD_DECIMALS_MULT = 1_000_000; // 6 decimals
+const INITIAL_NAV_BASE = BigInt(1_000_000); // $1.00 in 6-dec base units
+const DEVNET_RPC = process.env.DEVNET_RPC ?? "https://api.devnet.solana.com";
+const AGENT_FUND_LAMPORTS = Number(
+  process.env.AGENT_FUND_LAMPORTS ?? 10_000_000, // 0.01 SOL — covers vault + ATA rent comfortably
+);
+
 import {
   generateBrainMd,
   generatePoliciesYaml,
@@ -38,6 +65,12 @@ const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
   "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4",
 );
 const BUNDIE_VAULT_SEED = Buffer.from("bundie_vault");
+const TOKEN_PROGRAM_ID = new PublicKey(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+);
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+);
 
 const VALID_PRESETS: ReadonlySet<AgentPreset> = new Set([
   "balanced",
@@ -62,6 +95,152 @@ function getSupabase(): SupabaseClient | null {
     process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function anchorDisc(ixName: string): Buffer {
+  return createHash("sha256")
+    .update(`global:${ixName}`)
+    .digest()
+    .subarray(0, 8);
+}
+
+function getAssociatedTokenAddress(
+  mint: PublicKey,
+  owner: PublicKey,
+): PublicKey {
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  );
+  return ata;
+}
+
+/** Strip ".bundie.sol" / ".bundie" / ".sol" suffix to get the short name. */
+function shortName(sns: string): string {
+  return sns
+    .replace(/\.bundie\.sol$/i, "")
+    .replace(/\.bundie$/i, "")
+    .replace(/\.sol$/i, "");
+}
+
+/** Path the chaos-sim daemon expects keypairs at. */
+function chaosSimKeyPath(sns: string): string {
+  // packages/backend/src/routes → packages/programs/scripts/chaos-sim/keys
+  const here = dirname(fileURLToPath(import.meta.url));
+  return pathResolve(
+    here,
+    "../../../programs/scripts/chaos-sim/keys",
+    `${shortName(sns)}-vault.json`,
+  );
+}
+
+/** Resolve the funding keypair from AGENT_FUNDING_SECRET (JSON byte array). */
+function resolveFundingKeypair(): Keypair | null {
+  const raw = process.env.AGENT_FUNDING_SECRET;
+  if (!raw) return null;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length !== 64) return null;
+    return Keypair.fromSecretKey(Uint8Array.from(arr));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build the init_vault Transaction. Fee payer + signer is the agent itself
+ * (the program enforces `authority.is_signer` and the vault PDA is derived
+ * from `["bundie_vault", authority]`).
+ *
+ * Args layout (Borsh):
+ *   discriminator(8) | initial_nav: u64 LE | owner_wallet: Pubkey(32) | treasury_mint: Pubkey(32)
+ */
+async function buildInitVaultTx(
+  conn: Connection,
+  agentPubkey: PublicKey,
+  ownerWallet: PublicKey,
+  treasuryMint: PublicKey,
+  vaultPda: PublicKey,
+): Promise<{ txB64: string; treasuryAta: PublicKey }> {
+  const treasuryAta = getAssociatedTokenAddress(treasuryMint, vaultPda);
+
+  const disc = anchorDisc("init_vault");
+  // 8 + 8 + 32 + 32 = 80 bytes
+  const data = Buffer.alloc(80);
+  disc.copy(data, 0);
+  data.writeBigUInt64LE(INITIAL_NAV_BASE, 8);
+  ownerWallet.toBuffer().copy(data, 16);
+  treasuryMint.toBuffer().copy(data, 48);
+
+  const ix = new TransactionInstruction({
+    programId: PREDICTION_MARKET_PROGRAM_ID,
+    keys: [
+      { pubkey: agentPubkey, isSigner: true, isWritable: true },
+      { pubkey: vaultPda, isSigner: false, isWritable: true },
+      { pubkey: treasuryMint, isSigner: false, isWritable: false },
+      { pubkey: treasuryAta, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      {
+        pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
+    ],
+    data,
+  });
+
+  const tx = new Transaction().add(ix);
+  tx.feePayer = agentPubkey;
+  const { blockhash } = await conn.getLatestBlockhash("confirmed");
+  tx.recentBlockhash = blockhash;
+
+  const serialized = tx.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+  return { txB64: serialized.toString("base64"), treasuryAta };
+}
+
+/** Fund an agent wallet from AGENT_FUNDING_SECRET. Returns tx signature. */
+async function fundAgentWallet(
+  conn: Connection,
+  agentPubkey: PublicKey,
+  lamports: number,
+): Promise<string> {
+  const funder = resolveFundingKeypair();
+  if (!funder) {
+    throw new Error(
+      "AGENT_FUNDING_SECRET not configured (need a funded devnet keypair as JSON byte array)",
+    );
+  }
+  // Skip if the agent already has enough SOL — keeps re-runs cheap.
+  const balance = await conn.getBalance(agentPubkey, "confirmed");
+  if (balance >= lamports) return "skipped:already-funded";
+
+  const tx = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: funder.publicKey,
+      toPubkey: agentPubkey,
+      lamports: lamports - balance,
+    }),
+  );
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash(
+    "confirmed",
+  );
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = funder.publicKey;
+  tx.sign(funder);
+  const sig = await conn.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+  });
+  await conn.confirmTransaction(
+    { signature: sig, blockhash, lastValidBlockHeight },
+    "confirmed",
+  );
+  return sig;
 }
 
 interface CreateAgentBody {
@@ -95,8 +274,9 @@ agents.post("/api/agents", async (c) => {
   if (!body.ownerWallet || typeof body.ownerWallet !== "string") {
     return c.json({ error: "ownerWallet required (string)" }, 400);
   }
+  let ownerWalletKey: PublicKey;
   try {
-    new PublicKey(body.ownerWallet);
+    ownerWalletKey = new PublicKey(body.ownerWallet);
   } catch {
     return c.json({ error: "ownerWallet is not a valid pubkey" }, 400);
   }
@@ -162,11 +342,13 @@ agents.post("/api/agents", async (c) => {
     busdMint: BUSD_MINT,
   });
 
-  // ── Provision Zerion-managed keypair ──────────────────────────────────
+  // ── Provision Zerion-managed keypair (+ mirror to chaos-sim/keys) ─────
   let agentPubkey: PublicKey;
   let zerionVaultName: string;
+  const snsShort = shortName(body.sns);
+  const mirrorPath = chaosSimKeyPath(body.sns);
   try {
-    const zerionResult = zerionAgentCreate(body.sns);
+    const zerionResult = zerionAgentCreate(snsShort, mirrorPath);
     agentPubkey = new PublicKey(zerionResult.pubkey);
     zerionVaultName = zerionResult.vaultName;
   } catch (err) {
@@ -176,15 +358,61 @@ agents.post("/api/agents", async (c) => {
     );
   }
 
-  // ── Derive BundieVault PDA ────────────────────────────────────────────
+  // ── Derive BundieVault PDA + treasury ATA ─────────────────────────────
   const [vaultPda] = PublicKey.findProgramAddressSync(
     [BUNDIE_VAULT_SEED, agentPubkey.toBuffer()],
     PREDICTION_MARKET_PROGRAM_ID,
   );
-
+  const treasuryMintKey = new PublicKey(BUSD_MINT);
+  const treasuryAta = getAssociatedTokenAddress(treasuryMintKey, vaultPda);
   const seedAmountBase = Math.floor(body.seedAmountBusd * BUSD_DECIMALS_MULT);
 
-  // ── Insert into Supabase ──────────────────────────────────────────────
+  const conn = new Connection(DEVNET_RPC, "confirmed");
+
+  // ── Fund the agent wallet for vault + ATA rent ────────────────────────
+  let fundingSig: string;
+  try {
+    fundingSig = await fundAgentWallet(conn, agentPubkey, AGENT_FUND_LAMPORTS);
+  } catch (err) {
+    return c.json(
+      {
+        error: `Failed to fund agent wallet: ${(err as Error).message}`,
+      },
+      500,
+    );
+  }
+
+  // ── Build + sign + broadcast init_vault via the Zerion execute funnel ─
+  let initVaultSig: string;
+  try {
+    const { txB64 } = await buildInitVaultTx(
+      conn,
+      agentPubkey,
+      ownerWalletKey,
+      treasuryMintKey,
+      vaultPda,
+    );
+    const exec = zerionAgentExecute({
+      name: snsShort,
+      txB64,
+      action: "init_vault",
+      notionalUsd: 0,
+      rpcUrl: DEVNET_RPC,
+    });
+    if (!exec.signature) {
+      throw new Error(
+        `init_vault execute returned no signature; deniedBy=${exec.deniedBy ?? "unknown"}`,
+      );
+    }
+    initVaultSig = exec.signature;
+  } catch (err) {
+    return c.json(
+      { error: `Failed to init_vault on-chain: ${(err as Error).message}` },
+      500,
+    );
+  }
+
+  // ── Insert into Supabase (vault now exists on-chain) ──────────────────
   const { data: agentRow, error: insertErr } = await supa
     .from("agents")
     .insert({
@@ -206,20 +434,21 @@ agents.post("/api/agents", async (c) => {
   if (insertErr) return c.json({ error: insertErr.message }, 500);
 
   // ── Return next-step instructions for the wizard ──────────────────────
+  // The vault is already initialized; the wizard just needs to deposit the
+  // seed amount as the owner_wallet, then call /confirm-init.
   return c.json({
     agent: agentRow,
+    initVaultSignature: initVaultSig,
+    fundingSignature: fundingSig,
     nextSteps: {
-      ownerWallet: body.ownerWallet,
       vaultPda: vaultPda.toBase58(),
-      agentPubkey: agentPubkey.toBase58(),
+      treasuryAta: treasuryAta.toBase58(),
       treasuryMint: BUSD_MINT,
       seedAmountBase,
       zerionVaultName,
       instructions: [
-        "Build init_vault tx: program.methods.initVault(initialNav, ownerWallet, treasuryMint).accounts(...).transaction()",
-        "Build deposit_to_vault tx: program.methods.depositToVault(seedAmountBase).accounts(...).transaction()",
-        "Sign + send both as the owner wallet",
-        "POST /api/agents/:sns/confirm-init when both confirmed",
+        "Build deposit_to_vault tx and sign as owner_wallet",
+        "POST /api/agents/:sns/confirm-init when the deposit confirms",
       ],
     },
   });
@@ -238,18 +467,32 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
   if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
   if (agent.status === "active") return c.json({ ok: true, agent });
 
-  // Verify on-chain that the BundieVault PDA exists.
-  const conn = new Connection(
-    process.env.DEVNET_RPC ?? "https://api.devnet.solana.com",
-    "confirmed",
-  );
-  const vaultInfo = await conn.getAccountInfo(new PublicKey(agent.vault_pda));
+  // Verify on-chain that the BundieVault PDA exists AND the treasury ATA
+  // has at least the seed amount (i.e. the deposit completed).
+  const conn = new Connection(DEVNET_RPC, "confirmed");
+  const vaultPubkey = new PublicKey(agent.vault_pda);
+  const vaultInfo = await conn.getAccountInfo(vaultPubkey);
   if (!vaultInfo) {
     return c.json({ error: "Vault not initialized on-chain" }, 400);
   }
-
-  // (Optional) verify treasury_ata balance ≥ seed_amount_busd. Skipped in v1
-  // — the wizard already ensures this before calling confirm-init.
+  const treasuryAta = getAssociatedTokenAddress(
+    new PublicKey(BUSD_MINT),
+    vaultPubkey,
+  );
+  const ataInfo = await conn.getAccountInfo(treasuryAta);
+  if (!ataInfo) {
+    return c.json({ error: "Treasury ATA missing on-chain" }, 400);
+  }
+  // SPL token account: amount is u64LE at offset 64.
+  const amount = ataInfo.data.readBigUInt64LE(64);
+  if (amount < BigInt(agent.seed_amount_busd)) {
+    return c.json(
+      {
+        error: `Treasury balance ${amount.toString()} < seed_amount_busd ${agent.seed_amount_busd}`,
+      },
+      400,
+    );
+  }
 
   const { error: updateErr } = await supa
     .from("agents")
