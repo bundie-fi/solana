@@ -247,6 +247,11 @@ export function ReviewStep({ state, dispatch }: Props) {
         >
           brain.md preview
         </div>
+        <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>
+          Preview shown for reference. The backend regenerates the prompt
+          from your preset + protocol selection at agent-creation time, so
+          minor wording may differ.
+        </div>
         <pre
           style={{
             margin: 0,
