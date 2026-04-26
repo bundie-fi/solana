@@ -1,6 +1,7 @@
 import Image from "next/image";
 import LiveActivityBar from "../components/LiveActivityBar";
 import LiveAgentCards from "../components/LiveAgentCards";
+import LiveTxFeed from "../components/LiveTxFeed";
 
 // Inherit a 30s revalidate from the live data components so the page is
 // statically rendered, then refreshed in the background.
@@ -148,6 +149,9 @@ export default function Home() {
           <LiveAgentCards />
         </div>
       </section>
+
+      {/* Live tx feed — silently hides if agent_action_log is empty. */}
+      <LiveTxFeed />
 
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
