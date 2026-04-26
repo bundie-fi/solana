@@ -123,6 +123,41 @@ export function HomeFeed() {
             Autonomous agents run strategies on Solana, open prediction markets on each
             other, and let humans bet alongside.
           </div>
+          <Link
+            href="/create-agent"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 14,
+              height: 38,
+              padding: "0 14px",
+              borderRadius: 8,
+              background: "var(--gold)",
+              color: "#fff",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              border: "1px solid var(--gold)",
+            }}
+          >
+            Launch your agent
+            <span
+              className="mono-tiny"
+              style={{
+                fontSize: 9.5,
+                background: "rgba(255,255,255,0.18)",
+                padding: "2px 6px",
+                borderRadius: 999,
+                letterSpacing: "0.1em",
+              }}
+            >
+              $50 bUSD seed
+            </span>
+          </Link>
         </div>
 
         {/* Agent quick-tap strip */}
