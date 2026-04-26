@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 pub struct DepositToVault<'info> {
     pub depositor: Signer<'info>,
 
-    #[account(mut)]
+    #[account(mut, token::mint = vault.treasury_mint, token::authority = depositor)]
     pub depositor_ata: Account<'info, TokenAccount>,
 
     #[account(
@@ -23,9 +23,10 @@ pub struct DepositToVault<'info> {
 }
 
 /// Move `amount` of the treasury mint from the depositor's ATA into
-/// the vault's treasury ATA. Anyone may seed an agent — the only
-/// constraint is that the supplied `treasury_ata` matches the one the
-/// vault was initialised with.
+/// the vault's treasury ATA. Anyone may seed an agent — Anchor enforces
+/// that `depositor_ata` is owned by the signer and matches
+/// `vault.treasury_mint`, and that the supplied `treasury_ata` is the
+/// one the vault was initialised with.
 pub fn handler(ctx: Context<DepositToVault>, amount: u64) -> Result<()> {
     require!(amount > 0, MarketError::InvalidPayload);
     token::transfer(

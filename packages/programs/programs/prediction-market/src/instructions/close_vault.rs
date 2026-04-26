@@ -19,7 +19,7 @@ pub struct CloseVault<'info> {
     #[account(mut, address = vault.treasury_ata)]
     pub treasury_ata: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(mut, token::mint = vault.treasury_mint, token::authority = owner)]
     pub owner_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
