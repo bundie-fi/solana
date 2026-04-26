@@ -105,8 +105,13 @@ pub mod prediction_market {
     /// is derived from `["bundie_vault", authority]` so each authority owns
     /// exactly one vault. Phases B+ read NAV from this account during
     /// market resolution instead of CPIing into protocol-specific readers.
-    pub fn init_vault(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
-        instructions::init_vault::handler(ctx, initial_nav)
+    pub fn init_vault(
+        ctx: Context<InitVault>,
+        initial_nav: u64,
+        owner_wallet: Pubkey,
+        treasury_mint: Pubkey,
+    ) -> Result<()> {
+        instructions::init_vault::handler(ctx, initial_nav, owner_wallet, treasury_mint)
     }
 
     /// Commit a new NAV value to the vault. Enforces strict monotonic

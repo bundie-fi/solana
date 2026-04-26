@@ -24,7 +24,12 @@ import {
   SYSVAR_RENT_PUBKEY,
   Transaction,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  createMint,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import { expect } from "chai";
 
 const { AnchorProvider, setProvider, workspace } = anchorPkg as any;
@@ -115,16 +120,28 @@ describe("NAV-based market resolution", () => {
   });
 
   it("init both BundieVaults at the same baseline NAV", async () => {
+    // Phase J: init_vault now creates an associated treasury ATA. We
+    // reuse `collateralMint` as the treasury mint — Phase B doesn't
+    // exercise treasury balance, so any 6dp mint works.
     for (const [auth, vault] of [
       [agentA, vaultA],
       [agentB, vaultB],
     ] as const) {
+      const treasuryAta = getAssociatedTokenAddressSync(
+        collateralMint,
+        vault,
+        true,
+      );
       await program.methods
-        .initVault(new BN(BASELINE_NAV))
+        .initVault(new BN(BASELINE_NAV), auth.publicKey, collateralMint)
         .accounts({
           authority: auth.publicKey,
           vault,
+          treasuryMint: collateralMint,
+          treasuryAta,
           systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         })
         .signers([auth])
         .rpc();

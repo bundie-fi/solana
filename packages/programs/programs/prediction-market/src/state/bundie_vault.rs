@@ -6,6 +6,14 @@ pub const BUNDIE_VAULT_SEED: &[u8] = b"bundie_vault";
 #[derive(InitSpace)]
 pub struct BundieVault {
     pub authority: Pubkey,
+    /// Wallet that funded / owns the agent. Authorized to call
+    /// `close_vault` and reclaim treasury balance.
+    pub owner_wallet: Pubkey,
+    /// SPL mint of the treasury asset (e.g. bUSD).
+    pub treasury_mint: Pubkey,
+    /// Associated token account owned by this vault PDA that holds
+    /// `treasury_mint` balance. Created during `init_vault`.
+    pub treasury_ata: Pubkey,
     pub nav_lamports: u64,
     pub nav_epoch: u64,
     pub nav_slot: u64,
