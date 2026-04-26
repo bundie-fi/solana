@@ -18,7 +18,8 @@
     "@solana/web3.js": "^1.98",
     "@supabase/supabase-js": "^2",
     "dotenv": "^16",
-    "hono": "^4"
+    "hono": "^4",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^22",

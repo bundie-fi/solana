@@ -36,6 +36,7 @@ import {
 import { createHash } from "node:crypto";
 import { resolve as pathResolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import nacl from "tweetnacl";
 
 import { zerionAgentCreate, zerionAgentExecute } from "../lib/zerion-cli.js";
 
@@ -567,10 +568,94 @@ agents.get("/api/agents", async (c) => {
   return c.json({ agents: data ?? [] });
 });
 
+// ── Auth helpers for close routes ──────────────────────────────────────────
+//
+// Owner must prove control of the wallet by signing a structured message:
+//   "close-vault:<sns>:<unix-ms-timestamp>"
+// We verify ed25519 sig against agent.owner_wallet and reject claims older
+// than 5 minutes (replay protection).
+const SIGNED_CLAIM_TTL_MS = 5 * 60 * 1000;
+const CLOSE_MSG_PATTERN = /^close-vault:([^:]+):(\d+)$/;
+
+interface SignedClaim {
+  ownerWallet: string;
+  signature: string; // base58 or base64
+  message: string;
+}
+
+function verifyCloseClaim(
+  claim: SignedClaim | undefined,
+  expectedSns: string,
+  expectedOwner: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (!claim || typeof claim !== "object") {
+    return { ok: false, reason: "signedClaim required" };
+  }
+  if (!claim.ownerWallet || claim.ownerWallet !== expectedOwner) {
+    return { ok: false, reason: "ownerWallet mismatch" };
+  }
+  if (!claim.message || !claim.signature) {
+    return { ok: false, reason: "message + signature required" };
+  }
+  const m = claim.message.match(CLOSE_MSG_PATTERN);
+  if (!m) {
+    return {
+      ok: false,
+      reason: "message must be 'close-vault:<sns>:<timestamp>'",
+    };
+  }
+  if (m[1] !== expectedSns) {
+    return { ok: false, reason: "message sns mismatch" };
+  }
+  const ts = Number(m[2]);
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > SIGNED_CLAIM_TTL_MS) {
+    return { ok: false, reason: "message timestamp expired (>5m)" };
+  }
+  // Decode signature: try base64 then base58.
+  let sigBytes: Uint8Array;
+  try {
+    sigBytes = Buffer.from(claim.signature, "base64");
+    if (sigBytes.length !== 64) {
+      // Fall back to base58 (Solana wallet adapters return base58 by default).
+      // PublicKey can decode base58 — repurpose it.
+      sigBytes = new PublicKey(claim.signature).toBytes();
+    }
+  } catch {
+    return { ok: false, reason: "signature must be base64 or base58" };
+  }
+  if (sigBytes.length !== 64) {
+    return { ok: false, reason: "signature must be 64 bytes" };
+  }
+  let pubkeyBytes: Uint8Array;
+  try {
+    pubkeyBytes = new PublicKey(expectedOwner).toBytes();
+  } catch {
+    return { ok: false, reason: "owner_wallet not a valid pubkey" };
+  }
+  const msgBytes = Buffer.from(claim.message, "utf8");
+  const valid = nacl.sign.detached.verify(msgBytes, sigBytes, pubkeyBytes);
+  if (!valid) return { ok: false, reason: "invalid signature" };
+  return { ok: true };
+}
+
+interface CloseBody {
+  signedClaim?: SignedClaim;
+  /** Hackathon fallback: if no signedClaim, accept a plain claim (TODO: remove). */
+  callerWallet?: string;
+}
+
 agents.post("/api/agents/:sns/close", async (c) => {
   const sns = c.req.param("sns");
   const supa = getSupabase();
   if (!supa) return c.json({ error: "Supabase not configured" }, 503);
+
+  let body: CloseBody = {};
+  try {
+    body = ((await c.req.json()) as CloseBody) ?? {};
+  } catch {
+    // Empty bodies allowed for the legacy fallback path; non-JSON is not.
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
 
   const { data: agent, error: fetchErr } = await supa
     .from("agents")
@@ -578,6 +663,28 @@ agents.post("/api/agents/:sns/close", async (c) => {
     .eq("sns", sns)
     .single();
   if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
+
+  // Auth check: prefer signed claim. Fall back to plain callerWallet for the
+  // hackathon (TODO: remove the fallback before mainnet — taking the caller's
+  // word for it is no real auth).
+  if (body.signedClaim) {
+    const verdict = verifyCloseClaim(body.signedClaim, sns, agent.owner_wallet);
+    if (!verdict.ok) {
+      return c.json({ error: `auth: ${verdict.reason}` }, 403);
+    }
+  } else if (body.callerWallet) {
+    if (body.callerWallet !== agent.owner_wallet) {
+      return c.json({ error: "auth: callerWallet ≠ owner_wallet" }, 403);
+    }
+  } else {
+    return c.json(
+      {
+        error:
+          "auth: signedClaim {ownerWallet, message: 'close-vault:<sns>:<ts>', signature} required (or, hackathon fallback, callerWallet)",
+      },
+      403,
+    );
+  }
 
   // Backend doesn't build close_vault tx — wizard builds + signs (owner_wallet
   // is the signer). Backend just returns the params + flips status='retired'
@@ -600,6 +707,40 @@ agents.post("/api/agents/:sns/confirm-close", async (c) => {
   const sns = c.req.param("sns");
   const supa = getSupabase();
   if (!supa) return c.json({ error: "Supabase not configured" }, 503);
+
+  let body: CloseBody = {};
+  try {
+    body = ((await c.req.json()) as CloseBody) ?? {};
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+
+  const { data: agent, error: fetchErr } = await supa
+    .from("agents")
+    .select("*")
+    .eq("sns", sns)
+    .single();
+  if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
+
+  // Same auth check as /close.
+  if (body.signedClaim) {
+    const verdict = verifyCloseClaim(body.signedClaim, sns, agent.owner_wallet);
+    if (!verdict.ok) {
+      return c.json({ error: `auth: ${verdict.reason}` }, 403);
+    }
+  } else if (body.callerWallet) {
+    if (body.callerWallet !== agent.owner_wallet) {
+      return c.json({ error: "auth: callerWallet ≠ owner_wallet" }, 403);
+    }
+  } else {
+    return c.json(
+      {
+        error:
+          "auth: signedClaim required (or, hackathon fallback, callerWallet)",
+      },
+      403,
+    );
+  }
 
   const { error: updateErr } = await supa
     .from("agents")
