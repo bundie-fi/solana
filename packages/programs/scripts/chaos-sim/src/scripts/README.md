@@ -7,8 +7,9 @@ checklists.
 ## seed-legacy-agents
 
 One-time bootstrap that migrates the `alice` / `bob` / `charlie` demo agents
-into the Supabase `agents` table so they appear in the web UI as proper rows
-(indistinguishable from agents launched via the create-agent wizard).
+into the Postgres `agents` table (bundie-db) so they appear in the web UI as
+proper rows (indistinguishable from agents launched via the create-agent
+wizard).
 
 For each agent the script:
 
@@ -26,11 +27,10 @@ already-done work.
 ### Prerequisites
 
 - `busd-mint.json` exists at the repo root (created by the setup-busd flow).
-- Supabase migrations have been applied so the `agents` table exists.
+- Postgres migrations have been applied so the `agents` table exists.
 - The vaults already exist on devnet (see `init-vaults` below).
 - Env vars set:
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`)
+  - `DATABASE_URL` (Railway-style Postgres connection string for bundie-db)
   - `BUSD_MINT` + `BUSD_MINT_AUTHORITY_SECRET` (optional — falls back to
     `busd-mint.json` if not set)
   - `DEVNET_RPC` (optional — defaults to `https://api.devnet.solana.com`)

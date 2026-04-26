@@ -1,7 +1,7 @@
 #!/usr/bin/env -S tsx
 /**
  * seed-legacy-agents.ts — one-time bootstrap that migrates the alice / bob /
- * charlie demo agents into the Supabase `agents` registry as proper rows so
+ * charlie demo agents into the Postgres `agents` registry as proper rows so
  * they look indistinguishable from user-launched agents in the web UI.
  *
  * For each demo agent the script will (idempotently):
@@ -10,13 +10,13 @@
  *   2. Broadcast `deposit_to_vault(50_000_000)` from the agent (depositor)
  *      into its existing BundieVault treasury_ata. Skipped if the vault
  *      treasury already holds ≥ 50_000_000 base units.
- *   3. INSERT a row into Supabase `agents` describing the agent (sns,
+ *   3. INSERT a row into Postgres `agents` describing the agent (sns,
  *      display_name, tagline, emoji, owner_wallet, vault_pda, agent_pubkey,
  *      brain_md, policies_yaml, preset, status='active', seed_amount_busd).
  *      Skipped if a row already exists for the SNS handle.
  *
  * Prerequisites:
- *   - Supabase migrations applied (`agents` table exists). The script does
+ *   - Postgres migrations applied (`agents` table exists). The script does
  *     NOT run migrations.
  *   - bUSD mint exists on devnet (`busd-mint.json` at the repo root, or set
  *     BUSD_MINT + BUSD_MINT_AUTHORITY_SECRET).
@@ -42,13 +42,13 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { config as loadDotEnv } from "dotenv";
 
+import { dbQuery, getPool } from "../lib/db.js";
 import {
   PREDICTION_MARKET_PROGRAM_ID,
   bundieVaultPda,
@@ -168,17 +168,13 @@ function loadBusdMintInfo(): { mint: PublicKey; authority: Keypair } {
   };
 }
 
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
+function ensureDbConfigured(): void {
+  if (!getPool()) {
     throw new Error(
-      "Missing SUPABASE_URL / SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) — " +
-        "this script requires a service-role key to insert into `agents`.",
+      "Missing DATABASE_URL — this script needs Postgres credentials to " +
+        "insert into the `agents` table.",
     );
   }
-  return createClient(url, key);
 }
 
 // ─── Per-agent ops ────────────────────────────────────────────────────────
@@ -309,7 +305,6 @@ async function processAgent(
   conn: Connection,
   busdMint: PublicKey,
   busdAuthority: Keypair,
-  supa: ReturnType<typeof getSupabase>,
   spec: DemoAgent,
 ): Promise<SeedResult> {
   const result: SeedResult = {
@@ -358,41 +353,45 @@ async function processAgent(
     return result;
   }
 
-  // 4. Insert the Supabase row (skip if a row already exists for the SNS).
+  // 4. Insert the registry row (skip if a row already exists for the SNS).
   try {
-    const { data: existing, error: selErr } = await supa
-      .from("agents")
-      .select("sns")
-      .eq("sns", spec.sns)
-      .maybeSingle();
-    if (selErr) throw new Error(selErr.message);
-    if (existing) {
+    const existing = await dbQuery<{ sns: string }>(
+      `SELECT sns FROM agents WHERE sns = $1 LIMIT 1`,
+      [spec.sns],
+    );
+    if (existing && existing.rows.length > 0) {
       result.rowStatus = "skipped";
       return result;
     }
-    const { error: insErr } = await supa.from("agents").insert({
-      sns: spec.sns,
-      display_name: spec.displayName,
-      tagline: spec.tagline,
-      emoji: spec.emoji,
-      // The demo agents have no separate human owner — `init_vault` was
-      // called with the agent's own pubkey as owner_wallet, and we mirror
-      // that here so the registry row matches on-chain state.
-      owner_wallet: agentPubkey.toBase58(),
-      vault_pda: vaultPdaStr,
-      agent_pubkey: agentPubkey.toBase58(),
-      brain_md: brainMd,
-      policies_yaml: policiesYaml,
-      preset: spec.preset,
-      // Deposit already broadcast above → status is `active` immediately
-      // (no pending_init phase like the wizard flow).
-      status: "active",
-      seed_amount_busd: Number(SEED_AMOUNT_BUSD),
-    });
-    if (insErr) throw new Error(insErr.message);
+    await dbQuery(
+      `INSERT INTO agents (
+         sns, display_name, tagline, emoji, owner_wallet, vault_pda,
+         agent_pubkey, brain_md, policies_yaml, preset, status, seed_amount_busd
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        spec.sns,
+        spec.displayName,
+        spec.tagline,
+        spec.emoji,
+        // The demo agents have no separate human owner — `init_vault` was
+        // called with the agent's own pubkey as owner_wallet, and we mirror
+        // that here so the registry row matches on-chain state.
+        agentPubkey.toBase58(),
+        vaultPdaStr,
+        agentPubkey.toBase58(),
+        brainMd,
+        policiesYaml,
+        spec.preset,
+        // Deposit already broadcast above → status is `active` immediately
+        // (no pending_init phase like the wizard flow).
+        "active",
+        Number(SEED_AMOUNT_BUSD),
+      ],
+    );
     result.rowStatus = "inserted";
   } catch (e) {
-    result.error = `supabase insert failed: ${(e as Error).message}`;
+    result.error = `agents row insert failed: ${(e as Error).message}`;
     return result;
   }
 
@@ -407,7 +406,7 @@ async function main(): Promise<void> {
   const conn = new Connection(devnetUrl, "confirmed");
 
   const { mint: busdMint, authority: busdAuthority } = loadBusdMintInfo();
-  const supa = getSupabase();
+  ensureDbConfigured();
 
   console.log("=== seed-legacy-agents ===");
   console.log(`devnet RPC:      ${devnetUrl}`);
@@ -420,7 +419,7 @@ async function main(): Promise<void> {
   const results: SeedResult[] = [];
   for (const spec of DEMO_AGENTS) {
     console.log(`[${spec.sns}]`);
-    const r = await processAgent(conn, busdMint, busdAuthority, supa, spec);
+    const r = await processAgent(conn, busdMint, busdAuthority, spec);
     results.push(r);
     if (r.error) {
       console.log(`  ✗ ERROR: ${r.error}`);
