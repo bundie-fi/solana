@@ -212,4 +212,161 @@ describe("bundie_vault treasury (Phase J)", () => {
     const vaultInfo = await provider.connection.getAccountInfo(vault);
     expect(vaultInfo).to.equal(null);
   });
+
+  it("close_vault on an empty vault closes accounts without transfer", async () => {
+    // Fresh authority => fresh vault PDA, never deposited into.
+    const emptyAuth = Keypair.generate();
+    const sig = await provider.connection.requestAirdrop(
+      emptyAuth.publicKey,
+      2_000_000_000,
+    );
+    await provider.connection.confirmTransaction(sig);
+
+    const emptyVault = vaultPda(emptyAuth.publicKey);
+    const emptyTreasuryAta = getAssociatedTokenAddressSync(
+      treasuryMint,
+      emptyVault,
+      true,
+    );
+    const emptyOwnerAta = await createAssociatedTokenAccount(
+      provider.connection,
+      emptyAuth,
+      treasuryMint,
+      emptyAuth.publicKey,
+    );
+
+    await program.methods
+      .initVault(new BN(1_000_000), emptyAuth.publicKey, treasuryMint)
+      .accounts({
+        authority: emptyAuth.publicKey,
+        vault: emptyVault,
+        treasuryMint,
+        treasuryAta: emptyTreasuryAta,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .signers([emptyAuth])
+      .rpc();
+
+    const ownerBefore = await getAccount(provider.connection, emptyOwnerAta);
+    const baselineBalance = ownerBefore.amount.toString();
+
+    // No deposit — exercise the `if amount > 0` skip path in close_vault.
+    await program.methods
+      .closeVault()
+      .accounts({
+        owner: emptyAuth.publicKey,
+        vault: emptyVault,
+        treasuryAta: emptyTreasuryAta,
+        ownerAta: emptyOwnerAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([emptyAuth])
+      .rpc();
+
+    // treasury_ata closed
+    const treasuryInfo = await provider.connection.getAccountInfo(
+      emptyTreasuryAta,
+    );
+    expect(treasuryInfo).to.equal(null);
+
+    // BundieVault PDA closed
+    const vaultInfo = await provider.connection.getAccountInfo(emptyVault);
+    expect(vaultInfo).to.equal(null);
+
+    // owner_ata balance unchanged from baseline (no transfer happened)
+    const ownerAfter = await getAccount(provider.connection, emptyOwnerAta);
+    expect(ownerAfter.amount.toString()).to.equal(baselineBalance);
+  });
+
+  it("deposit_to_vault after close_vault reverts (vault no longer exists)", async () => {
+    // Build an isolated vault, deposit, close, then attempt to deposit again.
+    const seqAuth = Keypair.generate();
+    const sig = await provider.connection.requestAirdrop(
+      seqAuth.publicKey,
+      3_000_000_000,
+    );
+    await provider.connection.confirmTransaction(sig);
+
+    const seqVault = vaultPda(seqAuth.publicKey);
+    const seqTreasuryAta = getAssociatedTokenAddressSync(
+      treasuryMint,
+      seqVault,
+      true,
+    );
+    const seqOwnerAta = await createAssociatedTokenAccount(
+      provider.connection,
+      seqAuth,
+      treasuryMint,
+      seqAuth.publicKey,
+    );
+    // Fund the depositor (seqAuth) so it can deposit 25e6.
+    await mintTo(
+      provider.connection,
+      userKp,
+      treasuryMint,
+      seqOwnerAta,
+      userKp,
+      25_000_000,
+    );
+
+    await program.methods
+      .initVault(new BN(1_000_000), seqAuth.publicKey, treasuryMint)
+      .accounts({
+        authority: seqAuth.publicKey,
+        vault: seqVault,
+        treasuryMint,
+        treasuryAta: seqTreasuryAta,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .signers([seqAuth])
+      .rpc();
+
+    await program.methods
+      .depositToVault(new BN(25_000_000))
+      .accounts({
+        depositor: seqAuth.publicKey,
+        depositorAta: seqOwnerAta,
+        vault: seqVault,
+        treasuryAta: seqTreasuryAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([seqAuth])
+      .rpc();
+
+    await program.methods
+      .closeVault()
+      .accounts({
+        owner: seqAuth.publicKey,
+        vault: seqVault,
+        treasuryAta: seqTreasuryAta,
+        ownerAta: seqOwnerAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([seqAuth])
+      .rpc();
+
+    // Both PDAs should now be gone — a follow-up deposit must revert.
+    try {
+      await program.methods
+        .depositToVault(new BN(1_000_000))
+        .accounts({
+          depositor: seqAuth.publicKey,
+          depositorAta: seqOwnerAta,
+          vault: seqVault,
+          treasuryAta: seqTreasuryAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([seqAuth])
+        .rpc();
+      throw new Error("expected revert");
+    } catch (e: any) {
+      expect(String(e)).to.match(
+        /AccountNotInitialized|AccountOwnedByWrongProgram|AccountDiscriminatorNotFound|has no data/,
+      );
+    }
+  });
 });
