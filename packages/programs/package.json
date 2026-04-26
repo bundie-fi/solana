@@ -21,7 +21,8 @@
     "chaos:agent-daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
     "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
-    "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts"
+    "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts",
+    "seed-legacy-agents": "tsx scripts/chaos-sim/src/scripts/seed-legacy-agents.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
