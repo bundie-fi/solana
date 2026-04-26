@@ -29,6 +29,7 @@ import {
 
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
+import { isMarketCreationRateLimited } from "./agents-source.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
@@ -64,6 +65,8 @@ const PREDICTION_MARKET_PROGRAM_ID =
 export interface ExecuteActionArgs {
   action: BrainAction;
   agentName: string;
+  /** Agent's SNS handle (e.g. "alice.bundie.sol") — used for Supabase rate-limit lookups. */
+  agentSns: string;
   walletName: string;
   kp: Keypair;
   surfpool: Connection;
@@ -82,6 +85,10 @@ export interface ExecuteActionResult {
   explorerUrl?: string;
   policyGate?: string;
   notes?: string;
+  /** True if the action was intentionally skipped (e.g. rate-limited). */
+  skipped?: boolean;
+  /** When skipped due to rate-limit, the wall-clock ms timestamp of the next allowed attempt. */
+  nextAllowedAt?: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -190,6 +197,32 @@ async function executeCreateMarket(
 ): Promise<ExecuteActionResult> {
   if (args.action.type !== "create_market") throw new Error("type mismatch");
   const a = args.action.args;
+
+  // ─── Rate limit (Phase O) ───────────────────────────────────────────────
+  // At most 1 create_market per agent per 6 hours. The check reads recent
+  // entries from agent_action_log in Supabase. Fail-open: if Supabase is
+  // unavailable, isMarketCreationRateLimited returns { limited: false } so
+  // local dev / legacy paths keep working.
+  //
+  // NOTE on logging: we deliberately do NOT call logAgentAction here. The
+  // generic per-action logger in shared-tick.ts picks up this result and
+  // writes a single row with action_type="create_market_skipped" — adding a
+  // second insert here would duplicate it. The success-path log similarly
+  // happens in shared-tick (action_type="create_market"), which is what
+  // lastMarketCreationTimestamp() reads to enforce the cooldown.
+  const limit = await isMarketCreationRateLimited(args.agentSns);
+  if (limit.limited) {
+    return {
+      phase: "execute",
+      chain: "devnet",
+      action: "create_market_skipped",
+      skipped: true,
+      nextAllowedAt: limit.nextAllowedAt,
+      notes: `Rate limit: ${limit.reason} (next allowed at ${
+        limit.nextAllowedAt ? new Date(limit.nextAllowedAt).toISOString() : "?"
+      })`,
+    };
+  }
 
   // Validate kind early so a malformed brain payload fails before any RPC.
   const kind = a.kind;
