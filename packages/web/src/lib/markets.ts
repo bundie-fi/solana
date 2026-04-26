@@ -287,13 +287,6 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 // Unix seconds: 2026-04-25 02:00 UTC
 const MARKET_FRESH_START_TS = 1745553600;
 
-// Hero agent vaults — only markets from these signers are shown.
-const HERO_VAULTS = new Set([
-  "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm", // alice.bundie
-  "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb", // bob.bundie
-  "8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg", // charlie.bundie
-]);
-
 export async function fetchAllMarkets(
   connection: Connection,
 ): Promise<MarketView[]> {
@@ -302,11 +295,13 @@ export async function fetchAllMarkets(
     const accounts = await program.account.market.all();
     return accounts
       .map((a) => toMarketView(a.publicKey, a.account))
-      .filter(
-        (m) =>
-          HERO_VAULTS.has(m.createdBy) &&
-          m.createdAt >= MARKET_FRESH_START_TS,
-      )
+      // The previous HERO_VAULTS allowlist (alice/bob/charlie pubkeys) was
+      // dropped once those demo agents were migrated into the Supabase
+      // `agents` registry — markets are now sourced from the on-chain set
+      // and the per-agent profile/leaderboard pages decide which agents to
+      // surface. The `createdAt` cutoff still filters out the pre-launch
+      // chaos-sim test markets.
+      .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
       // newest first
       .sort((a, b) => b.createdAt - a.createdAt);
   } catch (err) {

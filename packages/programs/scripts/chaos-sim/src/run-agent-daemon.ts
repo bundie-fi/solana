@@ -26,9 +26,11 @@
  * if absent, the agent is skipped with a clear warning. The Phase L backend
  * route is expected to write that key file as part of provisioning.
  *
- * If `loadActiveAgents()` returns 0 (Supabase creds missing or empty list),
- * supervisor mode falls back to the legacy hardcoded alice/bob/charlie list
- * so local development keeps working without Supabase.
+ * Supervisor mode is **Supabase-only**. If `loadActiveAgents()` returns 0
+ * the supervisor logs and idles — there is no hardcoded fallback (the
+ * alice/bob/charlie agents have been migrated into the Supabase registry
+ * via `seed-legacy-agents`). Single-agent `--agent <sns> --once` dev mode
+ * still uses the legacy in-process map for hand-running ticks.
  */
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { readFileSync, existsSync } from "node:fs";
@@ -342,24 +344,16 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
     }
 
     // Resolve Supabase agents to TickTargets (skip those missing local keys).
-    let targets = supabaseAgents
+    // Supabase is the sole source of truth: there is no hardcoded fallback —
+    // the alice/bob/charlie demo agents have been migrated into the registry
+    // via the seed-legacy-agents script.
+    const targets = supabaseAgents
       .map(resolveSupabaseAgent)
       .filter((t): t is TickTarget => t !== null);
 
-    // Backward-compat fallback: if Supabase returned nothing usable, run the
-    // legacy hardcoded list so local dev keeps working without Supabase.
     if (targets.length === 0) {
       console.log(
-        "[supervisor] no usable Supabase agents — falling back to legacy alice/bob/charlie",
-      );
-      targets = Object.values(LEGACY_AGENTS)
-        .map(resolveLegacyAgent)
-        .filter((t): t is TickTarget => t !== null);
-    }
-
-    if (targets.length === 0) {
-      console.log(
-        `[supervisor] no agents available — waiting ${intervalMs / 1000}s`,
+        `[supervisor] no active agents — sleeping ${intervalMs / 1000}s`,
       );
       await sleep(intervalMs);
       continue;
