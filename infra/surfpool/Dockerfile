@@ -30,4 +30,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
 # (needed so $MAINNET_RPC_URL expands at container start).
 ENTRYPOINT []
 
-CMD ["sh", "-c", "exec surfpool start --no-tui --no-explorer --rpc-port 8899 --network mainnet --rpc-url \"$MAINNET_RPC_URL\""]
+# Probe what flags this image's surfpool actually accepts. Output goes to
+# build/runtime logs so we can see the real CLI surface, then iterate the CMD.
+CMD ["sh", "-c", "surfpool --version; echo '---'; surfpool --help; echo '---'; surfpool start --help; echo '---'; sleep 3600"]
