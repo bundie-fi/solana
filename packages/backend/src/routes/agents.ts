@@ -24,6 +24,7 @@
  * just returns next-step params and flips status after broadcast.
  */
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   Connection,
@@ -88,6 +89,7 @@ const MAX_DISPLAY_NAME = 100;
 const MAX_TAGLINE = 200;
 const MAX_BRAIN_BYTES = 8 * 1024;
 const MAX_PROTOCOLS = 6;
+const MAX_BODY_BYTES = 64 * 1024;
 
 // ── Status transition guard ────────────────────────────────────────────────
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -284,6 +286,10 @@ interface CreateAgentBody {
   seedAmountBusd?: number;
   customBrainMd?: string;
 }
+
+// 64 KB body cap for every /api/agents route — guards against blob-sized brain.md.
+agents.use("/api/agents/*", bodyLimit({ maxSize: MAX_BODY_BYTES }));
+agents.use("/api/agents", bodyLimit({ maxSize: MAX_BODY_BYTES }));
 
 agents.post("/api/agents", async (c) => {
   let body: CreateAgentBody;
@@ -578,7 +584,7 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
 
   const { error: updateErr } = await supa
     .from("agents")
-    .update({ status: "active", updated_at: new Date().toISOString() })
+    .update({ status: "active" })
     .eq("sns", sns);
   if (updateErr) return c.json({ error: updateErr.message }, 500);
 
@@ -783,7 +789,7 @@ agents.post("/api/agents/:sns/confirm-close", async (c) => {
 
   const { error: updateErr } = await supa
     .from("agents")
-    .update({ status: "retired", updated_at: new Date().toISOString() })
+    .update({ status: "retired" })
     .eq("sns", sns);
   if (updateErr) return c.json({ error: updateErr.message }, 500);
 
