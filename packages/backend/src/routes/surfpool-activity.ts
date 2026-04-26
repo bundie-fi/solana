@@ -4,17 +4,17 @@
  *
  * Surfpool is a local mainnet fork; its txs are real but invisible to web
  * visitors because there's no public explorer. The chaos-sim daemon writes
- * each landed surfpool tx to the `surfpool_actions` Supabase table; this
+ * each landed surfpool tx to the `surfpool_actions` Postgres table; this
  * route reads them back and shapes them for the web UI.
  *
  * GET /api/agent/:sns/surfpool-activity?limit=50
  *
  * Defaults limit to 50, caps at 200, orders by created_at DESC, filters
- * agent_sns = :sns. If Supabase is unavailable, returns 503 with an empty
+ * agent_sns = :sns. If DATABASE_URL is unavailable, returns 503 with an empty
  * actions[] so the UI can still render (graceful degrade).
  */
 import { Hono } from "hono";
-import { supabase } from "../lib/supabase.js";
+import { dbQuery } from "../lib/db.js";
 
 export const surfpoolActivity = new Hono();
 
@@ -61,35 +61,39 @@ surfpoolActivity.get("/:sns/surfpool-activity", async (c) => {
     return c.json({ error: "agent sns required" }, 400);
   }
 
-  if (!supabase) {
+  let result;
+  try {
+    result = await dbQuery<SurfpoolActionRow>(
+      `SELECT id, slot, tx_sig, protocol, action_type, amount_base_units,
+              token_mint, notes, created_at
+         FROM surfpool_actions
+         WHERE agent_sns = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+      [sns, limit],
+    );
+  } catch (err) {
+    return c.json(
+      {
+        error: "Failed to fetch surfpool activity",
+        detail: (err as Error).message,
+      },
+      500,
+    );
+  }
+
+  if (!result) {
     return c.json(
       {
         agent: sns,
         actions: [],
-        error: "Supabase not configured on backend",
+        error: "Database not configured on backend",
       },
       503,
     );
   }
 
-  const { data, error } = await supabase
-    .from("surfpool_actions")
-    .select(
-      "id, slot, tx_sig, protocol, action_type, amount_base_units, token_mint, notes, created_at",
-    )
-    .eq("agent_sns", sns)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    return c.json(
-      { error: "Failed to fetch surfpool activity", detail: error.message },
-      500,
-    );
-  }
-
-  const rows = (data ?? []) as SurfpoolActionRow[];
-  const actions: SurfpoolActionDto[] = rows.map((r) => ({
+  const actions: SurfpoolActionDto[] = result.rows.map((r) => ({
     id: r.id,
     slot: Number(r.slot),
     txSig: r.tx_sig,

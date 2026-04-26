@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { mintTo, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
-import { createClient } from "@supabase/supabase-js";
+import { dbQuery } from "../lib/db.js";
 
 export const faucet = new Hono();
 
@@ -31,22 +31,22 @@ faucet.post("/api/faucet/claim", async (c) => {
     return c.json({ error: "Invalid wallet pubkey" }, 400);
   }
 
-  // Cooldown check via Supabase
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    return c.json({ error: "Faucet not configured (Supabase env missing)" }, 503);
+  // Cooldown check via Postgres (bundie-db on Railway).
+  const cutoff = new Date(
+    Date.now() - COOLDOWN_HOURS * 3600 * 1000,
+  ).toISOString();
+  const priorResult = await dbQuery<{ created_at: string }>(
+    `SELECT created_at
+       FROM faucet_claims
+       WHERE wallet = $1
+         AND created_at >= $2
+       LIMIT 1`,
+    [body.wallet, cutoff],
+  );
+  if (!priorResult) {
+    return c.json({ error: "Faucet not configured (DATABASE_URL missing)" }, 503);
   }
-  const supa = createClient(supabaseUrl, supabaseKey);
-  const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 3600 * 1000).toISOString();
-  const { data: prior } = await supa
-    .from("faucet_claims")
-    .select("created_at")
-    .eq("wallet", body.wallet)
-    .gte("created_at", cutoff)
-    .limit(1);
-  if (prior && prior.length > 0) {
+  if (priorResult.rows.length > 0) {
     return c.json(
       { error: `Cooldown: claim again after ${COOLDOWN_HOURS}h since last claim` },
       429
@@ -84,11 +84,11 @@ faucet.post("/api/faucet/claim", async (c) => {
     FAUCET_AMOUNT_BASE
   );
 
-  await supa.from("faucet_claims").insert({
-    wallet: body.wallet,
-    amount: FAUCET_AMOUNT_BASE,
-    tx_sig: sig,
-  });
+  await dbQuery(
+    `INSERT INTO faucet_claims (wallet, amount, tx_sig)
+     VALUES ($1, $2, $3)`,
+    [body.wallet, FAUCET_AMOUNT_BASE, sig],
+  );
 
   return c.json({
     txSig: sig,

@@ -25,7 +25,6 @@
  */
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   Connection,
   Keypair,
@@ -39,6 +38,7 @@ import { resolve as pathResolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import nacl from "tweetnacl";
 
+import { dbQuery, getPool } from "../lib/db.js";
 import { zerionAgentCreate, zerionAgentExecute } from "../lib/zerion-cli.js";
 
 // `@bundie/common`'s root export uses TS-only directory imports that pure
@@ -120,12 +120,21 @@ const VALID_PROTOCOLS: ReadonlySet<AllowedProtocol> = new Set([
   "orca",
 ]);
 
-function getSupabase(): SupabaseClient | null {
-  const url = process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
+/** Row shape for the `agents` table. Keep in sync with the migration. */
+interface AgentRow {
+  sns: string;
+  display_name: string;
+  tagline: string | null;
+  emoji: string | null;
+  owner_wallet: string;
+  vault_pda: string;
+  agent_pubkey: string;
+  brain_md: string | null;
+  policies_yaml: string | null;
+  preset: string;
+  status: string;
+  seed_amount_busd: number | string;
+  created_at?: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -392,19 +401,22 @@ agents.post("/api/agents", async (c) => {
     return c.json({ error: "seedAmountBusd must be a positive number" }, 400);
   }
 
-  const supa = getSupabase();
-  if (!supa) {
-    return c.json({ error: "Supabase not configured" }, 503);
+  if (!getPool()) {
+    return c.json({ error: "Database not configured" }, 503);
   }
 
   // ── Uniqueness check ──────────────────────────────────────────────────
-  const { data: existing, error: existingErr } = await supa
-    .from("agents")
-    .select("sns")
-    .eq("sns", body.sns)
-    .limit(1);
-  if (existingErr) return c.json({ error: existingErr.message }, 500);
-  if (existing && existing.length > 0) {
+  let existingRows;
+  try {
+    const r = await dbQuery<{ sns: string }>(
+      `SELECT sns FROM agents WHERE sns = $1 LIMIT 1`,
+      [body.sns],
+    );
+    existingRows = r?.rows ?? [];
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+  if (existingRows.length > 0) {
     return c.json({ error: "sns taken" }, 409);
   }
 
@@ -492,26 +504,38 @@ agents.post("/api/agents", async (c) => {
     );
   }
 
-  // ── Insert into Supabase (vault now exists on-chain) ──────────────────
-  const { data: agentRow, error: insertErr } = await supa
-    .from("agents")
-    .insert({
-      sns: body.sns,
-      display_name: body.displayName,
-      tagline: body.tagline ?? null,
-      emoji: body.emoji ?? null,
-      owner_wallet: body.ownerWallet,
-      vault_pda: vaultPda.toBase58(),
-      agent_pubkey: agentPubkey.toBase58(),
-      brain_md: brainMd,
-      policies_yaml: policiesYaml,
-      preset: body.preset,
-      status: "pending_init",
-      seed_amount_busd: seedAmountBase,
-    })
-    .select()
-    .single();
-  if (insertErr) return c.json({ error: insertErr.message }, 500);
+  // ── Insert into Postgres (vault now exists on-chain) ──────────────────
+  let agentRow: AgentRow;
+  try {
+    const insertRes = await dbQuery<AgentRow>(
+      `INSERT INTO agents (
+         sns, display_name, tagline, emoji, owner_wallet, vault_pda,
+         agent_pubkey, brain_md, policies_yaml, preset, status, seed_amount_busd
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [
+        body.sns,
+        body.displayName,
+        body.tagline ?? null,
+        body.emoji ?? null,
+        body.ownerWallet,
+        vaultPda.toBase58(),
+        agentPubkey.toBase58(),
+        brainMd,
+        policiesYaml,
+        body.preset,
+        "pending_init",
+        seedAmountBase,
+      ],
+    );
+    if (!insertRes || insertRes.rows.length === 0) {
+      return c.json({ error: "Insert returned no rows" }, 500);
+    }
+    agentRow = insertRes.rows[0];
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
 
   // ── Return next-step instructions for the wizard ──────────────────────
   // The vault is already initialized; the wizard just needs to deposit the
@@ -536,15 +560,21 @@ agents.post("/api/agents", async (c) => {
 
 agents.post("/api/agents/:sns/confirm-init", async (c) => {
   const sns = c.req.param("sns");
-  const supa = getSupabase();
-  if (!supa) return c.json({ error: "Supabase not configured" }, 503);
+  if (!getPool()) return c.json({ error: "Database not configured" }, 503);
 
-  const { data: agent, error: fetchErr } = await supa
-    .from("agents")
-    .select("*")
-    .eq("sns", sns)
-    .single();
-  if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
+  let agent: AgentRow;
+  try {
+    const fetchRes = await dbQuery<AgentRow>(
+      `SELECT * FROM agents WHERE sns = $1 LIMIT 1`,
+      [sns],
+    );
+    if (!fetchRes || fetchRes.rows.length === 0) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    agent = fetchRes.rows[0];
+  } catch {
+    return c.json({ error: "Not found" }, 404);
+  }
   if (agent.status === "active") return c.json({ ok: true, agent });
   if (!canTransition(agent.status, "active")) {
     return c.json(
@@ -582,11 +612,14 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
     );
   }
 
-  const { error: updateErr } = await supa
-    .from("agents")
-    .update({ status: "active" })
-    .eq("sns", sns);
-  if (updateErr) return c.json({ error: updateErr.message }, 500);
+  try {
+    await dbQuery(
+      `UPDATE agents SET status = $1 WHERE sns = $2`,
+      ["active", sns],
+    );
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
 
   return c.json({ ok: true, agent: { ...agent, status: "active" } });
 });
@@ -594,16 +627,30 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
 agents.get("/api/agents", async (c) => {
   const status = c.req.query("status");
   const ownerWallet = c.req.query("ownerWallet");
-  const supa = getSupabase();
-  if (!supa) return c.json({ agents: [] });
+  if (!getPool()) return c.json({ agents: [] });
 
-  let q = supa.from("agents").select("*").order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  if (ownerWallet) q = q.eq("owner_wallet", ownerWallet);
+  // Build a parameterized WHERE clause from optional filters.
+  const wheres: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    params.push(status);
+    wheres.push(`status = $${params.length}`);
+  }
+  if (ownerWallet) {
+    params.push(ownerWallet);
+    wheres.push(`owner_wallet = $${params.length}`);
+  }
+  const whereClause = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
 
-  const { data, error } = await q;
-  if (error) return c.json({ error: error.message }, 500);
-  return c.json({ agents: data ?? [] });
+  try {
+    const r = await dbQuery<AgentRow>(
+      `SELECT * FROM agents ${whereClause} ORDER BY created_at DESC`,
+      params,
+    );
+    return c.json({ agents: r?.rows ?? [] });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
 });
 
 // ── Auth helpers for close routes ──────────────────────────────────────────
@@ -684,8 +731,7 @@ interface CloseBody {
 
 agents.post("/api/agents/:sns/close", async (c) => {
   const sns = c.req.param("sns");
-  const supa = getSupabase();
-  if (!supa) return c.json({ error: "Supabase not configured" }, 503);
+  if (!getPool()) return c.json({ error: "Database not configured" }, 503);
 
   let body: CloseBody = {};
   try {
@@ -695,12 +741,19 @@ agents.post("/api/agents/:sns/close", async (c) => {
     return c.json({ error: "Invalid JSON" }, 400);
   }
 
-  const { data: agent, error: fetchErr } = await supa
-    .from("agents")
-    .select("*")
-    .eq("sns", sns)
-    .single();
-  if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
+  let agent: AgentRow;
+  try {
+    const fetchRes = await dbQuery<AgentRow>(
+      `SELECT * FROM agents WHERE sns = $1 LIMIT 1`,
+      [sns],
+    );
+    if (!fetchRes || fetchRes.rows.length === 0) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    agent = fetchRes.rows[0];
+  } catch {
+    return c.json({ error: "Not found" }, 404);
+  }
 
   // Auth check: prefer signed claim. Fall back to plain callerWallet for the
   // hackathon (TODO: remove the fallback before mainnet — taking the caller's
@@ -743,8 +796,7 @@ agents.post("/api/agents/:sns/close", async (c) => {
 
 agents.post("/api/agents/:sns/confirm-close", async (c) => {
   const sns = c.req.param("sns");
-  const supa = getSupabase();
-  if (!supa) return c.json({ error: "Supabase not configured" }, 503);
+  if (!getPool()) return c.json({ error: "Database not configured" }, 503);
 
   let body: CloseBody = {};
   try {
@@ -753,12 +805,19 @@ agents.post("/api/agents/:sns/confirm-close", async (c) => {
     return c.json({ error: "Invalid JSON" }, 400);
   }
 
-  const { data: agent, error: fetchErr } = await supa
-    .from("agents")
-    .select("*")
-    .eq("sns", sns)
-    .single();
-  if (fetchErr || !agent) return c.json({ error: "Not found" }, 404);
+  let agent: AgentRow;
+  try {
+    const fetchRes = await dbQuery<AgentRow>(
+      `SELECT * FROM agents WHERE sns = $1 LIMIT 1`,
+      [sns],
+    );
+    if (!fetchRes || fetchRes.rows.length === 0) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    agent = fetchRes.rows[0];
+  } catch {
+    return c.json({ error: "Not found" }, 404);
+  }
 
   // Same auth check as /close.
   if (body.signedClaim) {
@@ -787,11 +846,14 @@ agents.post("/api/agents/:sns/confirm-close", async (c) => {
     );
   }
 
-  const { error: updateErr } = await supa
-    .from("agents")
-    .update({ status: "retired" })
-    .eq("sns", sns);
-  if (updateErr) return c.json({ error: updateErr.message }, 500);
+  try {
+    await dbQuery(
+      `UPDATE agents SET status = $1 WHERE sns = $2`,
+      ["retired", sns],
+    );
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
 
   return c.json({ ok: true });
 });

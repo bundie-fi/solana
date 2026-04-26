@@ -1,5 +1,5 @@
 /**
- * agents-source.ts — Supabase-backed agent registry for the chaos-sim daemon.
+ * agents-source.ts — Postgres-backed agent registry for the chaos-sim daemon.
  *
  * Phase N replaces the hardcoded alice/bob/charlie list with a poll against
  * the `agents` table (status='active'). Per-agent brain.md and policies.yaml
@@ -9,14 +9,15 @@
  * Per-tick action logging writes to `agent_action_log` so the agent profile
  * UI can show recent activity without parsing the on-chain history.
  *
- * If SUPABASE_URL or SUPABASE_SERVICE_KEY is missing, this module returns
- * empty results and logs a warning — the daemon is expected to fall back to
- * the legacy hardcoded list in that case (dev/local workflow).
+ * If DATABASE_URL is missing, this module returns empty results and logs a
+ * warning — the daemon is expected to fall back to the legacy hardcoded list
+ * in that case (dev/local workflow).
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
+import { dbQuery, getPool } from "./db.js";
 
 export interface ActiveAgent {
   sns: string;
@@ -33,7 +34,7 @@ export interface ActiveAgent {
 
 const TEMP_ROOT = join(tmpdir(), "bundie-agents");
 
-interface SupabaseAgentRow {
+interface AgentRow {
   sns: string;
   agent_pubkey: string;
   vault_pda: string;
@@ -42,37 +43,32 @@ interface SupabaseAgentRow {
   policies_yaml: string | null;
 }
 
-function getSupabase(): SupabaseClient | null {
-  const url = process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
 /**
- * Loads all currently-active agents from Supabase.
+ * Loads all currently-active agents from Postgres.
  * Writes per-agent brain.md + policies.yaml to a temp dir so Zerion CLI can
  * read them via existing `--policies <path>` / file-read code paths.
  */
 export async function loadActiveAgents(): Promise<ActiveAgent[]> {
-  const supa = getSupabase();
-  if (!supa) {
-    console.warn("[agents-source] no Supabase creds, returning empty list");
-    return [];
-  }
-  const { data, error } = await supa
-    .from("agents")
-    .select(
-      "sns, agent_pubkey, vault_pda, owner_wallet, brain_md, policies_yaml",
-    )
-    .eq("status", "active");
-  if (error) {
-    console.error("[agents-source] query failed:", error.message);
+  if (!getPool()) {
+    console.warn("[agents-source] no DATABASE_URL, returning empty list");
     return [];
   }
 
-  return (data ?? []).flatMap((r: SupabaseAgentRow): ActiveAgent[] => {
+  let rows: AgentRow[];
+  try {
+    const r = await dbQuery<AgentRow>(
+      `SELECT sns, agent_pubkey, vault_pda, owner_wallet, brain_md, policies_yaml
+         FROM agents
+         WHERE status = $1`,
+      ["active"],
+    );
+    rows = r?.rows ?? [];
+  } catch (err) {
+    console.error("[agents-source] query failed:", (err as Error).message);
+    return [];
+  }
+
+  return rows.flatMap((r): ActiveAgent[] => {
     if (!r.brain_md || !r.policies_yaml) {
       console.warn(
         `[agents-source] skipping ${r.sns}: missing brain_md or policies_yaml`,
@@ -80,7 +76,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
       logAgentAction({
         agentSns: r.sns,
         actionType: "skipped_corrupt_row",
-        reasoning: "missing brain_md or policies_yaml in Supabase row",
+        reasoning: "missing brain_md or policies_yaml in agents row",
       }).catch(() => {});
       return [];
     }
@@ -107,7 +103,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
 
 /**
  * Logs a tick action to agent_action_log for the agent profile to display.
- * No-op if Supabase creds are missing (so local dev keeps working).
+ * No-op if DATABASE_URL is missing (so local dev keeps working).
  */
 export async function logAgentAction(opts: {
   agentSns: string;
@@ -115,15 +111,21 @@ export async function logAgentAction(opts: {
   reasoning?: string | null;
   resultJson?: unknown;
 }): Promise<void> {
-  const supa = getSupabase();
-  if (!supa) return;
-  const { error } = await supa.from("agent_action_log").insert({
-    agent_sns: opts.agentSns,
-    action_type: opts.actionType,
-    reasoning: opts.reasoning ?? null,
-    result_json: opts.resultJson ?? null,
-  });
-  if (error) console.error("[agents-source] log insert failed:", error.message);
+  if (!getPool()) return;
+  try {
+    await dbQuery(
+      `INSERT INTO agent_action_log (agent_sns, action_type, reasoning, result_json)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        opts.agentSns,
+        opts.actionType,
+        opts.reasoning ?? null,
+        opts.resultJson != null ? JSON.stringify(opts.resultJson) : null,
+      ],
+    );
+  } catch (err) {
+    console.error("[agents-source] log insert failed:", (err as Error).message);
+  }
 }
 
 /**
@@ -139,25 +141,20 @@ export async function logSkippedAgent(opts: {
   reasoning: string;
   windowMs?: number;
 }): Promise<void> {
-  const supa = getSupabase();
-  if (!supa) return;
+  if (!getPool()) return;
   const windowMs = opts.windowMs ?? 60 * 60_000;
   try {
-    const { data, error } = await supa
-      .from("agent_action_log")
-      .select("created_at")
-      .eq("agent_sns", opts.agentSns)
-      .like("action_type", "skipped_%")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) {
-      console.error(
-        "[agents-source] skipped-log throttle query failed:",
-        error.message,
-      );
-      // Fail open — still attempt to insert so we don't lose the audit row.
-    } else if (data && data.length > 0) {
-      const last = new Date(data[0].created_at as string).getTime();
+    const r = await dbQuery<{ created_at: string; tick_at: string }>(
+      `SELECT tick_at AS created_at
+         FROM agent_action_log
+         WHERE agent_sns = $1
+           AND action_type LIKE 'skipped_%'
+         ORDER BY tick_at DESC
+         LIMIT 1`,
+      [opts.agentSns],
+    );
+    if (r && r.rows.length > 0) {
+      const last = new Date(r.rows[0].created_at).getTime();
       if (Number.isFinite(last) && Date.now() - last < windowMs) {
         return; // throttled
       }
@@ -167,7 +164,7 @@ export async function logSkippedAgent(opts: {
       "[agents-source] skipped-log throttle threw:",
       (e as Error).message,
     );
-    // fall through and insert anyway
+    // fall through and insert anyway — fail open so we don't lose audit rows.
   }
 
   await logAgentAction({
@@ -190,42 +187,44 @@ const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
 
 /**
  * Returns the timestamp (ms) of the agent's last create_market action, plus a
- * `queryError` flag so callers can distinguish "never created" from "Supabase
+ * `queryError` flag so callers can distinguish "never created" from "the DB
  * errored on the query".
  *
  * Behaviour:
- *   - No Supabase configured  → { ts: null, queryError: false } (explicit fail-open
- *     for local dev — the registry isn't expected to be online).
- *   - Supabase query errored  → { ts: null, queryError: true } (callers should
- *     fail-CLOSED on this so a transient outage doesn't enable spam).
- *   - No row found            → { ts: null, queryError: false } (agent has never
- *     created a market).
- *   - Row found               → { ts: <ms>, queryError: false }.
+ *   - No DATABASE_URL configured → { ts: null, queryError: false } (explicit
+ *     fail-open for local dev — the registry isn't expected to be online).
+ *   - Query errored              → { ts: null, queryError: true } (callers
+ *     should fail-CLOSED on this so a transient outage doesn't enable spam).
+ *   - No row found               → { ts: null, queryError: false } (agent
+ *     has never created a market).
+ *   - Row found                  → { ts: <ms>, queryError: false }.
  */
 export async function lastMarketCreationAtMs(
   agentSns: string,
 ): Promise<{ ts: number | null; queryError: boolean }> {
-  const supa = getSupabase();
-  if (!supa) return { ts: null, queryError: false };
-  const { data, error } = await supa
-    .from("agent_action_log")
-    .select("tick_at")
-    .eq("agent_sns", agentSns)
-    .eq("action_type", "create_market")
-    .order("tick_at", { ascending: false })
-    .limit(1);
-  if (error) {
+  if (!getPool()) return { ts: null, queryError: false };
+  try {
+    const r = await dbQuery<{ tick_at: string }>(
+      `SELECT tick_at
+         FROM agent_action_log
+         WHERE agent_sns = $1
+           AND action_type = 'create_market'
+         ORDER BY tick_at DESC
+         LIMIT 1`,
+      [agentSns],
+    );
+    const row = r?.rows[0];
+    return {
+      ts: row ? new Date(row.tick_at).getTime() : null,
+      queryError: false,
+    };
+  } catch (err) {
     console.error(
       "[agents-source] lastMarketCreationAtMs query failed:",
-      error.message,
+      (err as Error).message,
     );
     return { ts: null, queryError: true };
   }
-  const row = data?.[0] as { tick_at: string } | undefined;
-  return {
-    ts: row ? new Date(row.tick_at).getTime() : null,
-    queryError: false,
-  };
 }
 
 export interface RateLimitCheck {
@@ -238,11 +237,11 @@ export interface RateLimitCheck {
  * Returns true if the agent is within its market-creation cooldown window.
  *
  * Failure modes:
- *   - No Supabase configured   → { limited: false } (fail-open for local dev).
- *   - Supabase query errored   → { limited: true, reason: "rate_check_unavailable" }
- *     (fail-CLOSED so a transient Supabase outage doesn't enable market spam).
- *   - Within cooldown window   → { limited: true, reason, nextAllowedAt }.
- *   - Outside cooldown / never → { limited: false }.
+ *   - No DATABASE_URL configured → { limited: false } (fail-open for local dev).
+ *   - Query errored              → { limited: true, reason: "rate_check_unavailable" }
+ *     (fail-CLOSED so a transient DB outage doesn't enable market spam).
+ *   - Within cooldown window     → { limited: true, reason, nextAllowedAt }.
+ *   - Outside cooldown / never   → { limited: false }.
  */
 export async function isMarketCreationRateLimited(
   agentSns: string,
