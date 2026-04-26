@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { markets } from "./routes/markets.js";
 import { portfolio } from "./routes/portfolio.js";
+import { surfpoolActivity } from "./routes/surfpool-activity.js";
 import { tx } from "./routes/tx.js";
 
 const app = new Hono();
@@ -17,6 +18,7 @@ app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 // Route groups
 app.route("/api/markets", markets);
 app.route("/api/portfolio", portfolio);
+app.route("/api/agent", surfpoolActivity);
 app.route("/api/tx", tx);
 
 const port = Number(process.env.PORT) || 3001;
