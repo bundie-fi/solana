@@ -27,7 +27,7 @@ interface SurfpoolActionRow {
   tx_sig: string;
   protocol: string;
   action_type: string;
-  amount_lamports: number | null;
+  amount_base_units: number | null;
   token_mint: string | null;
   notes: string | null;
   created_at: string;
@@ -39,7 +39,7 @@ interface SurfpoolActionDto {
   txSig: string;
   protocol: string;
   actionType: string;
-  amountLamports: number | null;
+  amountBaseUnits: number | null;
   tokenMint: string | null;
   notes: string | null;
   createdAt: string;
@@ -75,7 +75,7 @@ surfpoolActivity.get("/:sns/surfpool-activity", async (c) => {
   const { data, error } = await supabase
     .from("surfpool_actions")
     .select(
-      "id, slot, tx_sig, protocol, action_type, amount_lamports, token_mint, notes, created_at",
+      "id, slot, tx_sig, protocol, action_type, amount_base_units, token_mint, notes, created_at",
     )
     .eq("agent_sns", sns)
     .order("created_at", { ascending: false })
@@ -95,7 +95,8 @@ surfpoolActivity.get("/:sns/surfpool-activity", async (c) => {
     txSig: r.tx_sig,
     protocol: r.protocol,
     actionType: r.action_type,
-    amountLamports: r.amount_lamports != null ? Number(r.amount_lamports) : null,
+    amountBaseUnits:
+      r.amount_base_units != null ? Number(r.amount_base_units) : null,
     tokenMint: r.token_mint,
     notes: r.notes,
     createdAt: r.created_at,

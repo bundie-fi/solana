@@ -144,8 +144,8 @@ async function executeLend(
     const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number } }).args;
     const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
     // USDC has 6 decimals — use base units (not lamports per se, but the
-    // smallest unit of the deposited token). Stored in amount_lamports for
-    // schema parity.
+    // smallest unit of the deposited token). Stored in amount_base_units;
+    // decimals are inferred per-token at read time on the web side.
     const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
     await recordSurfpoolAction({
       agentSns: args.agentName,

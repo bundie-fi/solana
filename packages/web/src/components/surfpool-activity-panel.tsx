@@ -17,7 +17,7 @@ export interface SurfpoolAction {
   txSig: string;
   protocol: string;
   actionType: string;
-  amountLamports: number | null;
+  amountBaseUnits: number | null;
   tokenMint: string | null;
   notes: string | null;
   createdAt: string;
@@ -34,17 +34,17 @@ const PROTOCOL_EMOJI: Record<string, string> = {
 };
 
 // Tokens with 9 decimals (SOL family) vs 6 decimals (USDC etc.). The
-// recorder stores raw base units in amount_lamports regardless of token —
+// recorder stores raw base units in amount_base_units regardless of token —
 // here we infer decimals from action_type for a friendlier display.
 function formatAmount(action: SurfpoolAction): string | null {
-  if (action.amountLamports == null) return null;
+  if (action.amountBaseUnits == null) return null;
   const isSolFamily =
     action.actionType === "lst_stake" ||
     action.actionType === "lst_unstake" ||
     action.protocol === "marinade" ||
     action.protocol === "jito";
   const decimals = isSolFamily ? 9 : 6;
-  const ui = action.amountLamports / 10 ** decimals;
+  const ui = action.amountBaseUnits / 10 ** decimals;
   const unit = isSolFamily
     ? action.actionType === "lst_unstake"
       ? "mSOL"

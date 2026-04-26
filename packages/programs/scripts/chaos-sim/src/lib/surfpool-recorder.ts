@@ -62,7 +62,7 @@ export async function recordSurfpoolAction(
     tx_sig: record.txSig,
     protocol: record.protocol,
     action_type: record.actionType,
-    amount_lamports: record.amountLamports ?? null,
+    amount_base_units: record.amountLamports ?? null,
     token_mint: record.tokenMint ?? null,
     notes: record.notes ?? null,
   });
