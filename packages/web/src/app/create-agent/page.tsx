@@ -131,6 +131,11 @@ function StepIndicator({ current }: { current: WizardStepId }) {
   const idx = STEP_ORDER.indexOf(current);
   return (
     <div
+      role="progressbar"
+      aria-valuenow={idx + 1}
+      aria-valuemin={1}
+      aria-valuemax={STEP_ORDER.length}
+      aria-label="Wizard progress"
       style={{
         display: "flex",
         alignItems: "center",
@@ -143,6 +148,7 @@ function StepIndicator({ current }: { current: WizardStepId }) {
         return (
           <div key={id} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
             <div
+              {...(active ? { "aria-current": "step" as const } : {})}
               style={{
                 flex: 1,
                 height: 4,
