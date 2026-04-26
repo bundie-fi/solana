@@ -6,6 +6,7 @@ import { markets } from "./routes/markets.js";
 import { portfolio } from "./routes/portfolio.js";
 import { tx } from "./routes/tx.js";
 import { faucet } from "./routes/faucet.js";
+import { agents } from "./routes/agents.js";
 
 const app = new Hono();
 
@@ -21,6 +22,8 @@ app.route("/api/portfolio", portfolio);
 app.route("/api/tx", tx);
 // faucet routes self-mount under /api/faucet/* (full paths inside)
 app.route("/", faucet);
+// agent routes self-mount under /api/agents/* (full paths inside)
+app.route("/", agents);
 
 const port = Number(process.env.PORT) || 3001;
 
