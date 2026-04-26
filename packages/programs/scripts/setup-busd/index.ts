@@ -1,15 +1,41 @@
 import { Connection, Keypair, clusterApiUrl } from "@solana/web3.js";
 import { createMint } from "@solana/spl-token";
-import { writeFileSync } from "fs";
+import { writeFileSync, existsSync, readFileSync } from "fs";
 
 async function main() {
   const conn = new Connection(clusterApiUrl("devnet"), "confirmed");
-  const payer = Keypair.generate();
 
-  // Airdrop 2 SOL to the payer (one-time setup; if rate-limited, user must fund manually)
-  console.log("Requesting airdrop for payer:", payer.publicKey.toBase58());
-  const airdropSig = await conn.requestAirdrop(payer.publicKey, 2_000_000_000);
-  await conn.confirmTransaction(airdropSig, "confirmed");
+  // Reuse payer keypair if present so failed runs can be resumed after manual funding.
+  const payerPath = "./busd-payer.json";
+  let payer: Keypair;
+  if (existsSync(payerPath)) {
+    payer = Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(readFileSync(payerPath, "utf-8"))),
+    );
+    console.log("Reusing existing payer:", payer.publicKey.toBase58());
+  } else {
+    payer = Keypair.generate();
+    writeFileSync(payerPath, JSON.stringify(Array.from(payer.secretKey)));
+    console.log("Generated new payer:", payer.publicKey.toBase58());
+  }
+
+  // Ensure payer has enough lamports; try airdrop first, fall back to manual instructions.
+  const minLamports = 100_000_000; // 0.1 SOL is plenty for one mint
+  const balance = await conn.getBalance(payer.publicKey);
+  if (balance < minLamports) {
+    try {
+      console.log("Requesting airdrop for payer...");
+      const airdropSig = await conn.requestAirdrop(payer.publicKey, 2_000_000_000);
+      await conn.confirmTransaction(airdropSig, "confirmed");
+    } catch (err) {
+      console.error("Airdrop failed (likely rate-limited).");
+      console.error(`Manually fund the payer with at least 0.1 SOL, then re-run:`);
+      console.error(`  solana transfer ${payer.publicKey.toBase58()} 0.5 --url devnet --allow-unfunded-recipient`);
+      throw err;
+    }
+  } else {
+    console.log("Payer already funded:", balance / 1e9, "SOL");
+  }
 
   // Create the mint with payer as mint authority, no freeze authority, 6 decimals.
   const mint = await createMint(conn, payer, payer.publicKey, null, 6);

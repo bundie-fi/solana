@@ -20,6 +20,8 @@ Y13*.json
 busd-mint.json
 **/busd-mint.json
 busd-mint.PENDING.txt
+busd-payer.json
+**/busd-payer.json
 android/app/build/
 ios/build/
 ios/Pods/
