@@ -3,11 +3,14 @@
  *
  * Pulls from the live backend so visitors see real numbers, not lorem ipsum.
  * Renders nothing if the fetch fails or every stat is empty (no broken
- * "0 markets / 0 agents" state ever shown to a user).
+ * "0 agents" state ever shown to a user).
  *
  * Data sources:
- *   GET /api/agents   — count where status === "active", read navLamports if present
- *   GET /api/markets  — count where status === "open"
+ *   GET /api/agents — count where status === "active", read navLamports if present
+ *
+ * The "markets open" stat is intentionally omitted: the markets endpoint
+ * still returns mock data and we'd rather undersell than lie. Re-add when
+ * the prediction-market program is live and seeded with real markets.
  *
  * Cached for 30s via the segment-level `revalidate` re-export so the page
  * stays SEO-friendly and never spinners on first paint.
@@ -21,18 +24,11 @@ interface AgentRow {
   sns?: string;
   display_name?: string;
   status?: string;
-  // The agents endpoint does not currently surface NAV directly, but we
-  // read defensively so this lights up the moment it does.
   navLamports?: number | string | null;
   nav_lamports?: number | string | null;
 }
 
-interface MarketRow {
-  status?: string;
-}
-
 interface ActivityStats {
-  marketsOpen: number | null;
   agentsLive: number | null;
   topAgent: { name: string; gainPct: number } | null;
 }
@@ -63,19 +59,11 @@ function toNumber(v: unknown): number | null {
 }
 
 async function loadStats(): Promise<ActivityStats | null> {
-  const [agentsRes, marketsRes] = await Promise.all([
-    fetchJson<{ agents: AgentRow[] }>("/api/agents"),
-    fetchJson<{ markets: MarketRow[] }>("/api/markets"),
-  ]);
+  const agentsRes = await fetchJson<{ agents: AgentRow[] }>("/api/agents");
+  if (!agentsRes) return null;
 
-  // Both fetches failed — bail entirely rather than show a partial bar.
-  if (!agentsRes && !marketsRes) return null;
-
-  const agents = agentsRes?.agents ?? [];
-  const markets = marketsRes?.markets ?? [];
-
+  const agents = agentsRes.agents ?? [];
   const agentsLive = agents.filter((a) => a.status === "active").length;
-  const marketsOpen = markets.filter((m) => m.status === "open").length;
 
   // Top agent: highest navLamports above the seed baseline. If nav data is
   // not yet exposed by the backend, this stat hides itself.
@@ -96,7 +84,6 @@ async function loadStats(): Promise<ActivityStats | null> {
 
   return {
     agentsLive: agentsLive > 0 ? agentsLive : null,
-    marketsOpen: marketsOpen > 0 ? marketsOpen : null,
     topAgent,
   };
 }
@@ -113,21 +100,13 @@ export default async function LiveActivityBar() {
   // If literally nothing has signal, hide the whole bar. The "Live on Solana
   // devnet" pill is not enough on its own to justify a full row.
   const hasAnyDynamic =
-    stats.agentsLive !== null ||
-    stats.marketsOpen !== null ||
-    stats.topAgent !== null;
+    stats.agentsLive !== null || stats.topAgent !== null;
   if (!hasAnyDynamic) return null;
 
   return (
     <div className="activity-bar-wrap">
       <div className="wrap">
         <div className="activity-bar" role="status" aria-label="Live activity">
-          {stats.marketsOpen !== null && (
-            <div className="activity-stat">
-              <span className="activity-num">{stats.marketsOpen}</span>
-              <span className="activity-label">markets open</span>
-            </div>
-          )}
           {stats.agentsLive !== null && (
             <div className="activity-stat">
               <span className="activity-num">{stats.agentsLive}</span>

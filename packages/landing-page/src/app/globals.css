@@ -1646,6 +1646,58 @@ footer .row-2 {
 ::-webkit-scrollbar-track { background: var(--bg-raised); }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 2px; }
 
+/* ---------- Live tx feed (recent on-chain agent actions) -------------- */
+.tx-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.tx-feed-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.tx-feed-row:last-child { border-bottom: 0; }
+.tx-feed-emoji {
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+}
+.tx-feed-text {
+  color: var(--ink);
+  word-break: break-word;
+}
+.tx-feed-time {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .tx-feed-row {
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  .tx-feed-time {
+    grid-column: 2 / 3;
+    font-size: 10px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
