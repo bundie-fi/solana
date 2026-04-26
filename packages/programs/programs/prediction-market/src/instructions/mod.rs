@@ -1,4 +1,5 @@
 pub mod buy_shares;
+pub mod close_vault;
 pub mod commit_nav;
 pub mod create_market;
 pub mod create_market_v2;
@@ -10,6 +11,7 @@ pub mod resolve_market_v2;
 pub mod sell_shares;
 
 pub use buy_shares::*;
+pub use close_vault::*;
 pub use commit_nav::*;
 pub use create_market::*;
 pub use create_market_v2::*;

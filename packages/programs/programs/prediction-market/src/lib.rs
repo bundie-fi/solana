@@ -132,4 +132,11 @@ pub mod prediction_market {
     pub fn deposit_to_vault(ctx: Context<DepositToVault>, amount: u64) -> Result<()> {
         instructions::deposit_to_vault::handler(ctx, amount)
     }
+
+    /// Drain the vault treasury back to `owner_wallet`, close the
+    /// treasury ATA, and close the BundieVault PDA (rent → owner).
+    /// Only the `owner_wallet` recorded at init may call this.
+    pub fn close_vault(ctx: Context<CloseVault>) -> Result<()> {
+        instructions::close_vault::handler(ctx)
+    }
 }
