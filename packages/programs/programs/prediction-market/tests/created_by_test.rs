@@ -39,12 +39,16 @@ fn market_carries_created_by_field() {
         bump: 0,
         initial_nav_per_share: 0,
         initial_nav_per_share_b: 0,
+        initial_nav_a: 0,
+        initial_nav_b: 0,
         yes_mint_bump: 0,
         no_mint_bump: 0,
         vault_bump: 0,
         kind: 0,
         payload: [0u8; MARKET_PAYLOAD_LEN],
         created_by: agent_vault,
+        target_authority_a: None,
+        target_authority_b: None,
     };
 
     assert_eq!(m.market_id, 0);

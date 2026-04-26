@@ -8,8 +8,8 @@
  *     server→client split. We convert to `number` up front (the numbers
  *     involved — bps, slots, USDC base units — all comfortably fit in
  *     Number's safe-integer range for the foreseeable future).
- *   - Kind-specific fields: we pre-parse the 64-byte `payload` for kind=5
- *     (RateBarrier) and kind=6 (AgentVsBenchmark) so page components stay
+ *   - Kind-specific fields: we pre-parse the 64-byte `payload` for the
+ *     active kinds 1/2/3 BundieVault payloads so page components stay
  *     simple. Byte offsets mirror
  *     `packages/programs/programs/prediction-market/src/state/market.rs`.
  *
@@ -31,20 +31,17 @@ import {
 
 // ─── Payload offsets (mirrored from state/market.rs) ─────────────────────
 //
-// RateBarrier (kind=5):
-//   [0..8]   threshold_bps
-//   [8..16]  window_start_slot
-//   [16..24] window_end_slot
-//   [24..32] rate_reader_selector
+// Post-vault-nav-resolution (Phase B+) markets only support these kinds:
+//   kind=1 NavTarget   — payload[0..8]  = target_nav  (u64, lamports / 1e6 = bUSD)
+//                        payload[8..16] = window_end_slot (optional)
+//   kind=2 Relative    — head-to-head; agent A = `strategy`, agent B = `strategyB`.
+//                        Payload is unused for the headline numbers; baselines
+//                        come from `initialNavA` / `initialNavB`.
+//   kind=3 Drawdown    — payload[0..8]  = drawdown_bps (u64)
+//                        payload[8..16] = window_end_slot (optional)
 //
-// AgentVsBenchmark (kind=6) — v2 layout post-547afea:
-//   [0..8]   spread_bps
-//   [8..16]  window_start_slot
-//   [16..24] window_end_slot
-//   [24..32] benchmark_reader_selector
-//   [32..64] target_agent (Pubkey, 32 bytes) — the vault under measurement.
-//            Displaces the old `initial_agent_nav` slot; the on-chain program
-//            asserts `creator != target_agent` via `InsiderMarketForbidden`.
+// The legacy rate-reader selector (formerly at payload[24..32]) has been
+// removed — Phase B+ resolves directly against `BundieVault.nav_lamports`.
 
 function readU64LE(payload: number[] | Uint8Array, offset: number): number {
   // BigInt-safe read; cast to Number at the end. Our payload values
@@ -73,17 +70,13 @@ export interface MarketView {
   createdBy: string;
   /** Question text, trimmed by the program to 128 bytes. */
   question: string;
-  /** Market kind (0..6). */
+  /** Market kind. Phase B+ supports 1 (NavTarget), 2 (Relative), 3 (Drawdown). */
   kind: number;
-  /** Parsed rate reader selector for kind=5/6, else null. */
-  rateReaderSelector: number | null;
-  /** Kind=5 threshold in bps; null for other kinds. */
-  thresholdBps: number | null;
-  /** Kind=6 spread in bps; null for other kinds. */
-  spreadBps: number | null;
-  /** Kind=5/6 window start slot; null otherwise. */
-  windowStartSlot: number | null;
-  /** Kind=5/6 window end slot; null otherwise. */
+  /** Kind=1 target NAV in lamports (raw u64 from payload[0..8]); null otherwise. */
+  targetNavLamports: number | null;
+  /** Kind=3 drawdown in bps (raw u64 from payload[0..8]); null otherwise. */
+  drawdownBps: number | null;
+  /** Optional window end slot parsed from payload[8..16] for kinds 1 and 3. */
   windowEndSlot: number | null;
   /** Slot at which market can be resolved (from Market.resolution_slot). */
   resolutionSlot: number;
@@ -100,10 +93,19 @@ export interface MarketView {
   /** NAV per share at market creation (strategy A). */
   initialNavPerShare: number;
   /**
-   * For kind=6 markets, the agent vault under measurement (parsed from
-   * payload bytes 32..64). Null for other kinds. The on-chain program
-   * rejects kind=6 markets where `created_by == target_agent`, so UI can
-   * safely render creator and target as distinct entities.
+   * BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A.
+   * Used as the resolution baseline for kinds 1/2/3. Zero for any market
+   * that did not flow through BundieVault.
+   */
+  initialNavA: bigint;
+  /**
+   * BundieVault NAV (lamports) for vault B. Populated only for kind=2
+   * head-to-head markets; zero otherwise.
+   */
+  initialNavB: bigint;
+  /**
+   * For kind=2 (head-to-head) markets, the second agent vault — i.e., the
+   * `strategyB` field on the Market account. Null for other kinds.
    */
   targetAgent: string | null;
   /** YES shares outstanding (raw on-chain value). */
@@ -187,31 +189,6 @@ function toNumber(v: BN | number | bigint | undefined | null): number {
   }
 }
 
-function readPubkey(
-  payload: number[] | Uint8Array,
-  offset: number,
-): string | null {
-  const bytes =
-    payload instanceof Uint8Array ? payload : Uint8Array.from(payload);
-  if (offset + 32 > bytes.length) return null;
-  const slice = bytes.slice(offset, offset + 32);
-  // All-zeros means "unset" for kind=6 payloads that predate the target_agent
-  // field; treat as null so callers can render a graceful placeholder.
-  let anyNonZero = false;
-  for (let i = 0; i < slice.length; i++) {
-    if (slice[i] !== 0) {
-      anyNonZero = true;
-      break;
-    }
-  }
-  if (!anyNonZero) return null;
-  try {
-    return new PublicKey(slice).toBase58();
-  } catch {
-    return null;
-  }
-}
-
 function toMarketView(
   address: PublicKey,
   raw: MarketAccountRaw,
@@ -221,28 +198,32 @@ function toMarketView(
     (raw.payload as unknown as number[] | Uint8Array) ?? [],
   );
 
-  let rateReaderSelector: number | null = null;
-  let thresholdBps: number | null = null;
-  let spreadBps: number | null = null;
-  let windowStartSlot: number | null = null;
+  let targetNavLamports: number | null = null;
+  let drawdownBps: number | null = null;
   let windowEndSlot: number | null = null;
   let targetAgent: string | null = null;
 
-  if (kind === 5) {
-    thresholdBps = readU64LE(payloadBytes, 0);
-    windowStartSlot = readU64LE(payloadBytes, 8);
-    windowEndSlot = readU64LE(payloadBytes, 16);
-    rateReaderSelector = readU64LE(payloadBytes, 24);
-  } else if (kind === 6) {
-    spreadBps = readU64LE(payloadBytes, 0);
-    windowStartSlot = readU64LE(payloadBytes, 8);
-    windowEndSlot = readU64LE(payloadBytes, 16);
-    rateReaderSelector = readU64LE(payloadBytes, 24);
-    // target_agent lives in bytes 32..64 per the 547afea anchor upgrade.
-    // Older markets written before that upgrade will have zeroes here, in
-    // which case `readPubkey` returns null and callers fall back to the
-    // creator's identity (best-effort display).
-    targetAgent = readPubkey(payloadBytes, 32);
+  if (kind === 1) {
+    // NavTarget: payload[0..8] = target_nav (lamports), [8..16] = window_end_slot
+    targetNavLamports = readU64LE(payloadBytes, 0);
+    const wend = readU64LE(payloadBytes, 8);
+    windowEndSlot = wend > 0 ? wend : null;
+  } else if (kind === 3) {
+    // Drawdown: payload[0..8] = drawdown_bps, [8..16] = window_end_slot
+    drawdownBps = readU64LE(payloadBytes, 0);
+    const wend = readU64LE(payloadBytes, 8);
+    windowEndSlot = wend > 0 ? wend : null;
+  } else if (kind === 2) {
+    // Head-to-head: agent B comes from Market.strategyB (option<pubkey>),
+    // not from the payload.
+    const sb = raw.strategyB as PublicKey | null | undefined;
+    if (sb) {
+      try {
+        targetAgent = sb.toBase58();
+      } catch {
+        targetAgent = null;
+      }
+    }
   }
 
   const status: "active" | "resolved" =
@@ -266,10 +247,8 @@ function toMarketView(
     createdBy: (raw.createdBy as PublicKey).toBase58(),
     question: String(raw.question ?? ""),
     kind,
-    rateReaderSelector,
-    thresholdBps,
-    spreadBps,
-    windowStartSlot,
+    targetNavLamports,
+    drawdownBps,
     windowEndSlot,
     resolutionSlot: toNumber(raw.resolutionSlot as BN),
     createdAt: toNumber(raw.createdAt as BN),
@@ -278,6 +257,8 @@ function toMarketView(
     status,
     outcome,
     initialNavPerShare: toNumber(raw.initialNavPerShare as BN),
+    initialNavA: toBigInt(raw.initialNavA as BN | bigint | number | undefined),
+    initialNavB: toBigInt(raw.initialNavB as BN | bigint | number | undefined),
     targetAgent,
     yesShares: toNumber(raw.yesShares as BN),
     noShares: toNumber(raw.noShares as BN),
@@ -285,6 +266,18 @@ function toMarketView(
     strategy: (raw.strategy as PublicKey).toBase58(),
     vault: (raw.vault as PublicKey).toBase58(),
   };
+}
+
+function toBigInt(v: BN | number | bigint | undefined | null): bigint {
+  if (v == null) return 0n;
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") return BigInt(Math.max(0, Math.floor(v)));
+  // BN — use toString to avoid precision loss for >53-bit values.
+  try {
+    return BigInt(v.toString());
+  } catch {
+    return 0n;
+  }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────
@@ -365,6 +358,68 @@ export function deriveMarketPdas(
     programId,
   );
   return { yesMint, noMint, vault };
+}
+
+// ─── BundieVault reader ──────────────────────────────────────────────────
+
+/**
+ * Server-safe BundieVault snapshot. Mirrors the on-chain account layout
+ * from `state/bundie_vault.rs` but converts u64 values to bigint so the
+ * RSC boundary doesn't choke on BN. The `commitDigest` is omitted — the
+ * UI doesn't surface it and skipping it keeps the type plain-serialisable.
+ */
+export interface BundieVaultView {
+  authority: string;
+  navLamports: bigint;
+  navEpoch: bigint;
+  navSlot: bigint;
+}
+
+/** Derive the BundieVault PDA: `["bundie_vault", authority]`. */
+export function deriveBundieVaultPda(
+  programId: PublicKey,
+  authority: PublicKey,
+): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("bundie_vault"), authority.toBuffer()],
+    programId,
+  );
+  return pda;
+}
+
+/**
+ * Fetch the BundieVault for the given authority. Returns null when the
+ * account doesn't exist yet (e.g. an agent that hasn't committed any NAV)
+ * — callers should render an em-dash placeholder.
+ */
+export async function fetchBundieVault(
+  connection: Connection,
+  programId: PublicKey,
+  authority: PublicKey | string,
+): Promise<BundieVaultView | null> {
+  let auth: PublicKey;
+  try {
+    auth =
+      typeof authority === "string" ? new PublicKey(authority) : authority;
+  } catch {
+    return null;
+  }
+  const program = getProgram(connection);
+  const pda = deriveBundieVaultPda(programId, auth);
+  try {
+    const raw = await program.account.bundieVault.fetch(pda);
+    return {
+      authority: (raw.authority as PublicKey).toBase58(),
+      navLamports: toBigInt(
+        raw.navLamports as BN | bigint | number | undefined,
+      ),
+      navEpoch: toBigInt(raw.navEpoch as BN | bigint | number | undefined),
+      navSlot: toBigInt(raw.navSlot as BN | bigint | number | undefined),
+    };
+  } catch {
+    // Anchor throws when the account doesn't exist; treat as "no NAV yet".
+    return null;
+  }
 }
 
 export async function fetchMarketsByCreator(

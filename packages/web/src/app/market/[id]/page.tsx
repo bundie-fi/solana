@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchMarketByAddress, fetchMarketsByCreator } from "@/lib/markets";
-import { rateCategoryById } from "@/lib/rate-categories";
 import {
   resolveSns,
   truncatePubkey,
@@ -23,7 +22,6 @@ export default async function MarketDetailPage({
 
   if (!market) notFound();
 
-  const category = rateCategoryById(market.rateReaderSelector);
   const creatorSns = resolveSns(market.createdBy);
   const creatorLabel =
     creatorSns?.devnetName ?? truncatePubkey(market.createdBy);
@@ -59,12 +57,31 @@ export default async function MarketDetailPage({
       : creatorResolved.filter((m) => m.outcome === "no").length /
         creatorResolved.length;
 
+  // Phase B+ NAV-aware resolution copy. Switches on market.kind:
+  //   1 = NavTarget: target NAV in lamports lives in payload[0..8]; we
+  //       display it as bUSD (lamports / 1_000_000) per the BundieVault
+  //       commit_nav convention.
+  //   2 = Head-to-head: target agent comes from Market.strategyB and is
+  //       surfaced via market.targetAgent.
+  //   3 = Drawdown: drawdown_bps in payload[0..8]; display as a percentage.
   let resolutionProse: string;
-  if (category && market.spreadBps != null) {
+  const slotLabel = market.resolutionSlot.toLocaleString();
+  if (market.kind === 1) {
+    const targetBusd = (market.targetNavLamports ?? 0) / 1_000_000;
     resolutionProse =
-      `Will ${targetLabel ?? "the target agent"} outperform ` +
-      `${category.label} (${category.pool}) by ${(market.spreadBps / 100).toFixed(2)}% ` +
-      `by slot ${market.windowEndSlot?.toLocaleString() ?? "—"}?`;
+      `Resolves YES if ${creatorLabel}'s vault NAV reaches ` +
+      `${targetBusd.toLocaleString(undefined, { maximumFractionDigits: 2 })} bUSD ` +
+      `by slot ${slotLabel}.`;
+  } else if (market.kind === 2) {
+    const opponent = targetLabel ?? "the opposing agent";
+    resolutionProse =
+      `Resolves YES if ${creatorLabel}'s NAV growth beats ` +
+      `${opponent}'s by slot ${slotLabel}.`;
+  } else if (market.kind === 3) {
+    const pct = ((market.drawdownBps ?? 0) / 100).toFixed(2);
+    resolutionProse =
+      `Resolves YES if ${creatorLabel}'s NAV drops by ${pct}% or more ` +
+      `by slot ${slotLabel}.`;
   } else {
     resolutionProse =
       market.question || "Resolves via program-native NAV reads.";
@@ -207,9 +224,20 @@ export default async function MarketDetailPage({
         <div style={{ padding: "0 16px 18px" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <span className="pill pill-green" style={{ fontSize: 9 }}>
-              <span style={{ fontSize: 11, lineHeight: 1 }}>✓</span> {resolutionProse.slice(0, 40)}…
+              <span style={{ fontSize: 11, lineHeight: 1 }}>✓</span> NAV-resolved
             </span>
           </div>
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: "var(--fg-1)",
+              margin: "0 0 8px 0",
+            }}
+          >
+            {resolutionProse}
+          </p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
             <span className="green" style={{ fontSize: 11 }}>✓</span>
             <span className="muted" style={{ lineHeight: 1.4 }}>
@@ -227,11 +255,7 @@ export default async function MarketDetailPage({
         <div style={{ padding: "0 16px 18px" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Resolution data</div>
           <div className="card inset" style={{ padding: 14 }}>
-            <DataRow label="Rate reader" value={category ? `#${category.id} — ${category.label}` : "—"} />
             <DataRow label="Resolution slot" value={market.resolutionSlot.toLocaleString()} />
-            {market.windowStartSlot != null && (
-              <DataRow label="Window start" value={market.windowStartSlot.toLocaleString()} />
-            )}
             {market.windowEndSlot != null && (
               <DataRow label="Window end" value={market.windowEndSlot.toLocaleString()} />
             )}

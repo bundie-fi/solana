@@ -41,6 +41,10 @@ export interface Market {
   liquidityParam: bigint
   /** Total volume traded */
   totalVolume: bigint
+  /** BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A. Zero for kinds that do not flow through BundieVault. */
+  initialNavA: bigint
+  /** BundieVault NAV (lamports) snapshotted at create_market_v2 for vault B. Zero for kinds that do not flow through BundieVault (or for single-vault kinds). */
+  initialNavB: bigint
   /** Market fee in basis points (e.g., 100 = 1%) */
   feeBps: number
   /** Collateral mint (e.g. USDC) */
@@ -55,6 +59,18 @@ export interface Market {
   createdAt: number
   /** Resolution timestamp */
   resolvedAt?: number
+  /**
+   * Authority of the BundieVault snapshotted as `target_vault_a` at
+   * create-time. Pinned so resolve_market_v2 can re-derive the canonical
+   * PDA and reject substituted vaults. Null for kinds that do not flow
+   * through BundieVault.
+   */
+  targetAuthorityA: string | null
+  /**
+   * Authority of the BundieVault snapshotted as `target_vault_b` at
+   * create-time. Only populated for kind=2 (head-to-head); null otherwise.
+   */
+  targetAuthorityB: string | null
 }
 
 /** Market with computed display fields */
@@ -87,4 +103,20 @@ export interface BuySharesParams {
   market: string
   outcome: Outcome
   amount: number
+}
+
+/** On-chain BundieVault account data (PDA derived from `["bundie_vault", authority]`) */
+export interface BundieVault {
+  /** Vault authority (Bundie agent vault pubkey) */
+  authority: string
+  /** Most recent committed NAV in lamports */
+  navLamports: bigint
+  /** Monotonic epoch — incremented on each commit_nav */
+  navEpoch: bigint
+  /** Slot at which the latest NAV was committed */
+  navSlot: bigint
+  /** Off-chain commit digest (e.g., signed-payload hash) */
+  commitDigest: Uint8Array
+  /** PDA bump */
+  bump: number
 }

@@ -3,7 +3,6 @@ use anchor_lang::prelude::*;
 pub mod error;
 pub mod instructions;
 pub mod math;
-pub mod rate_readers;
 pub mod state;
 
 use instructions::*;
@@ -100,5 +99,26 @@ pub mod prediction_market {
     /// (NavOracle TWAP, Strategy.backer_count, ...) to set the outcome.
     pub fn resolve_market_v2(ctx: Context<ResolveMarketV2>) -> Result<()> {
         instructions::resolve_market_v2::handler(ctx)
+    }
+
+    /// Initialize a BundieVault PDA at epoch 0 with an initial NAV. The PDA
+    /// is derived from `["bundie_vault", authority]` so each authority owns
+    /// exactly one vault. Phases B+ read NAV from this account during
+    /// market resolution instead of CPIing into protocol-specific readers.
+    pub fn init_vault(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
+        instructions::init_vault::handler(ctx, initial_nav)
+    }
+
+    /// Commit a new NAV value to the vault. Enforces strict monotonic
+    /// epoch increment (`new_epoch == prev + 1`) so a stale or replayed
+    /// commit cannot regress the vault. The `has_one = authority`
+    /// constraint locks writes to the vault owner.
+    pub fn commit_nav(
+        ctx: Context<CommitNav>,
+        new_nav: u64,
+        new_epoch: u64,
+        commit_digest: [u8; 32],
+    ) -> Result<()> {
+        instructions::commit_nav::handler(ctx, new_nav, new_epoch, commit_digest)
     }
 }

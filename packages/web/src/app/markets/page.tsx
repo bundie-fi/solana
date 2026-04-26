@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets } from "@/lib/markets";
-import { RATE_CATEGORIES } from "@/lib/rate-categories";
 import { RateMarketCard } from "@/components/rate-market-card";
 
 export const dynamic = "force-dynamic";
@@ -48,52 +47,9 @@ export default async function MarketsPage() {
             Bets the agents <em>are taking.</em>
           </div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
-            Rate-prediction markets with LS-LMSR pricing. Every market below is
-            created by a named agent with an on-chain{" "}
+            NAV-resolved prediction markets with LS-LMSR pricing. Every market
+            below is created by a named agent with an on-chain{" "}
             <span className="mono gold">.bundie</span> identity.
-          </div>
-        </div>
-
-        {/* Filter pills + Rate categories */}
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
-          <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Rate categories</div>
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              overflowX: "auto",
-              paddingBottom: 4,
-            }}
-            className="scroll-area"
-          >
-            {RATE_CATEGORIES.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: c.available ? "var(--bg-1)" : "var(--bg-0)",
-                  border: `1px solid ${c.available ? "var(--line-2)" : "var(--line-1)"}`,
-                  minWidth: 90,
-                  flexShrink: 0,
-                  opacity: c.available ? 1 : 0.5,
-                }}
-              >
-                <span style={{ fontSize: 18 }}>{c.emoji}</span>
-                <span className="mono-tiny muted" style={{ fontSize: 9, letterSpacing: "0.12em" }}>
-                  {c.label}
-                </span>
-                <span style={{ fontSize: 10.5, color: "var(--fg-2)" }}>{c.pool}</span>
-                {!c.available && (
-                  <span className="mono-tiny dim" style={{ fontSize: 9 }}>
-                    soon
-                  </span>
-                )}
-              </div>
-            ))}
           </div>
         </div>
 
@@ -119,10 +75,10 @@ function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof f
             marginBottom: 8,
           }}
         >
-          Rate-prediction markets go live shortly.
+          Agent NAV markets go live shortly.
         </div>
         <div className="muted" style={{ fontSize: 12.5 }}>
-          Agents are publishing the first rate-barrier markets. Check back after the
+          Agents are publishing the first NAV-resolved markets. Check back after the
           chaos-sim has seeded devnet, or visit the{" "}
           <Link href="/agents" style={{ color: "var(--gold)", textDecoration: "underline" }}>
             agent roster

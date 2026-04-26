@@ -16,6 +16,10 @@ import {
   executeAction,
   isSurfpoolReachable,
 } from "../lib/action-executor.js";
+import {
+  commitNavToDevnet,
+  computeNavFromSurfpoolBalances,
+} from "../lib/commit-nav-helper.js";
 
 // @ts-expect-error — JS module, no type declarations provided
 import { loadPoliciesFromFile } from "../../../../../zerion-agent/src/bundie/policy-loader.js";
@@ -130,6 +134,11 @@ export async function runTick(args: TickArgs): Promise<void> {
   }
 
   // ─── 3. Execute ────────────────────────────────────────────────────────
+  // Collect tx sigs from strategy actions executed on surfpool. These feed
+  // the `commit_nav` digest below so each NAV commit is bound to the exact
+  // surfpool side-effects it summarises.
+  const surfpoolTxSigs: string[] = [];
+
   for (const action of decision.actions) {
     if (action.type === "noop") {
       logActivity({ agent: args.agentName, phase: "execute", action: "noop" });
@@ -148,6 +157,11 @@ export async function runTick(args: TickArgs): Promise<void> {
         policyPath: args.policyPath,
       });
       logActivity({ agent: args.agentName, ...result });
+      // Only roll surfpool-chain tx sigs into the NAV digest. Devnet
+      // market-creation txs are not part of the NAV computation.
+      if (result.txSig && result.chain === "surfpool") {
+        surfpoolTxSigs.push(result.txSig);
+      }
       const sigPart = result.txSig ? ` tx=${result.txSig.slice(0, 12)}…` : "";
       const marketPart = result.marketPda ? ` market=${result.marketPda.slice(0, 8)}…` : "";
       console.log(
@@ -168,6 +182,60 @@ export async function runTick(args: TickArgs): Promise<void> {
         `[tick ${args.agentName}] exec ${action.type} FAILED: ${e.message.slice(0, 160)}`,
       );
     }
+  }
+
+  // ─── 4. Commit NAV to devnet ───────────────────────────────────────────
+  // Compute the agent's NAV from surfpool token balances and commit it
+  // to the BundieVault on devnet. Each tick increments `nav_epoch` by 1,
+  // so a missed tick breaks the on-chain monotonic constraint and surfaces
+  // here as `StaleNavEpoch` — that's intentional, the operator must run
+  // `init-vaults` (one-shot) and then re-sync.
+  if (surfpoolAvailable) {
+    try {
+      const navLamports = await computeNavFromSurfpoolBalances(
+        args.surfpool,
+        args.kp.publicKey,
+      );
+      const commit = await commitNavToDevnet({
+        connection: args.devnet,
+        agentKp: args.kp,
+        navLamports,
+        surfpoolTxSigs,
+      });
+      logActivity({
+        agent: args.agentName,
+        phase: "execute",
+        chain: "devnet",
+        action: "commit_nav",
+        txSig: commit.txSig,
+        notes:
+          `nav=${navLamports} epoch=${commit.epoch} ` +
+          `digest=${commit.digestHex.slice(0, 16)}… ` +
+          `surfpoolTxs=${surfpoolTxSigs.length}`,
+      });
+      console.log(
+        `[tick ${args.agentName}] commit_nav → devnet tx=${commit.txSig.slice(0, 12)}… ` +
+          `nav=${navLamports} epoch=${commit.epoch}`,
+      );
+    } catch (err) {
+      const e = err as Error;
+      logActivity({
+        agent: args.agentName,
+        phase: "execute_error",
+        action: "commit_nav",
+        error: e.message.slice(0, 500),
+      });
+      console.log(
+        `[tick ${args.agentName}] commit_nav FAILED: ${e.message.slice(0, 200)}`,
+      );
+    }
+  } else {
+    logActivity({
+      agent: args.agentName,
+      phase: "execute",
+      action: "commit_nav",
+      notes: "skipped — surfpool unreachable, NAV cannot be computed",
+    });
   }
 
   logActivity({

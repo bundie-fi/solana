@@ -71,7 +71,7 @@ export function AgentLeaderboard() {
   function statsFor(a: HeroAgent): AgentStats {
     const created = markets.filter((m) => m.createdBy === a.vault);
     const onMe = markets.filter(
-      (m) => m.kind === 6 && m.targetAgent === a.vault,
+      (m) => m.kind === 2 && m.targetAgent === a.vault,
     );
     const resolvedByThem = created.filter((m) => m.status === "resolved");
     const accuracy =

@@ -17,7 +17,6 @@
  */
 import { MarketView } from "./markets";
 import { HERO_AGENTS, resolveSns, truncatePubkey } from "./sns-resolver";
-import { rateCategoryById } from "./rate-categories";
 
 export type FeedEventKind =
   | "MARKET_CREATED"
@@ -50,15 +49,16 @@ export function marketCreatedEvent(m: MarketView): FeedEvent {
   const creatorLabel =
     creatorSns?.devnetName ?? truncatePubkey(m.createdBy);
   const targetSns = m.targetAgent ? resolveSns(m.targetAgent) : null;
-  const category = rateCategoryById(m.rateReaderSelector);
 
   let headline: string;
-  if (m.kind === 6 && m.targetAgent) {
+  if (m.kind === 2 && m.targetAgent) {
     const targetLabel =
       targetSns?.devnetName ?? truncatePubkey(m.targetAgent);
-    headline = `${creatorLabel} opened a market on ${targetLabel}`;
-  } else if (category) {
-    headline = `${creatorLabel} opened a ${category.label} market`;
+    headline = `${creatorLabel} opened a head-to-head market on ${targetLabel}`;
+  } else if (m.kind === 1) {
+    headline = `${creatorLabel} opened a NAV target market`;
+  } else if (m.kind === 3) {
+    headline = `${creatorLabel} opened a drawdown market`;
   } else {
     headline = `${creatorLabel} opened a market`;
   }
