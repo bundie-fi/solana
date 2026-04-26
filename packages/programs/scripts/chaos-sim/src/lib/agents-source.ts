@@ -33,6 +33,15 @@ export interface ActiveAgent {
 
 const TEMP_ROOT = join(tmpdir(), "bundie-agents");
 
+interface SupabaseAgentRow {
+  sns: string;
+  agent_pubkey: string;
+  vault_pda: string;
+  owner_wallet: string;
+  brain_md: string | null;
+  policies_yaml: string | null;
+}
+
 function getSupabase(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL;
   const key =
@@ -63,23 +72,36 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
     return [];
   }
 
-  return (data ?? []).map((r: Record<string, string>) => {
+  return (data ?? []).flatMap((r: SupabaseAgentRow): ActiveAgent[] => {
+    if (!r.brain_md || !r.policies_yaml) {
+      console.warn(
+        `[agents-source] skipping ${r.sns}: missing brain_md or policies_yaml`,
+      );
+      logAgentAction({
+        agentSns: r.sns,
+        actionType: "skipped_corrupt_row",
+        reasoning: "missing brain_md or policies_yaml in Supabase row",
+      }).catch(() => {});
+      return [];
+    }
     const dir = join(TEMP_ROOT, r.sns);
     mkdirSync(dir, { recursive: true });
     const brainMdPath = join(dir, "brain.md");
     const policiesPath = join(dir, "policies.yaml");
     writeFileSync(brainMdPath, r.brain_md);
     writeFileSync(policiesPath, r.policies_yaml);
-    return {
-      sns: r.sns,
-      agentPubkey: r.agent_pubkey,
-      vaultPda: r.vault_pda,
-      ownerWallet: r.owner_wallet,
-      brainMd: r.brain_md,
-      policiesYaml: r.policies_yaml,
-      policiesPath,
-      brainMdPath,
-    };
+    return [
+      {
+        sns: r.sns,
+        agentPubkey: r.agent_pubkey,
+        vaultPda: r.vault_pda,
+        ownerWallet: r.owner_wallet,
+        brainMd: r.brain_md,
+        policiesYaml: r.policies_yaml,
+        policiesPath,
+        brainMdPath,
+      },
+    ];
   });
 }
 
