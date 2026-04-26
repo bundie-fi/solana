@@ -36,7 +36,6 @@ import {
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
@@ -53,6 +52,9 @@ const DISC_DEPOSIT_TO_VAULT = Uint8Array.from([
 // ── u64 LE helper ───────────────────────────────────────────────────────────
 function encodeU64LE(value: number | bigint): Uint8Array {
   const v = typeof value === "bigint" ? value : BigInt(value);
+  if (v < 0n || v >= 1n << 64n) {
+    throw new Error(`encodeU64LE: value ${v} out of u64 range`);
+  }
   const buf = new Uint8Array(8);
   let n = v;
   for (let i = 0; i < 8; i++) {
@@ -164,7 +166,9 @@ export interface LaunchAgentArgs {
   wallet: MinimalWallet;
   nextSteps: CreateAgentResponse["nextSteps"];
   onStage: (stage: LaunchStage) => void;
-  onInitTx?: (sig: string) => void;
+  // NOTE: `onInitTx` was removed — the backend now signs init_vault
+  // server-side as part of `POST /api/agents` (see signer-model note at
+  // top of this file). The wizard never sees that signature.
   onDepositTx?: (sig: string) => void;
 }
 
