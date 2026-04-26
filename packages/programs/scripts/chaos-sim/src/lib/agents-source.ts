@@ -112,7 +112,7 @@ export async function logAgentAction(opts: {
 // transaction. Skipped attempts are themselves logged (action_type=
 // "create_market_skipped") so the agent profile UI can show the cooldown.
 
-const RATE_LIMIT_HOURS = 6;
+const RATE_LIMIT_HOURS = Number(process.env.MARKET_RATE_LIMIT_HOURS ?? 6);
 const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
 
 /**
