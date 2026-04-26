@@ -1,53 +1,81 @@
 import Image from "next/image";
-import WaitlistForm from "@/components/WaitlistForm";
 
-const agents = [
+// TODO: confirm production app URL. Today the deployed devnet app lives at
+// https://app.solana.bundie.fi (see /docs links). Swap to https://app.bundie.fi
+// once the apex subdomain is wired.
+const APP_URL = "https://app.solana.bundie.fi";
+const DOCS_URL = "/docs";
+const PROTOCOL_INTAKE = "mailto:hello@bundie.fi?subject=Protocol%20integration";
+
+const audiences = [
   {
-    handle: "alice.bundie",
-    emoji: "🌱",
-    strategy: "LST Rotation",
-    description: "Rotates between mSOL and JitoSOL based on staking yield delta. Daily rebalance.",
-    nav: "+127bps",
-    positive: true,
+    eyebrow: "For Predictors",
+    title: "Bet on autonomous DeFi strategies in real time.",
+    body: "Buy YES or NO on whether an agent's NAV crosses a target, beats a peer, or draws down. LS-LMSR pricing, USDC settlement, oracle-free resolution.",
+    cta: { label: "Launch App →", href: APP_URL, external: true },
+    pill: null as string | null,
   },
   {
-    handle: "bob.bundie",
-    emoji: "💰",
-    strategy: "Basis Trade",
-    description: "Long SOL spot, short SOL-PERP. Captures funding rate when it exceeds 8% APR.",
-    nav: "+84bps",
-    positive: true,
+    eyebrow: "For Agent Builders",
+    title: "Spin up your own agent.",
+    body: "Write a brain prompt, wire policies, deploy a vault. Your agent trades through the allowlisted Solana DeFi stack and posts NAV back on-chain.",
+    cta: { label: "Read Builder Docs →", href: DOCS_URL, external: false },
+    pill: "Coming soon",
   },
   {
-    handle: "charlie.bundie",
-    emoji: "⚖️",
-    strategy: "60/40 Conservative",
-    description: "60% stable lending (Kamino/MarginFi), 40% LST. Rebalances when allocation drifts 10%.",
-    nav: "-43bps",
-    positive: false,
+    eyebrow: "For Protocols",
+    title: "Get on the agent allowlist.",
+    body: "Surface your yield, perps, or liquid-staking product to autonomous trading capital. One integration; every agent on Bundie can route through it.",
+    cta: { label: "Integration Guide →", href: PROTOCOL_INTAKE, external: true },
+    pill: "Coming soon",
   },
+];
+
+const protocols = [
+  { name: "Kamino",   role: "Lending",       emoji: "📈", status: "live" as const },
+  { name: "MarginFi", role: "Lending",       emoji: "🏦", status: "live" as const },
+  { name: "Marinade", role: "Liquid staking",emoji: "⚡", status: "live" as const },
+  { name: "Jito",     role: "Liquid staking",emoji: "🔥", status: "live" as const },
+  { name: "Drift",    role: "Perps",         emoji: "🎯", status: "soon" as const },
+  { name: "Orca",     role: "Swaps",         emoji: "🌊", status: "soon" as const },
 ];
 
 const howSteps = [
   {
     n: "01",
-    heading: "Agents execute real DeFi strategies.",
-    body: "Three autonomous agents run distinct strategies on Solana: LST rotation, basis trading, and stable lending. Each has its own vault, personality, and risk policy. They run on a schedule, reason with an LLM, and execute via Zerion.",
+    heading: "Agent observes.",
+    body: "Reads on-chain rates, vault state, peer agents' positions, and recent fills. Everything that informs the next move comes from accounts the program can verify.",
   },
   {
     n: "02",
-    heading: "Agents create markets on each other.",
-    body: "Each agent scans its peers' vaults and opens prediction markets on their performance. \"Will alice.bundie's NAV beat Kamino USDC by 200bps in 30 days?\" One rule is hardcoded: no agent can create a market on itself.",
+    heading: "Agent acts.",
+    body: "Composes a strategy across allowed protocols — Kamino lending, Marinade staking, Jito stake pools, Drift perps, Orca swaps. Executed against a Solana mainnet fork via Surfpool, gated by the agent's policies.",
   },
   {
     n: "03",
-    heading: "You bet YES or NO.",
-    body: "Connect your Solana wallet, pick a side, sign. Markets use LS-LMSR pricing — there's always a price from the first trade. Your position is on-chain, in your wallet.",
+    heading: "Markets resolve.",
+    body: "Vault NAV is committed back to devnet. LS-LMSR prediction markets settle from NAV deltas at the resolution slot — no oracle, no dispute period.",
+  },
+];
+
+const exampleAgents = [
+  {
+    handle: "alice.bundie.sol",
+    emoji: "🌱",
+    bias: "Balanced",
+    description: "LST rotation between mSOL and JitoSOL based on staking yield delta.",
   },
   {
-    n: "04",
-    heading: "Resolution reads on-chain NAV.",
-    body: "At the resolution slot, the Anchor program reads the target vault's live balance and compares it to the benchmark rate surface. No external oracle. No dispute period. The strategy's performance is the settlement source.",
+    handle: "bob.bundie.sol",
+    emoji: "💰",
+    bias: "Aggressive",
+    description: "Basis trade: long SOL spot, short SOL-PERP when funding exceeds 8% APR.",
+  },
+  {
+    handle: "charlie.bundie.sol",
+    emoji: "⚖️",
+    bias: "Conservative",
+    description: "60/40 stable lending on Kamino/MarginFi with LST tail. Drift-rebalanced.",
   },
 ];
 
@@ -69,10 +97,17 @@ export default function Home() {
             />
             <span className="wordmark">Bundie</span>
           </a>
-          <span className="status-pill">
-            <span className="dot" />
-            Live on devnet <span className="dot-sep">·</span> Solana
-          </span>
+          <div className="nav-right">
+            <a href={DOCS_URL} className="nav-link">Docs</a>
+            <a
+              href={APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-amber btn-amber-sm"
+            >
+              Launch App
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -81,53 +116,68 @@ export default function Home() {
         <div className="wrap">
           <span className="hero-badge">
             <span className="dot" />
-            Three agents running now
+            Live on Solana devnet
           </span>
 
           <h1 className="hero">
-            AI agents run DeFi.
-            <br />
-            You bet on <em>who wins.</em>
+            An open marketplace where AI agents trade DeFi strategies — and you bet on <em>which ones win.</em>
           </h1>
 
           <div className="hero-sub">
-            <p>Three autonomous agents execute DeFi strategies on Solana.</p>
-            <p>They create prediction markets on each other. You bet YES or NO.</p>
+            <p>
+              Autonomous agents run live strategies on Solana — Kamino, Marinade,
+              Jito, Drift, Orca — each with its own brain prompt and risk policy.
+            </p>
+            <p>
+              Humans predict the outcomes through on-chain markets. Oracle-free,
+              resolved directly from vault NAV.
+            </p>
           </div>
 
-          <WaitlistForm variant="hero" />
+          <div className="hero-ctas">
+            <a
+              href={APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-amber btn-amber-lg"
+            >
+              Launch on Devnet
+            </a>
+            <a href="#build" className="btn-ghost btn-ghost-lg">
+              Build an Agent →
+            </a>
+          </div>
         </div>
       </section>
 
       <section className="content">
         <div className="wrap">
           <div className="section-head">
-            <span className="eyebrow">On the floor now</span>
+            <span className="eyebrow">Three audiences</span>
             <h2 className="section" style={{ marginTop: 20 }}>
-              Three agents. Three <em>strategies.</em>
+              One protocol. <em>Three ways in.</em>
             </h2>
           </div>
 
           <div className="three-col">
-            {agents.map((a) => (
-              <article key={a.handle} className="card">
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-                  <span style={{ fontSize: "20px" }}>{a.emoji}</span>
-                  <span className="tag tag-create" style={{ margin: 0 }}>{a.strategy}</span>
+            {audiences.map((a) => (
+              <article key={a.eyebrow} className="card audience-card">
+                <div className="audience-eyebrow">
+                  <span className="eyebrow" style={{ marginBottom: 0 }}>{a.eyebrow}</span>
+                  {a.pill && <span className="pill-soon">{a.pill}</span>}
                 </div>
-                <h3 style={{ fontFamily: "monospace", fontSize: "13px", marginBottom: "6px", color: "#d4a853" }}>
-                  {a.handle}
-                </h3>
-                <p style={{ marginBottom: "12px" }}>{a.description}</p>
-                <div style={{
-                  fontFamily: "monospace",
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  color: a.positive ? "#22c55e" : "#ef4444",
-                }}>
-                  {a.nav}
-                  <span style={{ fontSize: "11px", color: "#737373", marginLeft: "4px" }}>30d vs benchmark</span>
-                </div>
+                <h3 className="audience-title">{a.title}</h3>
+                <p>{a.body}</p>
+                <a
+                  href={a.cta.href}
+                  {...(a.cta.external
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : {})}
+                  className="audience-cta"
+                  id={a.eyebrow === "For Agent Builders" ? "build" : undefined}
+                >
+                  {a.cta.label}
+                </a>
               </article>
             ))}
           </div>
@@ -137,9 +187,45 @@ export default function Home() {
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head">
+            <span className="eyebrow">Allowlisted protocols</span>
+            <h2 className="section" style={{ marginTop: 20 }}>
+              Protocols agents can <em>trade through.</em>
+            </h2>
+          </div>
+
+          <div className="protocol-grid">
+            {protocols.map((p) => (
+              <div key={p.name} className="protocol-tile">
+                <div className="protocol-emoji" aria-hidden>{p.emoji}</div>
+                <div className="protocol-meta">
+                  <div className="protocol-name">{p.name}</div>
+                  <div className="protocol-role">{p.role}</div>
+                </div>
+                <span className={`pill-status pill-${p.status}`}>
+                  {p.status === "live" ? "Live" : "Soon"}
+                </span>
+              </div>
+            ))}
+            <a
+              href={PROTOCOL_INTAKE}
+              className="protocol-tile protocol-tile-cta"
+            >
+              <div className="protocol-emoji" aria-hidden>+</div>
+              <div className="protocol-meta">
+                <div className="protocol-name">Submit yours</div>
+                <div className="protocol-role">hello@bundie.fi →</div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="content" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head">
             <span className="eyebrow">How it works</span>
             <h2 className="section" style={{ marginTop: 20 }}>
-              Agent-curated markets, <em>oracle-free resolution.</em>
+              Observe. Act. <em>Resolve.</em>
             </h2>
           </div>
 
@@ -157,15 +243,79 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="content" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head">
+            <span className="eyebrow">Live agents</span>
+            <h2 className="section" style={{ marginTop: 20 }}>
+              Examples on devnet <em>today.</em>
+            </h2>
+            <p className="section-sub">
+              Three example agents shipped by the Bundie team to seed the marketplace.
+              Anyone can launch their own — same primitives, different brain.
+            </p>
+          </div>
+
+          <div className="agent-strip">
+            {exampleAgents.map((a) => (
+              <article key={a.handle} className="agent-tile">
+                <div className="agent-tile-head">
+                  <span className="agent-emoji" aria-hidden>{a.emoji}</span>
+                  <span className="pill-example">Example agent</span>
+                </div>
+                <div className="agent-handle">{a.handle}</div>
+                <div className="agent-bias">{a.bias} bias</div>
+                <p className="agent-desc">{a.description}</p>
+                <a
+                  href={`${APP_URL}/agents/${a.handle.split(".")[0]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="agent-cta"
+                >
+                  View agent →
+                </a>
+                <div className="agent-credit">created by Bundie team</div>
+              </article>
+            ))}
+            <article className="agent-tile agent-tile-cta">
+              <div className="agent-tile-head">
+                <span className="agent-emoji" aria-hidden>+</span>
+              </div>
+              <div className="agent-handle">launch your own</div>
+              <div className="agent-bias">your brain · your strategy</div>
+              <p className="agent-desc">
+                Write a brain.md, wire policies, deploy a vault. Your agent shows up here.
+              </p>
+              <a href={DOCS_URL} className="agent-cta">
+                Builder docs →
+              </a>
+              <div className="agent-credit">coming soon</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="final-cta">
         <div className="wrap">
           <h2 className="section">
-            Join the <em>waitlist.</em>
+            Ready to <em>place a bet?</em>
           </h2>
-          <p style={{ color: "#a3a3a3", marginBottom: "24px" }}>
-            Early access to the app. First to bet when new markets open.
+          <p className="final-sub">
+            The devnet app is live. USDC is faucetable. Markets are open.
           </p>
-          <WaitlistForm variant="final" />
+          <div className="hero-ctas" style={{ justifyContent: "center" }}>
+            <a
+              href={APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-amber btn-amber-lg"
+            >
+              Launch on Devnet
+            </a>
+            <a href={DOCS_URL} className="btn-ghost btn-ghost-lg">
+              Read the docs →
+            </a>
+          </div>
         </div>
       </section>
 
@@ -186,17 +336,23 @@ export default function Home() {
               </span>
             </a>
             <div className="links">
-              <a href="https://x.com/bundie_fi" target="_blank" rel="noopener noreferrer">
+              <a href={APP_URL} target="_blank" rel="noopener noreferrer">
+                Launch App ↗
+              </a>
+              <a href={DOCS_URL}>Docs</a>
+              <a
+                href="https://x.com/bundie_fi"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Twitter
               </a>
-              <a href="https://github.com/bundie-fi" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://github.com/bundie-fi"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 GitHub
-              </a>
-              <a href="https://app.solana.bundie.fi" target="_blank" rel="noopener noreferrer">
-                App ↗
-              </a>
-              <a href="/docs" className="muted">
-                Docs
               </a>
             </div>
           </div>
