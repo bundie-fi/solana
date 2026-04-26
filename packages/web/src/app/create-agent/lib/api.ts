@@ -88,13 +88,38 @@ export async function createAgent(
 
 export async function confirmInit(
   sns: string,
+  opts: { maxRetries?: number } = {},
 ): Promise<{ ok: boolean }> {
-  const r = await fetch(
-    `${BACKEND_URL}/api/agents/${encodeURIComponent(sns)}/confirm-init`,
-    { method: "POST" },
-  );
-  if (!r.ok) throw new Error(`confirmInit failed: ${r.status}`);
-  return r.json();
+  const maxRetries = opts.maxRetries ?? 3;
+  let lastErr: Error | null = null;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const r = await fetch(
+        `${BACKEND_URL}/api/agents/${encodeURIComponent(sns)}/confirm-init`,
+        { method: "POST" },
+      );
+      if (r.ok) return r.json();
+      if (r.status >= 500) {
+        // Server error — retry with exponential backoff.
+        lastErr = new Error(
+          `confirmInit ${r.status}: ${await r.text().catch(() => "")}`,
+        );
+        await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, i)));
+        continue;
+      }
+      // 4xx — don't retry, surface so the caller can show recovery UI
+      // (the user has already paid for + broadcast deposit_to_vault).
+      throw new Error(
+        `confirmInit failed: ${r.status} ${await r.text().catch(() => "")}`,
+      );
+    } catch (e) {
+      lastErr = e as Error;
+      // If the throw above was the 4xx branch, don't retry — re-throw now.
+      if (lastErr.message.startsWith("confirmInit failed:")) throw lastErr;
+      await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, i)));
+    }
+  }
+  throw lastErr ?? new Error("confirmInit failed after retries");
 }
 
 export async function snsAvailable(sns: string): Promise<boolean> {

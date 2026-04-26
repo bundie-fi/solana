@@ -36,6 +36,31 @@ export function ReviewStep({ state, dispatch }: Props) {
 
   const launching = launch.stage !== null && launch.stage !== "done";
   const done = launch.stage === "done";
+  // If we have a depositTxSig but launch errored, the user paid for the
+  // seed deposit on-chain but the backend never flipped the agent to
+  // active. Surface a recovery UI instead of silently resetting.
+  const orphanDeposit =
+    !!launch.error && !!launch.depositTxSig && !done;
+
+  const finalizeConfirm = useCallback(async () => {
+    dispatch({ type: "LAUNCH/SET_ERROR", error: null });
+    dispatch({ type: "LAUNCH/SET_STAGE", stage: "confirming" });
+    try {
+      await confirmInit(sns);
+      dispatch({ type: "LAUNCH/SET_STAGE", stage: "done" });
+      setTimeout(() => {
+        router.push(`/agent/${encodeURIComponent(sns)}`);
+      }, 800);
+    } catch (e) {
+      dispatch({
+        type: "LAUNCH/SET_ERROR",
+        error: e instanceof Error ? e.message : "confirm failed",
+      });
+      // Keep stage at "confirming" so the deposit info stays visible —
+      // do NOT reset stage to null (that would hide the orphan-deposit
+      // recovery UI and the user would lose the depositTxSig).
+    }
+  }, [sns, dispatch, router]);
 
   const onLaunch = useCallback(async () => {
     if (!publicKey || !connected) {
@@ -49,6 +74,8 @@ export function ReviewStep({ state, dispatch }: Props) {
 
     dispatch({ type: "LAUNCH/RESET" });
     dispatch({ type: "LAUNCH/SET_STAGE", stage: "creating-agent" });
+
+    let depositBroadcast = false;
 
     try {
       const req: CreateAgentRequest = {
@@ -73,9 +100,10 @@ export function ReviewStep({ state, dispatch }: Props) {
         wallet: { publicKey, sendTransaction },
         nextSteps: created.nextSteps,
         onStage: (stage) => dispatch({ type: "LAUNCH/SET_STAGE", stage }),
-        onInitTx: (sig) => dispatch({ type: "LAUNCH/SET_INIT_TX", sig }),
-        onDepositTx: (sig) =>
-          dispatch({ type: "LAUNCH/SET_DEPOSIT_TX", sig }),
+        onDepositTx: (sig) => {
+          depositBroadcast = true;
+          dispatch({ type: "LAUNCH/SET_DEPOSIT_TX", sig });
+        },
       });
 
       dispatch({ type: "LAUNCH/SET_STAGE", stage: "confirming" });
@@ -94,7 +122,12 @@ export function ReviewStep({ state, dispatch }: Props) {
         type: "LAUNCH/SET_ERROR",
         error: e instanceof Error ? e.message : "launch failed",
       });
-      dispatch({ type: "LAUNCH/SET_STAGE", stage: null });
+      // If the deposit was broadcast, KEEP the stage so the recovery UI
+      // (driven by `orphanDeposit`) stays visible and the depositTxSig
+      // is preserved. Otherwise reset so the launch button re-enables.
+      if (!depositBroadcast) {
+        dispatch({ type: "LAUNCH/SET_STAGE", stage: null });
+      }
     }
   }, [
     publicKey,
@@ -322,34 +355,108 @@ export function ReviewStep({ state, dispatch }: Props) {
         </div>
       )}
 
-      {/* Launch button */}
-      <button
-        type="button"
-        onClick={onLaunch}
-        disabled={
-          !connected ||
-          launching ||
-          done ||
-          !strategy.preset ||
-          (capital.busdBalance ?? 0) < 50
-        }
-        style={launchBtnStyle({
-          disabled:
+      {/* Orphan-deposit recovery — deposit cleared but registration didn't */}
+      {orphanDeposit && (
+        <div
+          className="card hairline"
+          style={{
+            padding: 14,
+            borderColor: "var(--gold)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div
+            className="mono"
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.16em",
+              color: "var(--gold)",
+            }}
+          >
+            Action needed
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--fg-1)", lineHeight: 1.5 }}>
+            Your deposit succeeded but agent registration is pending. We
+            kept your transaction info — retry the registration step or
+            reach out with the details below.
+          </div>
+          {launch.depositTxSig && (
+            <a
+              href={`https://orbmarkets.io/tx/${launch.depositTxSig}?cluster=devnet`}
+              target="_blank"
+              rel="noreferrer"
+              className="mono-tiny gold"
+              style={{ fontSize: 10.5, textDecoration: "underline" }}
+            >
+              View deposit tx ↗
+            </a>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={finalizeConfirm}
+              disabled={launch.stage === "confirming"}
+              style={launchBtnStyle({
+                disabled: launch.stage === "confirming",
+              })}
+            >
+              {launch.stage === "confirming"
+                ? "Retrying…"
+                : "Retry registration"}
+            </button>
+            <a
+              href={`mailto:support@bundie.fi?subject=${encodeURIComponent(
+                `Agent registration stuck: ${sns}`,
+              )}&body=${encodeURIComponent(
+                `SNS: ${sns}\nDeposit tx: ${launch.depositTxSig ?? "(unknown)"}\nError: ${launch.error ?? ""}\n`,
+              )}`}
+              className="mono-tiny"
+              style={{
+                alignSelf: "center",
+                fontSize: 11,
+                color: "var(--fg-2)",
+                textDecoration: "underline",
+              }}
+            >
+              Contact support
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Launch button (hidden once we're in orphan-deposit recovery) */}
+      {!orphanDeposit && (
+        <button
+          type="button"
+          onClick={onLaunch}
+          disabled={
             !connected ||
             launching ||
             done ||
             !strategy.preset ||
-            (capital.busdBalance ?? 0) < 50,
-        })}
-      >
-        {!connected
-          ? "Connect wallet"
-          : done
-            ? "Live ✓"
-            : launching
-              ? "Launching…"
-              : "Launch agent"}
-      </button>
+            (capital.busdBalance ?? 0) < 50
+          }
+          style={launchBtnStyle({
+            disabled:
+              !connected ||
+              launching ||
+              done ||
+              !strategy.preset ||
+              (capital.busdBalance ?? 0) < 50,
+          })}
+        >
+          {!connected
+            ? "Connect wallet"
+            : done
+              ? "Live ✓"
+              : launching
+                ? "Launching…"
+                : "Launch agent"}
+        </button>
+      )}
     </div>
   );
 }
