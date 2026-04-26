@@ -287,13 +287,34 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
   process.on("SIGINT", onSig);
   process.on("SIGTERM", onSig);
 
+  // Exponential backoff state for transient Supabase outages — caps at 10min
+  // so the supervisor doesn't hammer Supabase during sustained downtime, and
+  // recovers cleanly once the next call succeeds.
+  let consecutiveFailures = 0;
+  const BASE_INTERVAL_MS = intervalMs;
+  const MAX_INTERVAL_MS = 10 * 60_000;
+
   while (!stop) {
     let supabaseAgents: ActiveAgent[];
     try {
       supabaseAgents = await loadActiveAgents();
+      if (consecutiveFailures > 0) {
+        console.log(
+          `[supervisor] Supabase recovered after ${consecutiveFailures} failure(s)`,
+        );
+        consecutiveFailures = 0;
+      }
     } catch (e) {
-      console.error("[supervisor] failed to load agents:", (e as Error).message);
-      await sleep(intervalMs);
+      consecutiveFailures++;
+      const backoff = Math.min(
+        BASE_INTERVAL_MS * Math.pow(2, consecutiveFailures - 1),
+        MAX_INTERVAL_MS,
+      );
+      console.error(
+        `[supervisor] loadActiveAgents failed (attempt ${consecutiveFailures}, backing off ${backoff}ms):`,
+        (e as Error).message,
+      );
+      await sleep(backoff);
       continue;
     }
 
