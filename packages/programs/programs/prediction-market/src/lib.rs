@@ -101,4 +101,12 @@ pub mod prediction_market {
     pub fn resolve_market_v2(ctx: Context<ResolveMarketV2>) -> Result<()> {
         instructions::resolve_market_v2::handler(ctx)
     }
+
+    /// Initialize a BundieVault PDA at epoch 0 with an initial NAV. The PDA
+    /// is derived from `["bundie_vault", authority]` so each authority owns
+    /// exactly one vault. Phases B+ read NAV from this account during
+    /// market resolution instead of CPIing into protocol-specific readers.
+    pub fn init_vault(ctx: Context<InitVault>, initial_nav: u64) -> Result<()> {
+        instructions::init_vault::handler(ctx, initial_nav)
+    }
 }
