@@ -325,28 +325,20 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
 
     await Promise.all(
       targets.map((target) =>
-        runTickForAgent(target, ctx)
-          .then(() =>
-            logAgentAction({
-              agentSns: target.sns,
-              actionType: "tick_ok",
-              reasoning: "tick completed",
-            }).catch(() => {}),
-          )
-          .catch((err: Error) => {
-            console.error(`[${target.sns}] tick failed:`, err.message);
-            logActivity({
-              agent: target.sns,
-              phase: "execute_error",
-              stage: "tick",
-              error: (err.message ?? String(err)).slice(0, 500),
-            });
-            return logAgentAction({
-              agentSns: target.sns,
-              actionType: "tick_error",
-              reasoning: String(err.message ?? err),
-            }).catch(() => {});
-          }),
+        runTickForAgent(target, ctx).catch((err: Error) => {
+          console.error(`[${target.sns}] tick failed:`, err.message);
+          logActivity({
+            agent: target.sns,
+            phase: "execute_error",
+            stage: "tick",
+            error: (err.message ?? String(err)).slice(0, 500),
+          });
+          return logAgentAction({
+            agentSns: target.sns,
+            actionType: "tick_error",
+            reasoning: String(err.message ?? err),
+          }).catch(() => {});
+        }),
       ),
     );
 
