@@ -20,6 +20,7 @@ import {
   commitNavToDevnet,
   computeNavFromSurfpoolBalances,
 } from "../lib/commit-nav-helper.js";
+import { logAgentAction } from "../lib/agents-source.js";
 
 // @ts-expect-error — JS module, no type declarations provided
 import { loadPoliciesFromFile } from "../../../../../zerion-agent/src/bundie/policy-loader.js";
@@ -143,12 +144,21 @@ export async function runTick(args: TickArgs): Promise<void> {
     if (action.type === "noop") {
       logActivity({ agent: args.agentName, phase: "execute", action: "noop" });
       console.log(`[tick ${args.agentName}] exec noop`);
+      // Per-action Supabase log (Phase O): noops show up in the agent profile
+      // timeline so the user can see "the brain saw no opportunity" turns too.
+      await logAgentAction({
+        agentSns: args.agentName,
+        actionType: "noop",
+        reasoning: decision.reasoning ?? null,
+        resultJson: { phase: "execute", action: "noop" },
+      }).catch(() => {});
       continue;
     }
     try {
       const result = await executeAction({
         action,
         agentName: args.agentName,
+        agentSns: args.agentName,
         walletName: args.walletName,
         kp: args.kp,
         surfpool: args.surfpool,
@@ -167,6 +177,16 @@ export async function runTick(args: TickArgs): Promise<void> {
       console.log(
         `[tick ${args.agentName}] exec ${result.action} → ${result.chain}${sigPart}${marketPart}`,
       );
+      // Per-action Supabase log (Phase O).
+      // result.action may be 'create_market_skipped' for rate-limited skips.
+      // The executor returns a structured result and we are the sole writer to agent_action_log here.
+      // (No Supabase deduplication — there's no unique constraint; rely on caller-side discipline.)
+      await logAgentAction({
+        agentSns: args.agentName,
+        actionType: result.action,
+        reasoning: decision.reasoning ?? null,
+        resultJson: result as unknown,
+      }).catch(() => {});
     } catch (err) {
       const e = err as Error & { code?: string; reason?: string; deniedBy?: string };
       logActivity({
@@ -181,6 +201,20 @@ export async function runTick(args: TickArgs): Promise<void> {
       console.log(
         `[tick ${args.agentName}] exec ${action.type} FAILED: ${e.message.slice(0, 160)}`,
       );
+      // Per-action Supabase log (Phase O): failures also surface in the
+      // profile timeline. action_type uses the requested action.type (not
+      // result.action, since there's no result on the error path).
+      await logAgentAction({
+        agentSns: args.agentName,
+        actionType: `${action.type}_error`,
+        reasoning: decision.reasoning ?? null,
+        resultJson: {
+          error: (e.message || String(err)).slice(0, 500),
+          code: e.code ?? null,
+          reason: e.reason ?? null,
+          deniedBy: e.deniedBy ?? null,
+        },
+      }).catch(() => {});
     }
   }
 
@@ -217,6 +251,18 @@ export async function runTick(args: TickArgs): Promise<void> {
         `[tick ${args.agentName}] commit_nav → devnet tx=${commit.txSig.slice(0, 12)}… ` +
           `nav=${navLamports} epoch=${commit.epoch}`,
       );
+      await logAgentAction({
+        agentSns: args.agentName,
+        actionType: "commit_nav",
+        reasoning: null,
+        resultJson: {
+          txSig: commit.txSig,
+          navLamports: navLamports.toString(),
+          epoch: commit.epoch,
+          digestHex: commit.digestHex,
+          surfpoolTxSigs,
+        },
+      }).catch(() => {});
     } catch (err) {
       const e = err as Error;
       logActivity({
@@ -228,6 +274,12 @@ export async function runTick(args: TickArgs): Promise<void> {
       console.log(
         `[tick ${args.agentName}] commit_nav FAILED: ${e.message.slice(0, 200)}`,
       );
+      await logAgentAction({
+        agentSns: args.agentName,
+        actionType: "commit_nav_error",
+        reasoning: null,
+        resultJson: { error: e.message.slice(0, 500) },
+      }).catch(() => {});
     }
   } else {
     logActivity({
@@ -236,6 +288,12 @@ export async function runTick(args: TickArgs): Promise<void> {
       action: "commit_nav",
       notes: "skipped — surfpool unreachable, NAV cannot be computed",
     });
+    await logAgentAction({
+      agentSns: args.agentName,
+      actionType: "commit_nav_skipped",
+      reasoning: "surfpool unreachable",
+      resultJson: { skipped: true, reason: "surfpool unreachable" },
+    }).catch(() => {});
   }
 
   logActivity({

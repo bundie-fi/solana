@@ -112,7 +112,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
 export async function logAgentAction(opts: {
   agentSns: string;
   actionType: string;
-  reasoning?: string;
+  reasoning?: string | null;
   resultJson?: unknown;
 }): Promise<void> {
   const supa = getSupabase();
@@ -175,4 +175,91 @@ export async function logSkippedAgent(opts: {
     actionType: opts.actionType,
     reasoning: opts.reasoning,
   }).catch(() => {});
+}
+
+// ─── Market-creation rate limiting (Phase O) ──────────────────────────────
+//
+// Once the agent registry is open to user-launched agents, we need to prevent
+// a single agent from spamming markets. Cap is 1 create_market per agent per
+// 6 hours, enforced by reading `agent_action_log` before issuing the create_*
+// transaction. Skipped attempts are themselves logged (action_type=
+// "create_market_skipped") so the agent profile UI can show the cooldown.
+
+const RATE_LIMIT_HOURS = Number(process.env.MARKET_RATE_LIMIT_HOURS ?? 6);
+const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
+
+/**
+ * Returns the timestamp (ms) of the agent's last create_market action, plus a
+ * `queryError` flag so callers can distinguish "never created" from "Supabase
+ * errored on the query".
+ *
+ * Behaviour:
+ *   - No Supabase configured  → { ts: null, queryError: false } (explicit fail-open
+ *     for local dev — the registry isn't expected to be online).
+ *   - Supabase query errored  → { ts: null, queryError: true } (callers should
+ *     fail-CLOSED on this so a transient outage doesn't enable spam).
+ *   - No row found            → { ts: null, queryError: false } (agent has never
+ *     created a market).
+ *   - Row found               → { ts: <ms>, queryError: false }.
+ */
+export async function lastMarketCreationAtMs(
+  agentSns: string,
+): Promise<{ ts: number | null; queryError: boolean }> {
+  const supa = getSupabase();
+  if (!supa) return { ts: null, queryError: false };
+  const { data, error } = await supa
+    .from("agent_action_log")
+    .select("tick_at")
+    .eq("agent_sns", agentSns)
+    .eq("action_type", "create_market")
+    .order("tick_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error(
+      "[agents-source] lastMarketCreationAtMs query failed:",
+      error.message,
+    );
+    return { ts: null, queryError: true };
+  }
+  const row = data?.[0] as { tick_at: string } | undefined;
+  return {
+    ts: row ? new Date(row.tick_at).getTime() : null,
+    queryError: false,
+  };
+}
+
+export interface RateLimitCheck {
+  limited: boolean;
+  reason?: string;
+  nextAllowedAt?: number;
+}
+
+/**
+ * Returns true if the agent is within its market-creation cooldown window.
+ *
+ * Failure modes:
+ *   - No Supabase configured   → { limited: false } (fail-open for local dev).
+ *   - Supabase query errored   → { limited: true, reason: "rate_check_unavailable" }
+ *     (fail-CLOSED so a transient Supabase outage doesn't enable market spam).
+ *   - Within cooldown window   → { limited: true, reason, nextAllowedAt }.
+ *   - Outside cooldown / never → { limited: false }.
+ */
+export async function isMarketCreationRateLimited(
+  agentSns: string,
+): Promise<RateLimitCheck> {
+  const { ts: last, queryError } = await lastMarketCreationAtMs(agentSns);
+  if (queryError) {
+    return { limited: true, reason: "rate_check_unavailable" };
+  }
+  if (last == null) return { limited: false };
+  const elapsed = Date.now() - last;
+  if (elapsed < RATE_LIMIT_MS) {
+    const nextAllowedAt = last + RATE_LIMIT_MS;
+    return {
+      limited: true,
+      reason: `market_creation_rate_limit (${RATE_LIMIT_HOURS}h cooldown)`,
+      nextAllowedAt,
+    };
+  }
+  return { limited: false };
 }

@@ -369,20 +369,26 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
 
     await Promise.all(
       targets.map((target) =>
-        runTickForAgent(target, ctx).catch((err: Error) => {
-          console.error(`[${target.sns}] tick failed:`, err.message);
-          logActivity({
-            agent: target.sns,
-            phase: "execute_error",
-            stage: "tick",
-            error: (err.message ?? String(err)).slice(0, 500),
-          });
-          return logAgentAction({
-            agentSns: target.sns,
-            actionType: "tick_error",
-            reasoning: String(err.message ?? err),
-          }).catch(() => {});
-        }),
+        runTickForAgent(target, ctx)
+          // Phase O: per-action logging now happens inside shared-tick.ts so
+          // the agent profile timeline is action-grained (not tick-grained).
+          // We drop the generic `tick_ok` row here to avoid duplicate noise.
+          .catch((err: Error) => {
+            console.error(`[${target.sns}] tick failed:`, err.message);
+            logActivity({
+              agent: target.sns,
+              phase: "execute_error",
+              stage: "tick",
+              error: (err.message ?? String(err)).slice(0, 500),
+            });
+            // tick_error is still useful: it captures the case where the tick
+            // itself crashed before any per-action log could fire.
+            return logAgentAction({
+              agentSns: target.sns,
+              actionType: "tick_error",
+              reasoning: String(err.message ?? err),
+            }).catch(() => {});
+          }),
       ),
     );
 
