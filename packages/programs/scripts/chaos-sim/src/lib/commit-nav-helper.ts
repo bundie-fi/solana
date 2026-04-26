@@ -121,8 +121,13 @@ export async function commitNavToDevnet(opts: {
     digest,
   ]);
 
+  // Authority is also the fee-payer, so it MUST be writable (Solana
+  // runtime requires the fee-payer slot to be writable for lamport
+  // deduction). Anchor's `Signer<'info>` does not enforce writability
+  // at the program level, so this is purely a transaction-message
+  // requirement.
   const keys = [
-    { pubkey: agentKp.publicKey, isSigner: true, isWritable: false },
+    { pubkey: agentKp.publicKey, isSigner: true, isWritable: true },
     { pubkey: vaultPda, isSigner: false, isWritable: true },
   ];
 
