@@ -104,7 +104,6 @@ export default async function AgentProfilePage({
   try {
     const res = await fetch(
       `${backendBase}/api/agent/${encodeURIComponent(surfpoolSns)}/surfpool-activity?limit=20`,
-      { next: { revalidate: 10 } },
     );
     if (res.ok) {
       const body = (await res.json()) as { actions?: SurfpoolAction[] };
