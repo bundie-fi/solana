@@ -39,6 +39,8 @@ fn market_carries_created_by_field() {
         bump: 0,
         initial_nav_per_share: 0,
         initial_nav_per_share_b: 0,
+        initial_nav_a: 0,
+        initial_nav_b: 0,
         yes_mint_bump: 0,
         no_mint_bump: 0,
         vault_bump: 0,
