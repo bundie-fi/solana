@@ -126,4 +126,10 @@ pub mod prediction_market {
     ) -> Result<()> {
         instructions::commit_nav::handler(ctx, new_nav, new_epoch, commit_digest)
     }
+
+    /// Transfer `amount` of the vault's treasury mint into its treasury
+    /// ATA. Anyone may seed an agent.
+    pub fn deposit_to_vault(ctx: Context<DepositToVault>, amount: u64) -> Result<()> {
+        instructions::deposit_to_vault::handler(ctx, amount)
+    }
 }
