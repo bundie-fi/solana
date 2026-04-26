@@ -339,6 +339,82 @@ export type PredictionMarket = {
       ]
     },
     {
+      "name": "commitNav",
+      "docs": [
+        "Commit a new NAV value to the vault. Enforces strict monotonic",
+        "epoch increment (`new_epoch == prev + 1`) so a stale or replayed",
+        "commit cannot regress the vault. The `has_one = authority`",
+        "constraint locks writes to the vault owner."
+      ],
+      "discriminator": [
+        124,
+        190,
+        187,
+        63,
+        110,
+        124,
+        21,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "vault"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "newNav",
+          "type": "u64"
+        },
+        {
+          "name": "newEpoch",
+          "type": "u64"
+        },
+        {
+          "name": "commitDigest",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "createMarket",
       "docs": [
         "Create a new prediction market on a strategy's performance"
@@ -678,6 +754,24 @@ export type PredictionMarket = {
         {
           "name": "rent",
           "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "targetVaultA",
+          "docs": [
+            "Optional BundieVault for strategy A. Required for kinds 1/2/3",
+            "(NavTarget, Relative, Drawdown) so create_market_v2 can snapshot",
+            "the live NAV baseline. Pass `None` for legacy kinds (5/6) that",
+            "do not yet flow through BundieVault."
+          ],
+          "optional": true
+        },
+        {
+          "name": "targetVaultB",
+          "docs": [
+            "Optional BundieVault for strategy B. Required only for kind=2",
+            "(RELATIVE / head-to-head). Pass `None` otherwise."
+          ],
+          "optional": true
         }
       ],
       "args": [
@@ -720,6 +814,71 @@ export type PredictionMarket = {
         },
         {
           "name": "initialNavB",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initVault",
+      "docs": [
+        "Initialize a BundieVault PDA at epoch 0 with an initial NAV. The PDA",
+        "is derived from `[\"bundie_vault\", authority]` so each authority owns",
+        "exactly one vault. Phases B+ read NAV from this account during",
+        "market resolution instead of CPIing into protocol-specific readers."
+      ],
+      "discriminator": [
+        77,
+        79,
+        85,
+        150,
+        33,
+        217,
+        52,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  110,
+                  100,
+                  105,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "initialNav",
           "type": "u64"
         }
       ]
@@ -890,6 +1049,23 @@ export type PredictionMarket = {
             "- all other kinds   → ignored (pass SystemProgram)",
             ""
           ]
+        },
+        {
+          "name": "targetVaultA",
+          "docs": [
+            "Optional BundieVault for strategy A.",
+            "Required for kinds 1 (NavTarget), 2 (Relative), and 3 (Drawdown) —",
+            "the resolver reads `nav_lamports` to compute the outcome."
+          ],
+          "optional": true
+        },
+        {
+          "name": "targetVaultB",
+          "docs": [
+            "Optional BundieVault for strategy B.",
+            "Required only for kind=2 (RELATIVE / head-to-head)."
+          ],
+          "optional": true
         }
       ],
       "args": []
@@ -988,6 +1164,19 @@ export type PredictionMarket = {
     }
   ],
   "accounts": [
+    {
+      "name": "bundieVault",
+      "discriminator": [
+        239,
+        32,
+        103,
+        186,
+        197,
+        8,
+        108,
+        152
+      ]
+    },
     {
       "name": "market",
       "discriminator": [
@@ -1097,9 +1286,71 @@ export type PredictionMarket = {
       "code": 6018,
       "name": "wrongTargetAgent",
       "msg": "resolve_market_v2 data_a does not match the target_agent encoded in market payload"
+    },
+    {
+      "code": 6019,
+      "name": "staleNavEpoch",
+      "msg": "Vault NAV epoch must increment monotonically"
+    },
+    {
+      "code": 6020,
+      "name": "unauthorizedVaultCommit",
+      "msg": "Caller is not the vault authority"
+    },
+    {
+      "code": 6021,
+      "name": "missingTargetVault",
+      "msg": "Required target vault account not provided"
+    },
+    {
+      "code": 6022,
+      "name": "deprecatedMarketKind",
+      "msg": "Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)"
     }
   ],
   "types": [
+    {
+      "name": "bundieVault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "navLamports",
+            "type": "u64"
+          },
+          {
+            "name": "navEpoch",
+            "type": "u64"
+          },
+          {
+            "name": "navSlot",
+            "type": "u64"
+          },
+          {
+            "name": "commitDigest",
+            "docs": [
+              "Opaque off-chain audit commitment (e.g. hash of the agent's",
+              "computation log for this epoch). The program does not verify or",
+              "interpret this value; it is recorded verbatim for off-chain audit."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
     {
       "name": "market",
       "type": {
@@ -1295,6 +1546,24 @@ export type PredictionMarket = {
             "name": "initialNavPerShareB",
             "docs": [
               "NAV per share at market creation time for strategy B (Relative markets only; 0 for Absolute)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initialNavA",
+            "docs": [
+              "BundieVault NAV (lamports) snapshotted at create_market_v2 for vault A.",
+              "Phase B uses this as the baseline for kinds 1/2/3 (NavTarget/Relative/Drawdown)",
+              "when resolving against `BundieVault.nav_lamports`. Zero for kinds that",
+              "do not snapshot a vault baseline."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initialNavB",
+            "docs": [
+              "BundieVault NAV (lamports) snapshotted at create_market_v2 for vault B.",
+              "Only populated for kind=2 (RELATIVE / head-to-head). Zero otherwise."
             ],
             "type": "u64"
           },
