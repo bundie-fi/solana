@@ -624,6 +624,36 @@ agents.post("/api/agents/:sns/confirm-init", async (c) => {
   return c.json({ ok: true, agent: { ...agent, status: "active" } });
 });
 
+/**
+ * Decode NAV fields out of a BundieVault account.
+ *
+ * Layout (Anchor 8-byte discriminator + struct):
+ *   8   bytes  discriminator
+ *   32  bytes  authority
+ *   32  bytes  owner_wallet
+ *   32  bytes  treasury_mint
+ *   32  bytes  treasury_ata
+ *   8   bytes  nav_lamports   (u64 LE)  ← offset 136
+ *   8   bytes  nav_epoch      (u64 LE)  ← offset 144
+ *   8   bytes  nav_slot       (u64 LE)  ← offset 152
+ *   32  bytes  commit_digest
+ *   1   byte   bump
+ *
+ * Returns nulls if the account doesn't exist or the buffer is too short.
+ * `Number()` on bigints is fine here — NAV fits in u53 (1e15 lamports is
+ * way bigger than anything we'd ever see).
+ */
+function decodeBundieVaultNav(
+  data: Buffer | null,
+): { navLamports: number; navEpoch: number; navSlot: number } | null {
+  if (!data || data.length < 160) return null;
+  return {
+    navLamports: Number(data.readBigUInt64LE(136)),
+    navEpoch: Number(data.readBigUInt64LE(144)),
+    navSlot: Number(data.readBigUInt64LE(152)),
+  };
+}
+
 agents.get("/api/agents", async (c) => {
   const status = c.req.query("status");
   const ownerWallet = c.req.query("ownerWallet");
@@ -642,12 +672,112 @@ agents.get("/api/agents", async (c) => {
   }
   const whereClause = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
 
+  let rows: AgentRow[];
   try {
     const r = await dbQuery<AgentRow>(
       `SELECT * FROM agents ${whereClause} ORDER BY created_at DESC`,
       params,
     );
-    return c.json({ agents: r?.rows ?? [] });
+    rows = r?.rows ?? [];
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+
+  // Augment each row with on-chain NAV data so the landing page surfaces
+  // live numbers instead of falling back to static copy. Done in parallel
+  // and best-effort — if the RPC fails for one vault, the others still
+  // return.
+  const conn = new Connection(DEVNET_RPC, "confirmed");
+  const augmented = await Promise.all(
+    rows.map(async (row) => {
+      try {
+        const info = await conn.getAccountInfo(
+          new PublicKey(row.vault_pda),
+          "confirmed",
+        );
+        const nav = decodeBundieVaultNav(info?.data ?? null);
+        return {
+          ...row,
+          navLamports: nav?.navLamports ?? null,
+          navEpoch: nav?.navEpoch ?? null,
+          navSlot: nav?.navSlot ?? null,
+        };
+      } catch {
+        return {
+          ...row,
+          navLamports: null,
+          navEpoch: null,
+          navSlot: null,
+        };
+      }
+    }),
+  );
+
+  return c.json({ agents: augmented });
+});
+
+// ── Live activity feed ─────────────────────────────────────────────────────
+//
+// GET /api/activity?limit=N
+//
+// Returns the most recent agent_action_log rows joined with agents so the
+// landing page can render an "agents are doing things right now" feed. Only
+// surfaces real on-chain actions — skipped/error rows are filtered out.
+//
+// Cap `limit` at 50 to keep the response cheap; the landing page asks for 8.
+const ACTIVITY_DISPLAY_TYPES: ReadonlySet<string> = new Set([
+  "commit_nav",
+  "lend_deposit",
+  "lend_withdraw",
+  "lst_stake",
+  "lst_unstake",
+  "create_market",
+  "swap",
+]);
+
+interface ActivityRow {
+  agent_sns: string;
+  agent_emoji: string | null;
+  action_type: string;
+  reasoning: string | null;
+  tick_at: string;
+}
+
+agents.get("/api/activity", async (c) => {
+  if (!getPool()) return c.json({ activity: [] });
+
+  const limitParam = Number(c.req.query("limit") ?? 8);
+  const limit =
+    Number.isFinite(limitParam) && limitParam > 0
+      ? Math.min(Math.floor(limitParam), 50)
+      : 8;
+
+  // Use array literal for the type filter so postgres can index it well.
+  const allowedTypes = Array.from(ACTIVITY_DISPLAY_TYPES);
+  try {
+    const r = await dbQuery<ActivityRow>(
+      `SELECT al.agent_sns,
+              a.emoji        AS agent_emoji,
+              al.action_type,
+              al.reasoning,
+              al.tick_at
+         FROM agent_action_log al
+         JOIN agents a ON a.sns = al.agent_sns
+         WHERE al.action_type = ANY($1::text[])
+         ORDER BY al.tick_at DESC
+         LIMIT $2`,
+      [allowedTypes, limit],
+    );
+    const rows = r?.rows ?? [];
+    return c.json({
+      activity: rows.map((row) => ({
+        agentSns: row.agent_sns,
+        agentEmoji: row.agent_emoji,
+        actionType: row.action_type,
+        reasoning: row.reasoning,
+        tickAt: row.tick_at,
+      })),
+    });
   } catch (err) {
     return c.json({ error: (err as Error).message }, 500);
   }
