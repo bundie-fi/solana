@@ -207,19 +207,20 @@ pub fn handler(
         None
     };
 
-    // Snapshot BundieVault NAVs for kinds 1/2/3. The vault NAV recorded
-    // here becomes the baseline used by resolve_market_v2 to compute
-    // returns / drawdown / relative growth. Legacy kinds (5/6) preserve
-    // the caller-supplied `initial_nav_a` / `initial_nav_b` parameters
-    // so existing flows keep working until Phase C strips them.
-    let (snap_a, snap_b) = match kind {
+    // Snapshot BundieVault NAVs for kinds 1/2/3 AND pin the vault
+    // authorities into the Market record. Pinning the authorities lets
+    // resolve_market_v2 re-derive the canonical PDA and reject any
+    // attacker-substituted vault. Legacy kinds (5/6) preserve the
+    // caller-supplied `initial_nav_a` / `initial_nav_b` parameters so
+    // existing flows keep working until Phase C strips them.
+    let (snap_a, snap_b, auth_a, auth_b) = match kind {
         MARKET_KIND_NAV_TARGET | MARKET_KIND_DRAWDOWN => {
             let v = ctx
                 .accounts
                 .target_vault_a
                 .as_ref()
                 .ok_or(MarketError::MissingTargetVault)?;
-            (v.nav_lamports, 0u64)
+            (v.nav_lamports, 0u64, Some(v.authority), None)
         }
         MARKET_KIND_RELATIVE => {
             let a = ctx
@@ -232,9 +233,14 @@ pub fn handler(
                 .target_vault_b
                 .as_ref()
                 .ok_or(MarketError::MissingTargetVault)?;
-            (a.nav_lamports, b.nav_lamports)
+            (
+                a.nav_lamports,
+                b.nav_lamports,
+                Some(a.authority),
+                Some(b.authority),
+            )
         }
-        _ => (initial_nav_a, initial_nav_b),
+        _ => (initial_nav_a, initial_nav_b, None, None),
     };
 
     let market = &mut ctx.accounts.market;
@@ -285,6 +291,11 @@ pub fn handler(
     market.vault_bump = ctx.bumps.vault;
     market.kind = kind;
     market.payload = payload;
+    // Pin the BundieVault authorities so the resolver can re-derive PDAs
+    // (`["bundie_vault", target_authority_*]`) and reject substituted
+    // vaults. `None` for kinds that don't snapshot a BundieVault.
+    market.target_authority_a = auth_a;
+    market.target_authority_b = auth_b;
 
     msg!(
         "create_market_v2: kind={}, market_id={}, resolution_slot={}",

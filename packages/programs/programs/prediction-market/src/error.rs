@@ -46,6 +46,8 @@ pub enum MarketError {
     UnauthorizedVaultCommit,
     #[msg("Required target vault account not provided")]
     MissingTargetVault,
+    #[msg("Provided target vault does not match the authority pinned at create-time (PDA mismatch)")]
+    WrongTargetVault,
     #[msg("Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)")]
     DeprecatedMarketKind,
 }

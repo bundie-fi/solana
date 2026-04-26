@@ -206,6 +206,16 @@ pub struct Market {
     /// so every Market account has a populated `created_by` — clients can
     /// read it uniformly without branching on kind.
     pub created_by: Pubkey,
+    /// Authority of the BundieVault snapshotted as `target_vault_a` at
+    /// create-time. Pinned here so resolve_market_v2 can re-derive the same
+    /// PDA (`["bundie_vault", target_authority_a]`) and reject any
+    /// caller-substituted vault. `None` for kinds that do not snapshot
+    /// vault A.
+    pub target_authority_a: Option<Pubkey>,
+    /// Authority of the BundieVault snapshotted as `target_vault_b` at
+    /// create-time. Only populated for kind=2 (RELATIVE / head-to-head).
+    /// `None` otherwise.
+    pub target_authority_b: Option<Pubkey>,
 }
 
 // ─── Payload helpers ────────────────────────────────────────────────────────

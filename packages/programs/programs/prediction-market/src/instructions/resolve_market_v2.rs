@@ -13,6 +13,30 @@ use crate::error::MarketError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
+/// Re-derive the canonical BundieVault PDA from the pinned authority and
+/// require the supplied vault account match it. This is the substitution
+/// guard: a malicious resolver caller cannot pass an attacker-controlled
+/// vault to bend the outcome — the only vault that derives to the right
+/// address is the one whose authority matches what was snapshotted at
+/// create-time.
+fn require_vault_matches_pinned_authority(
+    vault: &Account<crate::state::BundieVault>,
+    pinned_authority: &Pubkey,
+    program_id: &Pubkey,
+) -> Result<()> {
+    require!(
+        vault.authority == *pinned_authority,
+        MarketError::WrongTargetVault
+    );
+    let (expected_pda, _bump) =
+        Pubkey::find_program_address(&[BUNDIE_VAULT_SEED, pinned_authority.as_ref()], program_id);
+    require!(
+        vault.key() == expected_pda,
+        MarketError::WrongTargetVault
+    );
+    Ok(())
+}
+
 // ── NavOracle on-chain layout (mirrors strategy-token/src/state/nav_oracle.rs)
 const NAV_ORACLE_DISCRIMINATOR: [u8; 8] = [0xa1, 0x4e, 0x73, 0x20, 0xbc, 0x44, 0x61, 0x05];
 const OFF_ORACLE_STRATEGY: usize = 8;
@@ -160,6 +184,12 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
                 .target_vault_a
                 .as_ref()
                 .ok_or(MarketError::MissingTargetVault)?;
+            let pinned_a = ctx
+                .accounts
+                .market
+                .target_authority_a
+                .ok_or(MarketError::MissingTargetVault)?;
+            require_vault_matches_pinned_authority(v, &pinned_a, ctx.program_id)?;
             msg!(
                 "resolve_v2(NavTarget): vault_nav={} target={}",
                 v.nav_lamports,
@@ -184,6 +214,18 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
                 .target_vault_b
                 .as_ref()
                 .ok_or(MarketError::MissingTargetVault)?;
+            let pinned_a = ctx
+                .accounts
+                .market
+                .target_authority_a
+                .ok_or(MarketError::MissingTargetVault)?;
+            let pinned_b = ctx
+                .accounts
+                .market
+                .target_authority_b
+                .ok_or(MarketError::MissingTargetVault)?;
+            require_vault_matches_pinned_authority(a, &pinned_a, ctx.program_id)?;
+            require_vault_matches_pinned_authority(b, &pinned_b, ctx.program_id)?;
             let init_a = ctx.accounts.market.initial_nav_a.max(1) as i128;
             let init_b = ctx.accounts.market.initial_nav_b.max(1) as i128;
             let return_a = ((a.nav_lamports as i128) - (ctx.accounts.market.initial_nav_a as i128))
@@ -218,6 +260,12 @@ pub fn handler(ctx: Context<ResolveMarketV2>) -> Result<()> {
                 .target_vault_a
                 .as_ref()
                 .ok_or(MarketError::MissingTargetVault)?;
+            let pinned_a = ctx
+                .accounts
+                .market
+                .target_authority_a
+                .ok_or(MarketError::MissingTargetVault)?;
+            require_vault_matches_pinned_authority(v, &pinned_a, ctx.program_id)?;
             let initial = ctx.accounts.market.initial_nav_a;
             if v.nav_lamports >= initial {
                 Outcome::No
