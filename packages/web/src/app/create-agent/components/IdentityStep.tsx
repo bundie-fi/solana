@@ -29,10 +29,19 @@ export function IdentityStep({ state, dispatch }: Props) {
     debounceRef.current = setTimeout(async () => {
       try {
         const ok = await snsAvailable(fullSns(identity.snsPrefix));
+        // In production snsAvailable fails-closed: a `false` here can
+        // mean either "taken" or "backend down". We can't distinguish
+        // from this layer, so surface a softer copy in prod and let the
+        // backend reject on POST as the ground truth.
+        const isProd = process.env.NODE_ENV === "production";
         dispatch({
           type: "IDENTITY/CHECK_DONE",
           available: ok,
-          error: ok ? null : "That SNS is already taken.",
+          error: ok
+            ? null
+            : isProd
+              ? "Couldn't verify uniqueness — try again."
+              : "That SNS is already taken.",
         });
       } catch (e) {
         dispatch({

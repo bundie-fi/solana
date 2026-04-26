@@ -127,10 +127,17 @@ export async function snsAvailable(sns: string): Promise<boolean> {
     const r = await fetch(
       `${BACKEND_URL}/api/agents?sns=${encodeURIComponent(sns)}`,
     );
-    if (!r.ok) return true; // fail open — backend down means no uniqueness check
+    if (!r.ok) {
+      // Production: fail-closed (block Next click) so two users can't
+      // race the same SNS. Dev: fail-open so local backend hiccups don't
+      // make the wizard unusable.
+      if (process.env.NODE_ENV === "production") return false;
+      return true;
+    }
     const data = (await r.json()) as { agents?: unknown[] };
     return (data.agents ?? []).length === 0;
   } catch {
+    if (process.env.NODE_ENV === "production") return false;
     return true;
   }
 }
