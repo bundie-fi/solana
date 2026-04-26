@@ -129,7 +129,7 @@ const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
  *     created a market).
  *   - Row found               → { ts: <ms>, queryError: false }.
  */
-export async function lastMarketCreationTimestamp(
+export async function lastMarketCreationAtMs(
   agentSns: string,
 ): Promise<{ ts: number | null; queryError: boolean }> {
   const supa = getSupabase();
@@ -143,7 +143,7 @@ export async function lastMarketCreationTimestamp(
     .limit(1);
   if (error) {
     console.error(
-      "[agents-source] lastMarketCreationTimestamp query failed:",
+      "[agents-source] lastMarketCreationAtMs query failed:",
       error.message,
     );
     return { ts: null, queryError: true };
@@ -174,7 +174,7 @@ export interface RateLimitCheck {
 export async function isMarketCreationRateLimited(
   agentSns: string,
 ): Promise<RateLimitCheck> {
-  const { ts: last, queryError } = await lastMarketCreationTimestamp(agentSns);
+  const { ts: last, queryError } = await lastMarketCreationAtMs(agentSns);
   if (queryError) {
     return { limited: true, reason: "rate_check_unavailable" };
   }

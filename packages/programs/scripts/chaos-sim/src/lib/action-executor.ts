@@ -209,7 +209,7 @@ async function executeCreateMarket(
   // writes a single row with action_type="create_market_skipped" — adding a
   // second insert here would duplicate it. The success-path log similarly
   // happens in shared-tick (action_type="create_market"), which is what
-  // lastMarketCreationTimestamp() reads to enforce the cooldown.
+  // lastMarketCreationAtMs() reads to enforce the cooldown.
   const limit = await isMarketCreationRateLimited(args.agentSns);
   if (limit.limited) {
     return {
