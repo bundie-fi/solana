@@ -41,3 +41,10 @@ export const PRECISION = {
   /** LS-LMSR scaling factor */
   LMSR_SCALE: 1_000_000_000n,
 } as const
+
+/** bUSD (Bundie USDC) — branded devnet test token used to seed agents. */
+export const BUSD_MINT = process.env.NEXT_PUBLIC_BUSD_MINT ?? "REPLACE_AFTER_SETUP";
+export const BUSD_DECIMALS = 6;
+export const BUSD_FAUCET_AMOUNT = 50;          // dollars per claim
+export const BUSD_FAUCET_AMOUNT_BASE = 50_000_000;  // 50 * 10^6
+export const BUSD_FAUCET_COOLDOWN_HOURS = 24;
