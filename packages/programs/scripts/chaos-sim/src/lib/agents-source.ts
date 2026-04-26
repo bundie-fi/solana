@@ -90,7 +90,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
 export async function logAgentAction(opts: {
   agentSns: string;
   actionType: string;
-  reasoning?: string;
+  reasoning?: string | null;
   resultJson?: unknown;
 }): Promise<void> {
   const supa = getSupabase();
@@ -102,4 +102,63 @@ export async function logAgentAction(opts: {
     result_json: opts.resultJson ?? null,
   });
   if (error) console.error("[agents-source] log insert failed:", error.message);
+}
+
+// ─── Market-creation rate limiting (Phase O) ──────────────────────────────
+//
+// Once the agent registry is open to user-launched agents, we need to prevent
+// a single agent from spamming markets. Cap is 1 create_market per agent per
+// 6 hours, enforced by reading `agent_action_log` before issuing the create_*
+// transaction. Skipped attempts are themselves logged (action_type=
+// "create_market_skipped") so the agent profile UI can show the cooldown.
+
+const RATE_LIMIT_HOURS = 6;
+const RATE_LIMIT_MS = RATE_LIMIT_HOURS * 3_600_000;
+
+/**
+ * Returns the timestamp (ms) of the agent's last create_market action, or null
+ * if it has never created one (or if Supabase is unavailable).
+ */
+export async function lastMarketCreationTimestamp(
+  agentSns: string,
+): Promise<number | null> {
+  const supa = getSupabase();
+  if (!supa) return null;
+  const { data } = await supa
+    .from("agent_action_log")
+    .select("tick_at")
+    .eq("agent_sns", agentSns)
+    .eq("action_type", "create_market")
+    .order("tick_at", { ascending: false })
+    .limit(1);
+  const row = data?.[0] as { tick_at: string } | undefined;
+  return row ? new Date(row.tick_at).getTime() : null;
+}
+
+export interface RateLimitCheck {
+  limited: boolean;
+  reason?: string;
+  nextAllowedAt?: number;
+}
+
+/**
+ * Returns true if the agent is within its market-creation cooldown window.
+ * Fail-open: if Supabase is unavailable, returns { limited: false } so the
+ * legacy / local-dev path keeps working without the registry online.
+ */
+export async function isMarketCreationRateLimited(
+  agentSns: string,
+): Promise<RateLimitCheck> {
+  const last = await lastMarketCreationTimestamp(agentSns);
+  if (last == null) return { limited: false };
+  const elapsed = Date.now() - last;
+  if (elapsed < RATE_LIMIT_MS) {
+    const nextAllowedAt = last + RATE_LIMIT_MS;
+    return {
+      limited: true,
+      reason: `market_creation_rate_limit (${RATE_LIMIT_HOURS}h cooldown)`,
+      nextAllowedAt,
+    };
+  }
+  return { limited: false };
 }
