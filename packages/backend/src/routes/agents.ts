@@ -52,6 +52,15 @@ const AGENT_FUND_LAMPORTS = Number(
   process.env.AGENT_FUND_LAMPORTS ?? 10_000_000, // 0.01 SOL — covers vault + ATA rent comfortably
 );
 
+// Module-load assert: surface BUSD misconfig to operators immediately, but
+// don't throw (would crash the backend; routes return 503 instead).
+if (BUSD_MINT === "REPLACE_AFTER_SETUP") {
+  // eslint-disable-next-line no-console
+  console.error(
+    "FATAL: BUSD_MINT not configured. Set BUSD_MINT or NEXT_PUBLIC_BUSD_MINT env. Agent creation routes will return 503.",
+  );
+}
+
 import {
   generateBrainMd,
   generatePoliciesYaml,
@@ -273,6 +282,9 @@ agents.post("/api/agents", async (c) => {
   }
 
   // ── Validation ────────────────────────────────────────────────────────
+  if (BUSD_MINT === "REPLACE_AFTER_SETUP") {
+    return c.json({ error: "Backend BUSD_MINT not configured" }, 503);
+  }
   if (!body.sns || typeof body.sns !== "string") {
     return c.json({ error: "sns required (string)" }, 400);
   }
