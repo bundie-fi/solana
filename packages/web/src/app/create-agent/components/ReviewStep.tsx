@@ -27,7 +27,7 @@ interface Props {
 export function ReviewStep({ state, dispatch }: Props) {
   const { identity, strategy, allowlist, capital, launch } = state;
   const router = useRouter();
-  const { publicKey, connected, signTransaction } = useWallet();
+  const { publicKey, connected, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
   const sns = fullSns(identity.snsPrefix);
@@ -38,7 +38,7 @@ export function ReviewStep({ state, dispatch }: Props) {
   const done = launch.stage === "done";
 
   const onLaunch = useCallback(async () => {
-    if (!publicKey || !connected || !signTransaction) {
+    if (!publicKey || !connected) {
       dispatch({
         type: "LAUNCH/SET_ERROR",
         error: "Connect a wallet first.",
@@ -70,7 +70,7 @@ export function ReviewStep({ state, dispatch }: Props) {
 
       const result = await launchAgent({
         connection,
-        wallet: { publicKey, signTransaction },
+        wallet: { publicKey, sendTransaction },
         nextSteps: created.nextSteps,
         onStage: (stage) => dispatch({ type: "LAUNCH/SET_STAGE", stage }),
         onInitTx: (sig) => dispatch({ type: "LAUNCH/SET_INIT_TX", sig }),
@@ -99,7 +99,7 @@ export function ReviewStep({ state, dispatch }: Props) {
   }, [
     publicKey,
     connected,
-    signTransaction,
+    sendTransaction,
     strategy.preset,
     strategy.showCustomBrain,
     strategy.customBrainMd,

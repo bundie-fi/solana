@@ -150,9 +150,13 @@ export async function buildDepositToVaultTx(
 
 // ── Orchestrator: drive the user through deposit ────────────────────────────
 
+/** Subset of the wallet-adapter's interface we actually need. */
 interface MinimalWallet {
   publicKey: PublicKey;
-  signTransaction: <T extends Transaction>(tx: T) => Promise<T>;
+  sendTransaction: (
+    tx: Transaction,
+    connection: Connection,
+  ) => Promise<string>;
 }
 
 export interface LaunchAgentArgs {
@@ -171,7 +175,9 @@ export interface LaunchAgentArgs {
  *   1. Surface that the backend has already submitted init_vault (we
  *      don't have a direct sig from the wizard, so the "Sign init"
  *      stage is mostly cosmetic — the backend signed before responding).
- *   2. Build + sign + send `deposit_to_vault` from the user's wallet.
+ *   2. Build + sign + send `deposit_to_vault` from the user's wallet
+ *      via the wallet adapter's `sendTransaction` (matches the
+ *      convention used by BuySharesPanel + market-buy-panel).
  *
  * Returns the deposit signature for the caller to surface.
  */
@@ -200,10 +206,7 @@ export async function launchAgent({
   });
 
   onStage("signing-deposit");
-  const signed = await wallet.signTransaction(tx);
-  const depositSig = await connection.sendRawTransaction(signed.serialize(), {
-    skipPreflight: false,
-  });
+  const depositSig = await wallet.sendTransaction(tx, connection);
   onDepositTx?.(depositSig);
 
   await connection.confirmTransaction(depositSig, "confirmed");
