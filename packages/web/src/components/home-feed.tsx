@@ -87,7 +87,13 @@ export function HomeFeed() {
 
   const tick = useCallback(async () => {
     try {
-      const mkts = await fetchAllMarkets(connection);
+      // Hide every market whose creator isn't in the registry. This
+      // collapses to "no markets shown" when the backend is down — the
+      // intended graceful-degrade behaviour. We rebuild the set on every
+      // tick from the same `agents` state that drives the quick-strip so
+      // the two views never disagree.
+      const allowedCreators = new Set(agents.map((a) => a.vault_pda));
+      const mkts = await fetchAllMarkets(connection, { allowedCreators });
 
       const snapshots: VaultSnapshot[] = await Promise.all(
         agents.map(async (a) => {

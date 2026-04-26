@@ -5,10 +5,35 @@ import { useCallback, useEffect, useState } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { fetchAllMarkets, type MarketView } from "@/lib/markets";
-import { HERO_AGENTS, type HeroAgent } from "@/lib/sns-resolver";
+import {
+  fetchRegisteredAgents,
+  type RegisteredAgent,
+} from "@/lib/registry";
 import { AgentAvatar, resolveAgentKey } from "@/components/agent-avatar";
 
 const POLL_MS = 30_000;
+
+/**
+ * Leaderboard row shape — derived from the registered-agent record so we
+ * decouple from `HERO_AGENTS` (which is now a label-rendering fallback,
+ * not a source of truth for "which agents exist").
+ */
+interface LeaderboardAgent {
+  sns: string;
+  vault: string;
+  emoji: string;
+  /** One-line strategy handle surfaced on the leaderboard card. */
+  strategyHandle: string;
+}
+
+function toLeaderboardAgent(a: RegisteredAgent): LeaderboardAgent {
+  return {
+    sns: a.sns,
+    vault: a.vault_pda,
+    emoji: a.emoji ?? "🤖",
+    strategyHandle: a.display_name || a.sns.split(".")[0] || "agent",
+  };
+}
 
 interface AgentStats {
   sol: number | null;
@@ -33,16 +58,39 @@ const ARCHETYPES: Record<string, string> = {
 
 export function AgentLeaderboard() {
   const { connection } = useConnection();
+  const [agents, setAgents] = useState<LeaderboardAgent[]>([]);
   const [markets, setMarkets] = useState<MarketView[]>([]);
   const [sol, setSol] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
 
+  // Pull the registered agent list once on mount. Subsequent polls reuse
+  // the list — agents are added via the wizard, not minute-scale, so
+  // re-polling /api/agents every 30s is wasteful. Empty set on registry
+  // failure renders the empty leaderboard, by design.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const regs = await fetchRegisteredAgents();
+      if (cancelled) return;
+      setAgents(regs.map(toLeaderboardAgent));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Build the allowed-creator set whenever `agents` changes; pass it into
+  // every market read so the leaderboard's per-agent stats can never get
+  // padded by markets created by an unregistered (zombie) agent against
+  // a registered one.
+  const allowedCreators = new Set(agents.map((a) => a.vault));
+
   const tick = useCallback(async () => {
     try {
       const [mkts, solEntries] = await Promise.all([
-        fetchAllMarkets(connection),
+        fetchAllMarkets(connection, { allowedCreators }),
         Promise.all(
-          HERO_AGENTS.map(async (a) => {
+          agents.map(async (a) => {
             try {
               const lamports = await connection.getBalance(
                 new PublicKey(a.vault),
@@ -60,7 +108,11 @@ export function AgentLeaderboard() {
     } finally {
       setLoading(false);
     }
-  }, [connection]);
+    // `allowedCreators` is derived from `agents`, so depending on `agents`
+    // is sufficient — adding the set to the dep array would cause a fresh
+    // identity every render and re-tick on every `setMarkets`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connection, agents]);
 
   useEffect(() => {
     tick();
@@ -68,7 +120,7 @@ export function AgentLeaderboard() {
     return () => clearInterval(id);
   }, [tick]);
 
-  function statsFor(a: HeroAgent): AgentStats {
+  function statsFor(a: LeaderboardAgent): AgentStats {
     const created = markets.filter((m) => m.createdBy === a.vault);
     const onMe = markets.filter(
       (m) => m.kind === 2 && m.targetAgent === a.vault,
@@ -88,9 +140,38 @@ export function AgentLeaderboard() {
     };
   }
 
+  if (!loading && agents.length === 0) {
+    return (
+      <div
+        style={{
+          padding: "32px 16px",
+          textAlign: "center",
+          border: "1px dashed var(--line-2)",
+          borderRadius: 12,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 18,
+            color: "var(--fg-0)",
+            letterSpacing: "-0.015em",
+            marginBottom: 6,
+          }}
+        >
+          No agents registered yet.
+        </div>
+        <div className="muted" style={{ fontSize: 12 }}>
+          Once an agent ships through the wizard, it shows up here. Check back
+          shortly.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card-stack">
-      {HERO_AGENTS.map((a, i) => (
+      {agents.map((a, i) => (
         <AgentCard
           key={a.vault}
           agent={a}
@@ -109,7 +190,7 @@ function AgentCard({
   loading,
   rank,
 }: {
-  agent: HeroAgent;
+  agent: LeaderboardAgent;
   stats: AgentStats;
   loading: boolean;
   rank: number;
