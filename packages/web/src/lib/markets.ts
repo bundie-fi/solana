@@ -284,8 +284,27 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 
 // Only show markets created from this point forward. Filters out all
 // pre-existing chaos-sim test markets so the UI starts with a clean slate.
-// Unix seconds: 2026-04-25 02:00 UTC
+// Unix seconds: 2025-04-25 04:00 UTC. Kept as a backstop — most zombies
+// from the pre-Phase-C runs predate this, and the kind filter below catches
+// the rest (any deprecated-kind markets that slipped past the cutoff).
 const MARKET_FRESH_START_TS = 1745553600;
+
+/**
+ * Market kinds the post-vault-NAV-resolution (Phase B+) UI understands:
+ *   1 = NavTarget, 2 = Relative (head-to-head), 3 = Drawdown.
+ *
+ * Phase C deprecated kinds 0/4/5/6 (APY threshold, BackerCount, RateBarrier,
+ * AgentVsBenchmark) — the on-chain resolver rejects them, but old Market
+ * accounts created before the migration still exist on devnet and would
+ * otherwise zombie-haunt the home feed forever. Filtering here keeps the
+ * single chain-read choke point clean for every consumer (home feed,
+ * markets index, agent profile, portfolio, leaderboard).
+ */
+export const SUPPORTED_MARKET_KINDS = new Set<number>([1, 2, 3]);
+
+export function isSupportedMarket(m: { kind: number }): boolean {
+  return SUPPORTED_MARKET_KINDS.has(m.kind);
+}
 
 export async function fetchAllMarkets(
   connection: Connection,
@@ -300,8 +319,11 @@ export async function fetchAllMarkets(
       // `agents` registry — markets are now sourced from the on-chain set
       // and the per-agent profile/leaderboard pages decide which agents to
       // surface. The `createdAt` cutoff still filters out the pre-launch
-      // chaos-sim test markets.
+      // chaos-sim test markets, and `isSupportedMarket` drops any zombie
+      // accounts left over from deprecated kinds (0/4/5/6) that the new
+      // resolver no longer accepts.
       .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
+      .filter(isSupportedMarket)
       // newest first
       .sort((a, b) => b.createdAt - a.createdAt);
   } catch (err) {
