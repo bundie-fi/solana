@@ -123,29 +123,43 @@ interface AgentConfig {
   walletName: string; // OWS name, e.g. "bundie/alice"
 }
 
+// Use full .bundie.sol form for `sns` so it matches the Supabase agents.sns
+// FK in agent_action_log writes. The CLI accepts both short ("alice.bundie")
+// and full ("alice.bundie.sol") forms via `normalizeAgentKey`.
 const LEGACY_AGENTS: Record<string, AgentConfig> = {
-  "alice.bundie": {
-    sns: "alice.bundie",
+  "alice.bundie.sol": {
+    sns: "alice.bundie.sol",
     shortName: "alice",
     keyfile: "keys/alice-vault.json",
     snsDir: "agents/alice.bundie.sol",
     walletName: "bundie/alice",
   },
-  "bob.bundie": {
-    sns: "bob.bundie",
+  "bob.bundie.sol": {
+    sns: "bob.bundie.sol",
     shortName: "bob",
     keyfile: "keys/bob-vault.json",
     snsDir: "agents/bob.bundie.sol",
     walletName: "bundie/bob",
   },
-  "charlie.bundie": {
-    sns: "charlie.bundie",
+  "charlie.bundie.sol": {
+    sns: "charlie.bundie.sol",
     shortName: "charlie",
     keyfile: "keys/charlie-vault.json",
     snsDir: "agents/charlie.bundie.sol",
     walletName: "bundie/charlie",
   },
 };
+
+/**
+ * Accept both short ("alice.bundie") and full ("alice.bundie.sol") forms on
+ * the CLI. Returns the canonical key used by LEGACY_AGENTS (full form).
+ */
+function normalizeAgentKey(input: string): string {
+  if (input in LEGACY_AGENTS) return input;
+  const withSuffix = `${input}.sol`;
+  if (withSuffix in LEGACY_AGENTS) return withSuffix;
+  return input; // unknown — caller will surface the error
+}
 
 // ─── Peer discovery ────────────────────────────────────────────────────────
 
@@ -399,7 +413,8 @@ async function singleAgentLoop(
   ctx: TickContext,
   cli: CliArgs,
 ): Promise<void> {
-  const cfg = LEGACY_AGENTS[agentSns];
+  const key = normalizeAgentKey(agentSns);
+  const cfg = LEGACY_AGENTS[key];
   if (!cfg) {
     console.error(
       `unknown agent: ${agentSns}\n` +
