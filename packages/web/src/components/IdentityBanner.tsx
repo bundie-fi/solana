@@ -78,24 +78,24 @@ export function IdentityBanner() {
   return (
     <div
       role="status"
-      className="w-full border-b border-amber-600/30 bg-amber-600/10 text-neutral-900"
+      className="w-full border-b border-amber-600/30 bg-amber-600/10 text-neutral-0"
     >
       <div className="mx-auto flex w-full max-w-content items-center justify-between gap-3 px-4 py-2 md:px-8">
         <div className="flex min-w-0 items-center gap-2 text-sm">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-400">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-600">
             Devnet
           </span>
-          <span className="hidden text-neutral-700 sm:inline" aria-hidden="true">
+          <span className="hidden text-[color:var(--fg-3)] sm:inline" aria-hidden="true">
             ·
           </span>
-          <span className="truncate text-neutral-800">
-            Claim your <em className="font-serif text-amber-400">.sol</em> identity so your name follows you across strategies and markets.
+          <span className="truncate text-neutral-0">
+            Claim your <em className="font-serif text-amber-600">.sol</em> identity so your name follows you across strategies and markets.
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href="/identity"
-            className="inline-flex h-9 min-h-[44px] items-center rounded-md bg-amber-600 px-3 text-xs font-semibold text-neutral-900 hover:bg-amber-500 focus-amber md:min-h-0"
+            className="inline-flex h-9 min-h-[44px] items-center rounded-md bg-amber-600 px-3 text-xs font-semibold text-neutral-0 hover:bg-amber-500 focus-amber md:min-h-0"
           >
             Claim →
           </Link>
@@ -103,7 +103,7 @@ export function IdentityBanner() {
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss"
-            className="inline-flex h-9 min-h-[44px] w-9 items-center justify-center rounded-md text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 focus-amber md:min-h-0"
+            className="inline-flex h-9 min-h-[44px] w-9 items-center justify-center rounded-md text-[color:var(--fg-3)] hover:bg-[color:var(--bg-3)] hover:text-neutral-0 focus-amber md:min-h-0"
           >
             <span aria-hidden="true">×</span>
           </button>

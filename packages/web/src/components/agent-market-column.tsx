@@ -31,16 +31,16 @@ export function AgentMarketColumn({
   return (
     <div>
       <div className="mb-3">
-        <h2 className="font-serif text-h1 text-neutral-900 leading-tight">
+        <h2 className="font-serif text-h1 text-neutral-0 leading-tight">
           <em>{title}</em>
         </h2>
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600 mt-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[color:var(--fg-3)] mt-1">
           {subtitle}
         </p>
       </div>
       {markets.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 bg-surface p-6 text-center">
-          <p className="text-sm text-neutral-700">{emptyLabel}</p>
+          <p className="text-sm text-neutral-800">{emptyLabel}</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -104,14 +104,14 @@ function AgentMarketRow({
           📊
         </span>
         <div className="min-w-0 flex-1">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600">
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-800">
             {kindLabel}
           </div>
           <div className="font-serif text-[15px] text-neutral-900 line-clamp-2 mt-0.5">
             {market.question || "—"}
           </div>
           {pillLabel && (
-            <span className="inline-block mt-1 rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-purple-300">
+            <span className="inline-block mt-1 rounded-full bg-purple-500/25 border border-purple-500/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-purple-300">
               {pillLabel}
             </span>
           )}
@@ -122,13 +122,13 @@ function AgentMarketRow({
               "font-mono text-[10px] uppercase tracking-[0.14em]",
               market.status === "active"
                 ? "text-success-400"
-                : "text-neutral-600",
+                : "text-neutral-800",
             ].join(" ")}
           >
             {market.status}
             {market.outcome ? ` · ${market.outcome}` : ""}
           </div>
-          <div className="font-mono text-xs text-neutral-700 nums mt-0.5">
+          <div className="font-mono text-xs text-neutral-800 nums mt-0.5">
             {(market.totalVolume / 1e6).toFixed(2)} USDC
           </div>
         </div>

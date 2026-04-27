@@ -85,8 +85,8 @@ export function ProtocolGrid({ protocols }: { protocols: Protocol[] }) {
                 "h-9 px-4 rounded-full font-mono text-[11px] uppercase tracking-[0.18em] transition-colors duration-180",
                 "border",
                 active
-                  ? "bg-amber-600 text-neutral-900 border-amber-600"
-                  : "bg-surface text-neutral-700 border-neutral-300 hover:text-neutral-900 hover:border-amber-600/50",
+                  ? "bg-amber-600 text-neutral-0 border-amber-600"
+                  : "bg-surface text-neutral-800 border-neutral-300 hover:text-neutral-900 hover:border-amber-600/50",
               ].join(" ")}
             >
               {f}
@@ -155,7 +155,7 @@ function ProtocolCard({
           <h3 className="font-serif text-[22px] leading-tight text-neutral-900 truncate">
             {p.name}
           </h3>
-          <p className="text-xs text-neutral-600 mt-0.5 truncate capitalize">
+          <p className="text-xs text-neutral-800 mt-0.5 truncate capitalize">
             {p.subCategory}
           </p>
         </div>
@@ -178,7 +178,7 @@ function ProtocolCard({
 
       {/* Program ID — click to copy */}
       <div className="rounded-lg bg-neutral-0/40 border border-neutral-300 p-3 mb-3">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-600 mb-1">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-800 mb-1">
           Program ID
         </p>
         <button
@@ -194,12 +194,12 @@ function ProtocolCard({
 
       {/* Footer: explorer link */}
       <footer className="mt-auto pt-3 border-t border-neutral-300 flex items-center justify-between">
-        <span className="text-xs text-neutral-600 font-mono">devnet</span>
+        <span className="text-xs text-neutral-800 font-mono">devnet</span>
         <a
           href={explorerHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-neutral-600 group-hover:text-amber-400 transition-colors duration-180"
+          className="text-xs text-neutral-800 group-hover:text-amber-400 transition-colors duration-180"
         >
           Explorer →
         </a>

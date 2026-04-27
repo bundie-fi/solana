@@ -37,20 +37,20 @@ export function MarketCreatorStrip({
             {displayName}
           </Link>
           {sns?.mainnetName && (
-            <span className="ml-2 font-mono text-[11px] text-neutral-600">
+            <span className="ml-2 font-mono text-[11px] text-neutral-800">
               (mainnet: {sns.mainnetName})
             </span>
           )}
         </div>
         {createdLabel && (
-          <div className="text-xs text-neutral-600 mt-0.5">{createdLabel}</div>
+          <div className="text-xs text-neutral-800 mt-0.5">{createdLabel}</div>
         )}
         {sns && (
-          <div className="text-xs text-neutral-500 mt-1">
+          <div className="text-xs text-neutral-800 mt-1">
             SNS record:{" "}
             <a
               href={`https://orbmarkets.io/address/${sns.devnetSnsPda}?cluster=devnet`}
-              className="underline text-neutral-600 hover:text-amber-400"
+              className="underline text-neutral-800 hover:text-amber-400"
               target="_blank"
               rel="noreferrer"
             >

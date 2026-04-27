@@ -144,7 +144,7 @@ export function PayoffCalculator({
         />
       </div>
 
-      <p className="font-mono text-[10px] text-neutral-600 mt-4 leading-relaxed">
+      <p className="font-mono text-[10px] text-neutral-800 mt-4 leading-relaxed">
         cost = b · ln(exp(q_yes/b) + exp(q_no/b)) — on-chain LS-LMSR. Each
         winning share settles to 1 USDC. Fee of {(feeBps / 100).toFixed(2)}%
         applied to stake.
@@ -184,7 +184,7 @@ function Side({
           {label}
         </span>
         <div className="mt-2 flex items-center gap-2">
-          <span className="font-mono text-neutral-600 text-sm">$</span>
+          <span className="font-mono text-neutral-800 text-sm">$</span>
           <input
             type="number"
             inputMode="decimal"
@@ -194,7 +194,7 @@ function Side({
             onChange={(e) => onStake(e.target.value)}
             className="flex-1 bg-transparent border-b border-neutral-300 focus:border-purple-300 outline-none font-mono nums text-lg text-neutral-900 py-1"
           />
-          <span className="font-mono text-[11px] text-neutral-600">USDC</span>
+          <span className="font-mono text-[11px] text-neutral-800">USDC</span>
         </div>
       </label>
 
@@ -239,7 +239,7 @@ function Row({
       : "text-neutral-900"
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-neutral-600 text-xs">{label}</dt>
+      <dt className="text-neutral-800 text-xs">{label}</dt>
       <dd className={`font-mono nums text-sm ${toneClass}`}>{value}</dd>
     </div>
   )
