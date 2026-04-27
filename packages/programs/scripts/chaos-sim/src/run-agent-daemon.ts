@@ -1,40 +1,30 @@
 #!/usr/bin/env -S tsx
 /**
- * run-agent-daemon.ts — Phase N supervisor entrypoint.
+ * run-agent-daemon.ts — chaos-sim daemon entrypoint.
  *
- * Two operating modes:
+ * Two operating modes, both Postgres-backed:
  *
- *   1. **Single-agent dev mode** (`--agent <sns> [--once]`): legacy behaviour.
- *      One process drives one agent's tick loop using the local keypair file.
- *      Used for hand-running ticks against alice/bob/charlie during dev.
+ *   1. **Supervisor mode** (no `--agent` flag, default): polls the `agents`
+ *      table every POLL_INTERVAL_MS and ticks every active agent in parallel.
+ *      This is the Railway-deployed worker.
  *
- *   2. **Supervisor mode** (no `--agent` flag): polls Supabase for active
- *      agents every POLL_INTERVAL_MS and ticks each one in parallel. This is
- *      the Railway-deployed worker that picks up user-launched agents
- *      provisioned via the Phase L backend route.
+ *   2. **Single-agent dev mode** (`--agent <sns> [--once]`): fetches one row
+ *      from the same `agents` table and ticks just that agent. Used for
+ *      hand-running ticks during local development.
  *
  * The daemon fails fast if REDPILL_API_KEY or ZERION_API_KEY is missing —
  * the error points at the chaos-sim .env. SURFPOOL_RPC_URL / DEVNET_RPC_URL
  * are optional overrides.
  *
- * Backward-compat strategy
- * ────────────────────────
  * Each tick still requires a local Keypair (the existing `commit_nav` and
- * action-executor code signs directly — refactoring to Zerion-CLI signing
- * is out of scope for Phase N). For Supabase-loaded agents, we attempt to
- * load `keys/<sns>-vault.json` next to the legacy alice/bob/charlie files;
- * if absent, the agent is skipped with a clear warning. The Phase L backend
- * route is expected to write that key file as part of provisioning.
- *
- * Supervisor mode is **Supabase-only**. If `loadActiveAgents()` returns 0
- * the supervisor logs and idles — there is no hardcoded fallback (the
- * alice/bob/charlie agents have been migrated into the Supabase registry
- * via `seed-legacy-agents`). Single-agent `--agent <sns> --once` dev mode
- * still uses the legacy in-process map for hand-running ticks.
+ * action-executor code signs directly). The keypair is loaded from
+ * `keys/<short>-vault.json` where `<short>` is the first label of the SNS
+ * (e.g. `alice` for `alice.bundie.sol`). The backend's create-agent route
+ * is expected to write that file during provisioning.
  */
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { readFileSync, existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadDotEnv } from "dotenv";
 
@@ -49,7 +39,6 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHAOS_DIR = join(__dirname, "..");
-const REPO_ROOT = resolve(CHAOS_DIR, "..", "..", "..", "..");
 
 // ─── .env loading ──────────────────────────────────────────────────────────
 // Load the chaos-sim .env first (required for REDPILL + ZERION keys). A
@@ -108,57 +97,17 @@ function parseArgs(): CliArgs {
 function printHelp(): void {
   console.error(
     "usage:\n" +
-      "  run-agent-daemon.ts                                  # supervisor mode (Supabase poll)\n" +
-      "  run-agent-daemon.ts --agent <sns> [--once] [--interval ms]   # single-agent dev mode",
+      "  run-agent-daemon.ts                                          # supervisor mode (poll DB for all active agents)\n" +
+      "  run-agent-daemon.ts --agent <sns> [--once] [--interval ms]   # single-agent dev mode (one DB row)",
   );
 }
 
-// ─── Legacy agent registry (fallback when Supabase is empty) ───────────────
-
-interface AgentConfig {
-  sns: string; // "alice.bundie"
-  shortName: string; // "alice"
-  keyfile: string; // keys/alice-vault.json
-  snsDir: string; // agents/alice.bundie.sol/
-  walletName: string; // OWS name, e.g. "bundie/alice"
-}
-
-// Use full .bundie.sol form for `sns` so it matches the Supabase agents.sns
-// FK in agent_action_log writes. The CLI accepts both short ("alice.bundie")
-// and full ("alice.bundie.sol") forms via `normalizeAgentKey`.
-const LEGACY_AGENTS: Record<string, AgentConfig> = {
-  "alice.bundie.sol": {
-    sns: "alice.bundie.sol",
-    shortName: "alice",
-    keyfile: "keys/alice-vault.json",
-    snsDir: "agents/alice.bundie.sol",
-    walletName: "bundie/alice",
-  },
-  "bob.bundie.sol": {
-    sns: "bob.bundie.sol",
-    shortName: "bob",
-    keyfile: "keys/bob-vault.json",
-    snsDir: "agents/bob.bundie.sol",
-    walletName: "bundie/bob",
-  },
-  "charlie.bundie.sol": {
-    sns: "charlie.bundie.sol",
-    shortName: "charlie",
-    keyfile: "keys/charlie-vault.json",
-    snsDir: "agents/charlie.bundie.sol",
-    walletName: "bundie/charlie",
-  },
-};
-
 /**
- * Accept both short ("alice.bundie") and full ("alice.bundie.sol") forms on
- * the CLI. Returns the canonical key used by LEGACY_AGENTS (full form).
+ * Accept both short ("alice.bundie") and full ("alice.bundie.sol") forms
+ * for the --agent CLI flag.
  */
-function normalizeAgentKey(input: string): string {
-  if (input in LEGACY_AGENTS) return input;
-  const withSuffix = `${input}.sol`;
-  if (withSuffix in LEGACY_AGENTS) return withSuffix;
-  return input; // unknown — caller will surface the error
+function normalizeAgentSns(input: string): string {
+  return input.endsWith(".sol") ? input : `${input}.sol`;
 }
 
 // ─── Peer discovery ────────────────────────────────────────────────────────
@@ -258,32 +207,6 @@ function resolveSupabaseAgent(agent: ActiveAgent): TickTarget | null {
     kp,
     brainPath: agent.brainMdPath,
     policyPath: agent.policiesPath,
-  };
-}
-
-/**
- * Resolve a legacy hardcoded agent to a TickTarget.
- */
-function resolveLegacyAgent(cfg: AgentConfig): TickTarget | null {
-  const keyPath = join(CHAOS_DIR, cfg.keyfile);
-  if (!existsSync(keyPath)) {
-    console.warn(`[supervisor] skipping legacy ${cfg.sns}: missing ${keyPath}`);
-    return null;
-  }
-  const policyPath = join(REPO_ROOT, cfg.snsDir, "policies.yaml");
-  const brainPath = join(REPO_ROOT, cfg.snsDir, "brain.md");
-  for (const p of [policyPath, brainPath]) {
-    if (!existsSync(p)) {
-      console.warn(`[supervisor] skipping legacy ${cfg.sns}: missing ${p}`);
-      return null;
-    }
-  }
-  return {
-    sns: cfg.sns,
-    walletName: cfg.walletName,
-    kp: loadKeypair(keyPath),
-    brainPath,
-    policyPath,
   };
 }
 
@@ -409,10 +332,9 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
       continue;
     }
 
-    // Resolve Supabase agents to TickTargets (skip those missing local keys).
-    // Supabase is the sole source of truth: there is no hardcoded fallback —
-    // the alice/bob/charlie demo agents have been migrated into the registry
-    // via the seed-legacy-agents script.
+    // Resolve Postgres agents to TickTargets (skip those missing local keys).
+    // The DB is the sole source of truth — including the alice/bob/charlie
+    // demo agents.
     const targets = supabaseAgents
       .map(resolveSupabaseAgent)
       .filter((t): t is TickTarget => t !== null);
@@ -458,25 +380,32 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
   console.log("=== supervisor stopped ===");
 }
 
-// ─── Single-agent dev mode (legacy --agent path) ───────────────────────────
+// ─── Single-agent dev mode (--agent <sns>) ─────────────────────────────────
 
 async function singleAgentLoop(
   agentSns: string,
   ctx: TickContext,
   cli: CliArgs,
 ): Promise<void> {
-  const key = normalizeAgentKey(agentSns);
-  const cfg = LEGACY_AGENTS[key];
-  if (!cfg) {
+  const wantSns = normalizeAgentSns(agentSns);
+  let agents: ActiveAgent[];
+  try {
+    agents = await loadActiveAgents();
+  } catch (e) {
+    console.error(`[daemon] loadActiveAgents failed: ${(e as Error).message}`);
+    process.exit(1);
+  }
+  const found = agents.find((a) => a.sns === wantSns);
+  if (!found) {
     console.error(
       `unknown agent: ${agentSns}\n` +
-        `known: ${Object.keys(LEGACY_AGENTS).join(", ")}`,
+        `active agents in DB: ${agents.map((a) => a.sns).join(", ") || "(none)"}`,
     );
     process.exit(1);
   }
-  const target = resolveLegacyAgent(cfg);
+  const target = resolveSupabaseAgent(found);
   if (!target) {
-    console.error(`[daemon] cannot resolve legacy agent ${agentSns} — see warnings above`);
+    console.error(`[daemon] cannot resolve agent ${wantSns} — see warnings above`);
     process.exit(1);
   }
 
