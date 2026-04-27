@@ -29,6 +29,8 @@ import {
 
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
+import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
+import { depositKamino } from "./kamino-execute.js";
 import { isMarketCreationRateLimited } from "./agents-source.js";
 import { recordSurfpoolAction } from "./surfpool-recorder.js";
 // @ts-expect-error — JS module, no type declarations provided
@@ -154,14 +156,65 @@ async function executeLend(
       notes: "surfpool unreachable — policy-gated but not submitted",
     };
   }
-  // Real Kamino/MarginFi/Solend deposit CPIs are pending wiring (Phase Q).
-  // For now we land a self-transfer on surfpool so the action is visible
-  // in the agent-profile activity feed and the recorder pipeline gets
-  // exercised end-to-end. The notes field flags this honestly.
-  const txSig = await selfTransfer(args.surfpool, args.kp);
-  const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number } }).args;
+
+  const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number; reserveAddress?: string } }).args;
   const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
   const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
+
+  // ─── Kamino: real CPI on the surfpool mainnet fork ────────────────────
+  // Deposits are wired via @kamino-finance/klend-sdk. The SDK is built on
+  // @solana/kit, so kamino-execute.ts shims the resulting kit ix's into
+  // web3.js TransactionInstructions before submitting through the existing
+  // surfpool Connection. USDC funding is handled inside depositKamino via
+  // surfpool's `surfnet_setTokenAccount` cheat-code RPC.
+  //
+  // Withdraws still go through the placeholder self-transfer below — we
+  // need an obligation-aware refresh-reserve + redeem path that doesn't
+  // exist in this script yet. The brain rarely emits lend_withdraw on
+  // kamino in practice, so the placeholder is acceptable for the MVP.
+  if (protocol === "kamino" && direction === "deposit") {
+    if (amountUi == null || amountUi <= 0) {
+      throw new Error(
+        `lend_deposit kamino: amountUsdcUi must be > 0 (got ${amountUi})`,
+      );
+    }
+    try {
+      const result = await depositKamino({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUsdcUi: amountUi,
+        reserveAddress: lendArgs?.reserveAddress,
+      });
+      const notes = `Kamino deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… (${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_deposit",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.reserveLiquidityMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_deposit", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.error(`[kamino] deposit failed: ${msg}`);
+      // Rethrow so the daemon's per-action try/catch logs phase="execute_error"
+      // and the recorder doesn't get a misleading row. We do NOT fall back
+      // to a self-transfer here — a failed real attempt is more useful
+      // signal than a fake-success placeholder.
+      throw new Error(`Kamino deposit failed: ${msg}`);
+    }
+  }
+
+  // ─── Other protocols / withdraw: placeholder self-transfer ─────────────
+  // MarginFi / Solend deposits, and Kamino withdrawals, are still pending
+  // wiring. We land a self-transfer on surfpool so the action surfaces in
+  // the agent-profile activity feed and the recorder pipeline is exercised
+  // end-to-end. The notes field flags this honestly so the UI / operators
+  // can distinguish real CPI rows from placeholder rows.
+  const txSig = await selfTransfer(args.surfpool, args.kp);
   const notes = `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`;
   await persistSurfpoolAction(args, {
     protocol, txSig, actionType: `lend_${direction}`,
@@ -255,6 +308,11 @@ async function executePerp(
   const programId = PERP_PROGRAM[protocol];
   const ixName = PERP_IX[protocol][direction];
   const policyGate = gate(args.policyPath, programId, ixName);
+
+  // Hard-fail when the surfpool fork is unreachable — Zeta perps cannot
+  // safely fall back to devnet (Zeta's mainnet CrossMargin program isn't
+  // deployed there). The activity feed still gets a "policy-gated, not
+  // submitted" row via the early return below.
   if (!args.surfpoolAvailable) {
     return {
       phase: "execute", chain: "surfpool",
@@ -263,35 +321,85 @@ async function executePerp(
       notes: "surfpool unreachable — policy-gated but not submitted",
     };
   }
-  // Zeta perp CPI is multi-step (CrossMarginAccount init, deposit collateral,
-  // PlacePerpOrderV3, refresh) — pending Phase Q wiring. For now we land a
-  // self-transfer on surfpool so the action surfaces in the agent feed and
-  // the recorder is exercised. The notes flag this honestly so the UI can
-  // mark the row as "stub" until real CPIs land.
-  const txSig = await selfTransfer(args.surfpool, args.kp);
-  let market = "";
-  let side: "long" | "short" | undefined;
-  let notional: number | null = null;
-  if (args.action.type === "perp_open") {
-    market = args.action.args.market;
-    side = args.action.args.side;
-    notional = args.action.args.notionalUsd;
-  } else if (args.action.type === "perp_close") {
-    market = args.action.args.market;
+
+  // PerpProtocol is currently the singleton union "zeta", but be
+  // forward-compatible if a new venue is added.
+  if (protocol !== "zeta") {
+    return {
+      phase: "execute", chain: "surfpool",
+      action: `perp_${direction}`, protocol,
+      policyGate,
+      notes: `${protocol} ${direction}: policy-gated, perp CPI pending`,
+    };
   }
-  const notes = direction === "open"
-    ? `MVP placeholder: ${protocol} ${side} ${market} ${notional}USDC notional (Zeta CPI pending)`
-    : `MVP placeholder: ${protocol} close ${market} (Zeta CPI pending)`;
+
+  if (direction === "open") {
+    if (args.action.type !== "perp_open") {
+      throw new Error("perp type mismatch (expected perp_open)");
+    }
+    const { market, side, notionalUsd } = args.action.args;
+    const result = await openZetaPerp(
+      args.surfpool, args.kp, market, side, notionalUsd,
+    );
+    const notes =
+      `Zeta ${side} ${market} notional=$${notionalUsd} ` +
+      `size=${result.size.toFixed(4)} mark=$${result.markPrice.toFixed(4)} ` +
+      `cma=${result.crossMarginAccount.slice(0, 8)}…`;
+    await persistSurfpoolAction(args, {
+      protocol: "zeta",
+      txSig: result.txSig,
+      actionType: "perp_open",
+      // Native USDC = 6dp. The recorder column is named "amountLamports"
+      // by convention but stores any base-unit integer.
+      amountLamports: Math.round(notionalUsd * 1_000_000),
+      tokenMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      notes,
+    });
+    return {
+      phase: "execute", chain: "surfpool",
+      action: "perp_open", protocol: "zeta",
+      txSig: result.txSig, policyGate, notes,
+    };
+  }
+
+  // direction === "close"
+  if (args.action.type !== "perp_close") {
+    throw new Error("perp type mismatch (expected perp_close)");
+  }
+  const { market } = args.action.args;
+  const result = await closeZetaPerp(args.surfpool, args.kp, market);
+
+  if (result.flat) {
+    // Nothing to flatten — informational return without a recorder row
+    // (no tx sig to anchor it to).
+    return {
+      phase: "execute", chain: "surfpool",
+      action: "perp_close", protocol: "zeta",
+      policyGate,
+      notes: `Zeta close ${market}: position already flat (no-op)`,
+    };
+  }
+
+  const closeTxSig = result.txSig as string;
+  const notes =
+    `Zeta close ${market} sizeBefore=${result.positionBefore.toFixed(4)} ` +
+    `mark=$${result.markPrice.toFixed(4)} ` +
+    `cma=${result.crossMarginAccount.slice(0, 8)}…`;
   await persistSurfpoolAction(args, {
-    protocol, txSig,
-    actionType: `perp_${direction}`,
-    amountLamports: notional != null ? Math.round(notional * 1_000_000) : null,
+    protocol: "zeta",
+    txSig: closeTxSig,
+    actionType: "perp_close",
+    // Approximate close notional (|size| × mark, 6dp USDC).
+    amountLamports: Math.round(
+      Math.abs(result.positionBefore) * result.markPrice * 1_000_000,
+    ),
+    tokenMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     notes,
   });
   return {
     phase: "execute", chain: "surfpool",
-    action: `perp_${direction}`, protocol,
-    txSig, policyGate, notes,
+    action: "perp_close", protocol: "zeta",
+    txSig: closeTxSig, policyGate, notes,
   };
 }
 
