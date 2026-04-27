@@ -2,10 +2,10 @@
  * SurfpoolActivityPanel — renders an agent's recent surfpool tx feed.
  *
  * Surfpool is a local Solana mainnet fork where chaos-sim agents execute
- * against real protocol IDs (Kamino / Marinade / Jito / Drift / Orca /
- * MarginFi). Their txs are real but invisible because surfpool has no
- * public explorer — this panel surfaces them so visitors can watch agent
- * strategy execution land in near-real-time.
+ * against real protocol IDs (Marinade / Kamino / MarginFi / Solend / Jito
+ * / Zeta / Orca). Their txs are real but invisible because surfpool has
+ * no public explorer — this panel surfaces them so visitors can watch
+ * agent strategy execution land in near-real-time.
  *
  * Server component (no client interactivity required) — keeps the agent
  * profile page SSR.
@@ -31,6 +31,7 @@ const PROTOCOL_EMOJI: Record<string, string> = {
   drift:    "🎯",
   orca:     "🌊",
   solend:   "🟣",
+  zeta:     "🎰",
 };
 
 // Tokens with 9 decimals (SOL family) vs 6 decimals (USDC etc.). The
@@ -53,6 +54,41 @@ function formatAmount(action: SurfpoolAction): string | null {
   // Two decimals for USDC, four for SOL — keeps the row tight.
   const fixed = isSolFamily ? ui.toFixed(4) : ui.toFixed(2);
   return `${fixed} ${unit}`;
+}
+
+function isPlaceholder(action: SurfpoolAction): boolean {
+  if (!action.notes) return false;
+  return action.notes.toLowerCase().includes("placeholder")
+    || action.notes.toLowerCase().includes("cpi pending")
+    || action.notes.toLowerCase().includes("policy-gated");
+}
+
+interface RowMeta {
+  market?: string;
+  side?: "long" | "short";
+  notional?: string;
+  destination?: string;
+}
+function rowMeta(action: SurfpoolAction): RowMeta {
+  const out: RowMeta = {};
+  if (!action.notes) return out;
+  if (action.protocol === "marinade") {
+    // "Marinade stake: 2 SOL → mSOL @ 7Tk9aL2P…"
+    const m = action.notes.match(/@\s+([A-Za-z0-9]+(?:…|\.{3}))/);
+    if (m) out.destination = m[1];
+  } else if (action.protocol === "zeta") {
+    // "MVP placeholder: zeta long SOL-PERP 250USDC notional (Zeta CPI pending)"
+    const m = action.notes.match(/zeta\s+(long|short)\s+([A-Z0-9-]+)\s+(\d+(?:\.\d+)?)/i);
+    if (m) {
+      out.side = m[1].toLowerCase() as "long" | "short";
+      out.market = m[2];
+      out.notional = m[3];
+    } else {
+      const cl = action.notes.match(/zeta\s+close\s+([A-Z0-9-]+)/i);
+      if (cl) out.market = cl[1];
+    }
+  }
+  return out;
 }
 
 function truncateSig(sig: string): string {
@@ -97,12 +133,12 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
           className="card inset"
           style={{ padding: "16px", textAlign: "center" }}
         >
-          <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+          <p style={{ fontSize: 12, margin: 0, color: "var(--fg-2)" }}>
             Agent has no surfpool activity yet.
           </p>
-          <p className="muted mono-tiny" style={{ marginTop: 4 }}>
-            (Lend deposits land here; LST stakes appear under the Strategy
-            positions panel above.)
+          <p className="mono-tiny" style={{ marginTop: 4, color: "var(--fg-3)" }}>
+            (LST stakes, lend deposits, and perp orders land here once the
+            chaos-sim daemon executes them on the mainnet fork.)
           </p>
         </div>
       ) : (
@@ -110,6 +146,8 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
           {actions.map((a) => {
             const emoji = PROTOCOL_EMOJI[a.protocol] ?? "🔗";
             const amount = formatAmount(a);
+            const placeholder = isPlaceholder(a);
+            const meta = rowMeta(a);
             return (
               <div
                 key={a.id}
@@ -164,14 +202,79 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                         {amount}
                       </span>
                     )}
+                    {a.protocol === "marinade" && a.actionType === "lst_stake" && (
+                      <span
+                        className="mono"
+                        style={{ fontSize: 11, color: "var(--fg-3)" }}
+                      >
+                        → mSOL
+                      </span>
+                    )}
+                    {meta.market && (
+                      <span
+                        className="mono"
+                        style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}
+                      >
+                        {meta.market}
+                      </span>
+                    )}
+                    {meta.side && (
+                      <span
+                        className={meta.side === "long" ? "pill pill-green" : "pill pill-red"}
+                        style={{ fontSize: 9, padding: "2px 6px" }}
+                      >
+                        {meta.side.toUpperCase()}
+                      </span>
+                    )}
+                    {meta.notional && (
+                      <span
+                        className="mono"
+                        style={{ fontSize: 11, color: "var(--fg-3)" }}
+                      >
+                        ${meta.notional} notional
+                      </span>
+                    )}
+                    <span
+                      className="pill"
+                      style={{
+                        fontSize: 8,
+                        padding: "2px 6px",
+                        background: placeholder ? "var(--bg-3)" : "var(--green-tint)",
+                        color: placeholder ? "var(--fg-3)" : "var(--green-2)",
+                        border: placeholder
+                          ? "1px solid var(--line-1)"
+                          : "1px solid rgba(44,139,121,0.32)",
+                      }}
+                      title={
+                        placeholder
+                          ? "Self-transfer placeholder — real protocol CPI not yet wired"
+                          : "Real protocol CPI landed on the surfpool fork"
+                      }
+                    >
+                      {placeholder ? "PLACEHOLDER" : "REAL"}
+                    </span>
                   </div>
+                  {meta.destination && (
+                    <div
+                      className="mono"
+                      style={{
+                        fontSize: 10,
+                        marginTop: 3,
+                        color: "var(--fg-3)",
+                        lineHeight: 1.35,
+                      }}
+                      title={`mSOL token-account: ${meta.destination}`}
+                    >
+                      mSOL ata: {meta.destination}
+                    </div>
+                  )}
                   {a.notes && (
                     <div
-                      className="muted"
                       style={{
                         fontSize: 10.5,
                         marginTop: 2,
                         lineHeight: 1.35,
+                        color: "var(--fg-3)",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -191,8 +294,8 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                     {truncateSig(a.txSig)}
                   </div>
                   <div
-                    className="muted mono-tiny"
-                    style={{ marginTop: 2, fontSize: 9 }}
+                    className="mono-tiny"
+                    style={{ marginTop: 2, fontSize: 9, color: "var(--fg-3)" }}
                   >
                     slot {a.slot.toLocaleString()} · {formatRelative(a.createdAt)}
                   </div>

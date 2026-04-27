@@ -134,7 +134,7 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
               background: "var(--fg-0)",
               border: "none",
               borderRadius: "8px",
-              color: "#0a0a0a",
+              color: "#FAF7F0",
               fontSize: "13px",
               fontFamily: "var(--font-sans)",
               fontWeight: 600,

@@ -128,26 +128,26 @@ export function BuySharesPanel({
   if (!connected) {
     return (
       <div className="rounded-xl border border-neutral-300 bg-surface p-6 flex flex-col items-center gap-4">
-        <p className="text-sm text-neutral-700 text-center">
+        <p className="text-sm text-neutral-800 text-center">
           Connect your wallet to buy shares in this strategy.
         </p>
-        <WalletMultiButton className="!bg-amber-600 !text-neutral-900 !font-semibold !rounded-lg !py-2 !px-4 !text-sm hover:!bg-amber-500" />
+        <WalletMultiButton className="!bg-amber-600 !text-neutral-0 !font-semibold !rounded-lg !py-2 !px-4 !text-sm hover:!bg-amber-500" />
       </div>
     )
   }
 
   return (
     <div className="rounded-xl border border-neutral-300 bg-surface p-6 space-y-4">
-      <h2 className="font-mono text-[11px] font-medium text-neutral-600 uppercase tracking-[0.18em]">
+      <h2 className="font-mono text-[11px] font-medium text-neutral-800 uppercase tracking-[0.18em]">
         Buy shares
       </h2>
 
       <div className="space-y-1">
-        <label htmlFor="usdc-amount" className="text-xs text-neutral-600">
+        <label htmlFor="usdc-amount" className="text-xs text-neutral-800">
           USDC Amount
         </label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-700 text-sm pointer-events-none">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-800 text-sm pointer-events-none">
             $
           </span>
           <input
@@ -163,7 +163,7 @@ export function BuySharesPanel({
               setTxSig(null)
             }}
             disabled={loading}
-            className="w-full rounded-lg border border-neutral-300 bg-background pl-7 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-500 focus:outline-none focus:border-earn-gold/60 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg border border-neutral-300 bg-background pl-7 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-800 focus:outline-none focus:border-earn-gold/60 transition-colors disabled:opacity-50"
           />
         </div>
       </div>
@@ -171,11 +171,11 @@ export function BuySharesPanel({
       <button
         onClick={handleBuy}
         disabled={loading || !amount || parseFloat(amount) <= 0}
-        className="w-full rounded-lg bg-amber-600 text-neutral-900 font-semibold py-2.5 text-sm hover:bg-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full rounded-lg bg-amber-600 text-neutral-0 font-semibold py-2.5 text-sm hover:bg-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
-            <span className="w-4 h-4 border-2 border-neutral-900/30 border-t-neutral-900 rounded-full animate-spin" />
+            <span className="w-4 h-4 border-2 border-neutral-0/30 border-t-neutral-0 rounded-full animate-spin" />
             Confirming…
           </>
         ) : (
@@ -203,7 +203,7 @@ export function BuySharesPanel({
         </div>
       )}
 
-      <p className="text-xs text-neutral-500 text-center">
+      <p className="text-xs text-neutral-800 text-center">
         Connected: {publicKey?.toBase58().slice(0, 8)}…{publicKey?.toBase58().slice(-4)}
       </p>
     </div>

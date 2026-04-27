@@ -62,12 +62,12 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
       }`}
     >
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs px-2 py-0.5 rounded-full bg-predict-purple/10 text-predict-purple font-medium">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-predict-purple/20 text-predict-purple font-medium">
           {m.marketType === "absolute" ? "Performance" : "Vs Match"}
         </span>
         <span
           className={`text-xs font-medium ${
-            m.status === "active" ? "text-success-400" : "text-neutral-700"
+            m.status === "active" ? "text-success-400" : "text-neutral-800"
           }`}
         >
           {m.status === "resolved"
@@ -83,7 +83,7 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
         <p className="text-sm text-neutral-900 font-medium mt-2 mb-1 leading-snug group-hover:text-purple-300 transition-colors">
           {m.question}
         </p>
-        <p className="text-xs text-neutral-600 font-mono mb-3">{m.strategyName}</p>
+        <p className="text-xs text-neutral-800 font-mono mb-3">{m.strategyName}</p>
       </Link>
 
       <div className="flex justify-between text-sm font-semibold mb-1">
@@ -93,7 +93,7 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
       <PriceBar yesPrice={m.yesPrice} />
 
       <div className="flex items-center justify-between mt-3">
-        <p className="text-xs text-neutral-600">Vol: ${vol.toFixed(2)}</p>
+        <p className="text-xs text-neutral-800">Vol: ${vol.toFixed(2)}</p>
         {m.status === "active" && (
           <button
             onClick={() => setShowPredict((v) => !v)}

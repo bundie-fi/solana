@@ -93,7 +93,7 @@ export function TopNav() {
                 textTransform: "uppercase",
                 letterSpacing: "0.18em",
                 textDecoration: "none",
-                color: active ? "var(--fg-0)" : "var(--fg-4)",
+                color: active ? "var(--fg-0)" : "var(--fg-3)",
                 background: active ? "var(--bg-2)" : "transparent",
                 transition: "color 160ms ease, background 160ms ease",
               }}
