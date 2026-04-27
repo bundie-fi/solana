@@ -63,6 +63,8 @@ import {
   constants as zetaConstants,
 } from "@zetamarkets/sdk";
 
+import { ensureSurfpoolUsdc } from "./surfpool-seed.js";
+
 // ─── Module-level caches ─────────────────────────────────────────────────
 
 /**
@@ -139,6 +141,57 @@ async function ensureExchangeLoaded(connection: Connection): Promise<void> {
     await exchangeLoadPromise;
   } finally {
     exchangeLoadPromise = null;
+  }
+}
+
+/**
+ * Eagerly load the Zeta Exchange singleton so the first agent's first
+ * perp_open isn't blocked by the 30+ mainnet-account clone storm that
+ * `Exchange.load()` triggers. Safe to call from daemon startup before the
+ * supervisor loop kicks off.
+ *
+ * Interaction with `ensureExchangeLoaded`:
+ *   - Both gates on the same module-level `exchangeLoaded` flag, so a
+ *     successful prewarm makes every subsequent `ensureExchangeLoaded`
+ *     call a synchronous no-op.
+ *   - When prewarm FAILS (returns false), `exchangeLoaded` stays `false`
+ *     and the lazy `ensureExchangeLoaded` path inside `openZetaPerp` /
+ *     `closeZetaPerp` will retry on the first perp action. This is the
+ *     fork-reset-safe self-heal.
+ *   - `exchangeLoadPromise` is cleared in the `finally` block of
+ *     `ensureExchangeLoaded`, so a prewarm that wins the race and a tick
+ *     that races in alongside it both observe the same in-flight promise.
+ *
+ * Returns true on success, false on failure (including timeout). Never
+ * throws — daemon startup must continue regardless.
+ */
+export async function prewarmZetaExchange(
+  connection: Connection,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  if (exchangeLoaded) return true;
+  const start = Date.now();
+  try {
+    await Promise.race([
+      ensureExchangeLoaded(connection),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`prewarmZetaExchange timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        ),
+      ),
+    ]);
+    const elapsedMs = Date.now() - start;
+    console.log(
+      `[zeta-prewarm] Exchange.load() complete in ${elapsedMs}ms (lazy path now no-op)`,
+    );
+    return true;
+  } catch (e) {
+    const elapsedMs = Date.now() - start;
+    console.warn(
+      `[zeta-prewarm] failed after ${elapsedMs}ms: ${(e as Error).message} — lazy load will retry on first perp action`,
+    );
+    return false;
   }
 }
 
@@ -251,6 +304,15 @@ export async function openZetaPerp(
   await client.updateState(false, true);
   if (client.account === null) {
     const collateralUsd = Math.max(notionalUsd * 1.2, 10);
+    // Belt-and-braces USDC seed: even with the daemon's per-tick seeder,
+    // the agent's first perp_open ever might race against a fork that
+    // hasn't been seeded yet. ensureSurfpoolUsdc is idempotent and cheap
+    // when the floor is already met, so this is safe to always call.
+    await ensureSurfpoolUsdc(
+      connection,
+      kp.publicKey,
+      Math.max(collateralUsd * 1.5, 1000),
+    );
     const nativeAmount = zetaUtils.convertDecimalToNativeInteger(collateralUsd);
     await client.deposit(nativeAmount);
     await client.updateState(false, true);

@@ -36,6 +36,11 @@ import {
   logSkippedAgent,
   type ActiveAgent,
 } from "./lib/agents-source.js";
+import { isSurfpoolReachable } from "./lib/action-executor.js";
+import { ensureSurfpoolUsdc } from "./lib/surfpool-seed.js";
+// zeta-execute is dynamically imported in main() to avoid eagerly loading
+// @zetamarkets/sdk's @bloxroute transitive (which imports a removed
+// rpc-websockets subpath, crashing the daemon at startup).
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHAOS_DIR = join(__dirname, "..");
@@ -274,6 +279,19 @@ async function runTickForAgent(
     );
   });
 
+  // Per-tick USDC seed via surfnet_setTokenAccount (cheap balance-check guard
+  // — when the agent already holds ≥ 500 USDC the helper short-circuits to a
+  // single getTokenAccountBalance round-trip and returns). Required for real
+  // Kamino lend + Zeta perp CPIs; both fail without USDC sittable in the
+  // agent's mainnet-USDC ATA on the fork. Cheat-code RPC unreachability is
+  // logged but never thrown, so a transient surfpool outage never kills the
+  // tick.
+  await ensureSurfpoolUsdc(ctx.surfpool, target.kp.publicKey).catch((e) => {
+    console.warn(
+      `[${target.sns}] ensureSurfpoolUsdc skipped: ${(e as Error).message}`,
+    );
+  });
+
   await runTick({
     agentName: target.sns,
     walletName: target.walletName,
@@ -488,6 +506,42 @@ async function main(): Promise<void> {
   const peers = loadPeers();
 
   const ctx: TickContext = { surfpool, devnet, peers };
+
+  // ─── Zeta Exchange prewarm ─────────────────────────────────────────────
+  // Exchange.load() clones 30+ Zeta program / state / pricing / oracle /
+  // perp-market accounts from mainnet on first call. If we leave that
+  // lazily-triggered inside openZetaPerp on the FIRST agent's FIRST
+  // perp_open, that tick can blow the per-tick budget (the clone storm has
+  // been observed at 15-30s). We pull the cost forward here, before the
+  // supervisor loop starts ticking agents, so every agent's first perp
+  // call is cheap.
+  //
+  // Gated on `isSurfpoolReachable` so a startup with surfpool down does
+  // not block the daemon. The lazy `ensureExchangeLoaded` path inside
+  // openZetaPerp / closeZetaPerp will retry on demand once surfpool is
+  // back — and after a fork reset that wipes the cloned state, the same
+  // lazy path self-heals (the module-level `exchangeLoaded` flag is the
+  // only thing that says "skip"; if `Exchange.load()` succeeded once and
+  // then surfpool wiped the state, the next perp call will re-fail and
+  // the operator can restart the daemon to re-prewarm). We tolerate that
+  // operationally — fork resets are rare and the daemon already fails to
+  // do useful work during them anyway.
+  if (await isSurfpoolReachable(surfpool)) {
+    console.log("[daemon] surfpool reachable — prewarming Zeta Exchange (60s budget)");
+    try {
+      const { prewarmZetaExchange } = await import("./lib/zeta-execute.js");
+      await prewarmZetaExchange(surfpool, 60_000);
+    } catch (e) {
+      console.warn(
+        `[daemon] Zeta prewarm import/load failed (continuing without prewarm): ${(e as Error).message}`,
+      );
+    }
+  } else {
+    console.warn(
+      "[daemon] surfpool unreachable at startup — skipping Zeta prewarm; " +
+        "lazy path will retry on first perp action",
+    );
+  }
 
   if (cli.agent) {
     await singleAgentLoop(cli.agent, ctx, cli);

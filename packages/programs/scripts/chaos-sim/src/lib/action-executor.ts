@@ -29,8 +29,12 @@ import {
 
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
-import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
-import { depositKamino } from "./kamino-execute.js";
+// zeta-execute is dynamically imported in executePerp to avoid eagerly loading
+// @zetamarkets/sdk and its @bloxroute transitive (which imports an old
+// rpc-websockets subpath). Eager load would crash the daemon at startup.
+import { depositKamino, withdrawKamino } from "./kamino-execute.js";
+import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
+import { depositSolend, withdrawSolend } from "./solend-execute.js";
 import { isMarketCreationRateLimited } from "./agents-source.js";
 import { recordSurfpoolAction } from "./surfpool-recorder.js";
 // @ts-expect-error — JS module, no type declarations provided
@@ -159,33 +163,36 @@ async function executeLend(
 
   const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number; reserveAddress?: string } }).args;
   const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
-  const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
+  if (amountUi == null || amountUi <= 0) {
+    throw new Error(
+      `lend_${direction} ${protocol}: amount must be > 0 (got ${amountUi})`,
+    );
+  }
+  const reserveAddress = lendArgs?.reserveAddress;
 
-  // ─── Kamino: real CPI on the surfpool mainnet fork ────────────────────
-  // Deposits are wired via @kamino-finance/klend-sdk. The SDK is built on
-  // @solana/kit, so kamino-execute.ts shims the resulting kit ix's into
-  // web3.js TransactionInstructions before submitting through the existing
-  // surfpool Connection. USDC funding is handled inside depositKamino via
-  // surfpool's `surfnet_setTokenAccount` cheat-code RPC.
+  // ─── Real CPI dispatch ────────────────────────────────────────────────
   //
-  // Withdraws still go through the placeholder self-transfer below — we
-  // need an obligation-aware refresh-reserve + redeem path that doesn't
-  // exist in this script yet. The brain rarely emits lend_withdraw on
-  // kamino in practice, so the placeholder is acceptable for the MVP.
-  if (protocol === "kamino" && direction === "deposit") {
-    if (amountUi == null || amountUi <= 0) {
-      throw new Error(
-        `lend_deposit kamino: amountUsdcUi must be > 0 (got ${amountUi})`,
-      );
-    }
-    try {
+  // Each (protocol × direction) pair routes to its dedicated executor.
+  // Failures HARD-FAIL (re-throw) — the daemon's per-action try/catch
+  // surfaces them as phase=execute_error rather than us silently falling
+  // back to a placeholder self-transfer that would imply success.
+  //
+  // The MarginFi + Solend executors are stubbed today (their SDKs are not
+  // installed yet in packages/programs/package.json); the stubs throw a
+  // descriptive error so the action log shows the missing-dependency state
+  // instead of a fake placeholder row. Add the SDKs and replace the stubs
+  // in marginfi-execute.ts / solend-execute.ts to flip them to real CPIs.
+  try {
+    if (protocol === "kamino" && direction === "deposit") {
       const result = await depositKamino({
         surfpool: args.surfpool,
         vault: args.kp,
         amountUsdcUi: amountUi,
-        reserveAddress: lendArgs?.reserveAddress,
+        reserveAddress,
       });
-      const notes = `Kamino deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… (${result.ixCount} ixs)`;
+      const notes =
+        `Kamino deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… ` +
+        `(${result.ixCount} ixs)`;
       await persistSurfpoolAction(args, {
         protocol, txSig: result.txSig, actionType: "lend_deposit",
         amountLamports: result.amountBaseUnits,
@@ -197,34 +204,140 @@ async function executeLend(
         action: "lend_deposit", protocol,
         txSig: result.txSig, policyGate, notes,
       };
-    } catch (e) {
-      const msg = (e as Error).message;
-      console.error(`[kamino] deposit failed: ${msg}`);
-      // Rethrow so the daemon's per-action try/catch logs phase="execute_error"
-      // and the recorder doesn't get a misleading row. We do NOT fall back
-      // to a self-transfer here — a failed real attempt is more useful
-      // signal than a fake-success placeholder.
-      throw new Error(`Kamino deposit failed: ${msg}`);
     }
+
+    if (protocol === "kamino" && direction === "withdraw") {
+      const result = await withdrawKamino({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUsdcUi: amountUi,
+        reserveAddress,
+      });
+      const notes =
+        `Kamino withdraw: ${amountUi} USDC ← reserve ${result.reserveAddress.slice(0, 8)}… ` +
+        `(${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_withdraw",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.reserveLiquidityMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_withdraw", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    }
+
+    if (protocol === "marginfi" && direction === "deposit") {
+      const result = await depositMarginfi({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUi,
+        bankAddress: reserveAddress,
+      });
+      const notes =
+        `MarginFi deposit: ${amountUi} USDC → bank ${result.bankAddress.slice(0, 8)}… ` +
+        `acct ${result.marginfiAccount.slice(0, 8)}… (${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_deposit",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.bankMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_deposit", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    }
+
+    if (protocol === "marginfi" && direction === "withdraw") {
+      const result = await withdrawMarginfi({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUi,
+        bankAddress: reserveAddress,
+      });
+      const notes =
+        `MarginFi withdraw: ${amountUi} USDC ← bank ${result.bankAddress.slice(0, 8)}… ` +
+        `acct ${result.marginfiAccount.slice(0, 8)}… (${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_withdraw",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.bankMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_withdraw", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    }
+
+    if (protocol === "solend" && direction === "deposit") {
+      const result = await depositSolend({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUsdcUi: amountUi,
+        reserveAddress,
+      });
+      const notes =
+        `Solend deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… ` +
+        `(${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_deposit",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.reserveLiquidityMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_deposit", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    }
+
+    if (protocol === "solend" && direction === "withdraw") {
+      const result = await withdrawSolend({
+        surfpool: args.surfpool,
+        vault: args.kp,
+        amountUsdcUi: amountUi,
+        reserveAddress,
+      });
+      const notes =
+        `Solend withdraw: ${amountUi} USDC ← reserve ${result.reserveAddress.slice(0, 8)}… ` +
+        `(${result.ixCount} ixs)`;
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig, actionType: "lend_withdraw",
+        amountLamports: result.amountBaseUnits,
+        tokenMint: result.reserveLiquidityMint,
+        notes,
+      });
+      return {
+        phase: "execute", chain: "surfpool",
+        action: "lend_withdraw", protocol,
+        txSig: result.txSig, policyGate, notes,
+      };
+    }
+  } catch (e) {
+    const msg = (e as Error).message;
+    console.error(`[lend ${protocol} ${direction}] failed: ${msg}`);
+    // Hard-fail. The daemon's per-action try/catch records this as
+    // phase=execute_error; we deliberately do NOT fall back to a
+    // self-transfer placeholder, because a failed real attempt is more
+    // useful operational signal than a fake-success row.
+    throw new Error(`${protocol} ${direction} failed: ${msg}`);
   }
 
-  // ─── Other protocols / withdraw: placeholder self-transfer ─────────────
-  // MarginFi / Solend deposits, and Kamino withdrawals, are still pending
-  // wiring. We land a self-transfer on surfpool so the action surfaces in
-  // the agent-profile activity feed and the recorder pipeline is exercised
-  // end-to-end. The notes field flags this honestly so the UI / operators
-  // can distinguish real CPI rows from placeholder rows.
-  const txSig = await selfTransfer(args.surfpool, args.kp);
-  const notes = `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`;
-  await persistSurfpoolAction(args, {
-    protocol, txSig, actionType: `lend_${direction}`,
-    amountLamports, notes,
-  });
-  return {
-    phase: "execute", chain: "surfpool",
-    action: `lend_${direction}`, protocol,
-    txSig, policyGate, notes,
-  };
+  // Defensive: every supported (protocol × direction) returns above. If
+  // we get here a new LendProtocol slipped in without an executor — the
+  // exhaustiveness check exists to fail loudly during typecheck rather
+  // than silently emit a placeholder.
+  const exhaustive: never = protocol as never;
+  throw new Error(
+    `lend_${direction}: unhandled protocol ${String(exhaustive)}`,
+  );
 }
 
 async function executeLst(
@@ -338,6 +451,7 @@ async function executePerp(
       throw new Error("perp type mismatch (expected perp_open)");
     }
     const { market, side, notionalUsd } = args.action.args;
+    const { openZetaPerp } = await import("./zeta-execute.js");
     const result = await openZetaPerp(
       args.surfpool, args.kp, market, side, notionalUsd,
     );
@@ -367,6 +481,7 @@ async function executePerp(
     throw new Error("perp type mismatch (expected perp_close)");
   }
   const { market } = args.action.args;
+  const { closeZetaPerp } = await import("./zeta-execute.js");
   const result = await closeZetaPerp(args.surfpool, args.kp, market);
 
   if (result.flat) {
