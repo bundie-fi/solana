@@ -2,14 +2,21 @@
  * marginfi-execute.ts — MarginFi v2 lend executor against the surfpool
  * mainnet fork. Mirrors zeta-execute.ts in shape:
  *
- *   - lazy-load a `MarginfiClient` once per process,
+ *   - lazy-load `@mrgnlabs/marginfi-client-v2` ONCE per process via
+ *     dynamic import (NOT static `import`) so eagerly importing this
+ *     module (e.g. from action-executor.ts) doesn't drag the SDK chain
+ *     in at daemon startup. The SDK transitively pulls older
+ *     @solana/web3.js variants which would re-trigger the rpc-websockets
+ *     ESM crash that already cost us a session — same precaution as
+ *     zeta-execute. Lazy-load is mandatory, not optional.
+ *   - cache one `MarginfiClient` per process,
  *   - cache one `MarginfiAccountWrapper` per agent pubkey,
  *   - in-flight load promise dedup so concurrent ticks share the wait.
  *
  * Bootstrap on the FIRST lend call for an agent:
- *   1. Lazy-load MarginfiClient targeting `Environment.MAINNET` — surfpool
- *      is a mainnet fork so the global Group + bank accounts are inherited
- *      verbatim.
+ *   1. Lazy-load MarginfiClient targeting `Environment.production` —
+ *      surfpool is a mainnet fork so the global Group + bank accounts
+ *      are inherited verbatim.
  *   2. Resolve the USDC bank inside the MAIN GROUP (MarginFi has no
  *      "main pool" abstraction — the global Group account is
  *      `4qp6Fx6tnZkY5Wropq9wUYgtFxXKwE6viZxFHg3rdAG8`).
@@ -18,18 +25,9 @@
  *   4. Issue `account.deposit(amount, bank)` (deposit) or
  *      `account.withdraw(amount, bank, withdrawAll?)` (withdraw).
  *
- * RUNTIME CAVEATS:
- *   - `@mrgnlabs/marginfi-client-v2` is NOT currently in
- *     packages/programs/package.json. Until it is, this module exports
- *     STUB functions that throw a clear error explaining the missing
- *     dependency. The action-executor catches the throw and bubbles it
- *     up to the daemon's per-action try/catch as `phase=execute_error`.
- *   - The agent's USDC ATA must hold enough USDC for deposit. The daemon
- *     calls `ensureSurfpoolUsdc` per-tick (see surfpool-seed.ts) so this
- *     is normally already-funded by the time we land here.
- *   - Surfpool tx hygiene: blockhash @ "processed", lastValidBlockHeight
- *     + 300 slots, skipPreflight: true. Same pattern as
- *     beethoven-execute.ts and kamino-execute.ts.
+ * Withdraw paths HARD-FAIL when the agent has no MarginfiAccount —
+ * trying to flatten a position that doesn't exist is operator error,
+ * not a recoverable condition.
  *
  * NAMED PUBKEYS (mainnet, inherited by the fork):
  *   - Program  MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE
@@ -41,19 +39,12 @@
  * is the USDC bank.
  */
 
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  Transaction,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
-import {
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountIdempotentInstruction,
-} from "@solana/spl-token";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 import { ensureSurfpoolUsdc, MAINNET_USDC_MINT } from "./surfpool-seed.js";
+
+// Re-export so callers can import the mint constant from a single place.
+export { MAINNET_USDC_MINT };
 
 // ─── Mainnet constants ────────────────────────────────────────────────────
 
@@ -106,16 +97,12 @@ export interface MarginfiWithdrawResult {
   ixCount: number;
 }
 
-// ─── Module-level caches (matches zeta-execute.ts pattern) ────────────────
+// ─── Module-level caches ──────────────────────────────────────────────────
 //
-// The MarginfiClient is loaded lazily once per process; per-agent
-// MarginfiAccountWrapper instances are cached by base58 pubkey. The
-// in-flight promise maps prevent duplicate loads when two ticks fire
-// against a fresh process simultaneously.
-//
-// NOTE: types are `unknown` because `@mrgnlabs/marginfi-client-v2` is not
-// installed yet. When the SDK is added the imports + types should be
-// switched over (see the TODO at the bottom of this file).
+// Types use SDK shapes resolved at runtime; we keep them as `unknown` at
+// the type level so TS doesn't pull `@mrgnlabs/marginfi-client-v2` into
+// the static import graph. The runtime cast inside the lazy-load
+// boundary is the single source of truth.
 
 let mfiClient: unknown = null;
 let mfiClientLoadPromise: Promise<unknown> | null = null;
@@ -123,7 +110,109 @@ let mfiClientLoadPromise: Promise<unknown> | null = null;
 const accountCache = new Map<string, unknown>();
 const accountLoadPromises = new Map<string, Promise<unknown>>();
 
-// ─── Public API (stubbed until SDK lands) ─────────────────────────────────
+// ─── Lazy SDK loader ─────────────────────────────────────────────────────
+
+/**
+ * Single dynamic-import wrapper. ALL access to `@mrgnlabs/marginfi-client-v2`
+ * must go through this helper so the SDK is never pulled into a module
+ * graph that gets eagerly resolved by the daemon's static-import scan.
+ *
+ * Returns the *namespace object* of the package — callers destructure the
+ * symbols they need (MarginfiClient, getConfig, etc).
+ */
+async function loadMarginfiSdk(): Promise<typeof import("@mrgnlabs/marginfi-client-v2")> {
+  return await import("@mrgnlabs/marginfi-client-v2");
+}
+
+async function loadMrgnCommon(): Promise<typeof import("@mrgnlabs/mrgn-common")> {
+  return await import("@mrgnlabs/mrgn-common");
+}
+
+/**
+ * Resolve (and cache) the per-process `MarginfiClient`. The wallet on the
+ * client is whichever agent triggered the first load — this is fine
+ * because client-level operations we use (getBankByPk,
+ * getMarginfiAccountsForAuthority) don't depend on the wallet identity;
+ * per-agent state is held inside MarginfiAccountWrapper instances.
+ */
+async function ensureMarginfiClient(
+  surfpool: Connection,
+  bootstrapKp: Keypair,
+): Promise<unknown> {
+  if (mfiClient) return mfiClient;
+  if (mfiClientLoadPromise) return await mfiClientLoadPromise;
+  mfiClientLoadPromise = (async () => {
+    const sdk = await loadMarginfiSdk();
+    const common = await loadMrgnCommon();
+    const config = sdk.getConfig("production");
+    const wallet = new common.NodeWallet(bootstrapKp);
+    const client = await sdk.MarginfiClient.fetch(config, wallet, surfpool);
+    mfiClient = client;
+    return client;
+  })();
+  try {
+    return await mfiClientLoadPromise;
+  } finally {
+    mfiClientLoadPromise = null;
+  }
+}
+
+/**
+ * Resolve the agent's MarginfiAccountWrapper, optionally creating one if
+ * `createIfMissing` is true. The cache is keyed on the agent's base58
+ * pubkey so concurrent ticks for the same agent reuse the wrapper.
+ *
+ * `createIfMissing=false` (used by withdraw) returns null when the agent
+ * has never deposited — the caller hard-fails on this.
+ */
+async function ensureMarginfiAccount(
+  surfpool: Connection,
+  kp: Keypair,
+  createIfMissing: boolean,
+): Promise<unknown | null> {
+  const key = kp.publicKey.toBase58();
+  const cached = accountCache.get(key);
+  if (cached) return cached;
+  const inflight = accountLoadPromises.get(key);
+  if (inflight) return await inflight;
+
+  const promise = (async () => {
+    const client = await ensureMarginfiClient(surfpool, kp);
+    // Re-bind the wallet on the (already-cached) client to this agent so
+    // subsequent deposit/withdraw signatures are produced by the right
+    // keypair. The SDK exposes `wallet` as a writable readonly field —
+    // we need it to be the agent's wallet at the moment of submission.
+    // Doing this on every call is cheap (no RPC) and avoids us having to
+    // rebuild the client for every agent.
+    const common = await loadMrgnCommon();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any).wallet = new common.NodeWallet(kp);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const accounts = await (client as any).getMarginfiAccountsForAuthority(
+      kp.publicKey,
+    );
+    if (accounts.length > 0) {
+      accountCache.set(key, accounts[0]);
+      return accounts[0];
+    }
+    if (!createIfMissing) {
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acct = await (client as any).createMarginfiAccount();
+    accountCache.set(key, acct);
+    return acct;
+  })();
+  accountLoadPromises.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    accountLoadPromises.delete(key);
+  }
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────
 
 export interface DepositMarginfiArgs {
   /** web3.js Connection pointed at surfpool. */
@@ -147,36 +236,20 @@ export interface WithdrawMarginfiArgs {
 }
 
 /**
- * Throw a structured "SDK missing" error so callers know exactly what's
- * unwired. The daemon's try/catch surfaces this as a phase=execute_error
- * row in the action log.
- */
-function sdkMissingError(direction: "deposit" | "withdraw"): never {
-  throw new Error(
-    `marginfi-execute: cannot ${direction} — @mrgnlabs/marginfi-client-v2 is not installed. ` +
-      `Add it to packages/programs/package.json devDependencies (latest stable: ^2.x), ` +
-      `then replace the stub bodies in lib/marginfi-execute.ts with the real SDK calls ` +
-      `(MarginfiClient.fetch + MarginfiAccountWrapper.deposit/withdraw).`,
-  );
-}
-
-/**
  * Deposit `amountUi` of `bankAddress`'s liquidity mint into MarginFi.
  *
- * STUB: throws `sdkMissingError` until @mrgnlabs/marginfi-client-v2 is
- * added to devDependencies. The bootstrap flow once the SDK is present:
- *
+ * Flow (mirrors kamino-execute):
  *   1. Ensure agent has USDC on the fork (calls ensureSurfpoolUsdc).
  *   2. Boot or reuse the cached MarginfiClient.
  *   3. Resolve the bank from `bankAddress ?? MARGINFI_USDC_BANK`.
  *   4. Find or create a MarginfiAccount for the agent (cached per pubkey).
- *   5. Build an ATA-create-idempotent + bank.deposit ix bundle and submit
- *      with the standard surfpool tx hygiene.
+ *   5. Submit `account.deposit(amountUi, bankAddress)` — the SDK builds
+ *      the deposit ix, submits it through the connection, and returns
+ *      the tx signature. SDK handles ATA setup internally.
  *
- * Caller contract: this function HARD-FAILS on any error (including the
- * SDK-missing stub). Do not let action-executor swallow the throw and
- * fall through to a self-transfer placeholder — the failure mode IS the
- * signal.
+ * Caller contract: hard-fails on any error. action-executor surfaces
+ * the throw as `phase=execute_error` rather than falling through to a
+ * placeholder self-transfer.
  */
 export async function depositMarginfi(
   args: DepositMarginfiArgs,
@@ -192,61 +265,65 @@ export async function depositMarginfi(
   // Belt-and-braces USDC seeding before the deposit attempt. When the
   // daemon's per-tick seed has already topped the agent up this is a
   // single getTokenAccountBalance round-trip and a no-op.
-  await ensureSurfpoolUsdc(surfpool, vault.publicKey, Math.max(amountUi, 1000));
+  const usdcResult = await ensureSurfpoolUsdc(
+    surfpool,
+    vault.publicKey,
+    Math.max(amountUi, 1000),
+  );
 
-  // Touch the cache maps so the linter doesn't flag them as unused while
-  // the SDK is missing — the real implementation will hydrate them.
-  void mfiClient;
-  void mfiClientLoadPromise;
-  void accountCache;
-  void accountLoadPromises;
+  const account = await ensureMarginfiAccount(surfpool, vault, true);
+  if (!account) {
+    // ensureMarginfiAccount with createIfMissing=true should never return
+    // null — defensive guard so a future SDK change can't break us silently.
+    throw new Error(
+      "depositMarginfi: ensureMarginfiAccount returned null even with createIfMissing=true",
+    );
+  }
 
-  // TODO(marginfi): replace this stub once @mrgnlabs/marginfi-client-v2 is
-  // added. Shape of the real call (against MAINNET config):
-  //
-  //   import { MarginfiClient, getConfig } from "@mrgnlabs/marginfi-client-v2";
-  //   import { NodeWallet } from "@mrgnlabs/mrgn-common";
-  //   const config = getConfig("production");
-  //   const client = await MarginfiClient.fetch(
-  //     config, new NodeWallet(vault), surfpool,
-  //   );
-  //   const bank = client.getBankByPk(new PublicKey(bankAddress));
-  //   const accounts = await client.getMarginfiAccountsForAuthority(vault.publicKey);
-  //   const account = accounts[0] ?? await client.createMarginfiAccount();
-  //   const txSig = await account.deposit(amountUi, bank.address);
-  sdkMissingError("deposit");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const acctAny = account as any;
+  const bankPubkey = new PublicKey(bankAddress);
+  const txSig: string = await acctAny.deposit(amountUi, bankPubkey);
 
-  // Unreachable — sdkMissingError throws. The block below documents the
-  // intended return shape for the real implementation.
-  // eslint-disable-next-line @typescript-eslint/no-unreachable
+  const marginfiAccountPk: string =
+    typeof acctAny.address?.toBase58 === "function"
+      ? acctAny.address.toBase58()
+      : String(acctAny.address ?? "unknown");
+
+  console.log(
+    `[marginfi] deposit ${amountUi} UI → bank ${bankAddress.slice(0, 8)}…  acct=${marginfiAccountPk.slice(0, 8)}…  usdcFunding=${usdcResult.method}`,
+  );
+
   return {
     protocol: "marginfi",
     action: "lend_deposit",
-    txSig: "",
+    txSig,
     bankAddress,
     bankMint: MAINNET_USDC_MINT,
     amountBaseUnits: Math.round(amountUi * 1_000_000),
-    marginfiAccount: "",
-    ixCount: 0,
+    marginfiAccount: marginfiAccountPk,
+    // SDK builds & submits the tx internally; we don't see the ix list.
+    // 1 is a placeholder for "real CPI submitted" — UI consumers only
+    // use the existence/absence of txSig anyway.
+    ixCount: 1,
   };
 }
 
 /**
  * Withdraw `amountUi` (or all) of the bank's liquidity mint from MarginFi.
  *
- * STUB: throws `sdkMissingError` until @mrgnlabs/marginfi-client-v2 is
- * added. Real implementation will:
+ * Flow:
  *   1. Boot or reuse the cached MarginfiClient.
- *   2. Resolve the agent's MarginfiAccount (must already exist — withdraw
- *      from a non-existent account hard-fails, mirroring Kamino).
- *   3. Resolve the bank.
- *   4. Submit `account.withdraw(amountUi, bank, withdrawAll)`. The SDK
+ *   2. Resolve the agent's MarginfiAccount — HARD-FAIL if none exists.
+ *      No fallback: a withdraw that quietly succeeds when nothing was
+ *      deposited would corrupt the action log.
+ *   3. Submit `account.withdraw(amountUi, bank, withdrawAll)`. SDK
  *      clamps to deposited collateral when `withdrawAll=true`.
  */
 export async function withdrawMarginfi(
   args: WithdrawMarginfiArgs,
 ): Promise<MarginfiWithdrawResult> {
-  const { amountUi } = args;
+  const { surfpool, vault, amountUi } = args;
   if (amountUi <= 0 && !args.withdrawAll) {
     throw new Error(
       `withdrawMarginfi: amountUi must be > 0 unless withdrawAll=true (got ${amountUi})`,
@@ -254,45 +331,39 @@ export async function withdrawMarginfi(
   }
   const bankAddress = args.bankAddress ?? MARGINFI_USDC_BANK;
 
-  // TODO(marginfi): replace stub. See depositMarginfi for the full SDK
-  // shape — withdraw uses `account.withdraw(amountUi, bank.address, withdrawAll)`.
-  sdkMissingError("withdraw");
+  const account = await ensureMarginfiAccount(surfpool, vault, false);
+  if (!account) {
+    throw new Error(
+      `withdrawMarginfi: agent ${vault.publicKey.toBase58()} has no MarginfiAccount under group ${MARGINFI_MAIN_GROUP} — nothing to withdraw`,
+    );
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-unreachable
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const acctAny = account as any;
+  const bankPubkey = new PublicKey(bankAddress);
+  const txSig: string = await acctAny.withdraw(
+    amountUi,
+    bankPubkey,
+    args.withdrawAll ?? false,
+  );
+
+  const marginfiAccountPk: string =
+    typeof acctAny.address?.toBase58 === "function"
+      ? acctAny.address.toBase58()
+      : String(acctAny.address ?? "unknown");
+
+  console.log(
+    `[marginfi] withdraw ${amountUi} UI ← bank ${bankAddress.slice(0, 8)}…  acct=${marginfiAccountPk.slice(0, 8)}…  withdrawAll=${args.withdrawAll ?? false}`,
+  );
+
   return {
     protocol: "marginfi",
     action: "lend_withdraw",
-    txSig: "",
+    txSig,
     bankAddress,
     bankMint: MAINNET_USDC_MINT,
     amountBaseUnits: Math.round(amountUi * 1_000_000),
-    marginfiAccount: "",
-    ixCount: 0,
+    marginfiAccount: marginfiAccountPk,
+    ixCount: 1,
   };
 }
-
-// ─── TODOs (Phase Q follow-up) ────────────────────────────────────────────
-//
-// 1. Add `@mrgnlabs/marginfi-client-v2` (and transitively
-//    `@mrgnlabs/mrgn-common` for `NodeWallet`) to
-//    packages/programs/package.json devDependencies.
-//
-// 2. Replace `sdkMissingError` calls with the real SDK paths sketched in
-//    the TODO comments above. Both functions return shapes are already
-//    defined; only the body needs swapping in.
-//
-// 3. The cache maps (mfiClient / accountCache / *LoadPromises) are wired
-//    in shape but not populated — `void`-marked to satisfy the linter.
-//    When the SDK lands, populate them on first call (singleton client +
-//    per-agent account) following zeta-execute.ts's pattern.
-//
-// 4. Idempotent USDC ATA create: the SDK's `account.deposit` already
-//    bundles the destination ATA setup, but for symmetry with Kamino we
-//    may want to prepend a `createAssociatedTokenAccountIdempotentInstruction`
-//    explicitly so the resulting tx works even on the very first call.
-//    The boilerplate is imported above in anticipation:
-void createAssociatedTokenAccountIdempotentInstruction;
-void getAssociatedTokenAddressSync;
-void sendAndConfirmTransaction;
-void Transaction;
-void PublicKey;

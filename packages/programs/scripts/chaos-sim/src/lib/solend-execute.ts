@@ -4,32 +4,28 @@
  * surfpool tx hygiene.
  *
  * Bootstrap on the FIRST lend call for an agent:
- *   1. Lazy-load `SolendMarket` against Solend's MAIN POOL on mainnet —
- *      the surfpool fork inherits the market state verbatim. We
- *      explicitly target the main pool (NOT "Turbo SOL", NOT any of the
- *      isolated-asset pools) since the brain is reasoning about the most
- *      liquid USDC reserve, which lives there.
- *   2. Resolve the USDC reserve inside the main pool.
- *   3. Build deposit ix bundle:
- *        a. createAssociatedTokenAccountIdempotent (USDC ATA, defensive)
- *        b. RefreshReserve(usdc reserve)
- *        c. RefreshObligation(agent obligation)
- *        d. DepositReserveLiquidityAndObligationCollateral
- *      The combined deposit ix atomically converts USDC → cToken and
- *      deposits the cToken as obligation collateral, so we don't have to
- *      manage cToken ATAs separately.
+ *   1. Lazy-load `@solendprotocol/solend-sdk` + parse the on-chain
+ *      Solend lending market (main pool) and USDC reserve once per
+ *      process, keyed for cache reuse across ticks.
+ *   2. Build `SolendActionCore.buildDepositTxns` (or
+ *      `buildWithdrawTxns`) — the SDK auto-bundles obligation init,
+ *      RefreshReserve, RefreshObligation, and the lending ix.
+ *   3. Call `getTransactions(blockhash)` to get pre/lending/post
+ *      VersionedTransactions, sign them with the agent keypair, and
+ *      submit each in order through the existing surfpool Connection
+ *      with surfpool tx hygiene (processed blockhash, skipPreflight).
  *
  * RUNTIME CAVEATS:
- *   - `@solendprotocol/solend-sdk` is NOT currently in
- *     packages/programs/package.json. Until it is, this module exports
- *     STUB functions that throw a clear error explaining the missing
- *     dependency. The action-executor catches the throw and bubbles it
- *     up to the daemon's per-action try/catch as `phase=execute_error`.
+ *   - `@solendprotocol/solend-sdk` is loaded via dynamic import so
+ *     eagerly importing this file from action-executor.ts doesn't drag
+ *     the SDK chain (which transitively pins
+ *     @solana/web3.js@1.92.3 + rpc-websockets@7.11.0) in at daemon
+ *     startup. Same precaution as zeta-execute.ts. Lazy-load is
+ *     mandatory, not optional.
  *   - The agent's USDC ATA must hold enough USDC for the deposit. The
  *     daemon calls `ensureSurfpoolUsdc` per-tick (see surfpool-seed.ts).
  *   - Surfpool tx hygiene: blockhash @ "processed", lastValidBlockHeight
- *     + 300 slots, skipPreflight: true. Same pattern as
- *     beethoven-execute.ts and kamino-execute.ts.
+ *     + 300 slots, skipPreflight: true. Same pattern as kamino-execute.
  *
  * NAMED PUBKEYS (mainnet, inherited by the fork):
  *   - Program        So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo
@@ -42,15 +38,13 @@ import {
   Connection,
   Keypair,
   PublicKey,
-  Transaction,
-  sendAndConfirmTransaction,
+  VersionedTransaction,
 } from "@solana/web3.js";
-import {
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountIdempotentInstruction,
-} from "@solana/spl-token";
 
 import { ensureSurfpoolUsdc, MAINNET_USDC_MINT } from "./surfpool-seed.js";
+
+// Re-export for symmetry with kamino-execute.
+export { MAINNET_USDC_MINT };
 
 // ─── Mainnet constants ────────────────────────────────────────────────────
 
@@ -94,15 +88,171 @@ export interface SolendWithdrawResult {
   ixCount: number;
 }
 
-// ─── Module-level caches (matches zeta-execute.ts pattern) ────────────────
+// ─── Module-level caches ──────────────────────────────────────────────────
+//
+// `InputPoolType` describes the lending market plus a list of all reserves
+// the SDK might need to refresh. We only ever interact with the USDC
+// reserve, so the cache holds a minimal pool with that single reserve.
+// Both pool + reserve are reused across agents (mainnet state is the same
+// for everyone; only the obligation PDA varies per agent).
 
-let solendMarket: unknown = null;
-let solendMarketLoadPromise: Promise<unknown> | null = null;
+interface CachedPoolReserve {
+  /** `InputPoolType` shape expected by SolendActionCore. */
+  pool: {
+    address: string;
+    owner: string;
+    name: string | null;
+    authorityAddress: string;
+    reserves: Array<{
+      address: string;
+      pythOracle: string;
+      switchboardOracle: string;
+      mintAddress: string;
+      liquidityFeeReceiverAddress: string;
+      extraOracle?: string;
+    }>;
+  };
+  /** `InputReserveType` shape expected by SolendActionCore. */
+  reserve: {
+    address: string;
+    liquidityAddress: string;
+    cTokenMint: string;
+    cTokenLiquidityAddress: string;
+    pythOracle: string;
+    switchboardOracle: string;
+    mintAddress: string;
+    liquidityFeeReceiverAddress: string;
+  };
+}
 
-const obligationCache = new Map<string, unknown>();
-const obligationLoadPromises = new Map<string, Promise<unknown>>();
+const poolReserveCache = new Map<string, CachedPoolReserve>();
+const poolReserveLoadPromises = new Map<string, Promise<CachedPoolReserve>>();
 
-// ─── Public API (stubbed until SDK lands) ─────────────────────────────────
+// ─── Lazy SDK loader ─────────────────────────────────────────────────────
+
+async function loadSolendSdk(): Promise<typeof import("@solendprotocol/solend-sdk")> {
+  return await import("@solendprotocol/solend-sdk");
+}
+
+/**
+ * Read the lending market + reserve state on-chain (once per process)
+ * and assemble the InputPoolType + InputReserveType structs the SDK
+ * needs. Cache key = `${poolAddress}:${reserveAddress}` so a future
+ * caller asking for a different reserve still gets fresh state.
+ *
+ * The cache is "best-effort fresh": surfpool's fork state for these
+ * accounts doesn't change unless the fork is restarted, so a stale
+ * cache only matters if the daemon survives a fork reset. The per-
+ * action try/catch in action-executor will surface the resulting
+ * stale-state failure as `phase=execute_error` — caller can flush by
+ * restarting the daemon.
+ */
+async function ensurePoolReserve(
+  surfpool: Connection,
+  poolAddress: string,
+  reserveAddress: string,
+): Promise<CachedPoolReserve> {
+  const key = `${poolAddress}:${reserveAddress}`;
+  const cached = poolReserveCache.get(key);
+  if (cached) return cached;
+  const inflight = poolReserveLoadPromises.get(key);
+  if (inflight) return await inflight;
+
+  const promise = (async () => {
+    const sdk = await loadSolendSdk();
+    const poolPk = new PublicKey(poolAddress);
+    const reservePk = new PublicKey(reserveAddress);
+
+    // Parse lending market — gives us `owner`.
+    const marketAi = await surfpool.getAccountInfo(poolPk);
+    if (!marketAi) {
+      throw new Error(
+        `Solend lending market ${poolAddress} not found on surfpool — fork may not have cloned the account yet`,
+      );
+    }
+    const market = sdk.parseLendingMarket(poolPk, marketAi);
+
+    // Parse reserve — gives us liquidity + collateral pubkeys, oracles, fee receiver.
+    const reserveAi = await surfpool.getAccountInfo(reservePk);
+    if (!reserveAi) {
+      throw new Error(
+        `Solend reserve ${reserveAddress} not found on surfpool — fork may not have cloned the account yet`,
+      );
+    }
+    const reserveParsed = sdk.parseReserve(reservePk, reserveAi);
+
+    // Pool authority is a PDA derived from the lending market pubkey.
+    const [authorityPk] = PublicKey.findProgramAddressSync(
+      [poolPk.toBytes()],
+      new PublicKey(SOLEND_PROGRAM_ID),
+    );
+
+    const reserveInput = {
+      address: reservePk.toBase58(),
+      liquidityAddress: reserveParsed.info.liquidity.supplyPubkey.toBase58(),
+      cTokenMint: reserveParsed.info.collateral.mintPubkey.toBase58(),
+      cTokenLiquidityAddress:
+        reserveParsed.info.collateral.supplyPubkey.toBase58(),
+      pythOracle: reserveParsed.info.liquidity.pythOracle.toBase58(),
+      switchboardOracle:
+        reserveParsed.info.liquidity.switchboardOracle.toBase58(),
+      mintAddress: reserveParsed.info.liquidity.mintPubkey.toBase58(),
+      liquidityFeeReceiverAddress:
+        reserveParsed.info.config.feeReceiver.toBase58(),
+    };
+
+    const pool = {
+      address: poolPk.toBase58(),
+      owner: market.info.owner.toBase58(),
+      name: null as string | null,
+      authorityAddress: authorityPk.toBase58(),
+      reserves: [
+        {
+          address: reserveInput.address,
+          pythOracle: reserveInput.pythOracle,
+          switchboardOracle: reserveInput.switchboardOracle,
+          mintAddress: reserveInput.mintAddress,
+          liquidityFeeReceiverAddress: reserveInput.liquidityFeeReceiverAddress,
+          extraOracle: reserveParsed.info.config.extraOracle?.toBase58(),
+        },
+      ],
+    };
+
+    const entry: CachedPoolReserve = { pool, reserve: reserveInput };
+    poolReserveCache.set(key, entry);
+    return entry;
+  })();
+  poolReserveLoadPromises.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    poolReserveLoadPromises.delete(key);
+  }
+}
+
+/**
+ * Sign + submit a Solend SDK VersionedTransaction. Solend's
+ * `getTransactions` returns pre/lending/post versioned txns with the
+ * blockhash already attached; we only need to sign with the agent
+ * keypair and submit. Surfpool tx hygiene: skipPreflight + extended
+ * blockhash window (the txn arrives pre-stamped with a window we
+ * widened from the inputs above).
+ */
+async function signAndSendVersioned(
+  surfpool: Connection,
+  vault: Keypair,
+  tx: VersionedTransaction,
+): Promise<string> {
+  tx.sign([vault]);
+  const sig = await surfpool.sendTransaction(tx, {
+    skipPreflight: true,
+    maxRetries: 5,
+  });
+  await surfpool.confirmTransaction(sig, "confirmed");
+  return sig;
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────
 
 export interface DepositSolendArgs {
   /** web3.js Connection pointed at surfpool. */
@@ -123,32 +273,16 @@ export interface WithdrawSolendArgs {
   reserveAddress?: string;
 }
 
-function sdkMissingError(direction: "deposit" | "withdraw"): never {
-  throw new Error(
-    `solend-execute: cannot ${direction} — @solendprotocol/solend-sdk is not installed. ` +
-      `Add it to packages/programs/package.json devDependencies (latest stable: ^0.13.x), ` +
-      `then replace the stub bodies in lib/solend-execute.ts with the real SDK calls ` +
-      `(SolendMarket.initialize → market.refreshAll → reserve.depositReserveLiquidityAndObligationCollateral / ` +
-      `depositObligationCollateralAndRedeemReserveCollateral).`,
-  );
-}
-
 /**
  * Deposit USDC into the Solend main pool's USDC reserve on surfpool.
  *
- * STUB: throws `sdkMissingError` until @solendprotocol/solend-sdk is
- * added to devDependencies. The bootstrap flow once the SDK is present:
- *
+ * Flow:
  *   1. Ensure USDC funding via `ensureSurfpoolUsdc`.
- *   2. Boot or reuse the cached SolendMarket(MainPool).
- *   3. Resolve `reserveAddress ?? SOLEND_MAIN_USDC_RESERVE`.
- *   4. Build the ix bundle:
- *        - createAssociatedTokenAccountIdempotent (USDC ATA — defensive)
- *        - RefreshReserve(reserve)
- *        - RefreshObligation(agentObligationPda)
- *        - DepositReserveLiquidityAndObligationCollateral(amount, …)
- *   5. Submit through the existing surfpool Connection with surfpool
- *      tx hygiene (processed blockhash, +300 slots, skipPreflight).
+ *   2. Lazy-load SDK + read on-chain pool/reserve state (cached).
+ *   3. `SolendActionCore.buildDepositTxns(...)` — SDK bundles
+ *      obligation init (first deposit), RefreshReserve, RefreshObligation,
+ *      and DepositReserveLiquidityAndObligationCollateral.
+ *   4. Submit pre/lending/post txns in order with surfpool tx hygiene.
  */
 export async function depositSolend(
   args: DepositSolendArgs,
@@ -162,62 +296,102 @@ export async function depositSolend(
   const reserveAddress = args.reserveAddress ?? SOLEND_MAIN_USDC_RESERVE;
 
   // Belt-and-braces USDC seeding before the deposit attempt.
-  await ensureSurfpoolUsdc(surfpool, vault.publicKey, Math.max(amountUsdcUi, 1000));
+  const usdcResult = await ensureSurfpoolUsdc(
+    surfpool,
+    vault.publicKey,
+    Math.max(amountUsdcUi, 1000),
+  );
 
-  // Touch caches so unused-var lint doesn't fire while stubbed.
-  void solendMarket;
-  void solendMarketLoadPromise;
-  void obligationCache;
-  void obligationLoadPromises;
+  const { pool, reserve } = await ensurePoolReserve(
+    surfpool,
+    SOLEND_MAIN_POOL,
+    reserveAddress,
+  );
 
-  // TODO(solend): replace stub once @solendprotocol/solend-sdk is added.
-  // Sketch of the real call against the main pool:
-  //
-  //   import { SolendMarket } from "@solendprotocol/solend-sdk";
-  //   const market = await SolendMarket.initialize(surfpool, "production",
-  //     new PublicKey(SOLEND_MAIN_POOL));
-  //   await market.loadReserves();
-  //   const reserve = market.reserves.find(r => r.config.address === reserveAddress);
-  //   const txn = await reserve.depositReserveLiquidityAndObligationCollateral(
-  //     vault.publicKey,
-  //     new BN(Math.round(amountUsdcUi * 1_000_000)),
-  //   );
-  //   // Surfpool tx hygiene:
-  //   const { blockhash, lastValidBlockHeight } =
-  //     await surfpool.getLatestBlockhash("processed");
-  //   txn.recentBlockhash = blockhash;
-  //   txn.lastValidBlockHeight = lastValidBlockHeight + 300;
-  //   txn.feePayer = vault.publicKey;
-  //   const txSig = await sendAndConfirmTransaction(surfpool, txn, [vault], {
-  //     commitment: "confirmed", skipPreflight: true,
-  //   });
-  sdkMissingError("deposit");
+  const sdk = await loadSolendSdk();
+  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
+  const action = await sdk.SolendActionCore.buildDepositTxns(
+    pool,
+    reserve,
+    surfpool,
+    amountBaseUnits.toString(),
+    { publicKey: vault.publicKey },
+    {
+      environment: "production",
+    },
+  );
 
-  // eslint-disable-next-line @typescript-eslint/no-unreachable
+  // Surfpool blockhash + extended validity window. Same hygiene as
+  // beethoven-execute / kamino-execute.
+  const { blockhash, lastValidBlockHeight } =
+    await surfpool.getLatestBlockhash("processed");
+  const extendedValidity = {
+    blockhash,
+    lastValidBlockHeight: lastValidBlockHeight + 300,
+  };
+
+  const txns = await action.getTransactions(extendedValidity);
+
+  // Count ix's across the bundle for the result row.
+  const ixCount =
+    action.setupIxs.length +
+    action.lendingIxs.length +
+    action.cleanupIxs.length +
+    action.preTxnIxs.length +
+    action.postTxnIxs.length;
+
+  // Submit in order: preLendingTxn → lendingTxn → postLendingTxn. Pull
+  // price txns (oracle updates from Pyth pull/Switchboard) come first
+  // when present.
+  if (txns.pullPriceTxns?.length) {
+    for (const ptx of txns.pullPriceTxns) {
+      await signAndSendVersioned(surfpool, vault, ptx);
+    }
+  }
+  if (txns.preLendingTxn) {
+    await signAndSendVersioned(surfpool, vault, txns.preLendingTxn);
+  }
+  if (!txns.lendingTxn) {
+    throw new Error(
+      "depositSolend: SDK did not produce a lending tx — nothing to submit",
+    );
+  }
+  const lendingSig = await signAndSendVersioned(
+    surfpool,
+    vault,
+    txns.lendingTxn,
+  );
+  if (txns.postLendingTxn) {
+    await signAndSendVersioned(surfpool, vault, txns.postLendingTxn);
+  }
+
+  console.log(
+    `[solend] deposit ${amountUsdcUi} USDC → reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}  usdcFunding=${usdcResult.method}`,
+  );
+
   return {
     protocol: "solend",
     action: "lend_deposit",
-    txSig: "",
+    txSig: lendingSig,
     reserveAddress,
     reserveLiquidityMint: MAINNET_USDC_MINT,
-    amountBaseUnits: Math.round(amountUsdcUi * 1_000_000),
-    ixCount: 0,
+    amountBaseUnits,
+    ixCount,
   };
 }
 
 /**
  * Withdraw USDC from the Solend main pool's USDC reserve on surfpool.
  *
- * STUB: throws `sdkMissingError` until @solendprotocol/solend-sdk is
- * added. Real flow uses
- * `withdrawObligationCollateralAndRedeemReserveCollateral` — the inverse
- * of the combined deposit ix — so we don't have to bounce through cToken
- * ATA management.
+ * HARD-FAILS when the agent has no obligation (i.e. has never deposited).
+ * The SolendActionCore.buildWithdrawTxns path internally throws when it
+ * can't find the obligation account; we let that bubble up rather than
+ * silently swallowing it.
  */
 export async function withdrawSolend(
   args: WithdrawSolendArgs,
 ): Promise<SolendWithdrawResult> {
-  const { amountUsdcUi } = args;
+  const { surfpool, vault, amountUsdcUi } = args;
   if (amountUsdcUi <= 0) {
     throw new Error(
       `withdrawSolend: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
@@ -225,43 +399,92 @@ export async function withdrawSolend(
   }
   const reserveAddress = args.reserveAddress ?? SOLEND_MAIN_USDC_RESERVE;
 
-  // TODO(solend): replace stub. Real call shape:
-  //
-  //   const txn = await reserve.withdrawObligationCollateralAndRedeemReserveCollateral(
-  //     vault.publicKey,
-  //     new BN(Math.round(amountUsdcUi * 1_000_000)),
-  //   );
-  sdkMissingError("withdraw");
+  const { pool, reserve } = await ensurePoolReserve(
+    surfpool,
+    SOLEND_MAIN_POOL,
+    reserveAddress,
+  );
 
-  // eslint-disable-next-line @typescript-eslint/no-unreachable
+  const sdk = await loadSolendSdk();
+  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
+  // Pre-flight obligation check: the SDK derives the obligation PDA
+  // from (publicKey, lendingMarket, programId) seeds. If the account
+  // doesn't exist on surfpool, the agent has no Solend position and
+  // we should hard-fail here rather than letting the SDK build a
+  // refresh-obligation ix that targets nothing.
+  const obligationSeed = SOLEND_MAIN_POOL.slice(0, 32);
+  const obligationPk = await PublicKey.createWithSeed(
+    vault.publicKey,
+    obligationSeed,
+    new PublicKey(SOLEND_PROGRAM_ID),
+  );
+  const obligationAi = await surfpool.getAccountInfo(obligationPk);
+  if (!obligationAi) {
+    throw new Error(
+      `withdrawSolend: agent ${vault.publicKey.toBase58()} has no Solend obligation under pool ${SOLEND_MAIN_POOL} — nothing to withdraw`,
+    );
+  }
+
+  const action = await sdk.SolendActionCore.buildWithdrawTxns(
+    pool,
+    reserve,
+    surfpool,
+    amountBaseUnits.toString(),
+    { publicKey: vault.publicKey },
+    {
+      environment: "production",
+    },
+  );
+
+  const { blockhash, lastValidBlockHeight } =
+    await surfpool.getLatestBlockhash("processed");
+  const extendedValidity = {
+    blockhash,
+    lastValidBlockHeight: lastValidBlockHeight + 300,
+  };
+  const txns = await action.getTransactions(extendedValidity);
+
+  const ixCount =
+    action.setupIxs.length +
+    action.lendingIxs.length +
+    action.cleanupIxs.length +
+    action.preTxnIxs.length +
+    action.postTxnIxs.length;
+
+  if (txns.pullPriceTxns?.length) {
+    for (const ptx of txns.pullPriceTxns) {
+      await signAndSendVersioned(surfpool, vault, ptx);
+    }
+  }
+  if (txns.preLendingTxn) {
+    await signAndSendVersioned(surfpool, vault, txns.preLendingTxn);
+  }
+  if (!txns.lendingTxn) {
+    throw new Error(
+      "withdrawSolend: SDK did not produce a lending tx — nothing to submit",
+    );
+  }
+  const lendingSig = await signAndSendVersioned(
+    surfpool,
+    vault,
+    txns.lendingTxn,
+  );
+  if (txns.postLendingTxn) {
+    await signAndSendVersioned(surfpool, vault, txns.postLendingTxn);
+  }
+
+  console.log(
+    `[solend] withdraw ${amountUsdcUi} USDC ← reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
+  );
+
   return {
     protocol: "solend",
     action: "lend_withdraw",
-    txSig: "",
+    txSig: lendingSig,
     reserveAddress,
     reserveLiquidityMint: MAINNET_USDC_MINT,
-    amountBaseUnits: Math.round(amountUsdcUi * 1_000_000),
-    ixCount: 0,
+    amountBaseUnits,
+    ixCount,
   };
 }
 
-// ─── TODOs (Phase Q follow-up) ────────────────────────────────────────────
-//
-// 1. Add `@solendprotocol/solend-sdk` to packages/programs/package.json
-//    devDependencies (latest stable ^0.13.x).
-//
-// 2. Replace `sdkMissingError` bodies with the real SDK paths sketched
-//    above. Return shapes are already finalized.
-//
-// 3. The caches (solendMarket / obligationCache / *LoadPromises) follow
-//    the same lazy-load + dedup pattern as zeta-execute.ts. Hydrate them
-//    on first call once the SDK lands.
-
-// Touch unused imports so the linter doesn't flag them while stubbed.
-// All of these are used by the *real* implementation sketched in the
-// TODOs above (deposit/withdraw will need ATA setup + tx submission).
-void createAssociatedTokenAccountIdempotentInstruction;
-void getAssociatedTokenAddressSync;
-void sendAndConfirmTransaction;
-void Transaction;
-void PublicKey;
