@@ -44,7 +44,11 @@ import {
   TransactionInstruction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import { createHash } from "node:crypto";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
@@ -53,9 +57,13 @@ export const PREDICTION_MARKET_PROGRAM_ID = new PublicKey(
   "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4",
 );
 
-/** Devnet bUSD (formerly USDC) collateral mint used across chaos-sim. */
+/** Bundie's own bUSD mint on devnet — minted by setup-busd. The actual mint
+ *  used for prediction-market collateral. The previous USDC devnet pubkey
+ *  here was a copy-paste leftover from the rate-readers prototype and
+ *  produced markets denominated in a token nobody held. Override via
+ *  BUSD_MINT env for non-default deploys (e.g. mainnet). */
 export const DEVNET_BUSD_MINT = new PublicKey(
-  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  process.env.BUSD_MINT ?? "42LaRiwvuxfQv5rfHMmk9wU3K2nRxMGzgukNJztydpiB",
 );
 
 export const MARKET_KIND_NAV_TARGET = 1;
@@ -179,8 +187,12 @@ function buildKindPayload(
   return payload;
 }
 
-function deriveMarketPdas(creator: PublicKey, marketId: bigint) {
-  const strategy = creator;
+function deriveMarketPdas(strategy: PublicKey, marketId: bigint) {
+  // `strategy` is the peer-agent BundieVault PDA the market predicts on
+  // (NOT the creator's wallet — that produced an unbuyable market under the
+  // pre-2026-04-27 program because buy_shares validates strategy account
+  // layout). Anchor seeds the market PDA off this pubkey, so changing it
+  // gives every new market a fresh address space.
   const marketIdLE = u64LE(marketId);
   const [marketPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("market"), strategy.toBuffer(), marketIdLE],
@@ -263,8 +275,18 @@ export async function createNavMarket(
       ? bundieVaultPda(targetAgentB)
       : null;
 
+  // The market's `strategy` is the peer-agent BundieVault PDA (the vault
+  // whose NAV the market predicts on). buy_shares validates this account
+  // against the BundieVault discriminator + reads its `authority` field for
+  // the creator-self-exclusion check, so a real on-chain vault is required.
   const { strategy, marketPda, vaultPda, yesMintPda, noMintPda } =
-    deriveMarketPdas(creator, marketId);
+    deriveMarketPdas(targetVaultAPda, marketId);
+
+  // Creator's bUSD ATA — the source of the seed-liquidity transfer the
+  // program does inside create_market_v2. Built idempotently below so the
+  // tx works on a fresh agent that hasn't received bUSD yet (the ATA is
+  // created on first creation; subsequent calls no-op).
+  const subsidySourceAta = getAssociatedTokenAddressSync(collateralMint, creator);
 
   // For kind=2 the on-chain handler also requires `strategy_b !=
   // SystemProgram` and uses it as the second strategy identity. Reuse
@@ -304,6 +326,9 @@ export async function createNavMarket(
     { pubkey: vaultPda, isSigner: false, isWritable: true },
     { pubkey: yesMintPda, isSigner: false, isWritable: true },
     { pubkey: noMintPda, isSigner: false, isWritable: true },
+    // Order matches CreateMarketV2 in create_market_v2.rs — subsidy_source
+    // sits between the no_mint init slot and token_program.
+    { pubkey: subsidySourceAta, isSigner: false, isWritable: true },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
@@ -317,7 +342,17 @@ export async function createNavMarket(
     data,
   });
 
-  const tx = new Transaction().add(ix);
+  // Idempotent ATA create: cheap if the ATA already exists, mandatory on
+  // first market creation per agent. Bundling it into the same tx keeps
+  // the create_market_v2 path atomic w.r.t. ATA presence.
+  const ataIx = createAssociatedTokenAccountIdempotentInstruction(
+    creator,
+    subsidySourceAta,
+    creator,
+    collateralMint,
+  );
+
+  const tx = new Transaction().add(ataIx).add(ix);
   tx.feePayer = creator;
 
   const signature = await sendAndConfirmTransaction(

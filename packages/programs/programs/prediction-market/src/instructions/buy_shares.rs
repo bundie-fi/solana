@@ -7,10 +7,14 @@ use anchor_spl::{
     token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
 };
 
-/// Strategy discriminator — must match strategy-token/src/state/strategy.rs
-const STRATEGY_DISCRIMINATOR: [u8; 8] = [0xd0, 0x82, 0x35, 0xce, 0x9a, 0x7f, 0x5b, 0x11];
+/// BundieVault discriminator — Anchor's sha256("account:BundieVault")[..8].
+/// The chaos-sim now passes a peer agent's BundieVault PDA as the market
+/// strategy (instead of a legacy pinocchio Strategy account), so we validate
+/// against this layout. The fields after the discriminator start with
+/// `authority: Pubkey`, so the same offset works.
+const STRATEGY_DISCRIMINATOR: [u8; 8] = [0xef, 0x20, 0x67, 0xba, 0xc5, 0x08, 0x6c, 0x98];
 
-/// Byte offset of `authority` (Pubkey, 32 bytes) within the Strategy account.
+/// Byte offset of `authority` (Pubkey, 32 bytes) within the BundieVault account.
 const OFF_STRATEGY_AUTHORITY: usize = 8;
 
 /// Minimum bytes needed to read the authority field (disc + 32).
@@ -88,10 +92,11 @@ pub struct BuyMarketShares<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Reject the tx if the buyer is the creator (`authority`) of the underlying
-/// Strategy account. Address-equality check against the pinocchio Strategy
-/// account's stored authority field — a creator with a second wallet can still
-/// bypass this, which is a known limitation documented in the v5 spec.
+/// Reject the tx if the buyer is the authority of the underlying BundieVault
+/// (i.e. the agent that created/owns the strategy this market predicts on).
+/// The agent itself is the *seeder* of the market — it transferred the
+/// initial subsidy at create time — but it should NOT also be on either side
+/// of the YES/NO trade. Humans (or other agents) take those positions.
 fn check_not_strategy_creator(strategy: &UncheckedAccount, buyer: &Pubkey) -> Result<()> {
     let data = strategy.try_borrow_data()?;
 

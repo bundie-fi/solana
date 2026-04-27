@@ -21,7 +21,7 @@
 use crate::error::MarketError;
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 #[instruction(question: String, market_id: u64)]
@@ -36,7 +36,7 @@ pub struct CreateMarketV2<'info> {
         seeds = [b"market", strategy.key().as_ref(), &market_id.to_le_bytes()],
         bump,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     /// CHECK: Caller validates. Matches v1 — this is just an address store.
     pub strategy: UncheckedAccount<'info>,
@@ -45,7 +45,7 @@ pub struct CreateMarketV2<'info> {
     /// that do not need it (ApyThreshold, NavTarget, Drawdown, BackerCount).
     pub strategy_b: UncheckedAccount<'info>,
 
-    pub collateral_mint: Account<'info, Mint>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -55,7 +55,7 @@ pub struct CreateMarketV2<'info> {
         token::mint = collateral_mint,
         token::authority = market,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     #[account(
         init,
@@ -65,7 +65,7 @@ pub struct CreateMarketV2<'info> {
         mint::decimals = 6,
         mint::authority = market,
     )]
-    pub yes_mint: Account<'info, Mint>,
+    pub yes_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -75,7 +75,21 @@ pub struct CreateMarketV2<'info> {
         mint::decimals = 6,
         mint::authority = market,
     )]
-    pub no_mint: Account<'info, Mint>,
+    pub no_mint: Box<Account<'info, Mint>>,
+
+    /// Creator's collateral ATA. The full `initial_subsidy` is transferred
+    /// from this account into the market `vault` at create time so the
+    /// market is born with real backing liquidity (not just an LMSR
+    /// liquidity_param). Mint must match `collateral_mint`; balance must
+    /// cover `initial_subsidy`.
+    #[account(
+        mut,
+        constraint = subsidy_source.mint == collateral_mint.key()
+            @ MarketError::WrongOutcomeMint,
+        constraint = subsidy_source.owner == creator.key()
+            @ MarketError::InvalidSubsidy,
+    )]
+    pub subsidy_source: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -85,11 +99,11 @@ pub struct CreateMarketV2<'info> {
     /// (NavTarget, Relative, Drawdown) so create_market_v2 can snapshot
     /// the live NAV baseline. Pass `None` for legacy kinds (5/6) that
     /// do not yet flow through BundieVault.
-    pub target_vault_a: Option<Account<'info, crate::state::BundieVault>>,
+    pub target_vault_a: Option<Box<Account<'info, crate::state::BundieVault>>>,
 
     /// Optional BundieVault for strategy B. Required only for kind=2
     /// (RELATIVE / head-to-head). Pass `None` otherwise.
-    pub target_vault_b: Option<Account<'info, crate::state::BundieVault>>,
+    pub target_vault_b: Option<Box<Account<'info, crate::state::BundieVault>>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -306,7 +320,11 @@ pub fn handler(
     market.total_yes_cost = 0;
     market.total_no_cost = 0;
     market.liquidity_param = initial_subsidy;
-    market.total_volume = 0;
+    // The agent's seed is real collateral now (transferred below) so the UI
+    // can surface "X bUSD seeded by agent" as visible volume. yes_shares /
+    // no_shares stay zero — those track human-held positions, which only
+    // grow as people call buy_shares.
+    market.total_volume = initial_subsidy;
     market.fee_bps = fee_bps;
     market.vault = ctx.accounts.vault.key();
     market.collateral_mint = ctx.accounts.collateral_mint.key();
@@ -333,11 +351,31 @@ pub fn handler(
     market.target_authority_a = auth_a;
     market.target_authority_b = auth_b;
 
+    // Transfer the agent's bUSD seed from `subsidy_source` into the market
+    // `vault`. This is what makes the market "real" — without this transfer
+    // the LMSR has no backing collateral to pay out to winners and humans
+    // calling buy_shares would mint outcome tokens that the market couldn't
+    // honor at resolution. Done last so all field assignments are in place
+    // before the CPI in case the transfer triggers a logger that reads
+    // market state.
+    token::transfer(
+        CpiContext::new(
+            token::ID,
+            Transfer {
+                from: ctx.accounts.subsidy_source.to_account_info(),
+                to: ctx.accounts.vault.to_account_info(),
+                authority: ctx.accounts.creator.to_account_info(),
+            },
+        ),
+        initial_subsidy,
+    )?;
+
     msg!(
-        "create_market_v2: kind={}, market_id={}, resolution_slot={}",
+        "create_market_v2: kind={}, market_id={}, resolution_slot={}, seeded={}",
         kind,
         market_id,
         resolution_slot,
+        initial_subsidy,
     );
 
     Ok(())
