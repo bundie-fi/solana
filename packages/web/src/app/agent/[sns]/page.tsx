@@ -120,10 +120,14 @@ export default async function AgentProfilePage({
     .filter((t) => t.meta != null);
 
   // Surfpool activity feed — chaos-sim daemon writes each landed mainnet-fork
-  // tx to Supabase; backend route serves them keyed by SNS. We try the
-  // resolved devnet name first (alice.bundie), then the raw param. Failure
-  // here must NOT break the page render — empty array is fine.
-  const surfpoolSns = sns?.devnetName ?? decoded;
+  // tx to the Postgres `agent_action_log` table; backend route serves them
+  // keyed by the full SNS (alice.bundie.sol). resolveSns() returns
+  // `devnetName: "alice.bundie"` (no .sol) for the on-chain devnet record,
+  // but the agent registry stores the full form — so append `.sol` if
+  // missing to make the lookup match. Failure here must NOT break the page
+  // render — empty array is fine.
+  const rawSns = sns?.devnetName ?? decoded;
+  const surfpoolSns = rawSns.endsWith(".sol") ? rawSns : `${rawSns}.sol`;
   const backendBase =
     process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
   let surfpoolActions: SurfpoolAction[] = [];
