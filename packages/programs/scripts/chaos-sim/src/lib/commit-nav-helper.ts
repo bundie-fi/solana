@@ -189,6 +189,13 @@ const STUB_PRICE_USD: Record<string, number> = {
 /** Lamports-per-bUSD scaling: bUSD has 6 decimals so 1 bUSD = 1e6. */
 const BUSD_DECIMALS = 6;
 
+/**
+ * How long (ms) a Kamino reserve / Zeta equity reading is considered fresh
+ * enough to reuse. Capped at 60s by spec — agents' positions can change
+ * fast (a perp_open mid-tick must be visible by the next NAV commit).
+ */
+const PROTOCOL_POSITION_TTL_MS = 60_000;
+
 // ─── Pyth pull-oracle reader ──────────────────────────────────────────────
 
 /**
@@ -372,9 +379,9 @@ async function readPythPriceUsd(
 }
 
 /**
- * Resolve every price the NAV computation needs. Emits a one-time banner
- * the first time it returns a complete price set so the daemon's stdout
- * shows where each NAV figure is coming from.
+ * Resolve every price the NAV computation needs. The one-time banner is
+ * emitted later (in `computeNavFromSurfpoolBalances`) so it can also
+ * include Kamino + Zeta breakdown numbers — see `emitNavPricingBanner`.
  */
 async function loadPricesForNav(
   surfpool: Connection,
@@ -383,30 +390,724 @@ async function loadPricesForNav(
   const entries = await Promise.all(
     symbols.map(async (s) => [s, await readPythPriceUsd(surfpool, s)] as const),
   );
-  const prices = Object.fromEntries(entries);
-
-  if (!priceLogEmitted) {
-    priceLogEmitted = true;
-    const fmt = (n: number) =>
-      `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-    const sources = symbols
-      .map((s) => `${s}=${fmt(prices[s])}(${priceCache.get(s)?.source ?? "?"})`)
-      .join(" ");
-    console.log(`[nav-pricing] ${sources}`);
-  }
-
-  return prices;
+  return Object.fromEntries(entries);
 }
 
 /**
- * Compute the agent's NAV (in bUSD lamports) by summing token balances on
- * the surfpool execution chain priced at live Pyth feeds. Falls back to
- * `STUB_PRICE_USD` for any symbol whose Pyth read fails so the daemon
- * keeps producing commits while the operator investigates.
+ * Format a USD figure consistently in the [nav-pricing] banner.
+ */
+function fmtUsd(n: number): string {
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Emit the one-shot `[nav-pricing] …` banner showing every input that
+ * went into NAV: Pyth-priced symbols + Kamino kToken USD subtotal + Zeta
+ * cross-margin USD subtotal. Idempotent — only fires once per process.
+ */
+function emitNavPricingBanner(
+  prices: Record<string, number>,
+  kaminoUsd: number,
+  zetaUsd: number,
+): void {
+  if (priceLogEmitted) return;
+  priceLogEmitted = true;
+  const symbols = ["SOL", "mSOL", "USDC", "bUSD"];
+  const sources = symbols
+    .map((s) => `${s}=${fmtUsd(prices[s] ?? 0)}(${priceCache.get(s)?.source ?? "?"})`)
+    .join(" ");
+  console.log(
+    `[nav-pricing] ${sources} kamino=${fmtUsd(kaminoUsd)} zeta=${fmtUsd(zetaUsd)}`,
+  );
+}
+
+// ─── Kamino kToken / Obligation valuation ────────────────────────────────
+
+/**
+ * Kamino mainnet program id (the actual on-chain owner of every reserve
+ * + obligation account on mainnet, also inherited by the surfpool fork).
  *
- * Note: this only prices the SOL + bUSD/USDC + LST graph. Kamino kToken
- * holdings and Zeta cross-margin equity are added by parallel work in
- * Phase Q (see HANDOFF-2026-04-27.md → "Phase Q").
+ * The variant `KLend2g3cP87ber8p32LuJLuLPzCvXN4KcKr2S8MQek` referenced in
+ * `kamino-execute.ts` is a deploy alias used by the SDK's market loader
+ * but does NOT match the on-chain account owner. For raw account reads
+ * (which we do here) the canonical owner is the `…fffoy8q1…` id below;
+ * this matches what `probe-kamino-reserve.ts` checks for too.
+ */
+const KLEND_MAINNET_PROGRAM_ID_STR =
+  "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
+
+/** Kamino "Main Market" PDA — same constant as `kamino-execute.ts`. */
+const KAMINO_MAIN_MARKET_PDA_STR =
+  "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs9JGqRzvShV4P";
+
+/**
+ * Reserves we know how to value. Each entry is the on-chain reserve PDA
+ * we read raw bytes from + the underlying liquidity mint symbol so we can
+ * price the underlying via Pyth/pinned. The cToken mint is *discovered*
+ * from the reserve's collateral.mint_pubkey field at decode time, so we
+ * don't have to hardcode it here.
+ *
+ * Today this only covers the Kamino main market USDC reserve — that's
+ * the only reserve `executeLend` deposits into (see kamino-execute.ts).
+ * Adding cSOL / cmSOL is just a matter of appending to this list and
+ * making sure the corresponding underlying symbol is priced above.
+ */
+const KAMINO_RESERVES_FOR_NAV: ReadonlyArray<{
+  reserve: string;
+  underlyingSymbol: string;
+}> = [
+  {
+    // Kamino main market USDC reserve.
+    reserve: "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+    underlyingSymbol: "USDC",
+  },
+];
+
+/**
+ * Reserve byte offsets, mirrored verbatim from
+ *   - `packages/beethoven/crates/deposit/kamino/src/lib.rs`
+ *   - `packages/programs/scripts/probes/probe-kamino-reserve.ts`
+ *   - `packages/programs/scripts/chaos-sim/src/lib/rate-surfaces.ts`
+ *
+ * The probe script enforces these against a live fixture; if Kamino ever
+ * migrates the Reserve layout the probe will break first and surface the
+ * drift with a loud failure. Keeping the same offsets in this file means
+ * we update them in one go when that happens.
+ */
+const RESERVE_OFFSET_LIQUIDITY_AVAILABLE = 224;
+const RESERVE_OFFSET_LIQUIDITY_BORROWED_SF = 232;
+const RESERVE_OFFSET_COLLATERAL_MINT_PUBKEY = 1344;
+const RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY = 1376;
+const RESERVE_MIN_LEN = RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY + 8;
+const SF_SCALE_BITS_KLEND = 60n;
+
+interface KaminoReserveSnapshot {
+  reserve: string;
+  /**
+   * cToken (collateral) SPL mint. For Kamino's main-market reserves this
+   * is often the zero pubkey because the main market tracks deposits via
+   * Obligation accounts rather than minting redeemable cTokens — agents
+   * who deposit through `kamino-execute.ts` (VanillaObligation flow) do
+   * not receive any cToken SPL balance. We still record the mint for
+   * the rare reserves that DO mint redeemable cTokens, where the
+   * cToken-balance valuation path applies.
+   */
+  cTokenMint: string;
+  /** Symbol of the underlying liquidity (e.g. "USDC"). */
+  underlyingSymbol: string;
+  /**
+   * Underlying-per-cToken ratio. Mirrors klend's `getCollateralExchangeRate`
+   * inverse:
+   *   underlyingPerCToken = totalUnderlying / mintTotalSupply
+   * Both numerator and denominator are in the same base units (cToken and
+   * underlying share decimals on klend), so the ratio is dimension-less.
+   * Multiply a cToken or obligation `depositedAmount` (in collateral base
+   * units) by this to get the equivalent underlying base units.
+   *
+   * Defaults to 1.0 when the reserve has never minted cTokens (klend's
+   * INITIAL_COLLATERAL_RATIO behaviour) — this is the conservative read
+   * for our chaos-sim agents, who deposit ≪ the reserve's float.
+   */
+  exchangeRate: number;
+  /** Total underlying base units in the reserve (available + borrowed). */
+  totalUnderlyingBaseUnits: bigint;
+  fetchedAt: number;
+}
+
+/**
+ * Per-reserve cache of decoded snapshots, TTL bounded by
+ * `PROTOCOL_POSITION_TTL_MS`. Reserve data changes every slot (interest
+ * accrual ticks `borrowed_amount_sf` upward) but for NAV purposes a 60s
+ * window is fine — interest in 60s is below the noise floor.
+ */
+const kaminoReserveCache: Map<string, KaminoReserveSnapshot> = new Map();
+
+/**
+ * Read a Kamino reserve account on surfpool and decode the fields we need
+ * for cToken valuation. Returns `null` and logs on any failure (account
+ * missing, wrong owner, layout mismatch, division-by-zero) so NAV stays
+ * conservative rather than crashing.
+ */
+async function readKaminoReserveSnapshot(
+  surfpool: Connection,
+  reserveStr: string,
+  underlyingSymbol: string,
+): Promise<KaminoReserveSnapshot | null> {
+  const cached = kaminoReserveCache.get(reserveStr);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PROTOCOL_POSITION_TTL_MS) {
+    return cached;
+  }
+
+  try {
+    const reservePk = new PublicKey(reserveStr);
+    const info = await surfpool.getAccountInfo(reservePk, "confirmed");
+    if (!info) {
+      throw new Error(`reserve ${reserveStr} missing on surfpool`);
+    }
+    if (info.owner.toBase58() !== KLEND_MAINNET_PROGRAM_ID_STR) {
+      throw new Error(
+        `reserve ${reserveStr} owner ${info.owner.toBase58()} != klend mainnet program`,
+      );
+    }
+    if (info.data.length < RESERVE_MIN_LEN) {
+      throw new Error(
+        `reserve ${reserveStr} too small (${info.data.length} < ${RESERVE_MIN_LEN})`,
+      );
+    }
+
+    // available_amount @ 224..232  (u64 LE)
+    const available = info.data.readBigUInt64LE(RESERVE_OFFSET_LIQUIDITY_AVAILABLE);
+
+    // borrowed_amount_sf @ 232..248 (u128 LE, scaled by 2^60)
+    const bLo = info.data.readBigUInt64LE(RESERVE_OFFSET_LIQUIDITY_BORROWED_SF);
+    const bHi = info.data.readBigUInt64LE(RESERVE_OFFSET_LIQUIDITY_BORROWED_SF + 8);
+    const borrowedSf = (bHi << 64n) | bLo;
+    const borrowed = borrowedSf >> SF_SCALE_BITS_KLEND;
+
+    // collateral.mint_pubkey @ 1344..1376
+    const cTokenMint = new PublicKey(
+      info.data.subarray(
+        RESERVE_OFFSET_COLLATERAL_MINT_PUBKEY,
+        RESERVE_OFFSET_COLLATERAL_MINT_PUBKEY + 32,
+      ),
+    ).toBase58();
+
+    // collateral.mint_total_supply @ 1376..1384 (u64 LE, base units)
+    const cTokenSupply = info.data.readBigUInt64LE(
+      RESERVE_OFFSET_COLLATERAL_MINT_TOTAL_SUPPLY,
+    );
+
+    const totalUnderlying = available + borrowed;
+    // BigInt → number ratio. 2^53 headroom is plenty: USDC reserves cap
+    // out around 1e9 USDC = 1e15 base units, well below MAX_SAFE_INTEGER.
+    let exchangeRate: number;
+    if (cTokenSupply === 0n) {
+      // Reserve has never minted cTokens (the common case for Kamino
+      // main-market vanilla obligations) — klend uses 1:1 here too. See
+      // `INITIAL_COLLATERAL_RATIO` in the SDK's utils/constants.
+      exchangeRate = 1;
+    } else {
+      exchangeRate = Number(totalUnderlying) / Number(cTokenSupply);
+      if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+        throw new Error(
+          `non-positive exchange rate ${exchangeRate} (totalUnderlying=${totalUnderlying} cTokenSupply=${cTokenSupply})`,
+        );
+      }
+    }
+
+    const snap: KaminoReserveSnapshot = {
+      reserve: reserveStr,
+      cTokenMint,
+      underlyingSymbol,
+      exchangeRate,
+      totalUnderlyingBaseUnits: totalUnderlying,
+      fetchedAt: now,
+    };
+    kaminoReserveCache.set(reserveStr, snap);
+    return snap;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: kamino reserve ${reserveStr} read failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
+ * Read every reserve we care about and return two indices:
+ *   - `byCToken`: map keyed by cToken SPL mint (base58) for the parsed-
+ *     token-account loop. Skips reserves whose cToken mint is the zero
+ *     pubkey (vanilla-obligation reserves never mint redeemable cTokens
+ *     so there is no SPL balance to match).
+ *   - `byReserve`: map keyed by reserve PDA (base58) for the obligation
+ *     loop, which references reserves directly via depositReserve.
+ *
+ * Called once per NAV computation; the underlying reserve reads are
+ * TTL-cached so subsequent calls within `PROTOCOL_POSITION_TTL_MS`
+ * resolve without an RPC round trip.
+ *
+ * TODO(phaseQ-followup): MarginFi + Solend deposit valuation. Both share
+ * the same accounting pattern (Bank/Reserve + per-user position record)
+ * but with their own layouts; mirror the offset constants from beethoven
+ * into this module when those CPIs land.
+ */
+async function loadKaminoSnapshots(
+  surfpool: Connection,
+): Promise<{
+  byCToken: Map<string, KaminoReserveSnapshot>;
+  byReserve: Map<string, KaminoReserveSnapshot>;
+}> {
+  const byCToken = new Map<string, KaminoReserveSnapshot>();
+  const byReserve = new Map<string, KaminoReserveSnapshot>();
+  await Promise.all(
+    KAMINO_RESERVES_FOR_NAV.map(async (entry) => {
+      const snap = await readKaminoReserveSnapshot(
+        surfpool,
+        entry.reserve,
+        entry.underlyingSymbol,
+      );
+      if (!snap) return;
+      byReserve.set(snap.reserve, snap);
+      // Only index by cToken mint if it's a real (non-zero) mint. Vanilla-
+      // obligation reserves leave collateral.mint_pubkey as the system
+      // program's default address, which would clobber any other reserve
+      // sharing that null index.
+      if (
+        snap.cTokenMint !== "11111111111111111111111111111111" &&
+        snap.cTokenMint !== ""
+      ) {
+        byCToken.set(snap.cTokenMint, snap);
+      }
+    }),
+  );
+  return { byCToken, byReserve };
+}
+
+// ─── Kamino Obligation reader ────────────────────────────────────────────
+
+/**
+ * Anchor account discriminator for klend's `Obligation` (mirrors
+ * `Obligation.discriminator` in the codegen file). Used to pre-validate
+ * any Obligation account read before decoding.
+ */
+const KLEND_OBLIGATION_DISCRIMINATOR = Buffer.from([
+  168, 206, 141, 106, 88, 76, 172, 167,
+]);
+
+/**
+ * Byte offset of the `deposits` array inside the Obligation account.
+ *
+ * Layout (mirrored from klend's `Obligation.layout` codegen):
+ *   0-7    discriminator
+ *   8-15   tag                                 u64
+ *   16-23  lastUpdate.slot                     u64
+ *   24-31  lastUpdate.stale + reserved         u64
+ *   32-63  lendingMarket                       Pubkey
+ *   64-95  owner                               Pubkey
+ *   96-... deposits[8] (each 56B)              array
+ *
+ * Each ObligationCollateral entry is:
+ *   0-31   depositReserve   Pubkey
+ *   32-39  depositedAmount  u64
+ *   40-55  marketValueSf    u128 (scaled fraction)
+ *
+ * MAX_OBLIGATION_DEPOSITS = 8.
+ *
+ * Source of truth — klend codegen at:
+ *   `@kamino-finance/klend-sdk/dist/@codegen/klend/accounts/Obligation.js`
+ */
+const OBLIG_OFFSET_DEPOSITS_ARRAY = 96;
+const OBLIG_DEPOSIT_ENTRY_SIZE = 56;
+const OBLIG_DEPOSITS_COUNT = 8;
+const OBLIG_DEPOSIT_OFFSET_RESERVE = 0;
+const OBLIG_DEPOSIT_OFFSET_AMOUNT = 32;
+
+/**
+ * Derive the Vanilla Obligation PDA for `(market, user)` — mirrors
+ * `VanillaObligation.toPda`:
+ *   seeds = [
+ *     [tag=0],            // 1 byte
+ *     [id=0],             // 1 byte
+ *     user.toBytes(),     // 32 bytes
+ *     market.toBytes(),   // 32 bytes
+ *     default.toBytes(),  // 32 bytes (seed1)
+ *     default.toBytes(),  // 32 bytes (seed2)
+ *   ]
+ *   programId = klend mainnet
+ *
+ * Synchronous because PublicKey.findProgramAddressSync is synchronous —
+ * no need to await even though the SDK's helper is async.
+ */
+function vanillaObligationPda(
+  market: PublicKey,
+  user: PublicKey,
+): PublicKey {
+  const programId = new PublicKey(KLEND_MAINNET_PROGRAM_ID_STR);
+  const [pda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from([0]), // tag
+      Buffer.from([0]), // id
+      user.toBuffer(),
+      market.toBuffer(),
+      PublicKey.default.toBuffer(),
+      PublicKey.default.toBuffer(),
+    ],
+    programId,
+  );
+  return pda;
+}
+
+/**
+ * Decode the agent's vanilla Obligation account on the Kamino main
+ * market, sum every non-zero deposit position priced via the matching
+ * reserve snapshot, and return the USD subtotal.
+ *
+ * Returns 0 when the agent has no Obligation (never deposited) or when
+ * the account exists but has no positions. Per-component fail-soft: any
+ * decode error logs and returns 0.
+ *
+ * Why we go raw bytes here rather than use the SDK's `Obligation.fetch`:
+ *   1. The SDK uses `@solana/kit`'s Rpc<>, requiring a separate RPC
+ *      client construction;
+ *   2. We only need two fields per deposit (reserve + amount) so the
+ *      full borsh decode is overkill;
+ *   3. The byte layout is stable across klend versions (the codegen
+ *      produces identical offsets for the discriminator + fixed-size
+ *      head of the struct).
+ */
+async function computeKaminoObligationUsd(
+  surfpool: Connection,
+  authority: PublicKey,
+  reservesByPda: Map<string, KaminoReserveSnapshot>,
+  prices: Record<string, number>,
+): Promise<number> {
+  if (reservesByPda.size === 0) return 0;
+  try {
+    const market = new PublicKey(KAMINO_MAIN_MARKET_PDA_STR);
+    const obligationPda = vanillaObligationPda(market, authority);
+    const info = await surfpool.getAccountInfo(obligationPda, "confirmed");
+    if (!info) return 0; // No obligation → never deposited.
+    if (info.data.length < OBLIG_OFFSET_DEPOSITS_ARRAY + OBLIG_DEPOSIT_ENTRY_SIZE * OBLIG_DEPOSITS_COUNT) {
+      throw new Error(
+        `obligation account ${obligationPda.toBase58()} too small (${info.data.length}B)`,
+      );
+    }
+    if (
+      !info.data.subarray(0, 8).equals(KLEND_OBLIGATION_DISCRIMINATOR)
+    ) {
+      throw new Error(
+        `obligation account ${obligationPda.toBase58()} discriminator mismatch — layout drift?`,
+      );
+    }
+    if (info.owner.toBase58() !== KLEND_MAINNET_PROGRAM_ID_STR) {
+      throw new Error(
+        `obligation owner ${info.owner.toBase58()} != klend mainnet`,
+      );
+    }
+
+    let depositUsd = 0;
+    for (let i = 0; i < OBLIG_DEPOSITS_COUNT; i++) {
+      const base = OBLIG_OFFSET_DEPOSITS_ARRAY + i * OBLIG_DEPOSIT_ENTRY_SIZE;
+      const reserveBytes = info.data.subarray(
+        base + OBLIG_DEPOSIT_OFFSET_RESERVE,
+        base + OBLIG_DEPOSIT_OFFSET_RESERVE + 32,
+      );
+      const reservePk = new PublicKey(reserveBytes).toBase58();
+      // Empty deposit slot — depositReserve is the zero pubkey.
+      if (reservePk === "11111111111111111111111111111111") continue;
+      const amount = info.data.readBigUInt64LE(base + OBLIG_DEPOSIT_OFFSET_AMOUNT);
+      if (amount === 0n) continue;
+      const snap = reservesByPda.get(reservePk);
+      if (!snap) {
+        // Deposit in a reserve we don't know how to value — skip rather
+        // than crash. Future expansions should add the reserve to
+        // KAMINO_RESERVES_FOR_NAV.
+        console.warn(
+          `[nav-pricing] WARN: kamino obligation has deposit in unknown reserve ${reservePk} — contributing 0`,
+        );
+        continue;
+      }
+      const px =
+        prices[snap.underlyingSymbol] ??
+        STUB_PRICE_USD[snap.underlyingSymbol] ??
+        0;
+      if (px <= 0) continue;
+      // depositedAmount is in collateral base units (cTokens). Convert
+      // to underlying base units via exchangeRate, then to UI by
+      // dividing by 10^underlyingDecimals. Underlying decimals for the
+      // reserves we currently support: USDC=6. Hardcoded — extend the
+      // KAMINO_RESERVES_FOR_NAV entries with a `decimals` field if we
+      // ever add a reserve whose underlying decimals differ.
+      const underlyingDecimals = snap.underlyingSymbol === "SOL" ? 9 : 6;
+      const underlyingBaseUnits = Number(amount) * snap.exchangeRate;
+      const ui = underlyingBaseUnits / Math.pow(10, underlyingDecimals);
+      depositUsd += ui * px;
+    }
+    return depositUsd;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: kamino obligation read for ${authority.toBase58()} failed: ${msg}`,
+    );
+    return 0;
+  }
+}
+
+// ─── Zeta cross-margin equity valuation ──────────────────────────────────
+
+interface ZetaEquitySnapshot {
+  /** USD value of the cross-margin account at read time. */
+  equityUsd: number;
+  /** When this was read — used by the per-agent TTL cache. */
+  fetchedAt: number;
+}
+
+/**
+ * Per-agent cache of Zeta cross-margin equity. Keyed by agent pubkey
+ * base58. Mirrors the cache pattern in `zeta-execute.ts` (one client
+ * per-agent kept for the process lifetime), but here we cache the
+ * computed USD figure rather than the SDK client object — we don't need
+ * to keep a websocket subscription open just for NAV reads.
+ */
+const zetaEquityCache: Map<string, ZetaEquitySnapshot> = new Map();
+
+/**
+ * In-flight CrossClient.load promises so concurrent ticks share the
+ * (slow) initial bind. Distinct from `zeta-execute.ts`'s cache because
+ * the spec restricts changes to this file — we'd ideally share one cache
+ * across the daemon but that requires an export from zeta-execute.ts
+ * which is out of scope here. Worst case: each process has two clients
+ * (one per cache), neither leaks across ticks.
+ */
+type ZetaCrossClient = {
+  account: { balance: { toNumber(): number } } | null;
+  accountAddress: PublicKey;
+  updateState(fetch?: boolean, force?: boolean): Promise<number>;
+  getPositionSize(asset: unknown, decimal?: boolean): number;
+};
+const zetaClientCache: Map<string, ZetaCrossClient> = new Map();
+const zetaClientLoadPromises: Map<string, Promise<ZetaCrossClient | null>> = new Map();
+
+/**
+ * Lazy-load the Zeta SDK and bootstrap the Exchange singleton if it
+ * isn't already loaded. Returns the SDK module so callers can use it
+ * without re-importing. Returns `null` on any load failure (Exchange
+ * already loaded counts as success — the SDK throws on double-load
+ * which we treat as a no-op).
+ *
+ * The first call from this module is heavy (15-30s of mainnet account
+ * cloning on a cold surfpool fork — see comments in zeta-execute.ts).
+ * Subsequent calls hit the SDK's internal `Exchange` singleton.
+ */
+let zetaModuleCache: typeof import("@zetamarkets/sdk") | null = null;
+let zetaExchangeBoot: Promise<boolean> | null = null;
+async function ensureZetaReady(
+  surfpool: Connection,
+): Promise<typeof import("@zetamarkets/sdk") | null> {
+  try {
+    if (!zetaModuleCache) {
+      zetaModuleCache = await import("@zetamarkets/sdk");
+    }
+    const sdk = zetaModuleCache;
+    if (!zetaExchangeBoot) {
+      zetaExchangeBoot = (async () => {
+        try {
+          // If zeta-execute.ts has already booted Exchange in this process
+          // the SDK's internal singleton is good — we just check via a
+          // cheap getter that throws if not loaded.
+          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+          sdk.Exchange.assets;
+          return true;
+        } catch {
+          // Not loaded yet — boot it ourselves with the same minimal
+          // [SOL,BTC,ETH] asset set zeta-execute.ts uses.
+          const loadConfig = sdk.types.defaultLoadExchangeConfig(
+            sdk.Network.MAINNET,
+            surfpool,
+            sdk.utils.defaultCommitment(),
+            0,
+            true,
+            undefined,
+            undefined,
+            undefined,
+            [
+              sdk.constants.Asset.SOL,
+              sdk.constants.Asset.BTC,
+              sdk.constants.Asset.ETH,
+            ],
+          );
+          await sdk.Exchange.load(loadConfig);
+          return true;
+        }
+      })();
+    }
+    const ok = await zetaExchangeBoot;
+    return ok ? sdk : null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: zeta SDK init failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
+ * Minimal anchor-style read-only wallet. CrossClient.load only uses the
+ * wallet for `publicKey` and (when actually placing orders) for
+ * sign/signAll. NAV reads never sign, so the sign methods simply throw —
+ * a defensive guard against accidentally routing a write through the
+ * read-only path.
+ */
+function makeReadOnlyZetaWallet(pk: PublicKey): {
+  publicKey: PublicKey;
+  signTransaction<T>(tx: T): Promise<T>;
+  signAllTransactions<T>(txs: T[]): Promise<T[]>;
+} {
+  return {
+    publicKey: pk,
+    async signTransaction<T>(_tx: T): Promise<T> {
+      throw new Error("nav-pricing readonly wallet: signTransaction called");
+    },
+    async signAllTransactions<T>(_txs: T[]): Promise<T[]> {
+      throw new Error("nav-pricing readonly wallet: signAllTransactions called");
+    },
+  };
+}
+
+/**
+ * Get-or-load a CrossClient for `authority`. Cached for the process
+ * lifetime (subscriptions stay open between ticks). Returns `null` if
+ * the SDK could not be loaded or if loading the per-agent client fails.
+ *
+ * Why we don't share `zeta-execute.ts`'s cache: the spec restricts edits
+ * to this file. Worst-case duplication is one extra subscription per
+ * agent — acceptable for the chaos-sim's three-agent footprint.
+ */
+async function ensureZetaClientForRead(
+  surfpool: Connection,
+  authority: PublicKey,
+): Promise<ZetaCrossClient | null> {
+  const key = authority.toBase58();
+  const cached = zetaClientCache.get(key);
+  if (cached) return cached;
+  const inflight = zetaClientLoadPromises.get(key);
+  if (inflight) return inflight;
+
+  const sdk = await ensureZetaReady(surfpool);
+  if (!sdk) return null;
+
+  const promise = (async (): Promise<ZetaCrossClient | null> => {
+    try {
+      const wallet = makeReadOnlyZetaWallet(authority);
+      // CrossClient.load against the authority's pubkey. If the agent
+      // never opened a perp position the SDK still returns a client
+      // with `account === null` — we surface that as zero equity below.
+      const client = (await sdk.CrossClient.load(
+        surfpool,
+        wallet as unknown as import("@zetamarkets/sdk").types.Wallet,
+        undefined,
+      )) as unknown as ZetaCrossClient;
+      zetaClientCache.set(key, client);
+      return client;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[nav-pricing] WARN: zeta CrossClient.load(${key}) failed: ${msg}`,
+      );
+      return null;
+    }
+  })();
+  zetaClientLoadPromises.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    zetaClientLoadPromises.delete(key);
+  }
+}
+
+/**
+ * Compute the agent's Zeta cross-margin equity in USD. Per spec:
+ *   equity = balance + Σ(positionSize × markPrice)
+ * — this is the "naive" mark-to-market that the brain reasons in. True
+ * accounting equity would also subtract Σ(costOfTrades) but the spec is
+ * explicit and the difference is bounded by realised-vs-unrealised PNL,
+ * which for an active basis trade rounds to zero over short windows.
+ *
+ * Idempotent on a fresh agent: `client.account === null` returns 0. On
+ * any SDK failure, logs and returns 0 so NAV stays conservative.
+ */
+async function computeZetaEquityUsd(
+  surfpool: Connection,
+  authority: PublicKey,
+): Promise<number> {
+  const key = authority.toBase58();
+  const cached = zetaEquityCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PROTOCOL_POSITION_TTL_MS) {
+    return cached.equityUsd;
+  }
+
+  try {
+    const sdk = await ensureZetaReady(surfpool);
+    if (!sdk) {
+      zetaEquityCache.set(key, { equityUsd: 0, fetchedAt: now });
+      return 0;
+    }
+    const client = await ensureZetaClientForRead(surfpool, authority);
+    if (!client) {
+      zetaEquityCache.set(key, { equityUsd: 0, fetchedAt: now });
+      return 0;
+    }
+    // Refresh state — `force=true` bypasses the SDK's debounce so a
+    // perp_open earlier in this same tick is reflected here.
+    await client.updateState(false, true);
+
+    // No CrossMarginAccount yet → agent never deposited. Contributes 0.
+    if (client.account === null) {
+      zetaEquityCache.set(key, { equityUsd: 0, fetchedAt: now });
+      return 0;
+    }
+
+    // Collateral balance is in 6dp USDC base units; treat USDC ≈ $1.
+    const balanceUsd = client.account.balance.toNumber() / 1_000_000;
+
+    // Mark-to-market every position the Exchange knows about. We iterate
+    // `Exchange.assets` rather than walking productLedgers ourselves
+    // because the SDK abstracts the (asset → ledger index) mapping.
+    let positionsUsd = 0;
+    for (const asset of sdk.Exchange.assets) {
+      let mark: number;
+      try {
+        mark = sdk.Exchange.getMarkPrice(asset);
+      } catch {
+        continue;
+      }
+      if (!Number.isFinite(mark) || mark <= 0) continue;
+      let size: number;
+      try {
+        size = client.getPositionSize(asset, true);
+      } catch {
+        continue;
+      }
+      if (!Number.isFinite(size) || size === 0) continue;
+      positionsUsd += size * mark;
+    }
+
+    const equityUsd = balanceUsd + positionsUsd;
+    zetaEquityCache.set(key, { equityUsd, fetchedAt: now });
+    return equityUsd;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: zeta equity read for ${key} failed: ${msg}`,
+    );
+    zetaEquityCache.set(key, { equityUsd: 0, fetchedAt: now });
+    return 0;
+  }
+}
+
+/**
+ * Compute the agent's NAV (in bUSD lamports) by summing every value the
+ * agent can withdraw on the surfpool execution chain:
+ *
+ *   - native SOL balance      → priced via Pyth SOL/USD
+ *   - SPL token balances      → priced via Pyth (SOL/mSOL) or pinned ($1
+ *                               for USDC/bUSD); cTokens (Kamino kUSDC etc.)
+ *                               are valued at `cTokenBalance × reserve
+ *                               exchange rate × underlying price`
+ *   - Zeta cross-margin equity → `balance + Σ(positionSize × markPrice)`
+ *
+ * Each component is fail-soft: any read that throws contributes 0 and
+ * logs a warning, so a flapping RPC or stale fork can never crash the
+ * daemon's NAV-commit loop. The fallback to `STUB_PRICE_USD` covers Pyth
+ * outages.
+ *
+ * On the first successful invocation in a process, emits a one-shot
+ * `[nav-pricing] …` banner enumerating every input source so operators
+ * can sanity-check the breakdown.
+ *
+ * MarginFi + Solend lend balances are NOT yet valued — see TODO inside
+ * `loadKaminoSnapshotsByCToken`. Those will land in a follow-up Phase Q
+ * item once their CPIs are wired.
  */
 export async function computeNavFromSurfpoolBalances(
   surfpool: Connection,
@@ -425,11 +1126,35 @@ export async function computeNavFromSurfpoolBalances(
     prices = { ...STUB_PRICE_USD };
   }
 
+  // Pull the Kamino reserve snapshots in parallel with Pyth — same TTL
+  // window so both are warm by the time we need them. We get back two
+  // indices: by cToken mint (for the SPL-token-account loop) and by
+  // reserve PDA (for the obligation loop).
+  const kamino = await loadKaminoSnapshots(surfpool).catch(
+    (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[nav-pricing] WARN: kamino reserve fan-out failed (${msg}) — kamino contributes 0`,
+      );
+      return {
+        byCToken: new Map<string, KaminoReserveSnapshot>(),
+        byReserve: new Map<string, KaminoReserveSnapshot>(),
+      };
+    },
+  );
+
+  // Track per-component USD subtotals so we can surface them in the
+  // banner. Native SOL + non-cToken SPL balances are lumped under
+  // `baseUsd`; cTokens roll up to `kaminoUsd`; Zeta equity is its own
+  // line.
+  let baseUsd = 0;
+  let kaminoUsd = 0;
+  let zetaUsd = 0;
+
   // SOL balance is always observable.
-  let totalUsd = 0;
   try {
     const lamports = await surfpool.getBalance(authority, "confirmed");
-    totalUsd += (lamports / 1e9) * (prices.SOL ?? STUB_PRICE_USD.SOL);
+    baseUsd += (lamports / 1e9) * (prices.SOL ?? STUB_PRICE_USD.SOL);
   } catch {
     // Surfpool unreachable — fall through and return 0 NAV.
   }
@@ -447,16 +1172,81 @@ export async function computeNavFromSurfpoolBalances(
     for (const { account } of accs.value) {
       const parsed = account.data.parsed?.info;
       if (!parsed) continue;
-      const symbol = parsed.tokenSymbol || parsed.mint;
       const ui = Number(parsed.tokenAmount?.uiAmount ?? 0);
+      if (!Number.isFinite(ui) || ui === 0) continue;
+
+      // 1. Kamino cToken? (mint matches a known reserve's collateral mint)
+      //    For the chaos-sim's main-market USDC reserve this never hits
+      //    because vanilla obligations don't mint redeemable cTokens —
+      //    we still wire it up for any reserve that DOES (e.g. some
+      //    Multiply / Leverage products).
+      const mint = String(parsed.mint ?? "");
+      const reserveSnap = mint ? kamino.byCToken.get(mint) : undefined;
+      if (reserveSnap) {
+        const underlyingPx =
+          prices[reserveSnap.underlyingSymbol] ??
+          STUB_PRICE_USD[reserveSnap.underlyingSymbol] ??
+          0;
+        if (underlyingPx > 0) {
+          // cToken UI balance × exchange rate = underlying UI balance.
+          // (cToken and underlying share decimals, so the ratio is unit-less.)
+          kaminoUsd += ui * reserveSnap.exchangeRate * underlyingPx;
+        }
+        continue;
+      }
+
+      // 2. Otherwise the existing symbol-based path. parsed.tokenSymbol
+      //    only populates for well-known mints; for everything else we
+      //    fall back to mint and miss (contributes 0).
+      const symbol = parsed.tokenSymbol || parsed.mint;
       const px = prices[symbol] ?? STUB_PRICE_USD[symbol] ?? 0;
-      if (px > 0 && Number.isFinite(ui)) totalUsd += ui * px;
+      if (px > 0) baseUsd += ui * px;
     }
   } catch {
     // Token-account enumeration optional — ignore failures.
   }
 
-  // Convert USD → bUSD lamports (6 decimals).
+  // 2b. Kamino main-market vanilla obligations. Agents who deposited
+  //     USDC via `kamino-execute.ts` end up with an Obligation PDA whose
+  //     `deposits[]` array references the reserve directly — no cToken
+  //     SPL balance is minted, so the path above wouldn't catch them.
+  try {
+    const obligationUsd = await computeKaminoObligationUsd(
+      surfpool,
+      authority,
+      kamino.byReserve,
+      prices,
+    );
+    kaminoUsd += obligationUsd;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: kamino obligation outer catch: ${msg}`,
+    );
+  }
+
+  // 3. Zeta cross-margin equity. Idempotent on agents who never opened
+  //    a perp — returns 0. Per-agent CrossClient is cached.
+  try {
+    zetaUsd = await computeZetaEquityUsd(surfpool, authority);
+  } catch (e) {
+    // computeZetaEquityUsd already swallows + logs internally; this
+    // catch is belt-and-braces in case the SDK throws synchronously
+    // from the import chain.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: zeta equity outer catch: ${msg}`);
+    zetaUsd = 0;
+  }
+
+  // Emit the one-shot banner now that we have all three subtotals.
+  emitNavPricingBanner(prices, kaminoUsd, zetaUsd);
+
+  const totalUsd = baseUsd + kaminoUsd + zetaUsd;
+
+  // Convert USD → bUSD lamports (6 decimals). Clamp to non-negative —
+  // negative Zeta equity (a blown-out short, say) could in theory drag
+  // the agent's NAV below zero, but the on-chain `commit_nav` accepts
+  // u64 only.
   const navLamports = BigInt(Math.max(0, Math.round(totalUsd * 10 ** BUSD_DECIMALS)));
   return navLamports;
 }
