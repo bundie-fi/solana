@@ -27,6 +27,11 @@ RUN npm install -g pnpm@10
 # Copy workspace manifests for layer caching
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 
+# pnpm.patchedDependencies in pnpm-workspace.yaml references files in
+# patches/. Without this COPY, `pnpm install --frozen-lockfile` below
+# fails on the first build with a missing-patch-file error.
+COPY patches patches
+
 # Copy only the packages the daemon needs
 COPY packages/common packages/common
 COPY packages/programs packages/programs

@@ -38,9 +38,7 @@ import {
 } from "./lib/agents-source.js";
 import { isSurfpoolReachable } from "./lib/action-executor.js";
 import { ensureSurfpoolUsdc } from "./lib/surfpool-seed.js";
-// zeta-execute is dynamically imported in main() to avoid eagerly loading
-// @zetamarkets/sdk's @bloxroute transitive (which imports a removed
-// rpc-websockets subpath, crashing the daemon at startup).
+import { prewarmZetaExchange } from "./lib/zeta-execute.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CHAOS_DIR = join(__dirname, "..");
@@ -529,17 +527,61 @@ async function main(): Promise<void> {
   if (await isSurfpoolReachable(surfpool)) {
     console.log("[daemon] surfpool reachable — prewarming Zeta Exchange (60s budget)");
     try {
-      const { prewarmZetaExchange } = await import("./lib/zeta-execute.js");
       await prewarmZetaExchange(surfpool, 60_000);
     } catch (e) {
       console.warn(
-        `[daemon] Zeta prewarm import/load failed (continuing without prewarm): ${(e as Error).message}`,
+        `[daemon] Zeta prewarm load failed (continuing without prewarm): ${(e as Error).message}`,
       );
     }
   } else {
     console.warn(
       "[daemon] surfpool unreachable at startup — skipping Zeta prewarm; " +
         "lazy path will retry on first perp action",
+    );
+  }
+
+  // ─── MarginFi + Solend prewarm (parallel) ──────────────────────────────
+  // Mirror Zeta's pull-the-cost-forward pattern for the lend protocols:
+  //   - MarginfiClient.fetch enumerates every bank under the main group
+  //     via getProgramAccounts (~15-30s on a cold surfpool fork).
+  //   - parseLendingMarket + parseReserve hydrate Solend pool/reserve
+  //     state on first call (~5-15s).
+  // Either of those, hit lazily inside the FIRST agent's FIRST lend tick,
+  // can blow the per-tick budget and surface as a confusing "execute_error:
+  // timed out" log line. Run them in parallel via allSettled so a failure
+  // in one doesn't block the other and neither failure kills the daemon.
+  // The lazy bootstrap inside depositMarginfi / withdrawMarginfi /
+  // depositSolend / withdrawSolend is still the safety net on failure.
+  //
+  // Same reachability gate as the Zeta block — skip when surfpool is
+  // unreachable at startup; the lazy path picks up the slack.
+  //
+  // Dynamic imports for both helpers, mirroring the Zeta workaround so the
+  // SDKs (with their @solana/web3.js@1.x.x transitives) don't get pulled
+  // into the daemon's static import graph at startup.
+  if (await isSurfpoolReachable(surfpool)) {
+    console.log(
+      "[daemon] surfpool reachable — prewarming MarginFi + Solend in parallel (60s budget each)",
+    );
+    try {
+      const [{ prewarmMarginfiClient }, { prewarmSolendMarket }] =
+        await Promise.all([
+          import("./lib/marginfi-execute.js"),
+          import("./lib/solend-execute.js"),
+        ]);
+      await Promise.allSettled([
+        prewarmMarginfiClient(surfpool, 60_000),
+        prewarmSolendMarket(surfpool, 60_000),
+      ]);
+    } catch (e) {
+      console.warn(
+        `[daemon] MarginFi/Solend prewarm import failed (continuing without prewarm): ${(e as Error).message}`,
+      );
+    }
+  } else {
+    console.warn(
+      "[daemon] surfpool unreachable at startup — skipping MarginFi/Solend prewarm; " +
+        "lazy path will retry on first lend action",
     );
   }
 

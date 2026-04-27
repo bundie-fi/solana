@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  rpc-websockets@7.11.2:
+    hash: 2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1
+    path: patches/rpc-websockets+7.11.2.patch
+
 importers:
 
   .:
@@ -16552,7 +16557,7 @@ snapshots:
       fast-stable-stringify: 1.0.0
       jayson: 3.7.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       node-fetch: 2.7.0
-      rpc-websockets: 7.11.2
+      rpc-websockets: 7.11.2(patch_hash=2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1)
       superstruct: 0.14.2
     transitivePeerDependencies:
       - bufferutil
@@ -16574,7 +16579,7 @@ snapshots:
       fast-stable-stringify: 1.0.0
       jayson: 4.3.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       node-fetch: 2.7.0
-      rpc-websockets: 7.11.2
+      rpc-websockets: 7.11.2(patch_hash=2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1)
       superstruct: 0.14.2
     transitivePeerDependencies:
       - bufferutil
@@ -16596,7 +16601,7 @@ snapshots:
       fast-stable-stringify: 1.0.0
       jayson: 4.3.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       node-fetch: 2.7.0
-      rpc-websockets: 7.11.2
+      rpc-websockets: 7.11.2(patch_hash=2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1)
       superstruct: 0.14.2
     transitivePeerDependencies:
       - bufferutil
@@ -23268,7 +23273,7 @@ snapshots:
       bufferutil: 4.1.0
       utf-8-validate: 5.0.10
 
-  rpc-websockets@7.11.2:
+  rpc-websockets@7.11.2(patch_hash=2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1):
     dependencies:
       eventemitter3: 4.0.7
       uuid: 8.3.2
@@ -24750,7 +24755,7 @@ snapshots:
       fast-stable-stringify: 1.0.0
       jayson: 4.3.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       node-fetch: 2.7.0
-      rpc-websockets: 7.11.2
+      rpc-websockets: 7.11.2(patch_hash=2c0c24f5543dc9da11c10e34b7586f36529e6df63f4e86e64fc08c52ba5c6bf1)
       superstruct: 0.14.2
       zstd-codec: 0.1.4
     transitivePeerDependencies:

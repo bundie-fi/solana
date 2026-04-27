@@ -158,6 +158,70 @@ async function ensureMarginfiClient(
 }
 
 /**
+ * Eagerly load the MarginFi v2 client + bank cache so the first agent's
+ * first lend action isn't blocked by `MarginfiClient.fetch`'s
+ * getProgramAccounts enumeration of every bank under the main group
+ * (15-30s on a cold surfpool fork).
+ *
+ * Mirrors `prewarmZetaExchange` in zeta-execute.ts:
+ *   - Idempotent: if `mfiClient` is already populated, returns true
+ *     immediately. The cached client itself is the dedup signal — no
+ *     parallel `marginfiPrewarmed` flag.
+ *   - Fork-reset-safe: a clean `mfiClient = null` (e.g. after a fresh
+ *     module load) makes prewarm retry the load. The lazy bootstrap in
+ *     `depositMarginfi` / `withdrawMarginfi` is the safety net — if
+ *     prewarm fails (timeout, transient RPC error, …) the lazy path
+ *     retries on the first lend action.
+ *   - Never throws: returns false on failure so daemon startup proceeds.
+ *
+ * Bootstrap keypair: a fresh ephemeral Keypair is fine here — the
+ * client's wallet is a no-op for `MarginfiClient.fetch` itself
+ * (which only uses the connection + program-id) and per-agent calls
+ * rebind the wallet via `(client as any).wallet = …` inside
+ * `ensureMarginfiAccount`. Using an ephemeral keypair avoids requiring
+ * the daemon to surface an agent keypair at prewarm time.
+ */
+export async function prewarmMarginfiClient(
+  surfpool: Connection,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  if (mfiClient) {
+    console.log("[marginfi-prewarm] client already cached — no-op");
+    return true;
+  }
+  const start = Date.now();
+  // Ephemeral bootstrap keypair — see jsdoc above.
+  const bootstrapKp = Keypair.generate();
+  try {
+    await Promise.race([
+      ensureMarginfiClient(surfpool, bootstrapKp),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `prewarmMarginfiClient timed out after ${timeoutMs}ms`,
+              ),
+            ),
+          timeoutMs,
+        ),
+      ),
+    ]);
+    const elapsedMs = Date.now() - start;
+    console.log(
+      `[marginfi-prewarm] MarginfiClient.fetch complete in ${elapsedMs}ms (lazy path now no-op)`,
+    );
+    return true;
+  } catch (e) {
+    const elapsedMs = Date.now() - start;
+    console.warn(
+      `[marginfi-prewarm] failed after ${elapsedMs}ms: ${(e as Error).message} — lazy load will retry on first lend action`,
+    );
+    return false;
+  }
+}
+
+/**
  * Resolve the agent's MarginfiAccountWrapper, optionally creating one if
  * `createIfMissing` is true. The cache is keyed on the agent's base58
  * pubkey so concurrent ticks for the same agent reuse the wrapper.

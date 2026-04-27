@@ -1,0 +1,33 @@
+diff --git a/dist/lib/client/websocket.browser.js b/dist/lib/client/websocket.browser.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..b2522022014df90e0a225271d6acac55d31433c5
+--- /dev/null
++++ b/dist/lib/client/websocket.browser.js
+@@ -0,0 +1,3 @@
++// Shim — see ../client.js for context. Some web3.js variants reference
++// rpc-websockets/dist/lib/client/websocket.browser inside .native.js bundles.
++module.exports = require("./websocket.browser.cjs");
+diff --git a/dist/lib/client/websocket.js b/dist/lib/client/websocket.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..3cde36de9b58849958e4ccb775f70982cf4da2e3
+--- /dev/null
++++ b/dist/lib/client/websocket.js
+@@ -0,0 +1,4 @@
++// Shim — see ../client.js for context. Older @solana/web3.js variants
++// `require('rpc-websockets/dist/lib/client/websocket')`. 7.11.2 ships only
++// `.cjs`, so we shim a `.js` that re-exports from `.cjs`.
++module.exports = require("./websocket.cjs");
+diff --git a/dist/lib/client.js b/dist/lib/client.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..6762607b1a8a9081208a30ca0f73179ca9299938
+--- /dev/null
++++ b/dist/lib/client.js
+@@ -0,0 +1,8 @@
++// Shim to bridge older @solana/web3.js variants (1.73 / 1.77 / 1.87) which
++// `require('rpc-websockets/dist/lib/client')`. rpc-websockets@7.11.2 ships
++// only a `.cjs` file at this path, and Node's CJS resolver does not auto-try
++// the `.cjs` extension for bare requires. This shim re-exports from `.cjs`.
++//
++// Patched via patches/rpc-websockets+7.11.2.patch — referenced from
++// pnpm.patchedDependencies in the workspace root package.json.
++module.exports = require("./client.cjs");

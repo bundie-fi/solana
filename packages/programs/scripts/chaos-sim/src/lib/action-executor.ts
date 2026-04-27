@@ -29,9 +29,7 @@ import {
 
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
-// zeta-execute is dynamically imported in executePerp to avoid eagerly loading
-// @zetamarkets/sdk and its @bloxroute transitive (which imports an old
-// rpc-websockets subpath). Eager load would crash the daemon at startup.
+import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
 import { depositSolend, withdrawSolend } from "./solend-execute.js";
@@ -451,7 +449,6 @@ async function executePerp(
       throw new Error("perp type mismatch (expected perp_open)");
     }
     const { market, side, notionalUsd } = args.action.args;
-    const { openZetaPerp } = await import("./zeta-execute.js");
     const result = await openZetaPerp(
       args.surfpool, args.kp, market, side, notionalUsd,
     );
@@ -481,7 +478,6 @@ async function executePerp(
     throw new Error("perp type mismatch (expected perp_close)");
   }
   const { market } = args.action.args;
-  const { closeZetaPerp } = await import("./zeta-execute.js");
   const result = await closeZetaPerp(args.surfpool, args.kp, market);
 
   if (result.flat) {

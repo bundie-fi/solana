@@ -231,6 +231,62 @@ async function ensurePoolReserve(
 }
 
 /**
+ * Eagerly populate the pool/reserve cache for the Solend main-pool USDC
+ * reserve so the first agent's first lend action isn't blocked by the
+ * 5-15s `parseLendingMarket` + `parseReserve` round-trip + parse on the
+ * lazy path.
+ *
+ * Mirrors `prewarmZetaExchange` / `prewarmMarginfiClient`:
+ *   - Idempotent: if the cache for the default `(pool, reserve)` key is
+ *     already populated, returns true immediately. The existing
+ *     `poolReserveCache` Map is the dedup signal — no parallel
+ *     `solendPrewarmed` flag.
+ *   - Fork-reset-safe: a clean cache (fresh module load) makes prewarm
+ *     re-fetch. The lazy bootstrap in `depositSolend` / `withdrawSolend`
+ *     is the safety net — on prewarm failure the lazy path retries on
+ *     the first lend action.
+ *   - Never throws: returns false on failure so daemon startup proceeds.
+ */
+export async function prewarmSolendMarket(
+  surfpool: Connection,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  const cacheKey = `${SOLEND_MAIN_POOL}:${SOLEND_MAIN_USDC_RESERVE}`;
+  if (poolReserveCache.has(cacheKey)) {
+    console.log("[solend-prewarm] pool/reserve already cached — no-op");
+    return true;
+  }
+  const start = Date.now();
+  try {
+    await Promise.race([
+      ensurePoolReserve(surfpool, SOLEND_MAIN_POOL, SOLEND_MAIN_USDC_RESERVE),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `prewarmSolendMarket timed out after ${timeoutMs}ms`,
+              ),
+            ),
+          timeoutMs,
+        ),
+      ),
+    ]);
+    const elapsedMs = Date.now() - start;
+    console.log(
+      `[solend-prewarm] pool/reserve hydrate complete in ${elapsedMs}ms (lazy path now no-op)`,
+    );
+    return true;
+  } catch (e) {
+    const elapsedMs = Date.now() - start;
+    console.warn(
+      `[solend-prewarm] failed after ${elapsedMs}ms: ${(e as Error).message} — lazy load will retry on first lend action`,
+    );
+    return false;
+  }
+}
+
+/**
  * Sign + submit a Solend SDK VersionedTransaction. Solend's
  * `getTransactions` returns pre/lending/post versioned txns with the
  * blockhash already attached; we only need to sign with the agent

@@ -1,2 +1,5 @@
 packages:
   - "packages/*"
+
+patchedDependencies:
+  rpc-websockets@7.11.2: patches/rpc-websockets+7.11.2.patch
