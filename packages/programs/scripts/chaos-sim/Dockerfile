@@ -31,7 +31,6 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/common packages/common
 COPY packages/programs packages/programs
 COPY packages/zerion-agent packages/zerion-agent
-COPY agents agents
 
 # Install all workspace dependencies (devDeps included for tsx)
 RUN pnpm install --frozen-lockfile

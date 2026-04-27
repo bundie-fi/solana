@@ -1,10 +1,15 @@
 #!/bin/bash
 # Bundie agent daemon entrypoint.
-# 1. Decode keypairs from base64 env vars
-# 2. Run all three agent daemons in parallel, staggered by 30s each
 #
-# Surfpool is not included in this image — agents fall back to devnet
-# automatically when SURFPOOL_RPC_URL is not set or unreachable.
+# 1. Decode each agent's vault keypair from base64 env vars into the keys/ dir
+#    where run-agent-daemon's resolveSupabaseAgent looks for `<short>-vault.json`.
+# 2. Bridge MAINNET_RPC_URL → SURFPOOL_RPC_URL if no surfpool fork is wired up.
+# 3. Run a single supervisor-mode daemon that polls the Postgres `agents` table
+#    every CHAOS_SIM_POLL_INTERVAL_MS and ticks every active agent in parallel.
+#
+# Brain prompts and policies live in the DB — there is no on-disk agents/
+# folder. To add or edit agents, write to the agents table (the create-agent
+# wizard does this automatically).
 set -e
 
 KEYS_DIR=/app/packages/programs/scripts/chaos-sim/keys
@@ -18,7 +23,7 @@ for agent in alice bob charlie; do
     echo "$val" | base64 -d > "$KEYS_DIR/${agent}-vault.json"
     echo "  ok: ${agent}-vault.json"
   else
-    echo "  WARN: $varname not set -- ${agent} will noop"
+    echo "  WARN: $varname not set -- ${agent} will be skipped by the supervisor"
   fi
 done
 
@@ -33,14 +38,5 @@ else
 fi
 
 echo ""
-echo "=== Launching agent daemons (devnet) ==="
-# Alice: 5 min interval, Bob: 8 min, Charlie: 10 min
-# Staggered 30s so RPC calls don't overlap at startup
-pnpm --filter @bundie/programs chaos:agent-daemon --agent alice.bundie.sol   --interval 300000 &
-sleep 30
-pnpm --filter @bundie/programs chaos:agent-daemon --agent bob.bundie.sol     --interval 480000 &
-sleep 30
-pnpm --filter @bundie/programs chaos:agent-daemon --agent charlie.bundie.sol --interval 600000 &
-
-# Keep container alive — wait for any daemon to exit (they shouldn't)
-wait
+echo "=== Launching supervisor (Postgres-poll mode) ==="
+exec pnpm --filter @bundie/programs chaos:agent-daemon
