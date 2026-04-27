@@ -68,14 +68,20 @@ export async function stakeMarinade(
     await marinade.deposit(new BN(amountLamports));
 
   transaction.feePayer = vault.publicKey;
+  // Use `processed` for the blockhash on surfpool — `confirmed` lags behind
+  // by several slots and the default 150-slot validity window collapses to
+  // ~30s of headroom, which often expires before sendAndConfirmTransaction
+  // finishes its slow polling loop. Bumping lastValidBlockHeight by 300
+  // extra slots (~2min) gives us margin without going stale enough that
+  // the network rejects the blockhash.
   const { blockhash, lastValidBlockHeight } =
-    await conn.getLatestBlockhash("confirmed");
+    await conn.getLatestBlockhash("processed");
   transaction.recentBlockhash = blockhash;
-  transaction.lastValidBlockHeight = lastValidBlockHeight;
+  transaction.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   const txSig = await sendAndConfirmTransaction(conn, transaction, [vault], {
     commitment: "confirmed",
-    skipPreflight: false,
+    skipPreflight: true,
   });
 
   return {
@@ -112,14 +118,15 @@ export async function unstakeMarinade(
   const { transaction } = await marinade.liquidUnstake(new BN(amountLamports));
 
   transaction.feePayer = vault.publicKey;
+  // Same surfpool-specific timing fix as stakeMarinade — see comment there.
   const { blockhash, lastValidBlockHeight } =
-    await conn.getLatestBlockhash("confirmed");
+    await conn.getLatestBlockhash("processed");
   transaction.recentBlockhash = blockhash;
-  transaction.lastValidBlockHeight = lastValidBlockHeight;
+  transaction.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   const txSig = await sendAndConfirmTransaction(conn, transaction, [vault], {
     commitment: "confirmed",
-    skipPreflight: false,
+    skipPreflight: true,
   });
 
   return {
