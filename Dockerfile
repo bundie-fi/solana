@@ -50,26 +50,27 @@ ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL \
     NEXT_PUBLIC_PRIVY_CLIENT_ID=$NEXT_PUBLIC_PRIVY_CLIENT_ID \
     NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID=$NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID
 
-# Belt-and-suspenders: also write to .env.production so Next reads them even
-# if the ENV directive somehow didn't make it into the build context.
-RUN cat > /app/packages/web/.env.production <<EOF
-NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
-NEXT_PUBLIC_BUSD_MINT=${NEXT_PUBLIC_BUSD_MINT}
-NEXT_PUBLIC_PREDICTION_PROGRAM_ID=${NEXT_PUBLIC_PREDICTION_PROGRAM_ID}
-NEXT_PUBLIC_RPC_URL=${NEXT_PUBLIC_RPC_URL}
-NEXT_PUBLIC_SOLANA_RPC=${NEXT_PUBLIC_SOLANA_RPC}
-NEXT_PUBLIC_SOLANA_RPC_ENDPOINT=${NEXT_PUBLIC_SOLANA_RPC_ENDPOINT}
-NEXT_PUBLIC_SANCTUM_RPC_URL=${NEXT_PUBLIC_SANCTUM_RPC_URL}
-NEXT_PUBLIC_FEE_PAYER_ADDRESS=${NEXT_PUBLIC_FEE_PAYER_ADDRESS}
-NEXT_PUBLIC_PRIVY_APP_ID=${NEXT_PUBLIC_PRIVY_APP_ID}
-NEXT_PUBLIC_PRIVY_CLIENT_ID=${NEXT_PUBLIC_PRIVY_CLIENT_ID}
-NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID=${NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID}
-EOF
-RUN cat /app/packages/web/.env.production
+# Belt-and-suspenders: also write the env vars into .env.production so Next
+# reads them even if the ENV directive above didn't propagate. Single RUN,
+# no heredoc, fail-loud if the file isn't readable afterward.
+RUN set -e; \
+    mkdir -p /app/packages/web; \
+    { \
+      echo "NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL"; \
+      echo "NEXT_PUBLIC_BUSD_MINT=$NEXT_PUBLIC_BUSD_MINT"; \
+      echo "NEXT_PUBLIC_PREDICTION_PROGRAM_ID=$NEXT_PUBLIC_PREDICTION_PROGRAM_ID"; \
+      echo "NEXT_PUBLIC_RPC_URL=$NEXT_PUBLIC_RPC_URL"; \
+      echo "NEXT_PUBLIC_SOLANA_RPC=$NEXT_PUBLIC_SOLANA_RPC"; \
+      echo "NEXT_PUBLIC_SOLANA_RPC_ENDPOINT=$NEXT_PUBLIC_SOLANA_RPC_ENDPOINT"; \
+      echo "NEXT_PUBLIC_SANCTUM_RPC_URL=$NEXT_PUBLIC_SANCTUM_RPC_URL"; \
+      echo "NEXT_PUBLIC_FEE_PAYER_ADDRESS=$NEXT_PUBLIC_FEE_PAYER_ADDRESS"; \
+      echo "NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID"; \
+      echo "NEXT_PUBLIC_PRIVY_CLIENT_ID=$NEXT_PUBLIC_PRIVY_CLIENT_ID"; \
+      echo "NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID=$NEXT_PUBLIC_PRIVY_KEY_QUORUM_ID"; \
+    } > /app/packages/web/.env.production; \
+    cat /app/packages/web/.env.production
 
 ENV NODE_ENV=production
-# Cache-bust: ensure rebuild even if layers look identical.
-RUN echo "build-stamp $(date +%s)"
 RUN pnpm --filter @bundie/web build
 
 FROM base AS runner
