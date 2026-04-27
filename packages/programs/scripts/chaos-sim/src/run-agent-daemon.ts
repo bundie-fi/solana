@@ -339,6 +339,18 @@ async function runTickForAgent(
   target: TickTarget,
   ctx: TickContext,
 ): Promise<void> {
+  // Per-tick surfpool funding check. Cheap when balance ≥ 1 SOL (single
+  // getBalance call → early return). When the surfpool fork resets mid-loop
+  // — e.g. on a Railway redeploy of bundie-surfpool — the agent's keypair
+  // drops to 0 SOL; this call self-heals on the very next tick instead of
+  // waiting for a daemon container restart. ensureSurfpoolFunded swallows
+  // its own errors so a transient RPC blip can't kill the tick.
+  await ensureSurfpoolFunded(ctx.surfpool, target.kp).catch((e) => {
+    console.warn(
+      `[${target.sns}] ensureSurfpoolFunded skipped: ${(e as Error).message}`,
+    );
+  });
+
   await runTick({
     agentName: target.sns,
     walletName: target.walletName,
@@ -477,14 +489,9 @@ async function singleAgentLoop(
   console.log(`mode:         ${cli.once ? "one-shot (--once)" : `loop every ${cli.intervalMs}ms`}`);
   console.log("");
 
-  // Surfpool airdrop: every Railway redeploy boots a fresh fork with no
-  // historical state, so the agent keypair starts at 0 SOL on surfpool. Top
-  // it up to 5 SOL so strategy txs (Marinade stake, Kamino deposit, etc.)
-  // have fee + collateral runway. Skipped silently if surfpool is
-  // unreachable — the tick loop will fall through to noop on its own.
-  await ensureSurfpoolFunded(ctx.surfpool, target.kp).catch((e) => {
-    console.warn(`[daemon] ensureSurfpoolFunded skipped: ${(e as Error).message}`);
-  });
+  // Surfpool funding now happens per-tick inside runTickForAgent (so the
+  // agent self-heals after a fork reset). The first tick will run the check
+  // immediately, which subsumes the previous startup-only airdrop.
 
   logActivity({
     agent: target.sns,
