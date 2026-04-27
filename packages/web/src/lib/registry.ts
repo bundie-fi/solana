@@ -30,6 +30,7 @@ const BACKEND_URL =
 export interface RegisteredAgent {
   sns: string;
   vault_pda: string;
+  agent_pubkey: string;
   emoji: string | null;
   display_name: string;
 }
