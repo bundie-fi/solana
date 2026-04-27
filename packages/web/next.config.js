@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  // `output: "standalone"` removed — recent Next.js exits immediately after
+  // "Ready" when standalone is set but `next start` is the entry, leaving
+  // Railway to mark the deploy FAILED. Re-enable only if the Dockerfile
+  // also switches to `node .next/standalone/server.js` (and copies
+  // .next/static + public/ into the standalone tree).
   images: {
     unoptimized: true,
   },
