@@ -167,9 +167,16 @@ export async function commitNavToDevnet(opts: {
 // ─── NAV computation (initial implementation) ─────────────────────────────
 
 /**
- * Stub mainnet-style prices used to convert surfpool token balances into
- * a single bUSD-denominated NAV figure. TODO: replace with live Pyth /
- * SwitchboardOn-Demand prices once the pull-oracle wiring lands (Phase G+).
+ * Last-resort fallback prices, used **only** when the surfpool Pyth read
+ * fails (e.g. the fork was redeployed and the oracle account is empty, or
+ * the RPC is flapping). Live prices come from `readPythPriceUsd` against
+ * the mainnet feed accounts forwarded into the surfpool fork — see the
+ * `PYTH_PRICE_ACCOUNTS` map below.
+ *
+ * Keep these somewhat reasonable so that a Pyth outage does not freeze
+ * `commit_nav` (which would block the entire daemon's prediction-market
+ * loop). The daemon logs a warning each time the fallback is hit so the
+ * operator can spot prolonged degradation.
  */
 const STUB_PRICE_USD: Record<string, number> = {
   bUSD: 1,
@@ -182,23 +189,247 @@ const STUB_PRICE_USD: Record<string, number> = {
 /** Lamports-per-bUSD scaling: bUSD has 6 decimals so 1 bUSD = 1e6. */
 const BUSD_DECIMALS = 6;
 
+// ─── Pyth pull-oracle reader ──────────────────────────────────────────────
+
+/**
+ * Mainnet Pyth price-feed account pubkeys for the symbols the chaos-sim
+ * NAV pricer cares about. Surfpool is a mainnet fork, so these accounts
+ * exist on the fork verbatim — no remapping needed.
+ *
+ * - SOL/USD: legacy Pyth aggregate account.
+ * - mSOL/USD: legacy Pyth aggregate account.
+ *
+ * USDC and bUSD are intentionally pinned to $1 in the in-process cache
+ * below: USDC has a Pyth feed but a depeg would be a strictly upside
+ * surprise for the chaos-sim's NAV (and the precision noise of reading
+ * the oracle outweighs the realism gain), and bUSD is our internal
+ * stablecoin that has no oracle at all.
+ */
+const PYTH_PRICE_ACCOUNTS: Partial<Record<string, string>> = {
+  SOL: "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG",
+  mSOL: "E4v1BBgoso9s64TQvmyownAVJbhbEPGyzA3qn4n46qj9",
+  // USDC and bUSD are pinned via FORCED_PRICES_USD below.
+};
+
+/** Symbols whose price is hard-pinned and never read from Pyth. */
+const FORCED_PRICES_USD: Partial<Record<string, number>> = {
+  USDC: 1,
+  bUSD: 1,
+};
+
+/** Pyth Solana Receiver program (used by V2 priceUpdateV2 accounts). */
+const PYTH_RECEIVER_PROGRAM_ID = new PublicKey(
+  "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ",
+);
+
+/** Magic constant prefixing legacy Pyth price accounts. */
+const PYTH_LEGACY_MAGIC = 0xa1b2c3d4;
+
+/** How long (ms) a Pyth price reading is considered fresh enough to reuse. */
+const PRICE_CACHE_TTL_MS = 60_000;
+
+/** Reject readings whose `conf / |price|` exceeds this fraction. */
+const MAX_CONFIDENCE_FRACTION = 0.05;
+
+interface CachedPrice {
+  priceUsd: number;
+  fetchedAt: number;
+  source: "pyth-legacy" | "pyth-v2" | "pinned" | "fallback";
+}
+
+const priceCache: Map<string, CachedPrice> = new Map();
+let priceLogEmitted = false;
+
+/**
+ * Decode a Pyth price account (legacy or V2 Solana Receiver) into a
+ * `{ price, conf, expo }` triple. Throws on unrecognised layouts.
+ *
+ * Legacy Pyth aggregate price layout (only the fields we need):
+ *   offset 0   : u32 LE  magic (0xa1b2c3d4)
+ *   offset 20  : i32 LE  exponent
+ *   offset 208 : i64 LE  agg.price
+ *   offset 216 : u64 LE  agg.conf
+ *
+ * Pyth V2 priceUpdateV2 layout: see comments on `parsePyth` in
+ * scripts/mango-probe-oracles.mjs — the trailing 92 bytes hold the price
+ * fields at fixed negative offsets.
+ */
+function decodePythAccount(
+  data: Buffer,
+  owner: PublicKey,
+): { price: number; conf: number; expo: number } {
+  // V2 priceUpdateV2 (owned by the Pyth Solana Receiver program)
+  if (owner.equals(PYTH_RECEIVER_PROGRAM_ID)) {
+    if (data.length < 8 + 32 + 1 + 84 + 8) {
+      throw new Error(`pyth-v2: account too short (${data.length} bytes)`);
+    }
+    const expo = data.readInt32LE(data.length - 44);
+    const priceRaw = data.readBigInt64LE(data.length - 60);
+    const confRaw = data.readBigUInt64LE(data.length - 52);
+    const scale = Math.pow(10, expo);
+    return {
+      price: Number(priceRaw) * scale,
+      conf: Number(confRaw) * scale,
+      expo,
+    };
+  }
+  // Legacy Pyth aggregate
+  if (data.length >= 240 && data.readUInt32LE(0) === PYTH_LEGACY_MAGIC) {
+    const expo = data.readInt32LE(20);
+    const priceRaw = data.readBigInt64LE(208);
+    const confRaw = data.readBigUInt64LE(216);
+    const scale = Math.pow(10, expo);
+    return {
+      price: Number(priceRaw) * scale,
+      conf: Number(confRaw) * scale,
+      expo,
+    };
+  }
+  throw new Error(
+    `unrecognised pyth account (owner=${owner.toBase58()}, len=${data.length})`,
+  );
+}
+
+/**
+ * Fetch a USD price for `symbol` from the Pyth feed account on surfpool,
+ * caching successful reads for `PRICE_CACHE_TTL_MS`. On any failure
+ * (account missing, decode error, confidence too wide), logs a warning
+ * and returns the `STUB_PRICE_USD` fallback so the daemon keeps moving.
+ *
+ * The cache is keyed by symbol so all callers share a single price per
+ * tick window; this keeps the digest deterministic across the multiple
+ * NAV computations performed within one second.
+ */
+async function readPythPriceUsd(
+  surfpool: Connection,
+  symbol: string,
+): Promise<number> {
+  const now = Date.now();
+
+  // Pinned symbols (bUSD, USDC) — never hit the network.
+  const forced = FORCED_PRICES_USD[symbol];
+  if (forced !== undefined) {
+    const cached = priceCache.get(symbol);
+    if (!cached) {
+      priceCache.set(symbol, {
+        priceUsd: forced,
+        fetchedAt: now,
+        source: "pinned",
+      });
+    }
+    return forced;
+  }
+
+  const cached = priceCache.get(symbol);
+  if (cached && now - cached.fetchedAt < PRICE_CACHE_TTL_MS) {
+    return cached.priceUsd;
+  }
+
+  const feedAddr = PYTH_PRICE_ACCOUNTS[symbol];
+  const fallback = STUB_PRICE_USD[symbol] ?? 0;
+  if (!feedAddr) {
+    // No oracle wired up for this symbol — use the static fallback.
+    priceCache.set(symbol, {
+      priceUsd: fallback,
+      fetchedAt: now,
+      source: "fallback",
+    });
+    return fallback;
+  }
+
+  try {
+    const info = await surfpool.getAccountInfo(new PublicKey(feedAddr), "confirmed");
+    if (!info) {
+      throw new Error(`feed account ${feedAddr} missing on surfpool`);
+    }
+    const { price, conf } = decodePythAccount(info.data, info.owner);
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error(`non-positive price: ${price}`);
+    }
+    const confFraction = Math.abs(conf / price);
+    if (confFraction > MAX_CONFIDENCE_FRACTION) {
+      throw new Error(
+        `confidence too wide: conf/price=${(confFraction * 100).toFixed(2)}% (>${(MAX_CONFIDENCE_FRACTION * 100).toFixed(0)}%)`,
+      );
+    }
+    const source: CachedPrice["source"] = info.owner.equals(PYTH_RECEIVER_PROGRAM_ID)
+      ? "pyth-v2"
+      : "pyth-legacy";
+    priceCache.set(symbol, { priceUsd: price, fetchedAt: now, source });
+    return price;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: ${symbol} Pyth read failed (${msg}) — using fallback $${fallback}`,
+    );
+    priceCache.set(symbol, {
+      priceUsd: fallback,
+      fetchedAt: now,
+      source: "fallback",
+    });
+    return fallback;
+  }
+}
+
+/**
+ * Resolve every price the NAV computation needs. Emits a one-time banner
+ * the first time it returns a complete price set so the daemon's stdout
+ * shows where each NAV figure is coming from.
+ */
+async function loadPricesForNav(
+  surfpool: Connection,
+): Promise<Record<string, number>> {
+  const symbols = ["SOL", "mSOL", "USDC", "bUSD"];
+  const entries = await Promise.all(
+    symbols.map(async (s) => [s, await readPythPriceUsd(surfpool, s)] as const),
+  );
+  const prices = Object.fromEntries(entries);
+
+  if (!priceLogEmitted) {
+    priceLogEmitted = true;
+    const fmt = (n: number) =>
+      `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+    const sources = symbols
+      .map((s) => `${s}=${fmt(prices[s])}(${priceCache.get(s)?.source ?? "?"})`)
+      .join(" ");
+    console.log(`[nav-pricing] ${sources}`);
+  }
+
+  return prices;
+}
+
 /**
  * Compute the agent's NAV (in bUSD lamports) by summing token balances on
- * the surfpool execution chain priced at `STUB_PRICE_USD`. Falls back to
- * SOL-only valuation if no SPL accounts are observed yet.
+ * the surfpool execution chain priced at live Pyth feeds. Falls back to
+ * `STUB_PRICE_USD` for any symbol whose Pyth read fails so the daemon
+ * keeps producing commits while the operator investigates.
  *
- * This is an MVP stand-in. Phase G+ will replace it with on-chain Pyth
- * lookups so the NAV digest is independently auditable.
+ * Note: this only prices the SOL + bUSD/USDC + LST graph. Kamino kToken
+ * holdings and Zeta cross-margin equity are added by parallel work in
+ * Phase Q (see HANDOFF-2026-04-27.md → "Phase Q").
  */
 export async function computeNavFromSurfpoolBalances(
   surfpool: Connection,
   authority: PublicKey,
 ): Promise<bigint> {
+  // Resolve prices once per invocation; the cache will keep them stable
+  // across the surrounding tick window (~60s).
+  let prices: Record<string, number>;
+  try {
+    prices = await loadPricesForNav(surfpool);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: price load failed (${msg}) — using STUB_PRICE_USD`,
+    );
+    prices = { ...STUB_PRICE_USD };
+  }
+
   // SOL balance is always observable.
   let totalUsd = 0;
   try {
     const lamports = await surfpool.getBalance(authority, "confirmed");
-    totalUsd += (lamports / 1e9) * STUB_PRICE_USD.SOL;
+    totalUsd += (lamports / 1e9) * (prices.SOL ?? STUB_PRICE_USD.SOL);
   } catch {
     // Surfpool unreachable — fall through and return 0 NAV.
   }
@@ -218,7 +449,7 @@ export async function computeNavFromSurfpoolBalances(
       if (!parsed) continue;
       const symbol = parsed.tokenSymbol || parsed.mint;
       const ui = Number(parsed.tokenAmount?.uiAmount ?? 0);
-      const px = STUB_PRICE_USD[symbol] ?? 0;
+      const px = prices[symbol] ?? STUB_PRICE_USD[symbol] ?? 0;
       if (px > 0 && Number.isFinite(ui)) totalUsd += ui * px;
     }
   } catch {
