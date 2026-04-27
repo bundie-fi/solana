@@ -60,12 +60,20 @@ export async function fetchRegisteredAgents(
 }
 
 /**
- * Fetch the set of vault pubkeys for active registered agents. Used as
- * the `allowedCreators` filter for `fetchAllMarkets` / `fetchMarketsByCreator`.
+ * Fetch the set of identifying pubkeys for active registered agents.
+ * Includes BOTH `vault_pda` (the BundieVault PDA — used as Market.created_by)
+ * AND `agent_pubkey` (the authority — what the SNS resolver returns).
+ * Used as the `allowedCreators` filter on `fetchAllMarkets` and as the gate
+ * for `/agent/[sns]` profile pages.
  */
 export async function fetchRegisteredVaultSet(
   init?: RequestInit,
 ): Promise<Set<string>> {
   const agents = await fetchRegisteredAgents(init);
-  return new Set(agents.map((a) => a.vault_pda));
+  const set = new Set<string>();
+  for (const a of agents) {
+    if (a.vault_pda) set.add(a.vault_pda);
+    if (a.agent_pubkey) set.add(a.agent_pubkey);
+  }
+  return set;
 }
