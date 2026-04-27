@@ -812,6 +812,17 @@ export type PredictionMarket = {
           }
         },
         {
+          "name": "subsidySource",
+          "docs": [
+            "Creator's collateral ATA. The full `initial_subsidy` is transferred",
+            "from this account into the market `vault` at create time so the",
+            "market is born with real backing liquidity (not just an LMSR",
+            "liquidity_param). Mint must match `collateral_mint`; balance must",
+            "cover `initial_subsidy`."
+          ],
+          "writable": true
+        },
+        {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
@@ -1564,7 +1575,7 @@ export type PredictionMarket = {
       "msg": "Market kind is deprecated — use kinds 1 (NAV target), 2 (head-to-head), or 3 (drawdown)"
     },
     {
-      "code": 6023,
+      "code": 6024,
       "name": "unauthorizedVaultClose",
       "msg": "Caller is not the vault owner_wallet — cannot close"
     }

@@ -282,13 +282,15 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 
 // ─── Public API ──────────────────────────────────────────────────────────
 
-// Only show markets created from this point forward. Bumped on 2026-04-26
-// after the registry-rewrite + bUSD-seeding fix — agents created several
-// rounds of pre-fix markets with no seeded volume that were zombie-haunting
-// the feed. Unix seconds: 2026-04-26 18:00 UTC, just before charlie's first
-// post-fix create_market. The kind filter below remains as a backstop for
-// any deprecated-kind accounts that slip past the cutoff.
-const MARKET_FRESH_START_TS = 1777226400;
+// Only show markets created from this point forward. Bumped on 2026-04-27
+// after the create_market_v2 + buy_shares program upgrade. Pre-upgrade
+// markets stored a wallet pubkey as `market.strategy` instead of a
+// BundieVault PDA, so the new buy_shares creator-self-exclusion check
+// rejects them with InvalidStrategyAccount — they're literally
+// unbuyable and cannot be migrated. Unix seconds: 2026-04-27 07:30 UTC,
+// just before the program upgrade tx. The kind filter below remains as a
+// backstop for any deprecated-kind accounts that slip past the cutoff.
+const MARKET_FRESH_START_TS = 1777275000;
 
 /**
  * Market kinds the post-vault-NAV-resolution (Phase B+) UI understands:
