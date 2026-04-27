@@ -37,6 +37,7 @@ const BACKEND_URL =
 interface RegistryAgent {
   sns: string;
   vault_pda: string;
+  agent_pubkey: string;
   emoji: string | null;
   display_name: string;
 }
@@ -87,12 +88,18 @@ export function HomeFeed() {
 
   const tick = useCallback(async () => {
     try {
-      // Hide every market whose creator isn't in the registry. This
-      // collapses to "no markets shown" when the backend is down — the
-      // intended graceful-degrade behaviour. We rebuild the set on every
-      // tick from the same `agents` state that drives the quick-strip so
-      // the two views never disagree.
-      const allowedCreators = new Set(agents.map((a) => a.vault_pda));
+      // Hide every market whose creator isn't in the registry. The set
+      // must include BOTH the vault PDA AND the agent keypair pubkey
+      // because chaos-sim's create_market_v2 signs with the keypair, so
+      // Market.created_by holds agent_pubkey, not vault_pda. This mirrors
+      // fetchRegisteredVaultSet() in @/lib/registry — without including
+      // agent_pubkey, every chaos-sim market is filtered out and the
+      // feed renders empty.
+      const allowedCreators = new Set<string>();
+      for (const a of agents) {
+        if (a.vault_pda) allowedCreators.add(a.vault_pda);
+        if (a.agent_pubkey) allowedCreators.add(a.agent_pubkey);
+      }
       const mkts = await fetchAllMarkets(connection, { allowedCreators });
 
       const snapshots: VaultSnapshot[] = await Promise.all(
