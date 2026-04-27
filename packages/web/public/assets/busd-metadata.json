@@ -1,0 +1,12 @@
+{
+  "name": "Bundie USD",
+  "symbol": "bUSD",
+  "description": "Bundie USD — devnet collateral token used for prediction-market liquidity on the Bundie protocol. 1:1 with USD for testing only; no real-world value.",
+  "image": "https://solana.bundie.fi/assets/favicon-32.png",
+  "external_url": "https://solana.bundie.fi",
+  "attributes": [
+    { "trait_type": "Network", "value": "Solana Devnet" },
+    { "trait_type": "Decimals", "value": 6 },
+    { "trait_type": "Use", "value": "Prediction market collateral" }
+  ]
+}

@@ -22,7 +22,8 @@
     "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
     "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts",
-    "seed-legacy-agents": "tsx scripts/chaos-sim/src/scripts/seed-legacy-agents.ts"
+    "seed-legacy-agents": "tsx scripts/chaos-sim/src/scripts/seed-legacy-agents.ts",
+    "busd:attach-metadata": "tsx scripts/setup-busd/attach-metadata.ts"
   },
   "devDependencies": {
     "@anchor-lang/core": "^1.0.0",
@@ -31,6 +32,9 @@
     "@ellipsis-labs/phoenix-sdk": "^2.0.3",
     "@kamino-finance/klend-sdk": "^7.3.22",
     "@marinade.finance/marinade-ts-sdk": "^5.0.18",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
     "@openbook-dex/openbook-v2": "^0.2.10",
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.98",

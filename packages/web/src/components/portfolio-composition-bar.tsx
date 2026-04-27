@@ -13,8 +13,20 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
  */
 
 // Devnet mint addresses for our target stables / LSTs. Extend this map
-// when new protocols land in agent strategies.
+// when new protocols land in agent strategies. The bUSD entry is sourced
+// from NEXT_PUBLIC_BUSD_MINT so the same code works against any deploy
+// (devnet, surfpool fork, future mainnet) without a recompile.
+const BUSD_MINT =
+  process.env.NEXT_PUBLIC_BUSD_MINT ??
+  "42LaRiwvuxfQv5rfHMmk9wU3K2nRxMGzgukNJztydpiB";
+
 const MINT_LABELS: Record<string, { label: string; color: string }> = {
+  // bUSD — Bundie's prediction-market collateral, minted in setup-busd.
+  // Sits before USDC because it's the dominant token in vault holdings.
+  [BUSD_MINT]: {
+    label: "bUSD",
+    color: "bg-amber-600",
+  },
   // USDC devnet
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": {
     label: "USDC",

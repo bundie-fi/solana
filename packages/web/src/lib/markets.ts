@@ -282,12 +282,13 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 
 // ─── Public API ──────────────────────────────────────────────────────────
 
-// Only show markets created from this point forward. Filters out all
-// pre-existing chaos-sim test markets so the UI starts with a clean slate.
-// Unix seconds: 2025-04-25 04:00 UTC. Kept as a backstop — most zombies
-// from the pre-Phase-C runs predate this, and the kind filter below catches
-// the rest (any deprecated-kind markets that slipped past the cutoff).
-const MARKET_FRESH_START_TS = 1745553600;
+// Only show markets created from this point forward. Bumped on 2026-04-26
+// after the registry-rewrite + bUSD-seeding fix — agents created several
+// rounds of pre-fix markets with no seeded volume that were zombie-haunting
+// the feed. Unix seconds: 2026-04-26 18:00 UTC, just before charlie's first
+// post-fix create_market. The kind filter below remains as a backstop for
+// any deprecated-kind accounts that slip past the cutoff.
+const MARKET_FRESH_START_TS = 1777226400;
 
 /**
  * Market kinds the post-vault-NAV-resolution (Phase B+) UI understands:
