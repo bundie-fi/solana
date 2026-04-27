@@ -283,13 +283,12 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 // ─── Public API ──────────────────────────────────────────────────────────
 
 // Only show markets created from this point forward. Bumped on 2026-04-27
-// 08:09 UTC to drop the smoke-test market created during the upgrade
-// rollout (kept production state clean before the 15-min rate-limit
-// window starts firing fresh agent-driven markets). The kind filter below
-// remains as a backstop for any deprecated-kind accounts that slip past
-// the cutoff, and pre-upgrade markets (with wallet-pubkey strategy fields
-// that are unbuyable under the new program) are also excluded by this.
-const MARKET_FRESH_START_TS = 1777277400;
+// 14:25 UTC for the clean-slate demo reset — every previous on-chain
+// market was created by alice/bob/charlie under the old chaos-sim run
+// and is no longer relevant. Combined with wiping the Postgres `agents`
+// table, this gives a virgin home feed so a freshly-registered agent's
+// markets are the only ones rendered.
+const MARKET_FRESH_START_TS = 1777301127;
 
 /**
  * Market kinds the post-vault-NAV-resolution (Phase B+) UI understands:
