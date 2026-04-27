@@ -15,6 +15,10 @@
 
 export type LendProtocol = "kamino" | "marginfi" | "solend";
 export type LstProtocol = "marinade" | "jito";
+/** Perps venue. Drift was dropped (devnet/mainnet IDL drift, deprecated SDK).
+ *  Zeta Markets is the active mainnet perps DEX and runs on the surfpool
+ *  fork. */
+export type PerpProtocol = "zeta";
 
 export type BrainAction =
   | { type: "noop" }
@@ -30,6 +34,23 @@ export type BrainAction =
     }
   | { type: "lst_stake";   protocol: LstProtocol; args: { amountSolUi: number } }
   | { type: "lst_unstake"; protocol: LstProtocol; args: { amountMsolUi: number } }
+  | {
+      type: "perp_open";
+      protocol: PerpProtocol;
+      args: {
+        /** Perp market symbol — e.g. "SOL-PERP", "BTC-PERP". */
+        market: string;
+        /** "long" pays funding when funding>0; "short" earns it. */
+        side: "long" | "short";
+        /** Notional size in USDC (collateral × leverage). */
+        notionalUsd: number;
+      };
+    }
+  | {
+      type: "perp_close";
+      protocol: PerpProtocol;
+      args: { market: string };
+    }
   | {
       type: "create_market";
       args: {

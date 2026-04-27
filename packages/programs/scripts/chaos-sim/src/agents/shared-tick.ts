@@ -87,7 +87,7 @@ export async function runTick(args: TickArgs): Promise<void> {
       `(mainnetRpc=${surfpoolAvailable ? "up" : "down"})  ` +
       `kamino=${rates.kaminoUsdcUtilizationBps}bps  marinade=${rates.marinadeMsolAboveBps}bps  ` +
       `marginfi=${rates.marginfiUsdcUtilizationBps}bps  jito=${rates.splStakePoolAboveBps}bps  ` +
-      `driftFunding=${rates.driftSolPerpFundingBps}bps  selfSol=${selfNav.sol.toFixed(4)}`,
+      `zetaFunding=${rates.zetaSolPerpFundingBps}bps  selfSol=${selfNav.sol.toFixed(4)}`,
   );
 
   // ─── 2. Reason (Redpill) ───────────────────────────────────────────────

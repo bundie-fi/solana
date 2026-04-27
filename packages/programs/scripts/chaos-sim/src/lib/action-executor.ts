@@ -34,7 +34,12 @@ import { recordSurfpoolAction } from "./surfpool-recorder.js";
 // @ts-expect-error — JS module, no type declarations provided
 import { enforceProgramPolicy } from "../../../../../zerion-agent/src/bundie/program-enforcer.js";
 
-import type { BrainAction, LendProtocol, LstProtocol } from "./redpill-brain.js";
+import type {
+  BrainAction,
+  LendProtocol,
+  LstProtocol,
+  PerpProtocol,
+} from "./redpill-brain.js";
 
 // ─── Protocol dispatch tables ────────────────────────────────────────────
 
@@ -53,6 +58,15 @@ const LEND_IX: Record<LendProtocol, { deposit: string; withdraw: string }> = {
 const LST_PROGRAM: Record<LstProtocol, string> = {
   marinade: "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
   jito:     "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
+};
+
+const PERP_PROGRAM: Record<PerpProtocol, string> = {
+  // Zeta mainnet program — same id on the surfpool fork.
+  zeta: "ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD",
+};
+
+const PERP_IX: Record<PerpProtocol, { open: string; close: string }> = {
+  zeta: { open: "place_perp_order_v3", close: "close_position" },
 };
 
 const LST_IX: Record<LstProtocol, { stake: string; unstake: string }> = {
@@ -140,38 +154,23 @@ async function executeLend(
       notes: "surfpool unreachable — policy-gated but not submitted",
     };
   }
+  // Real Kamino/MarginFi/Solend deposit CPIs are pending wiring (Phase Q).
+  // For now we land a self-transfer on surfpool so the action is visible
+  // in the agent-profile activity feed and the recorder pipeline gets
+  // exercised end-to-end. The notes field flags this honestly.
   const txSig = await selfTransfer(args.surfpool, args.kp);
+  const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number } }).args;
+  const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
+  const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
   const notes = `MVP placeholder: self-transfer on surfpool (${protocol} ${direction} ix pending)`;
-  // Persist to Supabase so the web app can render this in the agent profile
-  // surfpool feed. Surfpool has no public explorer; this is the only way for
-  // visitors to see live agent activity. Failure to persist must NOT crash
-  // the daemon — recordSurfpoolAction handles its own errors internally.
-  try {
-    const slot = await args.surfpool.getSlot("confirmed");
-    const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number } }).args;
-    const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
-    // USDC has 6 decimals — use base units (not lamports per se, but the
-    // smallest unit of the deposited token). Stored in amount_base_units;
-    // decimals are inferred per-token at read time on the web side.
-    const amountLamports = amountUi != null ? Math.round(amountUi * 1_000_000) : null;
-    await recordSurfpoolAction({
-      agentSns: args.agentName,
-      slot,
-      txSig,
-      protocol,
-      actionType: `lend_${direction}`,
-      amountLamports,
-      tokenMint: null,
-      notes,
-    });
-  } catch (e) {
-    console.error(`[surfpool-recorder] persist failed for ${txSig}: ${(e as Error).message}`);
-  }
+  await persistSurfpoolAction(args, {
+    protocol, txSig, actionType: `lend_${direction}`,
+    amountLamports, notes,
+  });
   return {
     phase: "execute", chain: "surfpool",
     action: `lend_${direction}`, protocol,
-    txSig, policyGate,
-    notes,
+    txSig, policyGate, notes,
   };
 }
 
@@ -184,38 +183,152 @@ async function executeLst(
   const ixName = LST_IX[protocol][direction];
   const policyGate = gate(args.policyPath, programId, ixName);
 
+  // All strategy execution lands on surfpool now (the mainnet fork). Devnet
+  // is reserved for prediction-market state + NAV commits. If surfpool is
+  // unreachable we hard-fail the action — falling back to devnet would
+  // produce real positions on a chain that doesn't reflect mainnet protocol
+  // state, defeating the point of the simulation.
+  if (!args.surfpoolAvailable) {
+    return {
+      phase: "execute", chain: "surfpool",
+      action: `lst_${direction}`, protocol,
+      policyGate,
+      notes: "surfpool unreachable — policy-gated but not submitted",
+    };
+  }
+
   if (protocol === "marinade") {
-    // Real Beethoven-pattern execution on devnet. The vault holds actual mSOL
-    // after staking, which the resolution program can read at settlement time.
+    // Real Marinade CPI against the surfpool mainnet fork. The fork already
+    // has Marinade's State / mSOL mint / liq-pool accounts populated from
+    // mainnet, so the SDK's deposit + liquidUnstake builders work without
+    // any per-chain rewiring. mSOL ends up in the agent's surfpool ATA.
     if (args.action.type !== "lst_stake" && args.action.type !== "lst_unstake") {
       throw new Error("lst type mismatch");
     }
     if (direction === "stake") {
       const amountSolUi = (args.action as { args: { amountSolUi: number } }).args.amountSolUi;
-      const result = await stakeMarinade(args.devnet, args.kp, amountSolUi);
+      const result = await stakeMarinade(args.surfpool, args.kp, amountSolUi);
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig,
+        actionType: "lst_stake",
+        amountLamports: result.stakedLamports,
+        notes: `Marinade stake: ${amountSolUi} SOL → mSOL @ ${result.mSolTokenAccount.slice(0, 8)}…`,
+      });
       return {
-        phase: "execute", chain: "devnet", action: "lst_stake", protocol,
+        phase: "execute", chain: "surfpool", action: "lst_stake", protocol,
         txSig: result.txSig, policyGate,
         notes: `Marinade stake: ${amountSolUi} SOL → mSOL @ ${result.mSolTokenAccount.slice(0, 8)}…`,
       };
     } else {
       const amountMsolUi = (args.action as { args: { amountMsolUi: number } }).args.amountMsolUi;
-      const result = await unstakeMarinade(args.devnet, args.kp, amountMsolUi);
+      const result = await unstakeMarinade(args.surfpool, args.kp, amountMsolUi);
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig,
+        actionType: "lst_unstake",
+        amountLamports: Math.floor(amountMsolUi * 1_000_000_000),
+        notes: `Marinade liquid-unstake: ~${amountMsolUi} mSOL → SOL`,
+      });
       return {
-        phase: "execute", chain: "devnet", action: "lst_unstake", protocol,
+        phase: "execute", chain: "surfpool", action: "lst_unstake", protocol,
         txSig: result.txSig, policyGate,
         notes: `Marinade liquid-unstake: ~${amountMsolUi} mSOL → SOL`,
       };
     }
   }
 
-  // Other LST protocols (jito etc.) — stub until Beethoven CPI is wired.
+  // Jito / SPL stake pool — stub until the SDK wiring lands. The brain
+  // prompts already prefer Marinade unless the SPL premium beats it by
+  // >100bps, so this rarely fires in practice.
   return {
-    phase: "execute", chain: "devnet",
+    phase: "execute", chain: "surfpool",
     action: `lst_${direction}`, protocol,
     policyGate,
     notes: `${protocol} ${direction}: policy-gated, CPI pending (use marinade for live execution)`,
   };
+}
+
+async function executePerp(
+  args: ExecuteActionArgs,
+  direction: "open" | "close",
+  protocol: PerpProtocol,
+): Promise<ExecuteActionResult> {
+  const programId = PERP_PROGRAM[protocol];
+  const ixName = PERP_IX[protocol][direction];
+  const policyGate = gate(args.policyPath, programId, ixName);
+  if (!args.surfpoolAvailable) {
+    return {
+      phase: "execute", chain: "surfpool",
+      action: `perp_${direction}`, protocol,
+      policyGate,
+      notes: "surfpool unreachable — policy-gated but not submitted",
+    };
+  }
+  // Zeta perp CPI is multi-step (CrossMarginAccount init, deposit collateral,
+  // PlacePerpOrderV3, refresh) — pending Phase Q wiring. For now we land a
+  // self-transfer on surfpool so the action surfaces in the agent feed and
+  // the recorder is exercised. The notes flag this honestly so the UI can
+  // mark the row as "stub" until real CPIs land.
+  const txSig = await selfTransfer(args.surfpool, args.kp);
+  let market = "";
+  let side: "long" | "short" | undefined;
+  let notional: number | null = null;
+  if (args.action.type === "perp_open") {
+    market = args.action.args.market;
+    side = args.action.args.side;
+    notional = args.action.args.notionalUsd;
+  } else if (args.action.type === "perp_close") {
+    market = args.action.args.market;
+  }
+  const notes = direction === "open"
+    ? `MVP placeholder: ${protocol} ${side} ${market} ${notional}USDC notional (Zeta CPI pending)`
+    : `MVP placeholder: ${protocol} close ${market} (Zeta CPI pending)`;
+  await persistSurfpoolAction(args, {
+    protocol, txSig,
+    actionType: `perp_${direction}`,
+    amountLamports: notional != null ? Math.round(notional * 1_000_000) : null,
+    notes,
+  });
+  return {
+    phase: "execute", chain: "surfpool",
+    action: `perp_${direction}`, protocol,
+    txSig, policyGate, notes,
+  };
+}
+
+/**
+ * Single helper used by every surfpool executor (lend, lst, perp) so the
+ * recorder write is uniform across protocols. Failure to persist must
+ * never crash the daemon — surfpool_actions is a UI-only feed and the
+ * tx itself has already landed by the time we're called.
+ */
+async function persistSurfpoolAction(
+  args: ExecuteActionArgs,
+  rec: {
+    protocol: string;
+    txSig: string;
+    actionType: string;
+    amountLamports: number | null;
+    tokenMint?: string | null;
+    notes?: string | null;
+  },
+): Promise<void> {
+  try {
+    const slot = await args.surfpool.getSlot("confirmed");
+    await recordSurfpoolAction({
+      agentSns: args.agentName,
+      slot,
+      txSig: rec.txSig,
+      // Cast — recordSurfpoolAction's enum is the legacy lend-only set; the
+      // table column itself is a free-form text so any protocol slug works.
+      protocol: rec.protocol as never,
+      actionType: rec.actionType,
+      amountLamports: rec.amountLamports,
+      tokenMint: rec.tokenMint ?? null,
+      notes: rec.notes ?? null,
+    });
+  } catch (e) {
+    console.error(`[surfpool-recorder] persist failed for ${rec.txSig}: ${(e as Error).message}`);
+  }
 }
 
 
@@ -375,6 +488,10 @@ export async function executeAction(
       return executeLst(args, "stake", action.protocol);
     case "lst_unstake":
       return executeLst(args, "unstake", action.protocol);
+    case "perp_open":
+      return executePerp(args, "open", action.protocol);
+    case "perp_close":
+      return executePerp(args, "close", action.protocol);
     case "create_market":
       return executeCreateMarket(args);
     default: {

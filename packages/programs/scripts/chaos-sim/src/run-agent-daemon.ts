@@ -295,6 +295,33 @@ interface TickContext {
   peers: PeerAgent[];
 }
 
+const SURFPOOL_TARGET_SOL = 5;
+const SURFPOOL_AIRDROP_LAMPORTS = SURFPOOL_TARGET_SOL * 1_000_000_000;
+
+/**
+ * Ensure the agent's keypair has at least 5 SOL on the surfpool fork. New
+ * forks (every Railway redeploy of bundie-surfpool) start with zero state,
+ * so the keypair has no SOL until we airdrop. surfpool implements the
+ * standard `requestAirdrop` RPC method, which takes effect immediately.
+ *
+ * No-op if balance ≥ 1 SOL (cheap re-runs across daemon restarts).
+ */
+async function ensureSurfpoolFunded(
+  surfpool: Connection,
+  kp: Keypair,
+): Promise<void> {
+  const bal = await surfpool.getBalance(kp.publicKey, "confirmed");
+  if (bal >= 1_000_000_000) {
+    console.log(`[daemon] surfpool balance: ${(bal / 1e9).toFixed(3)} SOL — sufficient`);
+    return;
+  }
+  console.log(`[daemon] surfpool balance ${(bal / 1e9).toFixed(3)} SOL < 1 — airdropping ${SURFPOOL_TARGET_SOL} SOL`);
+  const sig = await surfpool.requestAirdrop(kp.publicKey, SURFPOOL_AIRDROP_LAMPORTS);
+  await surfpool.confirmTransaction(sig, "confirmed");
+  const after = await surfpool.getBalance(kp.publicKey, "confirmed");
+  console.log(`[daemon] surfpool balance now ${(after / 1e9).toFixed(3)} SOL`);
+}
+
 async function runTickForAgent(
   target: TickTarget,
   ctx: TickContext,
@@ -436,6 +463,15 @@ async function singleAgentLoop(
   console.log(`peers:        ${ctx.peers.length > 0 ? ctx.peers.map((p) => p.name).join(", ") : "(none discovered)"}`);
   console.log(`mode:         ${cli.once ? "one-shot (--once)" : `loop every ${cli.intervalMs}ms`}`);
   console.log("");
+
+  // Surfpool airdrop: every Railway redeploy boots a fresh fork with no
+  // historical state, so the agent keypair starts at 0 SOL on surfpool. Top
+  // it up to 5 SOL so strategy txs (Marinade stake, Kamino deposit, etc.)
+  // have fee + collateral runway. Skipped silently if surfpool is
+  // unreachable — the tick loop will fall through to noop on its own.
+  await ensureSurfpoolFunded(ctx.surfpool, target.kp).catch((e) => {
+    console.warn(`[daemon] ensureSurfpoolFunded skipped: ${(e as Error).message}`);
+  });
 
   logActivity({
     agent: target.sns,
