@@ -8,6 +8,10 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc ./
 COPY packages/common/package.json ./packages/common/
 COPY packages/web/package.json ./packages/web/
+# pnpm-workspace.yaml's patchedDependencies references patches/. Without
+# this COPY, `pnpm install --frozen-lockfile` fails with ENOENT before
+# any deps resolve.
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder

@@ -22,6 +22,10 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/common/package.json ./packages/common/
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/zerion-agent/package.json ./packages/zerion-agent/
+# pnpm-workspace.yaml's patchedDependencies references patches/. Without
+# this COPY, `pnpm install --frozen-lockfile` fails with ENOENT before
+# any deps resolve.
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
