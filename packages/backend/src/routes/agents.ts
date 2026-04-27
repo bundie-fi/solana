@@ -657,6 +657,7 @@ function decodeBundieVaultNav(
 agents.get("/api/agents", async (c) => {
   const status = c.req.query("status");
   const ownerWallet = c.req.query("ownerWallet");
+  const sns = c.req.query("sns");
   if (!getPool()) return c.json({ agents: [] });
 
   // Build a parameterized WHERE clause from optional filters.
@@ -669,6 +670,10 @@ agents.get("/api/agents", async (c) => {
   if (ownerWallet) {
     params.push(ownerWallet);
     wheres.push(`owner_wallet = $${params.length}`);
+  }
+  if (sns) {
+    params.push(sns);
+    wheres.push(`sns = $${params.length}`);
   }
   const whereClause = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
 
