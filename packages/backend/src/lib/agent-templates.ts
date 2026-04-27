@@ -133,6 +133,12 @@ export function generateBrainMd(opts: {
   );
   lines.push(`  self.lamports                   — same in lamports.`);
   lines.push(
+    `  self.usdc                       — your surfpool USDC balance (auto-seeded each tick).`,
+  );
+  lines.push(
+    `  self.msol                       — your surfpool mSOL balance from prior Marinade stakes.`,
+  );
+  lines.push(
     `  peers[]                         — peer agent vault addresses + their SOL balances.`,
   );
   lines.push(

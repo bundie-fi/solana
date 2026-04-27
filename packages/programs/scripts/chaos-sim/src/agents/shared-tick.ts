@@ -20,6 +20,7 @@ import {
   commitNavToDevnet,
   computeNavFromSurfpoolBalances,
 } from "../lib/commit-nav-helper.js";
+import { readSurfpoolTokenBalances } from "../lib/balances.js";
 import { logAgentAction } from "../lib/agents-source.js";
 
 // @ts-expect-error — JS module, no type declarations provided
@@ -52,7 +53,13 @@ export async function runTick(args: TickArgs): Promise<void> {
   // If surfpool is unreachable we fall back to devnet (only Kamino + Marinade work).
   const observeChain = surfpoolAvailable ? "mainnet" : "devnet";
 
-  const [rates, selfNavOnObserveChain, selfNavOnDevnet, peerNavs] = await Promise.all([
+  const [
+    rates,
+    selfNavOnObserveChain,
+    selfNavOnDevnet,
+    peerNavs,
+    surfpoolBalances,
+  ] = await Promise.all([
     readAllRateSurfaces(observeConn, observeChain as "mainnet" | "devnet"),
     readVaultNav(observeConn, args.kp.publicKey),
     // Always read devnet balance separately: market-creation txs go to
@@ -60,14 +67,25 @@ export async function runTick(args: TickArgs): Promise<void> {
     // execution chain is surfpool.
     readVaultNav(args.devnet, args.kp.publicKey),
     readPeerNavs(observeConn, args.peers, args.kp.publicKey),
+    // Surfpool USDC + mSOL balances. Without these the brain only sees
+    // `self.sol` and reasons "no USDC, can't lend" → noops every tick even
+    // though chaos-sim seeds 1000 USDC into the agent's ATA each tick.
+    // When surfpool is unreachable the helper returns {usdc:0, msol:0}.
+    surfpoolAvailable
+      ? readSurfpoolTokenBalances(args.surfpool, args.kp.publicKey)
+      : Promise.resolve({ usdc: 0, msol: 0 }),
   ]);
   // selfNav.sol = surfpool balance (matches what the brain prompts now
   // describe — strategy txs land on surfpool). selfNav.devnetSol exposed
-  // separately for market-creation fee-payer reasoning.
+  // separately for market-creation fee-payer reasoning. selfNav.usdc /
+  // selfNav.msol are surfpool token-account balances, surfaced so the
+  // brain can reason about lending and unstaking.
   const selfNav = {
     ...selfNavOnObserveChain,
     devnetSol: selfNavOnDevnet.sol,
     devnetLamports: selfNavOnDevnet.lamports,
+    usdc: surfpoolBalances.usdc,
+    msol: surfpoolBalances.msol,
   };
 
   const state = {
@@ -93,7 +111,8 @@ export async function runTick(args: TickArgs): Promise<void> {
       `(mainnetRpc=${surfpoolAvailable ? "up" : "down"})  ` +
       `kamino=${rates.kaminoUsdcUtilizationBps}bps  marinade=${rates.marinadeMsolAboveBps}bps  ` +
       `marginfi=${rates.marginfiUsdcUtilizationBps}bps  jito=${rates.splStakePoolAboveBps}bps  ` +
-      `zetaFunding=${rates.zetaSolPerpFundingBps}bps  selfSol=${selfNav.sol.toFixed(4)}`,
+      `zetaFunding=${rates.zetaSolPerpFundingBps}bps  ` +
+      `selfSol=${selfNav.sol.toFixed(4)} selfUsdc=${selfNav.usdc.toFixed(2)} selfMsol=${selfNav.msol.toFixed(4)}`,
   );
 
   // ─── 2. Reason (Redpill) ───────────────────────────────────────────────
