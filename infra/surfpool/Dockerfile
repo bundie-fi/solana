@@ -56,6 +56,6 @@ ENTRYPOINT []
 # would RST callers during the 10-30s upstream-fetch warmup).
 CMD ["sh", "-c", "set -e; \
     ( while ! curl -s -m 1 http://127.0.0.1:8899 -X POST -H content-type:application/json -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSlot\"}' >/dev/null 2>&1; do sleep 1; done; \
-      echo '[entrypoint] surfpool RPC up on 127.0.0.1:8899 — starting socat 0.0.0.0:18899 → 127.0.0.1:8899'; \
-      exec socat TCP-LISTEN:18899,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:8899 ) & \
+      echo '[entrypoint] surfpool RPC up on 127.0.0.1:8899 — starting socat dual-stack on :18899 → 127.0.0.1:8899'; \
+      exec socat TCP6-LISTEN:18899,reuseaddr,fork TCP:127.0.0.1:8899 ) & \
     exec surfpool start --no-tui --no-studio --port 8899 --rpc-url \"$MAINNET_RPC_URL\""]
