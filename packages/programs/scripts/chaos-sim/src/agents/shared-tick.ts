@@ -55,14 +55,20 @@ export async function runTick(args: TickArgs): Promise<void> {
   const [rates, selfNavOnObserveChain, selfNavOnDevnet, peerNavs] = await Promise.all([
     readAllRateSurfaces(observeConn, observeChain as "mainnet" | "devnet"),
     readVaultNav(observeConn, args.kp.publicKey),
-    // Always read devnet balance separately: market-creation txs are submitted
-    // to devnet, so the LLM must see the devnet fee-payer balance even when
-    // surfpool is the observation chain (vault may have 0 SOL on mainnet fork).
+    // Always read devnet balance separately: market-creation txs go to
+    // devnet, so the brain needs to see devnet fee-payer SOL even when the
+    // execution chain is surfpool.
     readVaultNav(args.devnet, args.kp.publicKey),
     readPeerNavs(observeConn, args.peers, args.kp.publicKey),
   ]);
-  // selfNav exposed to the LLM uses devnet balance for fee-paying decisions.
-  const selfNav = { ...selfNavOnObserveChain, sol: selfNavOnDevnet.sol, lamports: selfNavOnDevnet.lamports };
+  // selfNav.sol = surfpool balance (matches what the brain prompts now
+  // describe — strategy txs land on surfpool). selfNav.devnetSol exposed
+  // separately for market-creation fee-payer reasoning.
+  const selfNav = {
+    ...selfNavOnObserveChain,
+    devnetSol: selfNavOnDevnet.sol,
+    devnetLamports: selfNavOnDevnet.lamports,
+  };
 
   const state = {
     observedFrom: observeChain,
