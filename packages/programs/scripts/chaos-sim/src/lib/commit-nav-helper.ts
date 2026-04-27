@@ -56,19 +56,31 @@ function u64LE(v: bigint): Buffer {
  *
  * BundieVault layout (sequential, after the 8-byte Anchor discriminator):
  *   authority:     Pubkey       32 bytes  (offset 8)
- *   nav_lamports:  u64 LE        8 bytes  (offset 40)
- *   nav_epoch:     u64 LE        8 bytes  (offset 48)
- *   nav_slot:      u64 LE        8 bytes  (offset 56)
- *   commit_digest: [u8; 32]     32 bytes  (offset 64)
- *   bump:          u8            1 byte   (offset 96)
+ *   owner_wallet:  Pubkey       32 bytes  (offset 40)
+ *   treasury_mint: Pubkey       32 bytes  (offset 72)
+ *   treasury_ata:  Pubkey       32 bytes  (offset 104)
+ *   nav_lamports:  u64 LE        8 bytes  (offset 136)
+ *   nav_epoch:     u64 LE        8 bytes  (offset 144)
+ *   nav_slot:      u64 LE        8 bytes  (offset 152)
+ *   commit_digest: [u8; 32]     32 bytes  (offset 160)
+ *   bump:          u8            1 byte   (offset 192)
+ *
+ * Total: 193 bytes. Earlier comment in this file referenced an obsolete
+ * pre-Phase-J layout (offset 48) that pre-dated the owner_wallet /
+ * treasury_mint / treasury_ata fields — that read silently produced a
+ * garbage epoch from the middle of owner_wallet, which then failed the
+ * `new_epoch == prev + 1` check in commit_nav with StaleNavEpoch on every
+ * tick. The error was swallowed by the daemon's per-action try/catch so
+ * the rest of the tick still ran, masking the bug until the agent logs
+ * were grepped.
  */
 async function readVaultEpoch(
   conn: Connection,
   vaultPda: PublicKey,
 ): Promise<{ exists: boolean; epoch: bigint }> {
   const info = await conn.getAccountInfo(vaultPda, "confirmed");
-  if (!info || info.data.length < 56) return { exists: false, epoch: 0n };
-  const epoch = info.data.readBigUInt64LE(48);
+  if (!info || info.data.length < 152) return { exists: false, epoch: 0n };
+  const epoch = info.data.readBigUInt64LE(144);
   return { exists: true, epoch };
 }
 
