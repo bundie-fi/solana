@@ -59,9 +59,13 @@ export { MAINNET_USDC_MINT };
 
 // ─── Surfpool / mainnet constants ────────────────────────────────────────
 
-/** Kamino mainnet program id (also valid on the surfpool mainnet fork). */
+/** Kamino mainnet program id (also valid on the surfpool mainnet fork).
+ *  Verified against mainnet RPC: this account exists and is executable.
+ *  The earlier "…ber8p32L…" variant in this file was bogus (no such
+ *  account on mainnet) and matches the on-chain owner used by
+ *  commit-nav-helper.ts for reserve/obligation reads. */
 export const KLEND_MAINNET_PROGRAM_ID =
-  "KLend2g3cP87ber8p32LuJLuLPzCvXN4KcKr2S8MQek";
+  "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
 
 /** Kamino "Main Market" on mainnet (the deepest USDC reserve sits here). */
 export const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs9JGqRzvShV4P";

@@ -424,14 +424,10 @@ function emitNavPricingBanner(
 // ─── Kamino kToken / Obligation valuation ────────────────────────────────
 
 /**
- * Kamino mainnet program id (the actual on-chain owner of every reserve
- * + obligation account on mainnet, also inherited by the surfpool fork).
- *
- * The variant `KLend2g3cP87ber8p32LuJLuLPzCvXN4KcKr2S8MQek` referenced in
- * `kamino-execute.ts` is a deploy alias used by the SDK's market loader
- * but does NOT match the on-chain account owner. For raw account reads
- * (which we do here) the canonical owner is the `…fffoy8q1…` id below;
- * this matches what `probe-kamino-reserve.ts` checks for too.
+ * Kamino mainnet program id — the on-chain owner of every reserve + obligation
+ * account on mainnet (and inherited by the surfpool fork). Matches the
+ * constant in `kamino-execute.ts` as of the program-id reconciliation;
+ * also what `probe-kamino-reserve.ts` checks for.
  */
 const KLEND_MAINNET_PROGRAM_ID_STR =
   "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
