@@ -304,22 +304,35 @@ const SURFPOOL_AIRDROP_LAMPORTS = SURFPOOL_TARGET_SOL * 1_000_000_000;
  * so the keypair has no SOL until we airdrop. surfpool implements the
  * standard `requestAirdrop` RPC method, which takes effect immediately.
  *
+ * Implementation note: surfpool's signature-confirmation polling is slow
+ * (~30s timeout from `confirmTransaction`) even though the airdrop lands
+ * within ~1s. So we send the airdrop, poll balance directly for up to 10s,
+ * and bail out as soon as it lands. No tx confirmation required.
+ *
  * No-op if balance ≥ 1 SOL (cheap re-runs across daemon restarts).
  */
 async function ensureSurfpoolFunded(
   surfpool: Connection,
   kp: Keypair,
 ): Promise<void> {
-  const bal = await surfpool.getBalance(kp.publicKey, "confirmed");
-  if (bal >= 1_000_000_000) {
-    console.log(`[daemon] surfpool balance: ${(bal / 1e9).toFixed(3)} SOL — sufficient`);
+  const initial = await surfpool.getBalance(kp.publicKey, "confirmed");
+  if (initial >= 1_000_000_000) {
+    console.log(`[daemon] surfpool balance: ${(initial / 1e9).toFixed(3)} SOL — sufficient`);
     return;
   }
-  console.log(`[daemon] surfpool balance ${(bal / 1e9).toFixed(3)} SOL < 1 — airdropping ${SURFPOOL_TARGET_SOL} SOL`);
-  const sig = await surfpool.requestAirdrop(kp.publicKey, SURFPOOL_AIRDROP_LAMPORTS);
-  await surfpool.confirmTransaction(sig, "confirmed");
-  const after = await surfpool.getBalance(kp.publicKey, "confirmed");
-  console.log(`[daemon] surfpool balance now ${(after / 1e9).toFixed(3)} SOL`);
+  console.log(`[daemon] surfpool balance ${(initial / 1e9).toFixed(3)} SOL < 1 — airdropping ${SURFPOOL_TARGET_SOL} SOL`);
+  await surfpool.requestAirdrop(kp.publicKey, SURFPOOL_AIRDROP_LAMPORTS);
+  // Poll balance directly — the airdrop lands fast, but signature confirmation
+  // can take >30s on a fresh surfpool fork.
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const after = await surfpool.getBalance(kp.publicKey, "confirmed");
+    if (after > initial) {
+      console.log(`[daemon] surfpool balance now ${(after / 1e9).toFixed(3)} SOL (after ${i + 1}s)`);
+      return;
+    }
+  }
+  console.warn(`[daemon] surfpool airdrop did not land within 10s — will retry next tick`);
 }
 
 async function runTickForAgent(
