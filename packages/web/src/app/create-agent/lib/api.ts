@@ -69,6 +69,35 @@ export interface FaucetClaimResponse {
   amountBase: number;
 }
 
+/**
+ * Full agent row as returned by GET /api/agents. Mirrors the shape of
+ * `AgentRow` in the backend plus the augmentation fields tacked on by the
+ * list handler. Optional fields are included so this type is usable for
+ * resume-from-pending hydration without forcing every consumer to handle
+ * absence — pending rows have all of these populated.
+ */
+export interface AgentRowFull {
+  id: string | number;
+  sns: string;
+  display_name: string | null;
+  tagline: string | null;
+  emoji: string | null;
+  owner_wallet: string;
+  vault_pda: string;
+  agent_pubkey: string;
+  brain_md: string;
+  policies_yaml: string;
+  preset: AgentPreset;
+  status: string;
+  seed_amount_busd: string | number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListAgentsResponse {
+  agents: AgentRowFull[];
+}
+
 // ── Calls ───────────────────────────────────────────────────────────────────
 
 export async function createAgent(
@@ -139,6 +168,46 @@ export async function snsAvailable(sns: string): Promise<boolean> {
   } catch {
     if (process.env.NODE_ENV === "production") return false;
     return true;
+  }
+}
+
+/**
+ * Fetch a single agent row by SNS. Returns null if not found or backend
+ * unreachable. Used by the wizard's resume flow to hydrate state from a
+ * pending registration.
+ */
+export async function fetchAgent(sns: string): Promise<AgentRowFull | null> {
+  try {
+    const r = await fetch(
+      `${BACKEND_URL}/api/agents?sns=${encodeURIComponent(sns)}`,
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as ListAgentsResponse;
+    return data.agents?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * List pending registrations for a given owner wallet. Powers the
+ * "Resume" surface on the portfolio page — agents whose vault was
+ * created on-chain but whose seed deposit never confirmed.
+ */
+export async function fetchPendingAgents(
+  ownerWallet: string,
+): Promise<AgentRowFull[]> {
+  try {
+    const r = await fetch(
+      `${BACKEND_URL}/api/agents?ownerWallet=${encodeURIComponent(
+        ownerWallet,
+      )}&status=pending_init`,
+    );
+    if (!r.ok) return [];
+    const data = (await r.json()) as ListAgentsResponse;
+    return data.agents ?? [];
+  } catch {
+    return [];
   }
 }
 

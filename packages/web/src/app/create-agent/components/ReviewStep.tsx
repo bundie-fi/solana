@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { BUSD_MINT } from "@bundie/common";
 import {
   fullSns,
   generateBrainPreview,
@@ -33,6 +36,46 @@ export function ReviewStep({ state, dispatch }: Props) {
   const sns = fullSns(identity.snsPrefix);
   const presetMeta = PRESETS.find((p) => p.id === strategy.preset);
   const brainPreview = useMemo(() => generateBrainPreview(state), [state]);
+
+  // Resume mode skips Step 4, so capital.busdBalance is null and the
+  // Launch button would stay disabled forever. Read the balance directly
+  // here so the gate works the same as it does after the normal flow.
+  useEffect(() => {
+    if (!state.resume) return;
+    if (!publicKey || !connected) return;
+    if (capital.busdBalance != null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ata = getAssociatedTokenAddressSync(
+          new PublicKey(BUSD_MINT),
+          publicKey,
+          false,
+        );
+        const info = await connection.getTokenAccountBalance(ata);
+        if (!cancelled) {
+          dispatch({
+            type: "CAPITAL/SET_BALANCE",
+            value: info.value.uiAmount ?? 0,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          dispatch({ type: "CAPITAL/SET_BALANCE", value: 0 });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    state.resume,
+    publicKey,
+    connected,
+    connection,
+    capital.busdBalance,
+    dispatch,
+  ]);
 
   const launching = launch.stage !== null && launch.stage !== "done";
   const done = launch.stage === "done";
@@ -78,27 +121,44 @@ export function ReviewStep({ state, dispatch }: Props) {
     let depositBroadcast = false;
 
     try {
-      const req: CreateAgentRequest = {
-        sns,
-        displayName: identity.displayName.trim(),
-        tagline: identity.tagline.trim() || undefined,
-        emoji: identity.emoji,
-        ownerWallet: publicKey.toBase58(),
-        preset: strategy.preset,
-        allowedProtocols: allowlist.protocols,
-        perProtocolLimits: allowlist.limits,
-        seedAmountBusd: 50,
-        customBrainMd:
-          strategy.showCustomBrain && strategy.customBrainMd.trim()
-            ? strategy.customBrainMd
-            : undefined,
-      };
-      const created = await createAgent(req);
+      // Resume mode: the agent row + on-chain vault already exist from
+      // a previous attempt. Skip createAgent (would 409) and feed the
+      // saved handles straight into launchAgent. The user signs only
+      // the deposit, then confirmInit flips status to active.
+      let nextSteps;
+      if (state.resume) {
+        nextSteps = {
+          ownerWallet: state.resume.ownerWallet,
+          vaultPda: state.resume.vaultPda,
+          agentPubkey: state.resume.agentPubkey,
+          treasuryMint: state.resume.treasuryMint,
+          seedAmountBase: state.resume.seedAmountBase,
+          instructions: [],
+        };
+      } else {
+        const req: CreateAgentRequest = {
+          sns,
+          displayName: identity.displayName.trim(),
+          tagline: identity.tagline.trim() || undefined,
+          emoji: identity.emoji,
+          ownerWallet: publicKey.toBase58(),
+          preset: strategy.preset,
+          allowedProtocols: allowlist.protocols,
+          perProtocolLimits: allowlist.limits,
+          seedAmountBusd: 50,
+          customBrainMd:
+            strategy.showCustomBrain && strategy.customBrainMd.trim()
+              ? strategy.customBrainMd
+              : undefined,
+        };
+        const created = await createAgent(req);
+        nextSteps = created.nextSteps;
+      }
 
       const result = await launchAgent({
         connection,
         wallet: { publicKey, sendTransaction },
-        nextSteps: created.nextSteps,
+        nextSteps,
         onStage: (stage) => dispatch({ type: "LAUNCH/SET_STAGE", stage }),
         onDepositTx: (sig) => {
           depositBroadcast = true;
@@ -145,14 +205,19 @@ export function ReviewStep({ state, dispatch }: Props) {
     connection,
     dispatch,
     router,
+    state.resume,
   ]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <Header
         eyebrow="Step 5 / 5"
-        title="Ship it."
-        sub="Final review. We'll register the SNS, init the on-chain vault, then move $50 bUSD into the treasury."
+        title={state.resume ? "Finish setup." : "Ship it."}
+        sub={
+          state.resume
+            ? `Vault for ${sns} is already on-chain — sign one transfer to seed it with $50 bUSD and the agent goes live.`
+            : "Final review. We'll register the SNS, init the on-chain vault, then move $50 bUSD into the treasury."
+        }
       />
 
       {/* Summary card */}
@@ -294,9 +359,22 @@ export function ReviewStep({ state, dispatch }: Props) {
             color: "var(--fg-1)",
           }}
         >
-          <li>Backend mints agent keypair + signs init_vault</li>
-          <li>You sign deposit_to_vault ($50 bUSD → treasury_ata)</li>
-          <li>Backend confirms + flips status to active</li>
+          {state.resume ? (
+            <>
+              <li>
+                <span style={{ color: "var(--green-2)" }}>✓</span> Agent
+                keypair + init_vault — already done
+              </li>
+              <li>You sign deposit_to_vault ($50 bUSD → treasury_ata)</li>
+              <li>Backend confirms + flips status to active</li>
+            </>
+          ) : (
+            <>
+              <li>Backend mints agent keypair + signs init_vault</li>
+              <li>You sign deposit_to_vault ($50 bUSD → treasury_ata)</li>
+              <li>Backend confirms + flips status to active</li>
+            </>
+          )}
         </ol>
       </div>
 
@@ -458,8 +536,12 @@ export function ReviewStep({ state, dispatch }: Props) {
             : done
               ? "Live ✓"
               : launching
-                ? "Launching…"
-                : "Launch agent"}
+                ? state.resume
+                  ? "Finishing…"
+                  : "Launching…"
+                : state.resume
+                  ? "Sign deposit ($50 bUSD)"
+                  : "Launch agent"}
         </button>
       )}
     </div>

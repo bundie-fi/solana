@@ -16,6 +16,10 @@ import {
 } from "@/lib/markets";
 import { PROGRAM_IDS } from "@/lib/constants";
 import { PositionCard, type Position } from "@/components/position-card";
+import {
+  fetchPendingAgents,
+  type AgentRowFull,
+} from "@/app/create-agent/lib/api";
 
 /**
  * My Bets — shows the connected wallet's YES/NO positions across every
@@ -34,6 +38,7 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pendingAgents, setPendingAgents] = useState<AgentRowFull[]>([]);
 
   const load = useCallback(async () => {
     if (!publicKey || !connected) {
@@ -121,6 +126,23 @@ export default function PortfolioPage() {
     load();
   }, [load]);
 
+  // Pending registrations live in Postgres, not on-chain — fetched
+  // separately from the markets/positions load so a transient backend
+  // hiccup doesn't break the rest of the page.
+  useEffect(() => {
+    if (!publicKey || !connected) {
+      setPendingAgents([]);
+      return;
+    }
+    let cancelled = false;
+    fetchPendingAgents(publicKey.toBase58()).then((rows) => {
+      if (!cancelled) setPendingAgents(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, connected]);
+
   const { open, pending, resolved } = useMemo(() => {
     const open: Position[] = [];
     const pending: Position[] = [];
@@ -191,6 +213,9 @@ export default function PortfolioPage() {
           {err}
         </div>
       )}
+
+      <PendingAgentsSection agents={pendingAgents} />
+
 
       {loading && positions.length === 0 && <LoadingSkeleton />}
 
@@ -280,6 +305,94 @@ function PositionSection({
         ))}
       </div>
     </section>
+  );
+}
+
+function PendingAgentsSection({ agents }: { agents: AgentRowFull[] }) {
+  if (agents.length === 0) return null;
+  return (
+    <section style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 10 }}>
+        <div
+          className="mono"
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.18em",
+            color: "var(--gold)",
+            fontWeight: 500,
+          }}
+        >
+          Pending registrations · {agents.length}
+        </div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+          Agents whose vault is on-chain but the $50 seed deposit hasn&rsquo;t cleared.
+        </div>
+      </div>
+      <div className="card-stack">
+        {agents.map((a) => (
+          <PendingAgentCard key={a.sns} agent={a} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
+  const seedDollars = Number(agent.seed_amount_busd) / 1_000_000;
+  return (
+    <div
+      className="card hairline"
+      style={{
+        padding: 14,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        borderColor: "var(--gold)",
+      }}
+    >
+      <div style={{ fontSize: 28, lineHeight: 1 }}>{agent.emoji ?? "🤖"}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 16,
+            color: "var(--fg-0)",
+            letterSpacing: "-0.015em",
+          }}
+        >
+          {agent.display_name || agent.sns}
+        </div>
+        <div className="mono gold" style={{ fontSize: 11 }}>
+          {agent.sns}
+        </div>
+        <div className="muted mono-tiny" style={{ fontSize: 10.5, marginTop: 4 }}>
+          ${seedDollars.toFixed(2)} bUSD seed pending · vault {agent.vault_pda.slice(0, 6)}…{agent.vault_pda.slice(-4)}
+        </div>
+      </div>
+      <Link
+        href={`/create-agent?resume=${encodeURIComponent(agent.sns)}`}
+        style={{
+          height: 36,
+          padding: "0 14px",
+          background: "var(--gold)",
+          color: "#fff",
+          border: "1px solid var(--gold)",
+          borderRadius: 8,
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+          textDecoration: "none",
+          display: "inline-flex",
+          alignItems: "center",
+          flexShrink: 0,
+        }}
+      >
+        Resume →
+      </Link>
+    </div>
   );
 }
 

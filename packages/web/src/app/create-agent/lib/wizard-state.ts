@@ -134,6 +134,24 @@ export type LaunchStage =
   | "confirming"
   | "done";
 
+/**
+ * When the wizard is launched in resume mode (`/create-agent?resume=<sns>`)
+ * we already have the agent row from the backend — vault PDA, agent
+ * pubkey, treasury mint, seed amount. The Launch step skips the
+ * createAgent POST and feeds these directly into launchAgent so the user
+ * just signs deposit_to_vault.
+ */
+export interface ResumeState {
+  /** Full SNS the user is resuming (e.g. "alice.bundie.sol"). */
+  sns: string;
+  ownerWallet: string;
+  vaultPda: string;
+  agentPubkey: string;
+  treasuryMint: string;
+  /** bUSD seed in base units (50_000_000 for $50). */
+  seedAmountBase: number;
+}
+
 export interface WizardState {
   current: WizardStepId;
   identity: IdentityState;
@@ -141,6 +159,8 @@ export interface WizardState {
   allowlist: AllowlistState;
   capital: CapitalState;
   launch: LaunchProgress;
+  /** Non-null when this run resumes a pending_init agent. */
+  resume: ResumeState | null;
 }
 
 export const INITIAL_STATE: WizardState = {
@@ -175,6 +195,7 @@ export const INITIAL_STATE: WizardState = {
     depositTxSig: null,
     error: null,
   },
+  resume: null,
 };
 
 export type WizardAction =
@@ -211,7 +232,14 @@ export type WizardAction =
   | { type: "LAUNCH/SET_INIT_TX"; sig: string }
   | { type: "LAUNCH/SET_DEPOSIT_TX"; sig: string }
   | { type: "LAUNCH/SET_ERROR"; error: string | null }
-  | { type: "LAUNCH/RESET" };
+  | { type: "LAUNCH/RESET" }
+  | {
+      type: "RESUME/HYDRATE";
+      identity: IdentityState;
+      strategy: StrategyState;
+      allowlist: AllowlistState;
+      resume: ResumeState;
+    };
 
 // ── Pure validation helpers ─────────────────────────────────────────────────
 
@@ -415,6 +443,20 @@ export function wizardReducer(
           depositTxSig: null,
           error: null,
         },
+      };
+
+    case "RESUME/HYDRATE":
+      // Drop the user straight on the Review step — Identity/Strategy/
+      // Allowlist were already saved when the row was first created. The
+      // resume slice carries the on-chain handles ReviewStep needs to
+      // skip createAgent and go straight to deposit_to_vault.
+      return {
+        ...state,
+        current: "review",
+        identity: action.identity,
+        strategy: action.strategy,
+        allowlist: action.allowlist,
+        resume: action.resume,
       };
 
     default:
