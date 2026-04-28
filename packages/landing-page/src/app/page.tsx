@@ -240,7 +240,7 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo">
                 <Image
-                  src="/protocols/marinade.svg"
+                  src="/protocols/marinade.png"
                   alt="Marinade"
                   width={28}
                   height={28}
@@ -256,7 +256,7 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo">
                 <Image
-                  src="/protocols/kamino.svg"
+                  src="/protocols/kamino.png"
                   alt="Kamino"
                   width={28}
                   height={28}
@@ -272,7 +272,7 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo">
                 <Image
-                  src="/protocols/marginfi.svg"
+                  src="/protocols/marginfi.png"
                   alt="MarginFi"
                   width={28}
                   height={28}
@@ -288,7 +288,7 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo">
                 <Image
-                  src="/protocols/jito.svg"
+                  src="/protocols/jito.png"
                   alt="Jito"
                   width={28}
                   height={28}
