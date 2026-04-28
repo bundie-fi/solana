@@ -1,7 +1,7 @@
 /**
  * Recent on-chain activity for one agent. Each row is a real tx the
  * agent's runtime broadcast against the protocol named in the pill.
- * Server component — agent profile page is SSR.
+ * Server component , agent profile page is SSR.
  */
 
 export interface SurfpoolAction {
@@ -44,7 +44,7 @@ function formatAmount(action: SurfpoolAction): string | null {
       ? "mSOL"
       : "SOL"
     : "USDC";
-  // Two decimals for USDC, four for SOL — keeps the row tight.
+  // Two decimals for USDC, four for SOL , keeps the row tight.
   const fixed = isSolFamily ? ui.toFixed(4) : ui.toFixed(2);
   return `${fixed} ${unit}`;
 }
@@ -85,7 +85,7 @@ function rowMeta(action: SurfpoolAction): RowMeta {
 }
 
 // Map raw action types from the daemon log to user-friendly verbs.
-// Anything not in the map falls through to the raw key — flag in
+// Anything not in the map falls through to the raw key , flag in
 // review if a new action type slips past here.
 const ACTION_LABEL: Record<string, string> = {
   lend_deposit: "Lent",
@@ -124,7 +124,15 @@ export interface SurfpoolActivityPanelProps {
   actions: SurfpoolAction[];
 }
 
+// Show this many rows by default; the rest collapses behind a
+// <details> toggle so a busy agent doesn't push every other section
+// off the screen.
+const VISIBLE_ROWS = 3;
+
 export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
+  const visibleRows = actions.slice(0, VISIBLE_ROWS);
+  const overflowRows = actions.slice(VISIBLE_ROWS);
+
   return (
     <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -135,7 +143,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
         className="muted"
         style={{ fontSize: 11, marginBottom: 12, lineHeight: 1.4 }}
       >
-        Every action this agent has taken — staking, lending, opening
+        Every action this agent has taken: staking, lending, opening
         positions. Updated in near-real-time.
       </p>
 
@@ -153,14 +161,56 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {actions.map((a) => {
-            const emoji = PROTOCOL_EMOJI[a.protocol] ?? "🔗";
-            const amount = formatAmount(a);
-            const placeholder = isPlaceholder(a);
-            const meta = rowMeta(a);
-            return (
+          {visibleRows.map((a) => (
+            <ActivityRow key={a.id} action={a} />
+          ))}
+          {overflowRows.length > 0 && (
+            <details
+              style={{
+                marginTop: 4,
+              }}
+            >
+              <summary
+                className="mono"
+                style={{
+                  cursor: "pointer",
+                  fontSize: 11,
+                  color: "var(--fg-3)",
+                  padding: "8px 0",
+                  textAlign: "center",
+                  listStyle: "none",
+                  userSelect: "none",
+                }}
+              >
+                Show {overflowRows.length} more
+              </summary>
               <div
-                key={a.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  paddingTop: 4,
+                }}
+              >
+                {overflowRows.map((a) => (
+                  <ActivityRow key={a.id} action={a} />
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityRow({ action: a }: { action: SurfpoolAction }) {
+  const emoji = PROTOCOL_EMOJI[a.protocol] ?? "🔗";
+  const amount = formatAmount(a);
+  const placeholder = isPlaceholder(a);
+  const meta = rowMeta(a);
+  return (
+              <div
                 className="card inset"
                 style={{
                   padding: "10px 12px",
@@ -257,7 +307,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                       }}
                       title={
                         placeholder
-                          ? "Pending — agent recorded the intent but the on-chain action hasn't shipped yet"
+                          ? "Pending , agent recorded the intent but the on-chain action hasn't shipped yet"
                           : "Confirmed on-chain"
                       }
                     >
@@ -311,10 +361,5 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }

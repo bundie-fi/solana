@@ -14,7 +14,7 @@ import { AgentAvatar, resolveAgentKey } from "@/components/agent-avatar";
 const POLL_MS = 30_000;
 
 /**
- * Leaderboard row shape — derived from the registered-agent record so we
+ * Leaderboard row shape , derived from the registered-agent record so we
  * decouple from `HERO_AGENTS` (which is now a label-rendering fallback,
  * not a source of truth for "which agents exist").
  */
@@ -64,7 +64,7 @@ export function AgentLeaderboard() {
   const [loading, setLoading] = useState(true);
 
   // Pull the registered agent list once on mount. Subsequent polls reuse
-  // the list — agents are added via the wizard, not minute-scale, so
+  // the list , agents are added via the wizard, not minute-scale, so
   // re-polling /api/agents every 30s is wasteful. Empty set on registry
   // failure renders the empty leaderboard, by design.
   useEffect(() => {
@@ -92,7 +92,7 @@ export function AgentLeaderboard() {
         Promise.all(
           agents.map(async (a) => {
             try {
-              // No string commitment — rpcfast strict-mode rejects it.
+              // No string commitment , rpcfast strict-mode rejects it.
               const lamports = await connection.getBalance(
                 new PublicKey(a.vault),
               );
@@ -109,7 +109,7 @@ export function AgentLeaderboard() {
       setLoading(false);
     }
     // `allowedCreators` is derived from `agents`, so depending on `agents`
-    // is sufficient — adding the set to the dep array would cause a fresh
+    // is sufficient , adding the set to the dep array would cause a fresh
     // identity every render and re-tick on every `setMarkets`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection, agents]);
@@ -308,7 +308,7 @@ function AgentCard({
               loading
                 ? "…"
                 : stats.accuracy === null
-                ? "—"
+                ? "-"
                 : `${Math.round(stats.accuracy * 100)}%`
             }
           />
@@ -318,7 +318,7 @@ function AgentCard({
               loading
                 ? "…"
                 : stats.sol === null
-                ? "—"
+                ? "-"
                 : `${stats.sol.toFixed(3)} SOL`
             }
           />

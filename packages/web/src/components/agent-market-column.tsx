@@ -8,7 +8,7 @@ import type { MarketView } from "@/lib/markets";
  *   right: "Markets on me" (kind=2 and targetAgent == vault)
  *
  * The column is a single reusable component because the row template
- * is identical — only the creator-vs-target pill differs. Kept as a
+ * is identical , only the creator-vs-target pill differs. Kept as a
  * server component (no "use client") so the profile page stays SSR.
  */
 export function AgentMarketColumn({
@@ -108,7 +108,7 @@ function AgentMarketRow({
             {kindLabel}
           </div>
           <div className="font-serif text-[15px] text-neutral-900 line-clamp-2 mt-0.5">
-            {market.question || "—"}
+            {market.question || "-"}
           </div>
           {pillLabel && (
             <span className="inline-block mt-1 rounded-full bg-purple-500/25 border border-purple-500/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-purple-300">

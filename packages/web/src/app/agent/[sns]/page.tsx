@@ -45,8 +45,8 @@ export default async function AgentProfilePage({
 
   // Vault resolution has three sources, in order:
   //   (1) hardcoded HERO_AGENTS map (alice/bob/charlie hand-rolled SNS)
-  //   (2) Supabase agent registry by SNS — wizard-created agents land here
-  //   (3) raw decoded — if the URL is already a vault pubkey
+  //   (2) Supabase agent registry by SNS , wizard-created agents land here
+  //   (3) raw decoded , if the URL is already a vault pubkey
   // The registry round-trip lets newly-launched agents work on first load
   // without waiting for an SNS-resolver redeploy.
   let vaultFromName = resolveVaultFromSns(decoded);
@@ -63,7 +63,7 @@ export default async function AgentProfilePage({
   const sns = resolveSns(vault);
 
   // Authoritative agent set is the Supabase registry. If the resolved
-  // vault isn't in it, this is an unknown / zombie agent — surface 404
+  // vault isn't in it, this is an unknown / zombie agent , surface 404
   // rather than rendering chain data for a creator the protocol no
   // longer recognises. Registry unreachable → empty set → 404 (we
   // deliberately don't fall through to HERO_AGENTS so old chaos-sim
@@ -84,7 +84,7 @@ export default async function AgentProfilePage({
     (m) => m.targetAgent === vault,
   );
 
-  // Phase B+ NAV history for this agent — null until the agent has called
+  // Phase B+ NAV history for this agent , null until the agent has called
   // commit_nav at least once. Server-fetched alongside markets/balances so
   // the page stays SSR.
   const bundieVault = await fetchBundieVault(
@@ -96,7 +96,7 @@ export default async function AgentProfilePage({
   // Known devnet token mints → protocol label + selector for rate context.
   // mSOL devnet is the Marinade mSOL mint deployed on devnet.
   const KNOWN_MINTS: Record<string, { label: string; protocol: string; selector: number; unit: string }> = {
-    // Marinade mSOL (devnet) — when an agent stakes SOL via Beethoven execute
+    // Marinade mSOL (devnet) , when an agent stakes SOL via Beethoven execute
     "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": { label: "Marinade mSOL", protocol: "marinade", selector: 2, unit: "mSOL" },
     // Kamino kUSDC (devnet main-market reserve)
     "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy": { label: "Kamino kUSDC", protocol: "kamino", selector: 1, unit: "kUSDC" },
@@ -106,7 +106,7 @@ export default async function AgentProfilePage({
   let tokenAccounts: Array<{ mint: string; uiAmount: number }> = [];
   try {
     const [sol, parsed] = await Promise.all([
-      // No string commitment — rpcfast strict-mode rejects it.
+      // No string commitment , rpcfast strict-mode rejects it.
       connection.getBalance(new PublicKey(vault)),
       connection.getParsedTokenAccountsByOwner(new PublicKey(vault), {
         programId: new PublicKey(
@@ -134,13 +134,13 @@ export default async function AgentProfilePage({
     .map((t) => ({ ...t, meta: KNOWN_MINTS[t.mint] }))
     .filter((t) => t.meta != null);
 
-  // Surfpool activity feed — chaos-sim daemon writes each landed mainnet-fork
+  // Surfpool activity feed , chaos-sim daemon writes each landed mainnet-fork
   // tx to the Postgres `agent_action_log` table; backend route serves them
   // keyed by the full SNS (alice.bundie.sol). resolveSns() returns
   // `devnetName: "alice.bundie"` (no .sol) for the on-chain devnet record,
-  // but the agent registry stores the full form — so append `.sol` if
+  // but the agent registry stores the full form , so append `.sol` if
   // missing to make the lookup match. Failure here must NOT break the page
-  // render — empty array is fine.
+  // render , empty array is fine.
   const rawSns = sns?.devnetName ?? decoded;
   const surfpoolSns = rawSns.endsWith(".sol") ? rawSns : `${rawSns}.sol`;
   const backendBase =
@@ -155,7 +155,7 @@ export default async function AgentProfilePage({
       surfpoolActions = body.actions ?? [];
     }
   } catch {
-    // backend down or unreachable — render empty panel rather than 500
+    // backend down or unreachable , render empty panel rather than 500
   }
 
   const resolvedMarkets = createdByMe.filter((m) => m.status === "resolved");
@@ -271,12 +271,12 @@ export default async function AgentProfilePage({
           }}
         >
           <StatCard label="SOL balance" value={`${solBalance.toFixed(4)} SOL`} />
-          <StatCard label="Accuracy" value={accuracy === null ? "—" : `${accuracy}%`} accent="green" />
+          <StatCard label="Accuracy" value={accuracy === null ? "-" : `${accuracy}%`} accent="green" />
           <StatCard label="Markets created" value={createdByMe.length.toString()} />
           <StatCard label="Markets on me" value={onMe.length.toString()} accent="purple" />
         </div>
 
-        {/* NAV history — last commit_nav snapshot from BundieVault PDA */}
+        {/* NAV history , last commit_nav snapshot from BundieVault PDA */}
         <div style={{ padding: "0 16px 12px" }}>
           <div className="card" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>NAV history</div>
@@ -285,7 +285,7 @@ export default async function AgentProfilePage({
               <span className="muted" style={{ fontSize: 13 }}>bUSD</span>
             </div>
             <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
-              Last commit at slot {bundieVault?.navSlot?.toString() ?? "—"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"})
+              Last commit at slot {bundieVault?.navSlot?.toString() ?? "-"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"})
             </div>
           </div>
         </div>
@@ -324,7 +324,7 @@ export default async function AgentProfilePage({
           />
         </div>
 
-        {/* Strategy positions — live devnet positions from Beethoven execution */}
+        {/* Strategy positions , live devnet positions from Beethoven execution */}
         {strategyPositions.length > 0 && (
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
             <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
@@ -374,7 +374,7 @@ export default async function AgentProfilePage({
           </div>
         )}
 
-        {/* Live surfpool activity — mainnet-fork strategy txs */}
+        {/* Live surfpool activity , mainnet-fork strategy txs */}
         <SurfpoolActivityPanel actions={surfpoolActions} />
 
         {/* Two-column markets */}

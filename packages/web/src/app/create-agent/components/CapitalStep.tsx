@@ -33,7 +33,7 @@ export function CapitalStep({ state, dispatch }: Props) {
         publicKey,
         false,
       );
-      // Don't pass the string commitment — rpcfast (the configured devnet
+      // Don't pass the string commitment , rpcfast (the configured devnet
       // RPC) rejects positional `"confirmed"` with `expected struct
       // CommitmentConfig`, falling into the catch{} below and silently
       // reporting $0 even when the ATA actually holds tokens.
@@ -41,7 +41,7 @@ export function CapitalStep({ state, dispatch }: Props) {
       const ui = info.value.uiAmount ?? 0;
       dispatch({ type: "CAPITAL/SET_BALANCE", value: ui });
     } catch {
-      // ATA may not exist yet — surface as 0 so the faucet button shows.
+      // ATA may not exist yet , surface as 0 so the faucet button shows.
       dispatch({ type: "CAPITAL/SET_BALANCE", value: 0 });
     }
   }, [publicKey, connected, connection, dispatch]);
@@ -57,12 +57,12 @@ export function CapitalStep({ state, dispatch }: Props) {
       const res = await claimFaucet(publicKey.toBase58());
       // Wait for the mint tx to actually confirm before reading balance.
       // Without this, a single setTimeout(refreshBalance) almost always
-      // missed the update on devnet — the user saw $0 indefinitely and
+      // missed the update on devnet , the user saw $0 indefinitely and
       // the Next button stayed greyed out.
       try {
         await connection.confirmTransaction(res.txSig, "confirmed");
       } catch {
-        // confirmTransaction can throw on RPC blip — fall through to the
+        // confirmTransaction can throw on RPC blip , fall through to the
         // retry-poll which will pick up the balance once it lands.
       }
       // Belt-and-braces: the ATA balance read can lag confirmation by a
@@ -91,7 +91,7 @@ export function CapitalStep({ state, dispatch }: Props) {
         txSig: res.txSig,
         error: null,
       });
-      toast.success(`Faucet claimed — $${FAUCET_AMOUNT} bUSD landed.`);
+      toast.success(`Faucet claimed , $${FAUCET_AMOUNT} bUSD landed.`);
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
       // Best-effort: refresh the balance one more time so the cooldown
@@ -103,7 +103,7 @@ export function CapitalStep({ state, dispatch }: Props) {
       if (msg.includes("429") || msg.toLowerCase().includes("cooldown")) {
         friendly =
           have >= FAUCET_AMOUNT
-            ? `You've already claimed today — and your wallet already has $${have.toFixed(2)} bUSD. You're good; hit Next.`
+            ? `You've already claimed today , and your wallet already has $${have.toFixed(2)} bUSD. You're good; hit Next.`
             : have > 0
               ? `You've already claimed today. Wallet has $${have.toFixed(2)} bUSD; Step 5 needs at least $${FAUCET_AMOUNT}. Either wait 24h or use the escape hatch below if you have more in another wallet.`
               : "You've already claimed today. Try again in 24 hours, or use the escape hatch below if you already have bUSD in this wallet.";
@@ -164,7 +164,7 @@ export function CapitalStep({ state, dispatch }: Props) {
               }}
             >
               {capital.busdBalance == null
-                ? "—"
+                ? "-"
                 : `$${capital.busdBalance.toFixed(2)}`}
             </div>
             <div
@@ -206,12 +206,12 @@ export function CapitalStep({ state, dispatch }: Props) {
                   Get $50 bUSD
                 </div>
                 <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
-                  One-shot faucet drip — 24h cooldown.
+                  One-shot faucet drip , 24h cooldown.
                 </div>
               </div>
               {/* When already funded, swap the faucet button for a live
                   "Deposit →" that just dispatches the wizard's NEXT
-                  action — operators consistently asked "if I already
+                  action , operators consistently asked "if I already
                   have bUSD, why am I clicking faucet?" The actual on-chain
                   deposit_to_vault tx still happens on Step 5 (Review →
                   Launch), but they get one obvious primary action here. */}
@@ -279,7 +279,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                 bUSD in their wallet, let them skip the faucet and advance
                 directly. The balance read on devnet sometimes flakes
                 (RPC throttle) and reports 0 even when the ATA holds tokens,
-                which is otherwise a dead end — Next stays greyed because
+                which is otherwise a dead end , Next stays greyed because
                 canAdvance() requires busdBalance >= 50. Clicking this
                 forces the wizard to treat capital as funded; if the
                 actual ATA balance is short the on-chain deposit_to_vault
@@ -310,7 +310,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                   fontWeight: 600,
                 }}
               >
-                I already have ≥ $50 bUSD — continue to deposit →
+                I already have ≥ $50 bUSD , continue to deposit →
               </button>
             )}
           </div>
@@ -333,8 +333,8 @@ export function CapitalStep({ state, dispatch }: Props) {
             </div>
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {fundsOk
-                ? "Funds detected — review your agent on the next step, then sign one transfer to seed it."
-                : "Get to $50 bUSD first — the seed transfer happens on the Review step."}
+                ? "Funds detected , review your agent on the next step, then sign one transfer to seed it."
+                : "Get to $50 bUSD first , the seed transfer happens on the Review step."}
             </div>
           </div>
         </>

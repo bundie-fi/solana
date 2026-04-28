@@ -145,7 +145,7 @@ export function PayoffCalculator({
       </div>
 
       <p className="font-mono text-[10px] text-neutral-800 mt-4 leading-relaxed">
-        cost = b · ln(exp(q_yes/b) + exp(q_no/b)) — on-chain LS-LMSR. Each
+        cost = b · ln(exp(q_yes/b) + exp(q_no/b)) , on-chain LS-LMSR. Each
         winning share settles to 1 USDC. Fee of {(feeBps / 100).toFixed(2)}%
         applied to stake.
       </p>
@@ -201,20 +201,20 @@ function Side({
       <dl className="mt-4 space-y-2 text-sm">
         <Row
           label="Shares received"
-          value={result ? formatNumber(result.shares, 4) : "—"}
+          value={result ? formatNumber(result.shares, 4) : "-"}
         />
         <Row
           label="Entry price"
-          value={result ? `${(result.entryPrice * 100).toFixed(2)}¢` : "—"}
+          value={result ? `${(result.entryPrice * 100).toFixed(2)}¢` : "-"}
         />
         <Row
           label="Max payout"
-          value={result ? `$${formatNumber(result.payoutUsdc, 2)}` : "—"}
+          value={result ? `$${formatNumber(result.payoutUsdc, 2)}` : "-"}
           tone={accent}
         />
         <Row
           label="Max ROI"
-          value={result ? `${(result.roi * 100).toFixed(1)}%` : "—"}
+          value={result ? `${(result.roi * 100).toFixed(1)}%` : "-"}
           tone={accent}
         />
       </dl>
@@ -246,7 +246,7 @@ function Row({
 }
 
 function formatNumber(n: number, decimals: number): string {
-  if (!Number.isFinite(n)) return "—"
+  if (!Number.isFinite(n)) return "-"
   return n.toLocaleString(undefined, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

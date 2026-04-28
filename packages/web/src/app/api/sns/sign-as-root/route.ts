@@ -1,12 +1,12 @@
 /**
- * /api/sns/sign-as-root — server-side parent_owner signature for `.bundie`
+ * /api/sns/sign-as-root , server-side parent_owner signature for `.bundie`
  * subdomain registrations.
  *
  * Why this exists
  * ───────────────
  * Subdomain creation under our owned `.bundie` root needs TWO signatures:
- *   - the user's wallet (payer + name_owner) — signed in the browser
- *   - the bundie-root-owner (parent_owner) — signed here
+ *   - the user's wallet (payer + name_owner) , signed in the browser
+ *   - the bundie-root-owner (parent_owner) , signed here
  *
  * The root-owner secret key never reaches the browser. It lives in the
  * server-only env var `BUNDIE_ROOT_OWNER_SECRET_KEY` (JSON array of 64
@@ -18,7 +18,7 @@
  *
  * The server:
  *   1. Decodes the tx.
- *   2. Calls `partialSign(rootOwnerKp)` — adds the parent_owner signature
+ *   2. Calls `partialSign(rootOwnerKp)` , adds the parent_owner signature
  *      without disturbing existing signatures (the wallet may have signed
  *      first; the order doesn't matter).
  *   3. Re-serializes with `requireAllSignatures: false` so the still-
@@ -28,13 +28,13 @@
  *
  * Hard rules:
  *   - This route NEVER submits to RPC. Submission is the wallet's job.
- *   - DENY-by-default: if the env var is missing, return 500 — never fall
+ *   - DENY-by-default: if the env var is missing, return 500 , never fall
  *     back to a generated keypair.
  *   - We do NOT validate the tx contents. The on-chain SPL Name Service
  *     processor enforces all the structural rules (correct accounts list,
  *     correct PDA seeds, correct rent). Adding off-chain validation here
  *     would let bugs in the validator silently break valid registrations
- *     while contributing nothing to security — the root-owner's signature
+ *     while contributing nothing to security , the root-owner's signature
  *     is only useful for the SPL `Create` ix anyway, so a malicious tx
  *     would just waste devnet rent without unlocking anything else.
  */
@@ -109,9 +109,9 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  // partialSign tolerates an already-partially-signed tx — it just adds
+  // partialSign tolerates an already-partially-signed tx , it just adds
   // our signature to the matching slot. If the root_owner pubkey isn't
-  // listed as a required signer, web3.js throws "unknown signer" — that's
+  // listed as a required signer, web3.js throws "unknown signer" , that's
   // the right error to surface (means the client built a tx that doesn't
   // need us, so something is wrong with their ix).
   try {

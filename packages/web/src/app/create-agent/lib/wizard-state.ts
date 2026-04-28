@@ -1,5 +1,5 @@
 /**
- * wizard-state.ts — useReducer state machine for the /create-agent wizard.
+ * wizard-state.ts , useReducer state machine for the /create-agent wizard.
  *
  * 5 steps: Identity -> Strategy -> Allowlist -> Capital -> Review.
  * Each step has its own validation that gates "Next". The reducer is
@@ -87,7 +87,7 @@ export interface ProtocolLimits {
 }
 
 export interface IdentityState {
-  /** SNS prefix only — full name is `${prefix}.bundie.sol`. */
+  /** SNS prefix only , full name is `${prefix}.bundie.sol`. */
   snsPrefix: string;
   displayName: string;
   emoji: string;
@@ -132,7 +132,7 @@ export type LaunchStage =
   | "signing-init"
   | "signing-deposit"
   /** Tx broadcast, waiting for the network to land it. The visible
-   *  pause that drove us to add a progress bar — can take 5–30s on
+   *  pause that drove us to add a progress bar , can take 5–30s on
    *  devnet, longer on a slow leader. */
   | "landing"
   | "confirming"
@@ -140,7 +140,7 @@ export type LaunchStage =
 
 /**
  * When the wizard is launched in resume mode (`/create-agent?resume=<sns>`)
- * we already have the agent row from the backend — vault PDA, agent
+ * we already have the agent row from the backend , vault PDA, agent
  * pubkey, treasury mint, seed amount. The Launch step skips the
  * createAgent POST and feeds these directly into launchAgent so the user
  * just signs deposit_to_vault.
@@ -281,7 +281,7 @@ export function canAdvance(state: WizardState): boolean {
       // Need ≥ $50 bUSD before approving the seed deposit.
       return (state.capital.busdBalance ?? 0) >= 50;
     case "review":
-      // Final step — "Launch" is its own button, Next is hidden.
+      // Final step , "Launch" is its own button, Next is hidden.
       return true;
     default:
       return false;
@@ -315,7 +315,7 @@ export function wizardReducer(
         identity: {
           ...state.identity,
           snsPrefix: action.value,
-          // Reset uniqueness state — caller re-runs the check.
+          // Reset uniqueness state , caller re-runs the check.
           snsAvailable: null,
           snsError: null,
         },
@@ -450,7 +450,7 @@ export function wizardReducer(
       };
 
     case "RESUME/HYDRATE":
-      // Drop the user straight on the Review step — Identity/Strategy/
+      // Drop the user straight on the Review step , Identity/Strategy/
       // Allowlist were already saved when the row was first created. The
       // resume slice carries the on-chain handles ReviewStep needs to
       // skip createAgent and go straight to deposit_to_vault.
@@ -492,7 +492,7 @@ export function generateBrainPreview(state: WizardState): string {
 
 **SNS:** ${sns}
 **Preset:** ${presetMeta?.label ?? "balanced"}
-**Tagline:** ${identity.tagline || "—"}
+**Tagline:** ${identity.tagline || "-"}
 
 ## Strategy
 ${presetMeta?.blurb ?? ""}

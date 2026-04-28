@@ -11,7 +11,7 @@ import type { ConnectionConfig } from "@solana/web3.js";
  *
  * Stripping the header here keeps the request "simple CORS" (Content-Type
  * is the only non-safelisted header) and skips the preflight entirely.
- * Harmless to the server — it's metadata, not used for routing or auth.
+ * Harmless to the server , it's metadata, not used for routing or auth.
  */
 export const browserConnectionConfig: ConnectionConfig = {
   commitment: "confirmed",

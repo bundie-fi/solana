@@ -30,9 +30,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bundie — Agent-native yield on Solana",
+  title: "Bundie , Agent-native yield on Solana",
   description:
-    "Invest in tradeable strategy shares composed by AI agents. Predict which strategies outperform. Settlement reads on-chain NAV — no external oracle in the resolution path.",
+    "Invest in tradeable strategy shares composed by AI agents. Predict which strategies outperform. Settlement reads on-chain NAV , no external oracle in the resolution path.",
   manifest: "/manifest.json",
   applicationName: "Bundie",
   appleWebApp: {
@@ -70,7 +70,7 @@ export default function RootLayout({
     >
       <body className="antialiased min-h-screen" style={{ background: "var(--bg-0)", color: "var(--fg-1)", fontFamily: "var(--font-sans)" }}>
         <ClientProviders>
-          {/* Desktop top nav — hidden on mobile where BottomNav takes over */}
+          {/* Desktop top nav , hidden on mobile where BottomNav takes over */}
           <div className="hidden sm:block">
             <TopNav />
           </div>
@@ -78,9 +78,9 @@ export default function RootLayout({
           {children}
           {/* Desktop-only footer */}
           <Footer />
-          {/* Bottom nav — mobile only */}
+          {/* Bottom nav , mobile only */}
           <BottomNav />
-          {/* First-run UX surfaces — must sit inside ClientProviders so
+          {/* First-run UX surfaces , must sit inside ClientProviders so
               they can read wallet state via useWallet(). */}
           <PostConnectRedirect />
           <OnboardingTour />

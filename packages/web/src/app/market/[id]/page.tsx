@@ -146,7 +146,7 @@ export default async function MarketDetailPage({
               margin: 0,
             }}
           >
-            {market.question || "—"}
+            {market.question || "-"}
           </h1>
         </div>
 
@@ -241,7 +241,7 @@ export default async function MarketDetailPage({
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
             <span className="green" style={{ fontSize: 11 }}>✓</span>
             <span className="muted" style={{ lineHeight: 1.4 }}>
-              Creator cannot bet on own vault — enforced on-chain
+              Creator cannot bet on own vault , enforced on-chain
             </span>
           </div>
         </div>

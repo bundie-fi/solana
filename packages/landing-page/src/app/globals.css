@@ -1907,7 +1907,7 @@ h1.hero .hero-line-2 {
   max-width: 52ch;
 }
 
-/* Feature visuals — shared card chrome */
+/* Feature visuals , shared card chrome */
 .features-visual { width: 100%; }
 .vis-card {
   border: 1px solid var(--line);

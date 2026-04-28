@@ -23,7 +23,7 @@ import "@solana/wallet-adapter-react-ui/styles.css";
  * v0.15 chain auto-registers MWA-compatible wallets via the Wallet Standard
  * when running in a mobile browser context (Phantom + Solflare both ship with
  * MWA support since mid-2024), so we don't need a separate `MobileWalletAdapter`
- * entry — listing Phantom + Solflare covers desktop extensions and Seeker.
+ * entry , listing Phantom + Solflare covers desktop extensions and Seeker.
  */
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   const endpoint = useMemo(

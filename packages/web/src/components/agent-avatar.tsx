@@ -3,7 +3,7 @@
 import React from "react";
 
 interface AgentAvatarProps {
-  /** "alice" | "bob" | "charlie" — maps to CSS class */
+  /** "alice" | "bob" | "charlie" , maps to CSS class */
   agent: string;
   size?: number;
   beat?: boolean;

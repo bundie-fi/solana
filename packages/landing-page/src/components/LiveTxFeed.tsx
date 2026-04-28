@@ -1,11 +1,11 @@
 /**
- * LiveTxFeed — server-rendered "things agents are doing right now" strip.
+ * LiveTxFeed , server-rendered "things agents are doing right now" strip.
  *
  * Pulls the last N rows from /api/activity (which joins agent_action_log
  * with agents). Hides the entire component if the fetch fails OR returns
  * an empty list, so first paint never shows a sad empty state.
  *
- * Cached for 30s via the segment-level `revalidate` re-export — same
+ * Cached for 30s via the segment-level `revalidate` re-export , same
  * cadence as LiveAgentCards / LiveActivityBar.
  */
 

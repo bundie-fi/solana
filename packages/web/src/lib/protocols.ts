@@ -1,6 +1,6 @@
 /**
  * Static catalog of every protocol adapter the rate-prediction markets
- * surface. Program IDs are the canonical mainnet/devnet ids — the
+ * surface. Program IDs are the canonical mainnet/devnet ids , the
  * chaos-sim agent runtime calls each protocol directly (see
  * marinade-execute, kamino-execute, marginfi-execute, solend-execute,
  * zeta-execute in packages/programs/scripts/chaos-sim/src/lib/).
@@ -12,7 +12,7 @@
 export type ProtocolCategory = "deposit" | "swap" | "perps";
 
 export interface Protocol {
-  /** Canonical kebab-case identifier — stable across UI + on-chain dispatch. */
+  /** Canonical kebab-case identifier , stable across UI + on-chain dispatch. */
   id: string;
   /** Display name shown to end users. */
   name: string;
@@ -31,7 +31,7 @@ export const PROTOCOLS: Protocol[] = [
     name: "Kamino",
     category: "deposit",
     programId: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
-    description: "Lending market — supply assets to earn variable yield.",
+    description: "Lending market , supply assets to earn variable yield.",
   },
   {
     id: "jupiter",
@@ -59,7 +59,7 @@ export const PROTOCOLS: Protocol[] = [
     name: "SPL Stake Pool",
     category: "deposit",
     programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
-    description: "Native stake-pool program — Jito, BlazeStake, custom LSTs.",
+    description: "Native stake-pool program , Jito, BlazeStake, custom LSTs.",
   },
   {
     id: "meteora-vaults",

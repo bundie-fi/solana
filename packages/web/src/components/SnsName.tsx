@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SnsName — render an SNS name for a Solana address, with graceful
+ * SnsName , render an SNS name for a Solana address, with graceful
  * fallback to a truncated pubkey while we resolve.
  *
  * Resolution order (delegated to lib/sns):
@@ -11,7 +11,7 @@
  *
  * The component is non-blocking: it renders the truncated pubkey
  * immediately, then upgrades when resolution finishes. If SNS RPC is
- * down, the truncated pubkey stays — UI never breaks.
+ * down, the truncated pubkey stays , UI never breaks.
  *
  * Hover tooltip surfaces the resolution path: which program (always SPL
  * Name Service), which TLD (.bundie on devnet vs .sol mainnet), and the
@@ -37,7 +37,7 @@ interface SnsNameProps {
   tail?: number;
   /** Optional className passthrough. Caller controls font/color. */
   className?: string;
-  /** Optional prefix label, e.g. "by " — only rendered when there IS a name or pubkey. */
+  /** Optional prefix label, e.g. "by " , only rendered when there IS a name or pubkey. */
   prefix?: string;
   /**
    * If true, wrap output in a link to the explorer (devnet). Defaults to false
@@ -79,7 +79,7 @@ export function SnsName({
         if (!cancelled) setName(n);
       })
       .catch(() => {
-        // Silent — UI keeps the truncated pubkey fallback.
+        // Silent , UI keeps the truncated pubkey fallback.
       });
     return () => {
       cancelled = true;

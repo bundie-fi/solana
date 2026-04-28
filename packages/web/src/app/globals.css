@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Bundie Seeker — Paper Light Theme
+   Bundie Seeker , Paper Light Theme
    Paper neutrals · warm inks · single spruce accent (#12443A)
    ============================================================================ */
 
 :root {
   /* --- Surfaces (paper neutrals, never pure white) --- */
-  --bg-0: #F4F1EA;       /* page — paper */
-  --bg-1: #FAF7F0;       /* surface — bone */
-  --bg-2: #FFFFFF;       /* raised — only for emphasis */
-  --bg-3: #EDE8DC;       /* hover — paper-2 */
+  --bg-0: #F4F1EA;       /* page , paper */
+  --bg-1: #FAF7F0;       /* surface , bone */
+  --bg-2: #FFFFFF;       /* raised , only for emphasis */
+  --bg-3: #EDE8DC;       /* hover , paper-2 */
   --bg-4: #E2DCCB;       /* press / inset well */
 
   /* --- Borders (warm sand) --- */
@@ -208,11 +208,11 @@ button { font-family: inherit; }
   60% { transform: scale(1.5); opacity: 0; }
 }
 
-/* alice — spruce */
+/* alice , spruce */
 .agent-alice { --ring-c1: #12443A; --ring-c2: #2C8B79; color: #12443A; }
-/* bob — slate blue */
+/* bob , slate blue */
 .agent-bob   { --ring-c1: #3D6796; --ring-c2: #5C84A8; color: #3D6796; }
-/* charlie — ink/grey */
+/* charlie , ink/grey */
 .agent-cha   { --ring-c1: #161618; --ring-c2: #5A5A60; color: #161618; }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */

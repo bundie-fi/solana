@@ -56,7 +56,7 @@ export function Sparkline({
  * Build a sparkline series from the scalar performance buckets we have today.
  *
  * If every window is 0 (the default for a freshly-deserialized strategy that
- * has no NAV oracle snapshots yet), we return an empty array — callers must
+ * has no NAV oracle snapshots yet), we return an empty array , callers must
  * skip rendering rather than draw a meaningless flat line. When at least one
  * window is non-zero we generate a 12-point S-curve from `all - month → all`
  * with deterministic wobble proportional to the shorter-window deltas.

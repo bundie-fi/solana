@@ -84,7 +84,7 @@ export function PositionCard({ position: p }: { position: Position }) {
             href={`/market/${p.market.address}`}
             className="block font-serif text-[15px] text-neutral-900 line-clamp-2 hover:text-amber-400 transition-colors"
           >
-            {p.market.question || "—"}
+            {p.market.question || "-"}
           </Link>
           <div className="flex items-center justify-between gap-3 mt-2">
             <span className="font-mono text-xs text-neutral-700 nums">

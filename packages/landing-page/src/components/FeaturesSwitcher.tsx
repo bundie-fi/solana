@@ -25,7 +25,7 @@ const FEATURES: FeatureSpec[] = [
     number: "01",
     name: "AI agents",
     title: ["Agents trade real DeFi.", "You watch on-chain."],
-    body: "Anyone launches an AI agent on Bundie. They get a .bundie.sol identity and a brain that reasons every tick — Claude Sonnet reading live mainnet rates, then executing real Marinade / Kamino / Zeta calls. Every action lands as a verifiable on-chain tx.",
+    body: "Anyone launches an AI agent on Bundie. They get a .bundie.sol identity and a brain that reasons every tick , Claude Sonnet reading live mainnet rates, then executing real Marinade / Kamino / Zeta calls. Every action lands as a verifiable on-chain tx.",
     Visual: AiAgentVisual,
   },
   {
@@ -33,7 +33,7 @@ const FEATURES: FeatureSpec[] = [
     number: "02",
     name: "Prediction Market",
     title: ["LS-LMSR markets.", "Settled by NAV."],
-    body: "Each market is a Logarithmic Market Scoring Rule pool — deep, continuous liquidity from a single creator. Resolution reads on-chain NAV at the resolution slot. No oracle dispute period, no settlement committee.",
+    body: "Each market is a Logarithmic Market Scoring Rule pool , deep, continuous liquidity from a single creator. Resolution reads on-chain NAV at the resolution slot. No oracle dispute period, no settlement committee.",
     Visual: PredictionMarketVisual,
   },
   {
@@ -41,7 +41,7 @@ const FEATURES: FeatureSpec[] = [
     number: "03",
     name: "NAV Settlement",
     title: ["No oracle.", "No committee."],
-    body: "Each agent's NAV is computed from its on-chain positions and committed every few ticks. Markets settle by reading that account directly. The truth is the chain — there's nobody to argue with.",
+    body: "Each agent's NAV is computed from its on-chain positions and committed every few ticks. Markets settle by reading that account directly. The truth is the chain , there's nobody to argue with.",
     Visual: NavSettlementVisual,
   },
   {
@@ -49,7 +49,7 @@ const FEATURES: FeatureSpec[] = [
     number: "04",
     name: "Identity",
     title: ["SNS-native agents.", "Always your wallet."],
-    body: "Every agent has a .bundie.sol subdomain via Solana Name Service. Your wallet stays your wallet. Bundie never custodies funds — capital flows through programs your transactions sign.",
+    body: "Every agent has a .bundie.sol subdomain via Solana Name Service. Your wallet stays your wallet. Bundie never custodies funds , capital flows through programs your transactions sign.",
     Visual: IdentityVisual,
   },
 ];
@@ -61,7 +61,7 @@ function FeaturesSwitcher() {
 
   return (
     <div className="features-switcher">
-      {/* Left rail — minimalist, only the names. */}
+      {/* Left rail , minimalist, only the names. */}
       <div className="features-rail">
         {FEATURES.map((f) => {
           const isActive = f.id === activeId;
@@ -78,7 +78,7 @@ function FeaturesSwitcher() {
         })}
       </div>
 
-      {/* Middle — title + body. */}
+      {/* Middle , title + body. */}
       <div className="features-copy">
         <h3 className="features-title">
           {active.title[0]}
@@ -87,7 +87,7 @@ function FeaturesSwitcher() {
         <p className="features-body">{active.body}</p>
       </div>
 
-      {/* Right — the active feature's visual. */}
+      {/* Right , the active feature's visual. */}
       <div className="features-visual">
         <Visual />
       </div>

@@ -98,7 +98,7 @@ export function PredictPanel({
   const estimatedShares =
     usdcAmount && parseFloat(usdcAmount) > 0 && selectedPrice > 0
       ? (parseFloat(usdcAmount) / selectedPrice).toFixed(4)
-      : "—";
+      : "-";
 
   const handleSubmit = useCallback(async () => {
     if (!publicKey || !connected) return;

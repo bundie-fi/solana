@@ -31,7 +31,7 @@ const BACKEND_URL =
 
 /**
  * Minimal shape returned by `GET /api/agents`. Only the fields the home feed
- * actually consumes are typed here — the backend may return additional
+ * actually consumes are typed here , the backend may return additional
  * columns (preset, brain_md, etc.) which we ignore.
  */
 interface RegistryAgent {
@@ -63,7 +63,7 @@ export function HomeFeed() {
   const prevVaultMapRef = useRef<Map<string, number>>(new Map());
 
   // Pull the agent registry once on mount; subsequent ticks reuse the list.
-  // (Agents added via the wizard appear after a soft refresh — re-polling
+  // (Agents added via the wizard appear after a soft refresh , re-polling
   // every 15s is wasteful for a directory that changes minute-scale at most.)
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +75,7 @@ export function HomeFeed() {
         if (cancelled) return;
         setAgents(body.agents ?? []);
       } catch (e) {
-        // Surface as a soft error — markets still render even if the agent
+        // Surface as a soft error , markets still render even if the agent
         // strip is empty.
         console.warn("[feed] failed to load /api/agents", e);
         if (!cancelled) setAgents([]);
@@ -92,7 +92,7 @@ export function HomeFeed() {
       // must include BOTH the vault PDA AND the agent keypair pubkey
       // because chaos-sim's create_market_v2 signs with the keypair, so
       // Market.created_by holds agent_pubkey, not vault_pda. This mirrors
-      // fetchRegisteredVaultSet() in @/lib/registry — without including
+      // fetchRegisteredVaultSet() in @/lib/registry , without including
       // agent_pubkey, every chaos-sim market is filtered out and the
       // feed renders empty.
       const allowedCreators = new Set<string>();
@@ -105,7 +105,7 @@ export function HomeFeed() {
       const snapshots: VaultSnapshot[] = await Promise.all(
         agents.map(async (a) => {
           try {
-            // No string commitment — rpcfast strict-mode rejects it.
+            // No string commitment , rpcfast strict-mode rejects it.
             const lamports = await connection.getBalance(
               new PublicKey(a.vault_pda),
             );
@@ -216,7 +216,7 @@ export function HomeFeed() {
           </Link>
         </div>
 
-        {/* Agent quick-tap strip — sourced from /api/agents (Phase L registry). */}
+        {/* Agent quick-tap strip , sourced from /api/agents (Phase L registry). */}
         <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", overflowX: "auto" }}>
           {agents.map((a, i) => {
             const agentKey = resolveAgentKey(a.sns);
@@ -334,7 +334,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
   if (isBet) kind = "BET";
 
   // Approx probability from headline if market
-  const yesPct = 50; // default — we don't have real prob in FeedEvent
+  const yesPct = 50; // default , we don't have real prob in FeedEvent
 
   const content = (
     <div

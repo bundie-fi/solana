@@ -8,7 +8,7 @@ export type Protocol = {
   name: string;
   /** Top-level grouping. */
   category: "Deposit" | "Swap" | "Perps";
-  /** Sub-category — lending, liquid staking, vault aggregator, CLMM, CLOB, perps, … */
+  /** Sub-category , lending, liquid staking, vault aggregator, CLMM, CLOB, perps, … */
   subCategory: string;
   /** On-chain program ID (devnet). */
   programId: string;
@@ -57,7 +57,7 @@ export function ProtocolGrid({ protocols }: { protocols: Protocol[] }) {
       setCopied(id);
       setTimeout(() => setCopied((c) => (c === id ? null : c)), 1200);
     } catch {
-      /* clipboard unavailable — silent */
+      /* clipboard unavailable , silent */
     }
   }
 
@@ -176,7 +176,7 @@ function ProtocolCard({
         </span>
       </div>
 
-      {/* Program ID — click to copy */}
+      {/* Program ID , click to copy */}
       <div className="rounded-lg bg-neutral-0/40 border border-neutral-300 p-3 mb-3">
         <p className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-neutral-800 mb-1">
           Program ID

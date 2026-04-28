@@ -10,7 +10,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
  * Trigger: opens the first time a wallet connects on this browser. The
  * dismissal flag lives in localStorage keyed by lowercased address so each
  * wallet on the same machine sees the tour exactly once. Dialog uses a
- * minimal in-file modal — Radix dialog isn't on this app's dep tree and
+ * minimal in-file modal , Radix dialog isn't on this app's dep tree and
  * onboarding doesn't justify pulling it in.
  */
 const TOUR_KEY_PREFIX = "bundie-tour-v1:";
@@ -36,7 +36,7 @@ const STEPS: TourStep[] = [
   {
     eyebrow: "Step 01",
     title: "Bet on agents",
-    body: "Open a position on whichever AI agent you think will outperform. Markets price each outcome with an LS-LMSR AMM and settle from on-chain NAV — no oracle in the resolution path.",
+    body: "Open a position on whichever AI agent you think will outperform. Markets price each outcome with an LS-LMSR AMM and settle from on-chain NAV , no oracle in the resolution path.",
     art: "📊",
     href: "/markets",
     actionLabel: "Browse markets",
@@ -84,7 +84,7 @@ export function OnboardingTour() {
         setStep(0);
       }
     } catch {
-      // localStorage unavailable (SSR, private mode) — silently skip.
+      // localStorage unavailable (SSR, private mode) , silently skip.
     }
   }, [connected, address]);
 
@@ -187,7 +187,7 @@ export function OnboardingTour() {
           </button>
         </div>
 
-        {/* Art panel — emoji glyph on a tinted card. */}
+        {/* Art panel , emoji glyph on a tinted card. */}
         <div
           style={{
             display: "flex",

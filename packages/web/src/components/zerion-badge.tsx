@@ -1,5 +1,5 @@
 /**
- * Zerion routing indicator — Z-shaped SVG + "Zerion-routed" label.
+ * Zerion routing indicator , Z-shaped SVG + "Zerion-routed" label.
  */
 export function ZerionBadge() {
   return (

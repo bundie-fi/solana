@@ -2,7 +2,7 @@
  * Hand-encoded prediction-market transactions.
  *
  * We deliberately DON'T pull the Anchor method-builder into the client
- * bundle — it drags in a large BN/borsh surface that Next.js has to polyfill.
+ * bundle , it drags in a large BN/borsh surface that Next.js has to polyfill.
  * Instead we encode the two instructions we actually need (buy_shares +
  * redeem) using their Anchor discriminators and the account layouts from
  * `packages/common/src/idl/prediction_market.json`.
@@ -62,7 +62,7 @@ export interface BuildBuySharesArgs {
  *
  * The `buyer_collateral` account is derived as the buyer's ATA for the
  * market's collateral mint. If the buyer hasn't funded that account yet
- * the ix will fail — a separate "fund my USDC" flow is out of scope for
+ * the ix will fail , a separate "fund my USDC" flow is out of scope for
  * this PR.
  */
 export function buildBuyShares({

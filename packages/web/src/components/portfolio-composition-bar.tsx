@@ -3,10 +3,10 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 /**
  * Horizontal stacked bar showing a vault's asset mix: %SOL / %USDC /
  * %mSOL / %kTokens / %other. The "other" bucket catches token accounts
- * we don't have price quotes for — we render it in neutral grey so the
+ * we don't have price quotes for , we render it in neutral grey so the
  * user can see composition without claiming a USD value we can't verify.
  *
- * We intentionally don't convert everything to USD — devnet doesn't have
+ * We intentionally don't convert everything to USD , devnet doesn't have
  * a reliable price surface and that conversion would mislead on the
  * mixed-asset bar. Instead we use raw uiAmount as the "weight" and scale
  * to percentages across the total.
@@ -21,7 +21,7 @@ const BUSD_MINT =
   "42LaRiwvuxfQv5rfHMmk9wU3K2nRxMGzgukNJztydpiB";
 
 const MINT_LABELS: Record<string, { label: string; color: string }> = {
-  // bUSD — Bundie's prediction-market collateral, minted in setup-busd.
+  // bUSD , Bundie's prediction-market collateral, minted in setup-busd.
   // Sits before USDC because it's the dominant token in vault holdings.
   [BUSD_MINT]: {
     label: "bUSD",
@@ -39,10 +39,10 @@ const MINT_LABELS: Record<string, { label: string; color: string }> = {
   },
 };
 
-// kToken prefix — Kamino ktoken mints on devnet aren't fully cataloged,
+// kToken prefix , Kamino ktoken mints on devnet aren't fully cataloged,
 // so we fall back to "kToken" if the mint isn't in MINT_LABELS but has
 // a recognisable on-chain program owner. For v1 we just bucket the
-// unknowns under "Other" — callers can expand MINT_LABELS over time.
+// unknowns under "Other" , callers can expand MINT_LABELS over time.
 
 export interface PortfolioCompositionBarProps {
   solLamports: number;

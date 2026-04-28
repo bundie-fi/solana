@@ -1,5 +1,5 @@
 /**
- * lib/sns-register.ts — client-side SNS registration helpers (devnet only).
+ * lib/sns-register.ts , client-side SNS registration helpers (devnet only).
  *
  * Mirrors the chaos-sim canonical path
  * (packages/programs/scripts/chaos-sim/src/sns.ts::registerNameOnDevnet) but
@@ -41,14 +41,14 @@ import { browserConnectionConfig } from "./connection-config";
 const DEVNET_RPC =
   process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
 
-// SPL Name Service program — same on mainnet and devnet.
+// SPL Name Service program , same on mainnet and devnet.
 //   github.com/solana-labs/solana-program-library/tree/master/name-service
 export const SPL_NAME_SERVICE_PROGRAM_ID = new PublicKey(
   "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
 );
 
 // Our owned `.bundie` root on devnet (created by `pnpm chaos:setup-root`).
-// These are public values — the server holds the matching secret key.
+// These are public values , the server holds the matching secret key.
 // Override via NEXT_PUBLIC_BUNDIE_ROOT_PDA / _OWNER for non-default deployments.
 const DEFAULT_BUNDIE_ROOT_PDA = "4ZKCQT1DgxQ7L4TggUMr4SS3zH4SLyVT1FWbCq4qrjEy";
 const DEFAULT_BUNDIE_ROOT_OWNER = "8EodjSj73fUA2doL86CSRZzrFQUxJ9kBPNjDBo92hpH6";
@@ -63,18 +63,18 @@ export const BUNDIE_ROOT_OWNER = new PublicKey(
 const HASH_PREFIX = "SPL Name Service";
 
 // Account layout: 96B NameRecordHeader + body. The on-chain `Create`
-// handler does NOT add the header to our `space` field — we have to size
+// handler does NOT add the header to our `space` field , we have to size
 // rent for both, then pass body-only as `space`. The previous bypass
 // forgot the header and would have under-funded the account.
 const NAME_RECORD_HEADER_BYTES = 96;
 const NAME_BODY_SPACE = 1_000;
 
-// Approx devnet cost — surfaced so the UI can warn before the user signs.
+// Approx devnet cost , surfaced so the UI can warn before the user signs.
 // Rent for (96 + 1000) bytes ≈ 0.0079 SOL on the current devnet schedule;
 // rounded up here for display so users have a tiny buffer.
 export const DEVNET_REGISTRATION_COST_SOL = 0.009;
 
-// Name validity rules — narrow on purpose. SPL is more permissive but our
+// Name validity rules , narrow on purpose. SPL is more permissive but our
 // UX surface stays "lowercase alphanumeric + dashes" to match chaos-pool
 // naming and avoid confusable unicode.
 const NAME_MIN_LEN = 3;
@@ -86,7 +86,7 @@ export interface NameValidation {
   reason?: string;
 }
 
-/** Sync validator. Pure function — safe to call from any render. */
+/** Sync validator. Pure function , safe to call from any render. */
 export function validateName(raw: string): NameValidation {
   const name = raw.trim().toLowerCase();
   if (!name) return { ok: false, reason: "Enter a name." };
@@ -125,15 +125,15 @@ async function deriveNamePda(bare: string): Promise<{
   const hashed = await sha256(enc.encode(HASH_PREFIX + bare));
   const seeds = [
     hashed,
-    new Uint8Array(32), // class — empty
-    BUNDIE_ROOT_PDA.toBuffer(), // parent — our owned `.bundie` root
+    new Uint8Array(32), // class , empty
+    BUNDIE_ROOT_PDA.toBuffer(), // parent , our owned `.bundie` root
   ];
   const [pda] = PublicKey.findProgramAddressSync(seeds, SPL_NAME_SERVICE_PROGRAM_ID);
   return { pda, hashed };
 }
 
 /**
- * checkAvailability — does the `<name>.bundie` registry account already
+ * checkAvailability , does the `<name>.bundie` registry account already
  * exist on devnet? Three states:
  *   - 'invalid'  → fails our name regex (no RPC call)
  *   - 'taken'    → on-chain registry exists; surfaces owner pubkey
@@ -154,7 +154,7 @@ export async function checkAvailability(
   try {
     const { pda } = await deriveNamePda(name);
     const conn = new Connection(DEVNET_RPC, browserConnectionConfig);
-    // No string commitment — rpcfast strict-mode rejects positional
+    // No string commitment , rpcfast strict-mode rejects positional
     // `"confirmed"`. Connection was constructed with the same default.
     const acc = await conn.getAccountInfo(pda);
     if (!acc) return { state: "available", name };
@@ -187,7 +187,7 @@ export interface BuiltRegistration {
 // Wire format (research-verified from solana-program-library/name-service
 // instruction.rs:13-48 + processor.rs:32-82):
 //
-//   [u8 = 0x00]                       // Borsh enum tag — Create
+//   [u8 = 0x00]                       // Borsh enum tag , Create
 //   [u32 LE = hashed.len() = 32]
 //   [32 bytes hashed_name]
 //   [u64 LE rent lamports]
@@ -198,9 +198,9 @@ export interface BuiltRegistration {
 //   1. payer                           [signer, writable]
 //   2. name_account (PDA)              [writable]
 //   3. name_owner                      [readonly]
-//   4. name_class (Pubkey::default)    [readonly] — empty pubkey if absent
+//   4. name_class (Pubkey::default)    [readonly] , empty pubkey if absent
 //   5. name_parent (BUNDIE_ROOT_PDA)   [readonly]
-//   6. name_parent_owner               [signer]   — REQUIRED when parent ≠ default
+//   6. name_parent_owner               [signer]   , REQUIRED when parent ≠ default
 //
 // Slot 6 is what the previous bypass missed. Without it, the on-chain
 // processor calls `parent_name_owner.unwrap()` on a `None` and aborts —
@@ -230,7 +230,7 @@ function buildCreateIxData(
 
 /**
  * Build a registration transaction for `<name>.bundie` owned by `owner`.
- * Returns an UNSIGNED tx — the caller is responsible for getting both
+ * Returns an UNSIGNED tx , the caller is responsible for getting both
  * the wallet signature AND the bundie-root-owner signature (via the
  * /api/sns/sign-as-root server route).
  *
@@ -253,7 +253,7 @@ export async function buildRegisterTx(
   const { pda: namePda, hashed } = await deriveNamePda(bare);
 
   const totalSpace = NAME_RECORD_HEADER_BYTES + NAME_BODY_SPACE;
-  // Throws on RPC failure — DENY by default.
+  // Throws on RPC failure , DENY by default.
   const lamports = BigInt(
     await c.getMinimumBalanceForRentExemption(totalSpace),
   );
@@ -288,7 +288,7 @@ export async function buildRegisterTx(
 }
 
 /**
- * Minimal wallet adapter shape we need — keeps this module decoupled from
+ * Minimal wallet adapter shape we need , keeps this module decoupled from
  * the exact `@solana/wallet-adapter-react` types so unit tests can pass a
  * plain stub.
  */
@@ -310,7 +310,7 @@ export interface RegistrationOutcome {
 /**
  * POST the partially-signed tx to /api/sns/sign-as-root. The server adds
  * the bundie-root-owner signature (held in BUNDIE_ROOT_OWNER_SECRET_KEY,
- * server-only env). Returns the still-incomplete tx — the wallet still
+ * server-only env). Returns the still-incomplete tx , the wallet still
  * needs to sign as payer.
  *
  * Errors propagate to the caller (DENY by default). We never silently
@@ -328,7 +328,7 @@ async function signAsRoot(serializedTxB64: string): Promise<string> {
     try {
       body = await res.json();
     } catch {
-      // ignore — we'll fall back to the status text
+      // ignore , we'll fall back to the status text
     }
     throw new Error(
       `sign-as-root failed (${res.status}): ${body.error ?? res.statusText}`,
@@ -340,7 +340,7 @@ async function signAsRoot(serializedTxB64: string): Promise<string> {
 }
 
 /**
- * executeRegistration — orchestrates the full claim flow:
+ * executeRegistration , orchestrates the full claim flow:
  *
  *   1. Validate name + check availability (refuses to spend on a taken name)
  *   2. Build the unsigned create-subdomain tx
@@ -348,7 +348,7 @@ async function signAsRoot(serializedTxB64: string): Promise<string> {
  *   4. Wallet signs as payer (via sendTransaction)
  *   5. Confirm
  *
- * Throws on any failure — no silent fallback (DENY by default).
+ * Throws on any failure , no silent fallback (DENY by default).
  */
 export async function executeRegistration(
   wallet: SnsSigningWallet,
@@ -365,7 +365,7 @@ export async function executeRegistration(
 
   const c = conn ?? new Connection(DEVNET_RPC, browserConnectionConfig);
 
-  // Belt-and-brace — the /identity UI also gates this with its live
+  // Belt-and-brace , the /identity UI also gates this with its live
   // availability check, but check again at the boundary in case the user
   // clicks fast or the cache is stale.
   const avail = await checkAvailability(bare);
@@ -385,7 +385,7 @@ export async function executeRegistration(
   tx.recentBlockhash = blockhash;
   tx.feePayer = wallet.publicKey;
 
-  // Step 1 — server adds parent_owner sig.
+  // Step 1 , server adds parent_owner sig.
   const partialB64 = tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
     .toString("base64");
@@ -397,7 +397,7 @@ export async function executeRegistration(
   );
   const partiallySignedTx = Transaction.from(rootSignedBytes);
 
-  // Step 2 — wallet signs + sends.
+  // Step 2 , wallet signs + sends.
   const signature = await wallet.sendTransaction(partiallySignedTx, c);
   await c
     .confirmTransaction(
@@ -405,13 +405,13 @@ export async function executeRegistration(
       "confirmed",
     )
     .catch(() => {
-      /* don't throw — caller can poll if they care; tx is already submitted */
+      /* don't throw , caller can poll if they care; tx is already submitted */
     });
 
   return { namePda, signature, domain: `${bare}.bundie` };
 }
 
-// Test-only helpers — exposed so the smoke test can probe internals
+// Test-only helpers , exposed so the smoke test can probe internals
 // without importing @solana/web3.js Transaction signing.
 export const _internals = {
   NAME_RE,

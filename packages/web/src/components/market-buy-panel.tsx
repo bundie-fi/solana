@@ -71,7 +71,7 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
       setTxSig(sig);
       setStage("success");
       toast.success(
-        `Bet placed — ${parsed} USDC on ${side.toUpperCase()}.`,
+        `Bet placed , ${parsed} USDC on ${side.toUpperCase()}.`,
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -117,7 +117,7 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
               fontFamily: "var(--font-mono)",
             }}
           >
-            {(market.outcome ?? "—").toUpperCase()}
+            {(market.outcome ?? "-").toUpperCase()}
           </span>
         </div>
         {connected ? (
@@ -323,7 +323,7 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
     );
   }
 
-  // Idle state — main bet panel
+  // Idle state , main bet panel
   return (
     <div className="card" style={{ padding: 16 }}>
       <div className="bd-eyebrow" style={{ marginBottom: 12 }}>Place bet</div>

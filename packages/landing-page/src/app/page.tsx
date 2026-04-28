@@ -57,7 +57,7 @@ export default function Home() {
       <section className="hero">
         <div className="ambient" />
         <div className="wrap">
-          {/* Status pill — matches Aqua0 cadence: tiny pill above the
+          {/* Status pill , matches Aqua0 cadence: tiny pill above the
               huge headline, signals "this is live right now" before the
               visitor even reads the words. */}
           <span className="hero-badge" style={{ marginBottom: 28 }}>
@@ -72,8 +72,8 @@ export default function Home() {
 
           <div className="hero-sub">
             <p>
-              Real AI strategies trade Solana DeFi —{" "}
-              <em className="hero-sub-accent">Marinade, Kamino, Zeta</em> — and
+              Real AI strategies trade Solana DeFi , {" "}
+              <em className="hero-sub-accent">Marinade, Kamino, Zeta</em> , and
               you predict who outperforms.
             </p>
           </div>
@@ -94,7 +94,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* === LIVE ACTIVITY BAR — server-rendered counts; hides on fetch
+      {/* === LIVE ACTIVITY BAR , server-rendered counts; hides on fetch
               failure so visitors never see "0 agents". === */}
       <LiveActivityBar />
 
@@ -123,7 +123,7 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Center stat panel — replaces the LiquidMorphCanvas in
+            {/* Center stat panel , replaces the LiquidMorphCanvas in
                 Aqua0's reference. Shows the three pieces that close the
                 loop: agent → on-chain NAV → market settles. */}
             <div className="ps-center">
@@ -160,13 +160,13 @@ export default function Home() {
               </h3>
               <p className="ps-body">
                 Bundie agents trade on Solana. Their NAV is on-chain. The
-                LS-LMSR market reads the NAV and pays out — automatically, at
+                LS-LMSR market reads the NAV and pays out , automatically, at
                 the resolution slot.
               </p>
             </div>
           </div>
 
-          {/* Stats strip — ported from Aqua0's PS section. */}
+          {/* Stats strip , ported from Aqua0's PS section. */}
           <StaggerChildren className="ps-stats">
             <StaggerItem className="ps-stat">
               <span className="ps-stat-val">$50</span>
@@ -203,7 +203,7 @@ export default function Home() {
         </div>
       </MotionSection>
 
-      {/* === LIVE AGENTS — real rows from the registry; falls back to
+      {/* === LIVE AGENTS , real rows from the registry; falls back to
               hard-coded seed copy on backend failure. === */}
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
@@ -217,7 +217,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* === LIVE TX FEED — silently hides if there's no recent activity. === */}
+      {/* === LIVE TX FEED , silently hides if there's no recent activity. === */}
       <LiveTxFeed />
 
       {/* === TRUSTED BY THE ECOSYSTEM === */}
@@ -231,7 +231,7 @@ export default function Home() {
             </h2>
             <p className="section-sub" style={{ margin: "20px 0 0" }}>
               Bundie agents don&apos;t reinvent yield. They route through the
-              Solana protocols you already trust — and we&apos;re onboarding
+              Solana protocols you already trust , and we&apos;re onboarding
               the rest.
             </p>
           </div>
@@ -298,7 +298,7 @@ export default function Home() {
               <h3 className="validation-title">Jito · MEV-aware staking</h3>
               <p className="validation-body">
                 JitoSOL gives agents an upgraded LST with built-in MEV
-                rebates — same exit profile as mSOL, more juice on top.
+                rebates , same exit profile as mSOL, more juice on top.
               </p>
             </StaggerItem>
           </StaggerChildren>
@@ -328,7 +328,7 @@ export default function Home() {
             <p className="fees-sub">
               Bundie doesn&apos;t take a cut of NAV, market spreads, or agent
               earnings. The only on-chain cost on devnet is Solana
-              transaction fees — under a tenth of a cent per action.
+              transaction fees , under a tenth of a cent per action.
             </p>
 
             <div className="fees-grid">

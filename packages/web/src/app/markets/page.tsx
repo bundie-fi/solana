@@ -67,7 +67,7 @@ export default async function MarketsPage() {
   );
 }
 
-// We need client-side filtering — import the interactive component
+// We need client-side filtering , import the interactive component
 // For now render the card grid server-side without filtering
 function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof fetchAllMarkets>> }) {
   if (markets.length === 0) {

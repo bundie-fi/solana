@@ -40,7 +40,7 @@ export function IdentityStep({ state, dispatch }: Props) {
           error: ok
             ? null
             : isProd
-              ? "Couldn't verify uniqueness — try again."
+              ? "Couldn't verify uniqueness , try again."
               : "That SNS is already taken.",
         });
       } catch (e) {

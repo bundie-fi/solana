@@ -1,5 +1,5 @@
 /**
- * transactions.ts — wizard-side transaction builders for the
+ * transactions.ts , wizard-side transaction builders for the
  * /create-agent flow.
  *
  * SIGNER MODEL FINDING (Phase J init_vault.rs):
@@ -15,14 +15,14 @@
  *   init_vault server-side as part of `POST /api/agents`. By the
  *   time `confirmInit` is called, the vault PDA is already on-chain.
  *
- *   That leaves only `deposit_to_vault` for the wallet to sign — the
+ *   That leaves only `deposit_to_vault` for the wallet to sign , the
  *   user transfers $50 bUSD from their ATA into the vault's
  *   treasury_ata. The vault PDA + treasury_ata addresses come back in
  *   `nextSteps` from `POST /api/agents`.
  *
  *   If the backend can't co-sign (e.g. no SOL on the agent keypair to
  *   pay rent), it should ask the wizard to fund the agent first via a
- *   plain SystemProgram transfer — that path is not implemented yet.
+ *   plain SystemProgram transfer , that path is not implemented yet.
  *
  * Encoding strategy mirrors `packages/web/src/lib/tx-builders.ts`:
  *   hand-encode the Anchor discriminator + u64 LE arg, no Anchor
@@ -45,7 +45,7 @@ import type { LaunchStage } from "./wizard-state";
 import type { CreateAgentResponse } from "./api";
 
 // ── Anchor discriminator ────────────────────────────────────────────────────
-// From packages/common/src/idl/prediction_market.json — depositToVault.
+// From packages/common/src/idl/prediction_market.json , depositToVault.
 const DISC_DEPOSIT_TO_VAULT = Uint8Array.from([
   18, 62, 110, 8, 26, 106, 248, 151,
 ]);
@@ -72,7 +72,7 @@ export interface BuildDepositArgs {
   ownerWallet: PublicKey;
   /** Vault PDA returned by `POST /api/agents`. */
   vaultPda: PublicKey;
-  /** Treasury mint (bUSD) — used to derive the depositor + treasury ATAs. */
+  /** Treasury mint (bUSD) , used to derive the depositor + treasury ATAs. */
   treasuryMint: PublicKey;
   /** Amount in base units (50 bUSD = 50_000_000 with 6dp). */
   amountBase: number | bigint;
@@ -121,7 +121,7 @@ export function buildDepositToVaultIx({
  * Assemble the instruction list for deposit_to_vault. Returned without a
  * blockhash so the caller can attach the freshest possible one right
  * before asking the wallet to sign. (Stale blockhashes are the #1 reason
- * devnet wallet flows drop the tx — every second the user spends in the
+ * devnet wallet flows drop the tx , every second the user spends in the
  * wallet UI eats into the ~60s validity window.)
  */
 export async function buildDepositToVaultIxs(
@@ -130,7 +130,7 @@ export async function buildDepositToVaultIxs(
 ): Promise<TransactionInstruction[]> {
   const ixs: TransactionInstruction[] = [];
 
-  // Priority fee — gives our tx better leader inclusion priority on a
+  // Priority fee , gives our tx better leader inclusion priority on a
   // congested devnet. 50k microLamports * 200k CU ≈ 10k lamports
   // (≈ 0.00001 SOL), negligible cost, big difference in landing
   // reliability on busy slots.
@@ -142,13 +142,13 @@ export async function buildDepositToVaultIxs(
   // Defensive: if the user's bUSD ATA doesn't exist yet, create it
   // first. The faucet drip should have created it, but the user may
   // have skipped it. The init_vault path on the backend is responsible
-  // for creating the *treasury* ATA — we never create that here.
+  // for creating the *treasury* ATA , we never create that here.
   const depositorAta = getAssociatedTokenAddressSync(
     args.treasuryMint,
     args.ownerWallet,
     false,
   );
-  // No string commitment — rpcfast strict-mode rejects it.
+  // No string commitment , rpcfast strict-mode rejects it.
   const ataInfo = await connection.getAccountInfo(depositorAta);
   if (!ataInfo) {
     ixs.push(
@@ -170,7 +170,7 @@ export async function buildDepositToVaultIxs(
 /**
  * Subset of the wallet-adapter's interface we actually need.
  *
- * `signTransaction` is preferred — it lets us control broadcast +
+ * `signTransaction` is preferred , it lets us control broadcast +
  * rebroadcast on our side. Phantom + Solflare both expose it. We fall
  * back to `sendTransaction` for wallets that don't (rare on Solana).
  */
@@ -188,7 +188,7 @@ export interface LaunchAgentArgs {
   wallet: MinimalWallet;
   nextSteps: CreateAgentResponse["nextSteps"];
   onStage: (stage: LaunchStage) => void;
-  // NOTE: `onInitTx` was removed — the backend now signs init_vault
+  // NOTE: `onInitTx` was removed , the backend now signs init_vault
   // server-side as part of `POST /api/agents` (see signer-model note at
   // top of this file). The wizard never sees that signature.
   onDepositTx?: (sig: string) => void;
@@ -200,7 +200,7 @@ export interface LaunchAgentArgs {
  * Responsibilities:
  *   1. Surface that the backend has already submitted init_vault (we
  *      don't have a direct sig from the wizard, so the "Sign init"
- *      stage is mostly cosmetic — the backend signed before responding).
+ *      stage is mostly cosmetic , the backend signed before responding).
  *   2. Build + sign + send `deposit_to_vault` from the user's wallet
  *      via the wallet adapter's `sendTransaction` (matches the
  *      convention used by BuySharesPanel + market-buy-panel).
@@ -238,7 +238,7 @@ export async function launchAgent({
   let lastErr: Error | null = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     // Fetch the freshest possible blockhash *right before* asking the
-    // wallet to sign — every second the user spends reading the popup
+    // wallet to sign , every second the user spends reading the popup
     // eats the ~60s validity window. Doing this in the loop also
     // means the second attempt gets a fully fresh window if the first
     // expired.
@@ -254,7 +254,7 @@ export async function launchAgent({
 
     // Prefer signTransaction so we control broadcast + rebroadcast.
     // Wallet-adapter's sendTransaction broadcasts exactly once and
-    // gives up — that's why first attempts so often "vanish" on
+    // gives up , that's why first attempts so often "vanish" on
     // congested devnet. Manual rebroadcast every 2s for the entire
     // validity window virtually eliminates the dropped-tx case.
     if (wallet.signTransaction) {
@@ -262,7 +262,7 @@ export async function launchAgent({
       try {
         signed = await wallet.signTransaction(tx);
       } catch (err) {
-        // User rejected / wallet error — surface verbatim, no retry.
+        // User rejected / wallet error , surface verbatim, no retry.
         throw err;
       }
       const rawTx = signed.serialize();
@@ -275,7 +275,7 @@ export async function launchAgent({
         });
       } catch (err) {
         // Initial broadcast failure (RPC down, bad blockhash before
-        // submit, etc.) — try once more with a fresh blockhash if
+        // submit, etc.) , try once more with a fresh blockhash if
         // we have an attempt left.
         const msg = err instanceof Error ? err.message : String(err);
         if (attempt < MAX_ATTEMPTS) {
@@ -286,7 +286,7 @@ export async function launchAgent({
         throw err;
       }
       onDepositTx?.(depositSig);
-      // Wallet popup closed, tx broadcast — the long pause that
+      // Wallet popup closed, tx broadcast , the long pause that
       // follows is the chain landing it. Surface a distinct stage so
       // the UI can show a progress bar instead of looking frozen on
       // "signing-deposit".
@@ -309,7 +309,7 @@ export async function launchAgent({
             });
           } catch {
             // Validators may reject duplicates with "already
-            // processed" once it lands — that's the success signal,
+            // processed" once it lands , that's the success signal,
             // ignore.
           }
         }
@@ -344,7 +344,7 @@ export async function launchAgent({
       }
     } else {
       // Fallback: wallet doesn't expose signTransaction. Use the
-      // legacy single-shot send path — same retry-on-expiry as
+      // legacy single-shot send path , same retry-on-expiry as
       // before, no aggressive rebroadcast.
       let depositSig: string;
       try {

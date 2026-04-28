@@ -6,7 +6,7 @@ import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import { ProbBar } from "@/components/prob-bar";
 
 /**
- * Market card — Seeker design with accent top strip, type pill, ProbBar,
+ * Market card , Seeker design with accent top strip, type pill, ProbBar,
  * YES/NO buttons. Matches MarketCard from the design handoff.
  */
 export function RateMarketCard({ market }: { market: MarketView }) {
@@ -52,7 +52,7 @@ export function RateMarketCard({ market }: { market: MarketView }) {
           <span className="pill pill-gold">Agent market</span>
           {isResolved && (
             <span className={`pill ${market.outcome === "yes" ? "pill-green" : "pill-red"}`}>
-              Resolved · {market.outcome?.toUpperCase() ?? "—"}
+              Resolved · {market.outcome?.toUpperCase() ?? "-"}
             </span>
           )}
         </div>
@@ -68,7 +68,7 @@ export function RateMarketCard({ market }: { market: MarketView }) {
             marginBottom: 8,
           }}
         >
-          {market.question || "—"}
+          {market.question || "-"}
         </div>
 
         {/* Creator row */}

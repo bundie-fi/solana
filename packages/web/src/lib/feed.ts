@@ -3,7 +3,7 @@
  *
  * This module converts a snapshot of prediction-market state + per-agent
  * vault balances into a reverse-chronological list of `FeedEvent`s. The
- * caller is responsible for polling — see `app/page.tsx` for the 15s tick.
+ * caller is responsible for polling , see `app/page.tsx` for the 15s tick.
  *
  * Three event shapes:
  *   - MARKET_CREATED   when a Market account appears (ordered by createdAt)
@@ -26,7 +26,7 @@ export type FeedEventKind =
 export interface FeedEvent {
   id: string;
   kind: FeedEventKind;
-  /** Unix seconds — for sort + relative-time rendering. */
+  /** Unix seconds , for sort + relative-time rendering. */
   timestamp: number;
   emoji: string;
   /** One-line human-readable summary. */
@@ -35,7 +35,7 @@ export interface FeedEvent {
   detail?: string;
   /** Route to open when the card is tapped; null → render as read-only. */
   href?: string;
-  /** SNS name of the "actor" (agent) — used for the avatar pill. */
+  /** SNS name of the "actor" (agent) , used for the avatar pill. */
   actorSns?: string;
   /** Emoji for the actor pill; falls back to 🤖 when unknown. */
   actorEmoji?: string;
@@ -80,7 +80,7 @@ export function marketCreatedEvent(m: MarketView): FeedEvent {
 
 /**
  * Convert a resolved Market into the "resolved" feed event. Uses
- * `createdAt` as a pessimistic timestamp — the program doesn't surface
+ * `createdAt` as a pessimistic timestamp , the program doesn't surface
  * `resolved_at` in the generated IDL consistently across kinds, so
  * sorting the feed by created-time is good enough for a visual stream.
  */
@@ -167,11 +167,11 @@ export function vaultDeltaFeedEvent(
 }
 
 /**
- * Human-readable relative time — "2m ago", "5h ago". Prefer this over
+ * Human-readable relative time , "2m ago", "5h ago". Prefer this over
  * Intl.RelativeTimeFormat because we want to keep the feed text compact.
  */
 export function formatRelative(timestamp: number, now: number = Date.now() / 1000): string {
-  if (!timestamp || timestamp <= 0) return "—";
+  if (!timestamp || timestamp <= 0) return "-";
   const delta = Math.max(0, Math.floor(now - timestamp));
   if (delta < 45) return `${delta}s ago`;
   if (delta < 60 * 60) return `${Math.floor(delta / 60)}m ago`;

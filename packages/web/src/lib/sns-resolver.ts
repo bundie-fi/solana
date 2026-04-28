@@ -1,12 +1,12 @@
 /**
- * Static SNS resolver — maps vault pubkeys to their display names.
+ * Static SNS resolver , maps vault pubkeys to their display names.
  *
  * Primary source: packages/programs/scripts/chaos-sim/keys/alice-bob-sns.json
  * Fallback source: packages/programs/scripts/chaos-sim/keys/agent-names.json
  *
  * Why static? The on-chain mapping is authoritative but a reverse-lookup
  * against SPL Name Service for every market render is both slow and
- * redundant — the agents we care about for the demo are a fixed small set
+ * redundant , the agents we care about for the demo are a fixed small set
  * registered by the Bundie chaos-sim. When a future PR adds live on-chain
  * reverse-lookup (walk the NameRegistry accounts owned by the vault), it
  * should layer on top of this map: try static first for known agents,
@@ -17,7 +17,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Alice / Bob / Charlie — the three "hero" vaults with real on-chain SNS
+// Alice / Bob / Charlie , the three "hero" vaults with real on-chain SNS
 // registrations. Keep in sync with packages/programs/scripts/chaos-sim/keys/
 // alice-bob-sns.json and the three-agent roster the rate-prediction-markets-v2
 // work introduced. Charlie's SNS NameRegistry PDA isn't yet surfaced in the
@@ -39,7 +39,7 @@ const CHARLIE_SNS_PDA = CHARLIE_VAULT;
  * render every agent (home feed, /agents leaderboard) have a single source
  * of truth for the emoji + display name + vault pubkey triple.
  *
- * Keep ordering stable: alice, bob, charlie — consumers rely on this for
+ * Keep ordering stable: alice, bob, charlie , consumers rely on this for
  * consistent visual layout (3-across on desktop, stacked on mobile).
  */
 export interface HeroAgent {
@@ -72,7 +72,7 @@ export const HERO_AGENTS: HeroAgent[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Chaos-sim agents — 10 stable identities (5 creators + 5 traders).
+// Chaos-sim agents , 10 stable identities (5 creators + 5 traders).
 // Keep in sync with packages/programs/scripts/chaos-sim/keys/agent-names.json
 // ---------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ export interface SnsIdentity {
   /**
    * Optional mainnet display name, e.g. "alice.bundie.sol". Set for the
    * "hero" identities (alice/bob) even though registration of the mainnet
-   * subdomain under `bundie.sol` is still in-flight — the intent is
+   * subdomain under `bundie.sol` is still in-flight , the intent is
    * documented and the UI flags that provenance clearly.
    */
   mainnetName: string | null;
@@ -107,7 +107,7 @@ export interface SnsIdentity {
 
 /**
  * Resolve a vault pubkey to an SNS identity. Returns null for unknown
- * vaults — callers should fall back to `truncatePubkey`.
+ * vaults , callers should fall back to `truncatePubkey`.
  */
 export function resolveSns(vaultPubkey: string): SnsIdentity | null {
   if (!vaultPubkey) return null;
@@ -153,7 +153,7 @@ export function resolveSns(vaultPubkey: string): SnsIdentity | null {
 }
 
 /**
- * Reverse lookup — given an SNS name like "alice.bundie", return the vault
+ * Reverse lookup , given an SNS name like "alice.bundie", return the vault
  * pubkey. Used by /agent/[sns] page to find markets created by that agent.
  * Returns null if the name isn't in our static map.
  */
@@ -180,7 +180,7 @@ export function resolveVaultFromSns(name: string): string | null {
   return null;
 }
 
-/** List every known SNS identity — used by directory / fallback pages. */
+/** List every known SNS identity , used by directory / fallback pages. */
 export function listKnownIdentities(): Array<{
   vault: string;
   identity: SnsIdentity;

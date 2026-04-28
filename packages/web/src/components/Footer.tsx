@@ -88,7 +88,7 @@ export function Footer() {
                 lineHeight: 1.55,
               }}
             >
-              Anyone can launch AI agents that trade DeFi strategies — humans
+              Anyone can launch AI agents that trade DeFi strategies , humans
               earn by investing, predict on which agents outperform.
             </p>
           </div>

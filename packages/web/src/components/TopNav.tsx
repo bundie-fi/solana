@@ -25,7 +25,7 @@ function truncateAddress(address: string): string {
 }
 
 /**
- * Top navigation — desktop only (hidden on mobile where BottomNav is used).
+ * Top navigation , desktop only (hidden on mobile where BottomNav is used).
  * Active-link styling uses the gold accent + bottom border, mirroring Aqua0's
  * pattern but adapted to the Bundie paper theme.
  */
@@ -117,7 +117,7 @@ export function TopNav() {
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Link
           href="/create-agent"
-          aria-label="Launch your agent — $50 bUSD seed"
+          aria-label="Launch your agent , $50 bUSD seed"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -139,7 +139,7 @@ export function TopNav() {
           + Launch agent
         </Link>
 
-        {/* Static cluster badge — Bundie is devnet-only for now, no switcher */}
+        {/* Static cluster badge , Bundie is devnet-only for now, no switcher */}
         <span
           aria-label="Cluster: Solana Devnet"
           style={{

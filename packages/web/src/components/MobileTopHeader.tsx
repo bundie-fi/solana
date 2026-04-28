@@ -16,7 +16,7 @@ interface MobileTopHeaderProps {
 }
 
 /**
- * Mobile top header — matches the Seeker design's top-header pattern.
+ * Mobile top header , matches the Seeker design's top-header pattern.
  * Used by feed/markets/agents/market-detail pages on mobile.
  * Hidden on desktop (sm:hidden) since TopNav handles desktop.
  */

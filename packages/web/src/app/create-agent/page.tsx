@@ -23,7 +23,7 @@ import { CapitalStep } from "./components/CapitalStep";
 import { ReviewStep } from "./components/ReviewStep";
 
 /**
- * /create-agent — five-step wizard.
+ * /create-agent , five-step wizard.
  *
  * Sequence: Identity → Strategy → Allowlist → Capital → Review.
  * State lives in `wizardReducer`. Each step is a presentational
@@ -36,7 +36,7 @@ import { ReviewStep } from "./components/ReviewStep";
  *     button (handled inside ReviewStep itself).
  */
 export default function CreateAgentPage() {
-  // useSearchParams suspends in Next 14 — wrap the body in Suspense so
+  // useSearchParams suspends in Next 14 , wrap the body in Suspense so
   // the whole page doesn't deopt to fully client-rendered.
   return (
     <Suspense fallback={null}>
@@ -73,14 +73,14 @@ function CreateAgentBody() {
       }
       if (row.owner_wallet !== publicKey.toBase58()) {
         setResumeError(
-          `${resumeSns} is owned by a different wallet — connect that wallet to resume.`,
+          `${resumeSns} is owned by a different wallet , connect that wallet to resume.`,
         );
         setResumeLoading(false);
         return;
       }
       if (row.status !== "pending_init") {
         setResumeError(
-          `${resumeSns} is already ${row.status} — nothing to resume.`,
+          `${resumeSns} is already ${row.status} , nothing to resume.`,
         );
         setResumeLoading(false);
         return;
@@ -93,7 +93,7 @@ function CreateAgentBody() {
           displayName: row.display_name ?? "",
           emoji: row.emoji ?? "🤖",
           tagline: row.tagline ?? "",
-          // SNS is already taken by us — skip the uniqueness UI entirely.
+          // SNS is already taken by us , skip the uniqueness UI entirely.
           snsAvailable: true,
           snsChecking: false,
           snsError: null,
@@ -101,12 +101,12 @@ function CreateAgentBody() {
         strategy: {
           preset: row.preset as Preset,
           customBrainMd: row.brain_md ?? "",
-          // Don't auto-show the textarea — saved brain_md is shown on
+          // Don't auto-show the textarea , saved brain_md is shown on
           // Review's preview pane already.
           showCustomBrain: false,
         },
         // We don't have the per-protocol limits broken out in the row
-        // (policies_yaml carries them) — for resume mode the wizard
+        // (policies_yaml carries them) , for resume mode the wizard
         // doesn't re-send them; ReviewStep skips createAgent. So a
         // best-effort allowlist (parsed below) is enough for the summary.
         allowlist: {
@@ -193,7 +193,7 @@ function CreateAgentBody() {
         )}
       </section>
 
-      {/* Footer nav (hide Next on final — Review owns its own Launch button) */}
+      {/* Footer nav (hide Next on final , Review owns its own Launch button) */}
       <footer
         style={{
           display: "flex",
@@ -237,7 +237,7 @@ function CreateAgentBody() {
 /**
  * Parse the allowed_mints / per-protocol caps out of a saved policies.yaml
  * is more work than this UI needs. Instead, scan the `program_allowlist`
- * block — every protocol we support carries a fixed program_id, so the
+ * block , every protocol we support carries a fixed program_id, so the
  * presence of that pubkey in the YAML tells us which protocols are on.
  *
  * Used only for the Review summary pills in resume mode; the actual
@@ -295,7 +295,7 @@ function ResumeBanner({
       ) : loading ? (
         <>Loading {sns}…</>
       ) : active ? (
-        <>↪ Resuming {sns} — sign the deposit on Step 5 to finish.</>
+        <>↪ Resuming {sns} , sign the deposit on Step 5 to finish.</>
       ) : (
         <>Connect the owner wallet to resume {sns}.</>
       )}

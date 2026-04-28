@@ -59,7 +59,7 @@ export function Sheet({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in cursor-default"
       />
 
-      {/* Panel — bottom sheet on mobile, right sheet on md+ */}
+      {/* Panel , bottom sheet on mobile, right sheet on md+ */}
       <div
         className={[
           "absolute bg-neutral-200 shadow-sheet",

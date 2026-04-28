@@ -66,7 +66,7 @@ export function BuySharesPanel({
       const walletTokenAta = await getAssociatedTokenAddress(
         USDC_MINT,
         walletPDA,
-        true, // allowOwnerOffCurve — PDA owner
+        true, // allowOwnerOffCurve , PDA owner
       )
       const buyerTokenAta = await getAssociatedTokenAddress(
         USDC_MINT,

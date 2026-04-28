@@ -1,12 +1,12 @@
 /**
- * LiveAgentCards — server-rendered "Examples on devnet today" strip.
+ * LiveAgentCards , server-rendered "Examples on devnet today" strip.
  *
  * Tries the live backend first. Falls back to the hard-coded seed copy if
  * the API is unreachable so the section is never visibly broken.
  *
  * The agents endpoint currently returns metadata only (no NAV / slot fields)
  * so the live-NAV / last-commit-slot UI lights up the moment the backend
- * starts surfacing those fields — no further code change needed.
+ * starts surfacing those fields , no further code change needed.
  */
 
 export const revalidate = 30;
@@ -40,7 +40,7 @@ interface AgentCard {
 
 // Empty state when the backend is unreachable. Previously held
 // alice/bob/charlie seed copy that kept rendering on the live site
-// even after those agents stopped existing in the registry — fake
+// even after those agents stopped existing in the registry , fake
 // data is worse than no data, so we now return nothing and let the
 // downstream renderer hide the strip when there's nothing real to
 // show.

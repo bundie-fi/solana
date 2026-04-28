@@ -1,10 +1,10 @@
 /**
- * api.ts — typed wrappers for the Phase K+L backend routes consumed by
+ * api.ts , typed wrappers for the Phase K+L backend routes consumed by
  * the /create-agent wizard.
  *
  * The backend routes live in `packages/backend/src/routes/agents.ts` and
  * `packages/backend/src/routes/faucet.ts`. They're being built on a
- * parallel branch — this client matches the contract documented in the
+ * parallel branch , this client matches the contract documented in the
  * Phase M plan so we can typecheck and ship the wizard ahead of merge.
  */
 
@@ -74,7 +74,7 @@ export interface FaucetClaimResponse {
  * `AgentRow` in the backend plus the augmentation fields tacked on by the
  * list handler. Optional fields are included so this type is usable for
  * resume-from-pending hydration without forcing every consumer to handle
- * absence — pending rows have all of these populated.
+ * absence , pending rows have all of these populated.
  */
 export interface AgentRowFull {
   id: string | number;
@@ -129,21 +129,21 @@ export async function confirmInit(
       );
       if (r.ok) return r.json();
       if (r.status >= 500) {
-        // Server error — retry with exponential backoff.
+        // Server error , retry with exponential backoff.
         lastErr = new Error(
           `confirmInit ${r.status}: ${await r.text().catch(() => "")}`,
         );
         await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, i)));
         continue;
       }
-      // 4xx — don't retry, surface so the caller can show recovery UI
+      // 4xx , don't retry, surface so the caller can show recovery UI
       // (the user has already paid for + broadcast deposit_to_vault).
       throw new Error(
         `confirmInit failed: ${r.status} ${await r.text().catch(() => "")}`,
       );
     } catch (e) {
       lastErr = e as Error;
-      // If the throw above was the 4xx branch, don't retry — re-throw now.
+      // If the throw above was the 4xx branch, don't retry , re-throw now.
       if (lastErr.message.startsWith("confirmInit failed:")) throw lastErr;
       await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, i)));
     }
@@ -191,7 +191,7 @@ export async function fetchAgent(sns: string): Promise<AgentRowFull | null> {
 
 /**
  * List pending registrations for a given owner wallet. Powers the
- * "Resume" surface on the portfolio page — agents whose vault was
+ * "Resume" surface on the portfolio page , agents whose vault was
  * created on-chain but whose seed deposit never confirmed.
  */
 export async function fetchPendingAgents(

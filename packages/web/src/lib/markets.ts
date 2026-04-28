@@ -1,12 +1,12 @@
 /**
- * On-chain market reader — thin wrapper around `@coral-xyz/anchor` that
+ * On-chain market reader , thin wrapper around `@coral-xyz/anchor` that
  * exposes `MarketView` objects (plain JS shapes, no BN/BigInt leakage) to
  * the Next.js server components and any client components that need them.
  *
  * Why a `MarketView` instead of the raw Anchor decoded type:
  *   - RSC boundary: BN / bigint objects aren't serialisable across the
  *     server→client split. We convert to `number` up front (the numbers
- *     involved — bps, slots, USDC base units — all comfortably fit in
+ *     involved , bps, slots, USDC base units , all comfortably fit in
  *     Number's safe-integer range for the foreseeable future).
  *   - Kind-specific fields: we pre-parse the 64-byte `payload` for the
  *     active kinds 1/2/3 BundieVault payloads so page components stay
@@ -14,7 +14,7 @@
  *     `packages/programs/programs/prediction-market/src/state/market.rs`.
  *
  * Read-only provider: AnchorProvider requires *some* Wallet, but we never
- * sign here — a throwaway Keypair is sufficient and the provider is used
+ * sign here , a throwaway Keypair is sufficient and the provider is used
  * only for its `connection`.
  */
 import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
@@ -32,16 +32,16 @@ import {
 // ─── Payload offsets (mirrored from state/market.rs) ─────────────────────
 //
 // Post-vault-nav-resolution (Phase B+) markets only support these kinds:
-//   kind=1 NavTarget   — payload[0..8]  = target_nav  (u64, lamports / 1e6 = bUSD)
+//   kind=1 NavTarget   , payload[0..8]  = target_nav  (u64, lamports / 1e6 = bUSD)
 //                        payload[8..16] = window_end_slot (optional)
-//   kind=2 Relative    — head-to-head; agent A = `strategy`, agent B = `strategyB`.
+//   kind=2 Relative    , head-to-head; agent A = `strategy`, agent B = `strategyB`.
 //                        Payload is unused for the headline numbers; baselines
 //                        come from `initialNavA` / `initialNavB`.
-//   kind=3 Drawdown    — payload[0..8]  = drawdown_bps (u64)
+//   kind=3 Drawdown    , payload[0..8]  = drawdown_bps (u64)
 //                        payload[8..16] = window_end_slot (optional)
 //
 // The legacy rate-reader selector (formerly at payload[24..32]) has been
-// removed — Phase B+ resolves directly against `BundieVault.nav_lamports`.
+// removed , Phase B+ resolves directly against `BundieVault.nav_lamports`.
 
 function readU64LE(payload: number[] | Uint8Array, offset: number): number {
   // BigInt-safe read; cast to Number at the end. Our payload values
@@ -55,7 +55,7 @@ function readU64LE(payload: number[] | Uint8Array, offset: number): number {
   for (let i = 7; i >= 0; i--) {
     v = (v << 8n) | BigInt(bytes[offset + i]);
   }
-  // Safe-integer clamp — if we ever overflow, surface as Number.MAX_SAFE_INTEGER
+  // Safe-integer clamp , if we ever overflow, surface as Number.MAX_SAFE_INTEGER
   // so UI shows a large-but-bounded number rather than NaN.
   if (v > BigInt(Number.MAX_SAFE_INTEGER)) return Number.MAX_SAFE_INTEGER;
   return Number(v);
@@ -104,7 +104,7 @@ export interface MarketView {
    */
   initialNavB: bigint;
   /**
-   * For kind=2 (head-to-head) markets, the second agent vault — i.e., the
+   * For kind=2 (head-to-head) markets, the second agent vault , i.e., the
    * `strategyB` field on the Market account. Null for other kinds.
    */
   targetAgent: string | null;
@@ -128,7 +128,7 @@ let cachedConnectionRef: Connection | null = null;
 /**
  * Read-only wallet: satisfies Anchor's Wallet interface without pulling in
  * NodeWallet (which requires `fs` and breaks Next.js builds). The signer
- * methods throw — we never sign, this is a read-only client.
+ * methods throw , we never sign, this is a read-only client.
  */
 function makeReadOnlyWallet(): AnchorWallet {
   const kp = Keypair.generate();
@@ -150,7 +150,7 @@ function makeReadOnlyWallet(): AnchorWallet {
 
 /**
  * Build (or return a cached) Program<PredictionMarket> bound to `connection`.
- * The provider wallet is a throwaway Keypair — never used to sign.
+ * The provider wallet is a throwaway Keypair , never used to sign.
  */
 function getProgram(connection: Connection): Program<PredictionMarket> {
   if (cachedProgram && cachedConnectionRef === connection) {
@@ -272,7 +272,7 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
   if (v == null) return 0n;
   if (typeof v === "bigint") return v;
   if (typeof v === "number") return BigInt(Math.max(0, Math.floor(v)));
-  // BN — use toString to avoid precision loss for >53-bit values.
+  // BN , use toString to avoid precision loss for >53-bit values.
   try {
     return BigInt(v.toString());
   } catch {
@@ -283,7 +283,7 @@ function toBigInt(v: BN | number | bigint | undefined | null): bigint {
 // ─── Public API ──────────────────────────────────────────────────────────
 
 // Only show markets created from this point forward. Bumped on 2026-04-27
-// 14:25 UTC for the clean-slate demo reset — every previous on-chain
+// 14:25 UTC for the clean-slate demo reset , every previous on-chain
 // market was created by alice/bob/charlie under the old chaos-sim run
 // and is no longer relevant. Combined with wiping the Postgres `agents`
 // table, this gives a virgin home feed so a freshly-registered agent's
@@ -295,7 +295,7 @@ const MARKET_FRESH_START_TS = 1777301127;
  *   1 = NavTarget, 2 = Relative (head-to-head), 3 = Drawdown.
  *
  * Phase C deprecated kinds 0/4/5/6 (APY threshold, BackerCount, RateBarrier,
- * AgentVsBenchmark) — the on-chain resolver rejects them, but old Market
+ * AgentVsBenchmark) , the on-chain resolver rejects them, but old Market
  * accounts created before the migration still exist on devnet and would
  * otherwise zombie-haunt the home feed forever. Filtering here keeps the
  * single chain-read choke point clean for every consumer (home feed,
@@ -314,7 +314,7 @@ export interface FetchAllMarketsOptions {
    * markets index, agent profile, leaderboard) so historical zombie
    * markets created by unregistered agents stop leaking into the UI.
    *
-   * If omitted, no creator filter is applied — call sites that legitimately
+   * If omitted, no creator filter is applied , call sites that legitimately
    * need every market (admin / debugging) can pass `undefined`. Pass an
    * empty set to render the "registry unreachable, hide everything" state.
    */
@@ -332,7 +332,7 @@ export async function fetchAllMarkets(
       .map((a) => toMarketView(a.publicKey, a.account))
       // The previous HERO_VAULTS allowlist (alice/bob/charlie pubkeys) was
       // dropped once those demo agents were migrated into the Supabase
-      // `agents` registry — markets are now sourced from the on-chain set
+      // `agents` registry , markets are now sourced from the on-chain set
       // and the per-agent profile/leaderboard pages decide which agents to
       // surface. The `createdAt` cutoff still filters out the pre-launch
       // chaos-sim test markets, and `isSupportedMarket` drops any zombie
@@ -340,7 +340,7 @@ export async function fetchAllMarkets(
       // resolver no longer accepts.
       .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
       .filter(isSupportedMarket)
-      // Registry filter — only markets created by an agent in the
+      // Registry filter , only markets created by an agent in the
       // Supabase registry are surfaced. When the registry is empty
       // (backend down or no agents registered yet), no markets render —
       // this is the intended graceful-degrade behaviour, not a bug.
@@ -407,7 +407,7 @@ export function deriveMarketPdas(
 /**
  * Server-safe BundieVault snapshot. Mirrors the on-chain account layout
  * from `state/bundie_vault.rs` but converts u64 values to bigint so the
- * RSC boundary doesn't choke on BN. The `commitDigest` is omitted — the
+ * RSC boundary doesn't choke on BN. The `commitDigest` is omitted , the
  * UI doesn't surface it and skipping it keeps the type plain-serialisable.
  */
 export interface BundieVaultView {
@@ -432,7 +432,7 @@ export function deriveBundieVaultPda(
 /**
  * Fetch the BundieVault for the given authority. Returns null when the
  * account doesn't exist yet (e.g. an agent that hasn't committed any NAV)
- * — callers should render an em-dash placeholder.
+ * , callers should render an em-dash placeholder.
  */
 export async function fetchBundieVault(
   connection: Connection,

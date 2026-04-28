@@ -1,7 +1,7 @@
 /**
  * Smoke tests for lib/sns-register.ts and lib/sns.ts.
  *
- * Runs under plain `node --import tsx --test` — no vitest in the repo yet,
+ * Runs under plain `node --import tsx --test` , no vitest in the repo yet,
  * so we use the built-in node:test runner. These tests are "no-RPC": every
  * Bonfida SDK call is dynamically imported INSIDE checkAvailability /
  * buildRegisterTx, which means we can probe the pure-validation paths
@@ -10,7 +10,7 @@
  * Run with:
  *   cd packages/web && npx tsx --test src/lib/__tests__/sns-register.test.ts
  *
- * This file is not part of the Next.js build — it lives under a test-only
+ * This file is not part of the Next.js build , it lives under a test-only
  * folder name (`__tests__`) and isn't imported by any page.
  */
 import { strict as assert } from "node:assert";
@@ -33,7 +33,7 @@ describe("validateName (pure regex)", () => {
     assert.equal(validateName("ab").ok, false);
   });
   it("normalizes uppercase by lowercasing (so 'Alpha' is valid)", () => {
-    // The UX coerces to lowercase before checking — this matches the input
+    // The UX coerces to lowercase before checking , this matches the input
     // field's onChange handler which also lowercases. The on-chain registry
     // is case-insensitive in practice (Bonfida hashes the lowercase form).
     assert.equal(validateName("Alpha").ok, true);
@@ -60,7 +60,7 @@ describe("validateName (pure regex)", () => {
   });
 });
 
-describe("checkAvailability — invalid path is no-RPC", () => {
+describe("checkAvailability , invalid path is no-RPC", () => {
   it("returns 'invalid' for a name with special chars without hitting RPC", async () => {
     const result = await checkAvailability("not.a.name!");
     assert.equal(result.state, "invalid");
@@ -81,13 +81,13 @@ describe("buildRegisterTx", () => {
     await assert.rejects(() => buildRegisterTx("bad name", owner));
   });
 
-  // Happy-path smoke — gated on (a) devnet RPC reachability and (b) the
+  // Happy-path smoke , gated on (a) devnet RPC reachability and (b) the
   // Bonfida SDK loading cleanly under the test runner. Bonfida's ESM
   // package transitively hits a borsh export mismatch under `tsx --test`
   // (the Next.js bundler handles it fine in production). When that happens
-  // we skip rather than fail — the production path is exercised by the
+  // we skip rather than fail , the production path is exercised by the
   // chaos-sim smoke + manual /identity QA on devnet.
-  it("targets SPL Name Service program with the Create discriminator (0x00), with payer + bundie-root-owner as the two signers (parent_owner is required for non-default parent — see SPL processor.rs:66-78)", async (t) => {
+  it("targets SPL Name Service program with the Create discriminator (0x00), with payer + bundie-root-owner as the two signers (parent_owner is required for non-default parent , see SPL processor.rs:66-78)", async (t) => {
     const conn = new Connection(
       process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",
       "confirmed",
@@ -95,7 +95,7 @@ describe("buildRegisterTx", () => {
     try {
       await conn.getSlot();
     } catch {
-      t.skip("devnet RPC unreachable — skipping happy-path smoke");
+      t.skip("devnet RPC unreachable , skipping happy-path smoke");
       return;
     }
 
@@ -114,7 +114,7 @@ describe("buildRegisterTx", () => {
 
     // Both the payer (owner) AND the bundie-root-owner must be signers.
     // Without parent_owner the on-chain processor aborts with "Program failed
-    // to complete" — that's exactly the bug we're guarding against here.
+    // to complete" , that's exactly the bug we're guarding against here.
     const signers = ix.keys.filter((k) => k.isSigner).map((k) => k.pubkey.toBase58()).sort();
     assert.deepEqual(
       signers,
@@ -137,7 +137,7 @@ describe("buildRegisterTx", () => {
   it("BuiltRegistration shape no longer carries buyerUsdcAta", () => {
     type Keys = keyof Awaited<ReturnType<typeof buildRegisterTx>>;
     const expected: Keys[] = ["tx", "namePda"];
-    // @ts-expect-error — buyerUsdcAta must not be a key of BuiltRegistration
+    // @ts-expect-error , buyerUsdcAta must not be a key of BuiltRegistration
     const _bad: Keys = "buyerUsdcAta";
     void _bad;
     assert.deepEqual(expected.sort(), ["namePda", "tx"]);

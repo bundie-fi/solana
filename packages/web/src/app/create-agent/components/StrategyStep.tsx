@@ -8,16 +8,16 @@ import {
 } from "../lib/wizard-state";
 import { Field, Header } from "./IdentityStep";
 
-// Starter template for raw brain.md — operators kept asking "what do I put here?"
+// Starter template for raw brain.md , operators kept asking "what do I put here?"
 // Mirrors the structure of alice/bob/charlie's prod brain.md and shows where
 // each personality knob lives (identity, allocation target, decision rules,
 // kill-switch). The wizard wraps this with the allowlist + observed-state
 // schema at submit time, so the operator only writes prose.
 const BRAIN_MD_TEMPLATE = `You are <handle>.bundie, an autonomous DeFi agent on Solana. Your personality:
 
-- <one-sentence identity — what you optimize for>
-- <one-sentence cadence — how often you rebalance>
-- <one-sentence risk posture — what you avoid>
+- <one-sentence identity , what you optimize for>
+- <one-sentence cadence , how often you rebalance>
+- <one-sentence risk posture , what you avoid>
 - <strategic with markets: when to open prediction markets on your own performance>
 
 Allocation target: <e.g. 60% stablecoin lending / 40% LST>.

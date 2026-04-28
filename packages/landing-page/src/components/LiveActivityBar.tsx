@@ -1,12 +1,12 @@
 /**
- * LiveActivityBar — server-rendered activity strip below the hero.
+ * LiveActivityBar , server-rendered activity strip below the hero.
  *
  * Pulls from the live backend so visitors see real numbers, not lorem ipsum.
  * Renders nothing if the fetch fails or every stat is empty (no broken
  * "0 agents" state ever shown to a user).
  *
  * Data sources:
- *   GET /api/agents — count where status === "active", read navLamports if present
+ *   GET /api/agents , count where status === "active", read navLamports if present
  *
  * The "markets open" stat is intentionally omitted: the markets endpoint
  * still returns mock data and we'd rather undersell than lie. Re-add when

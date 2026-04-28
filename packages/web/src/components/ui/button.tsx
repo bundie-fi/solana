@@ -6,10 +6,10 @@ type Variant = "primary" | "predict" | "secondary" | "ghost" | "destructive";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
-  // Amber — primary action everywhere strategy-backing is the verb.
+  // Amber , primary action everywhere strategy-backing is the verb.
   primary:
     "bg-amber-600 text-neutral-900 hover:bg-amber-500 active:bg-amber-700 font-semibold focus-amber shadow-amber",
-  // Predict — prediction-market CTAs.
+  // Predict , prediction-market CTAs.
   predict:
     "bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 font-semibold focus-purple shadow-purple",
   // Kept for backward compatibility with existing /markets and /portfolio calls.
