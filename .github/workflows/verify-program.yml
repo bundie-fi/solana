@@ -80,7 +80,8 @@ jobs:
             --keypair "$HOME/.config/solana/upload-authority.json" \
             --url https://api.devnet.solana.com \
             --skip-prompt \
-            https://github.com/${{ github.repository }}
+            https://github.com/${{ github.repository }} \
+            -- --locked
 
       - name: Submit to OSEC verifier
         run: |
