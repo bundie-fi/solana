@@ -371,14 +371,45 @@ export async function launchAgent({
           }
           // Token program 0x1 = InsufficientFunds. The deposit_to_vault
           // ix CPI's the SPL transfer; if the user's ATA balance is short,
-          // that's where it reverts. Logs always include "Tokenkeg…
-          // failed: custom program error: 0x1" + "Error: insufficient
-          // funds" — match either to be safe.
+          // that's where it reverts.
+          //
+          // BUT: this also fires when the deposit ALREADY landed in a
+          // previous attempt (wizard signed → broadcast → wallet drained
+          // → simulate of same tx now fails). Before surfacing the
+          // confusing "claim faucet" message, check the vault treasury
+          // — if it already holds ≥ seedAmount the work is done and we
+          // should fall through to confirmInit instead of throwing.
           if (
             (logsStr.includes("Tokenkeg") &&
               logsStr.includes("custom program error: 0x1")) ||
             logsStr.includes("Error: insufficient funds")
           ) {
+            const treasuryAta = getAssociatedTokenAddressSync(
+              treasuryMint,
+              vaultPda,
+              true,
+            );
+            try {
+              const tBal = await connection.getTokenAccountBalance(treasuryAta);
+              const have = BigInt(tBal.value.amount);
+              const need = BigInt(nextSteps.seedAmountBase);
+              if (have >= need) {
+                // Deposit already landed on a prior attempt. Skip the
+                // re-broadcast and fall through to confirmation. The
+                // outer flow uses depositSig only for the confirm wait;
+                // we don't have a sig (the prior attempt's was lost on
+                // refresh) but we can short-circuit to "done" via a
+                // synthetic OK — the on-chain state IS the truth.
+                console.log(
+                  "[wizard] deposit already on-chain (treasury holds %s ≥ %s) — skipping re-broadcast",
+                  String(have), String(need),
+                );
+                onStage("landing");
+                return { depositSig: "already-on-chain" };
+              }
+            } catch {
+              // ATA missing → genuinely a fresh-deposit case
+            }
             throw new Error(
               "Your wallet doesn't have enough bUSD to seed the agent. " +
                 "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
