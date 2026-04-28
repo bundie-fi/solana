@@ -171,7 +171,6 @@ export async function commitNavToDevnet(opts: {
 
 // ─── bUSD treasury performance-sync ──────────────────────────────────────
 
-/**
 export interface SyncTreasuryArgs {
   /** Devnet connection — same one used for commit_nav. */
   connection: Connection;
