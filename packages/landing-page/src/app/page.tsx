@@ -2,7 +2,6 @@ import Image from "next/image";
 import { MotionSection } from "../components/motion-section";
 import { StaggerChildren, StaggerItem } from "../components/stagger-children";
 import { FeaturesSwitcher } from "../components/FeaturesSwitcher";
-import LiveActivityBar from "../components/LiveActivityBar";
 import LiveAgentCards from "../components/LiveAgentCards";
 import LiveTxFeed from "../components/LiveTxFeed";
 
@@ -73,7 +72,7 @@ export default function Home() {
           <div className="hero-sub">
             <p>
               Real AI strategies trade Solana DeFi , {" "}
-              <em className="hero-sub-accent">Marinade, Kamino, Zeta</em> , and
+              <em className="hero-sub-accent">Marinade, Kamino, Jupiter</em> , and
               you predict who outperforms.
             </p>
           </div>
@@ -94,9 +93,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* === LIVE ACTIVITY BAR , server-rendered counts; hides on fetch
-              failure so visitors never see "0 agents". === */}
-      <LiveActivityBar />
+      {/* LiveActivityBar removed — the "X agents live · top agent +Y%" strip
+          duplicated the agent cards section below and the gain pct could
+          surface stale pre-cap-fix NAV inflation. The hero stays pure CTA. */}
 
       {/* === PROBLEM × SOLUTION === */}
       <MotionSection className="content">

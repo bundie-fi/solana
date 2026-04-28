@@ -181,7 +181,7 @@ export function HomeFeed() {
   }, [markets, vaultDeltas, agentActions]);
 
   const asOfLabel =
-    lastTick > 0 ? `${formatRelative(lastTick)} ago` : "connecting…";
+    lastTick > 0 ? formatRelative(lastTick) : "connecting…";
 
   return (
     <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
@@ -451,7 +451,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
 
           {/* Line 3: timestamp + chain + zerion */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-            <span className="dim mono-tiny">{formatRelative(ev.timestamp)} ago</span>
+            <span className="dim mono-tiny">{formatRelative(ev.timestamp)}</span>
             <span className="dim mono-tiny">·</span>
             <ChainBadge chain="devnet" />
             {agentKey && (
