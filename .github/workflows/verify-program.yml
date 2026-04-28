@@ -1,0 +1,80 @@
+name: Verify program build
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit SHA to verify (defaults to HEAD)"
+        required: false
+        default: ""
+
+# Reproducible build attestation for the prediction-market program.
+#
+# What this does, in two stages:
+#   1. solana-verify build → reproduces the on-chain bytecode from source,
+#      hashes it, compares against the deployed `.so`. Pass = the deployed
+#      program WAS built from the source at this commit.
+#   2. solana-verify remote submit-job → registers the proof with the
+#      OSEC verifier service (verify.osec.io). Their hosted Docker rebuilds
+#      from the public repo URL + commit, re-hashes, and stores the result.
+#      After success, Solana Explorer / Solscan / orbmarkets show a green
+#      "Verified ✓" badge on the program page.
+#
+# Required repo secrets:
+#   UPLOAD_AUTHORITY_SECRET  – JSON byte array of the upgrade-authority
+#                              keypair (4rebicw8…). Used to sign the on-chain
+#                              verify-PDA write.
+#
+# Trigger: gh workflow run "Verify program build"
+#          (or manually via the GitHub UI)
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.commit || github.sha }}
+
+      - name: Resolve commit hash
+        id: sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install solana-verify
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL \
+            "https://github.com/Ellipsis-Labs/solana-verifiable-build/releases/download/v0.4.15/solana-verify-0.4.15-linux" \
+            -o "$HOME/.local/bin/solana-verify"
+          chmod +x "$HOME/.local/bin/solana-verify"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Write upload-authority keypair
+        run: |
+          mkdir -p "$HOME/.config/solana"
+          echo '${{ secrets.UPLOAD_AUTHORITY_SECRET }}' > "$HOME/.config/solana/upload-authority.json"
+          chmod 600 "$HOME/.config/solana/upload-authority.json"
+
+      - name: Build + verify reproducibly + write on-chain PDA
+        run: |
+          solana-verify verify-from-repo \
+            --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
+            --commit-hash ${{ steps.sha.outputs.value }} \
+            --library-name prediction_market \
+            --mount-path packages/programs \
+            --keypair "$HOME/.config/solana/upload-authority.json" \
+            --url https://api.devnet.solana.com \
+            --skip-prompt \
+            https://github.com/${{ github.repository }}
+
+      - name: Submit to OSEC verifier
+        run: |
+          # Uploader pubkey = upgrade authority pubkey for our program.
+          UPLOADER=$(solana-keygen pubkey "$HOME/.config/solana/upload-authority.json" 2>/dev/null \
+            || solana-verify get-program-pda --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4)
+          solana-verify remote submit-job \
+            --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
+            --uploader "$UPLOADER" \
+            --url https://api.devnet.solana.com
