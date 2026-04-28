@@ -205,20 +205,34 @@ export function CapitalStep({ state, dispatch }: Props) {
                   One-shot faucet drip — 24h cooldown.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClaim}
-                disabled={capital.faucetClaiming || fundsOk}
-                style={primaryBtnStyle({
-                  disabled: capital.faucetClaiming || fundsOk,
-                })}
-              >
-                {capital.faucetClaiming
-                  ? "Claiming + confirming…"
-                  : fundsOk
-                    ? "Already funded"
+              {/* When already funded, swap the faucet button for a live
+                  "Deposit →" that just dispatches the wizard's NEXT
+                  action — operators consistently asked "if I already
+                  have bUSD, why am I clicking faucet?" The actual on-chain
+                  deposit_to_vault tx still happens on Step 5 (Review →
+                  Launch), but they get one obvious primary action here. */}
+              {fundsOk ? (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "NEXT" })}
+                  style={primaryBtnStyle({ disabled: false })}
+                >
+                  Deposit →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onClaim}
+                  disabled={capital.faucetClaiming}
+                  style={primaryBtnStyle({
+                    disabled: capital.faucetClaiming,
+                  })}
+                >
+                  {capital.faucetClaiming
+                    ? "Claiming + confirming…"
                     : "Claim faucet"}
-              </button>
+                </button>
+              )}
             </div>
             {capital.faucetClaiming && (
               <div
@@ -234,8 +248,8 @@ export function CapitalStep({ state, dispatch }: Props) {
                 className="mono-tiny"
                 style={{ fontSize: 10.5, color: "var(--green-2)" }}
               >
-                ✓ Funded. Hit Next — Step 5 has you sign the transfer that
-                forwards this $50 into the agent vault.
+                ✓ ${balance.toFixed(2)} bUSD detected. Deposit signs a single
+                tx forwarding $50 into the agent vault on the next step.
               </div>
             )}
             {capital.faucetTxSig && (
