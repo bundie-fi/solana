@@ -34,6 +34,7 @@ import {
   PublicKey,
   Transaction,
   TransactionInstruction,
+  type Commitment,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -180,6 +181,7 @@ interface MinimalWallet {
   sendTransaction: (
     tx: Transaction,
     connection: Connection,
+    options?: { skipPreflight?: boolean; preflightCommitment?: Commitment },
   ) => Promise<string>;
 }
 
@@ -252,129 +254,57 @@ export async function launchAgent({
 
     onStage("signing-deposit");
 
-    // Prefer signTransaction so we control broadcast + rebroadcast.
-    // Wallet-adapter's sendTransaction broadcasts exactly once and
-    // gives up , that's why first attempts so often "vanish" on
-    // congested devnet. Manual rebroadcast every 2s for the entire
-    // validity window virtually eliminates the dropped-tx case.
-    if (wallet.signTransaction) {
-      let signed: Transaction;
-      try {
-        signed = await wallet.signTransaction(tx);
-      } catch (err) {
-        // User rejected / wallet error , surface verbatim, no retry.
-        throw err;
-      }
-      const rawTx = signed.serialize();
+    // DIAGNOSTIC PATH (replacing manual signTransaction + sendRawTransaction):
+    // The previous approach (manual sign + skipPreflight + maxRetries:0 +
+    // 2s browser-side rebroadcast) was fighting rpcfast's own server-side
+    // forwarding and silenced any preflight error. We now:
+    //   - delegate broadcast to the wallet adapter's sendTransaction so
+    //     Phantom/Solflare's internal retry stack handles the leader-side
+    //     forwarding (their broadcast goes through their own staked RPC
+    //     too, which is more robust than ours).
+    //   - leave maxRetries unset so rpcfast retries forwarding to leaders
+    //     server-side, every block, until the validity window closes.
+    //   - keep skipPreflight off on the FIRST attempt so any account-state
+    //     or program-error reverts surface as an immediate error instead of
+    //     a silent "block height exceeded" 60s later.
+    let depositSig: string;
+    try {
+      depositSig = await wallet.sendTransaction(tx, connection, {
+        skipPreflight: false,
+        preflightCommitment: "processed",
+      });
+    } catch (err) {
+      // User rejected → bubble.  Otherwise: if the wallet/preflight
+      // already rejected before broadcast, no attempt-retry will help
+      // (it's a real validation issue) so surface immediately.
+      throw err;
+    }
+    onDepositTx?.(depositSig);
+    onStage("landing");
 
-      let depositSig: string;
-      try {
-        depositSig = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: true,
-          maxRetries: 0,
-        });
-      } catch (err) {
-        // Initial broadcast failure (RPC down, bad blockhash before
-        // submit, etc.) , try once more with a fresh blockhash if
-        // we have an attempt left.
-        const msg = err instanceof Error ? err.message : String(err);
-        if (attempt < MAX_ATTEMPTS) {
-          lastErr = err instanceof Error ? err : new Error(msg);
-          onStage("signing-init");
-          continue;
-        }
-        throw err;
-      }
-      onDepositTx?.(depositSig);
-      // Wallet popup closed, tx broadcast , the long pause that
-      // follows is the chain landing it. Surface a distinct stage so
-      // the UI can show a progress bar instead of looking frozen on
-      // "signing-deposit".
-      onStage("landing");
-
-      // Aggressive rebroadcast in the background. Re-sending the same
-      // signed tx is idempotent (validators dedupe by signature);
-      // landing requires a leader to *include* it, which can take
-      // several attempts on busy devnet. Loop ends as soon as confirm
-      // resolves.
-      let stopped = false;
-      const rebroadcast = (async () => {
-        while (!stopped) {
-          await new Promise((r) => setTimeout(r, 2000));
-          if (stopped) break;
-          connection.sendRawTransaction(rawTx, {
-            skipPreflight: true,
-            maxRetries: 0,
-          }).catch(() => {
-            // Validators reject duplicates with "already processed"
-            // once it lands , that's the success signal, ignore.
-          });
-        }
-      })();
-
-      try {
-        const result = await connection.confirmTransaction(
-          { signature: depositSig, blockhash, lastValidBlockHeight },
-          "confirmed",
+    try {
+      const result = await connection.confirmTransaction(
+        { signature: depositSig, blockhash, lastValidBlockHeight },
+        "confirmed",
+      );
+      if (result.value.err) {
+        throw new Error(
+          `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
         );
-        if (result.value.err) {
-          throw new Error(
-            `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
-          );
-        }
-        return { depositSig };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const expired =
-          msg.includes("block height exceeded") ||
-          msg.includes("TransactionExpired") ||
-          msg.includes("was not confirmed");
-        if (expired && attempt < MAX_ATTEMPTS) {
-          lastErr = err instanceof Error ? err : new Error(msg);
-          onStage("signing-init");
-          continue;
-        }
-        throw err;
-      } finally {
-        stopped = true;
-        await rebroadcast.catch(() => {});
       }
-    } else {
-      // Fallback: wallet doesn't expose signTransaction. Use the
-      // legacy single-shot send path , same retry-on-expiry as
-      // before, no aggressive rebroadcast.
-      let depositSig: string;
-      try {
-        depositSig = await wallet.sendTransaction(tx, connection);
-      } catch (err) {
-        throw err;
+      return { depositSig };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const expired =
+        msg.includes("block height exceeded") ||
+        msg.includes("TransactionExpired") ||
+        msg.includes("was not confirmed");
+      if (expired && attempt < MAX_ATTEMPTS) {
+        lastErr = err instanceof Error ? err : new Error(msg);
+        onStage("signing-init");
+        continue;
       }
-      onDepositTx?.(depositSig);
-      onStage("landing");
-      try {
-        const result = await connection.confirmTransaction(
-          { signature: depositSig, blockhash, lastValidBlockHeight },
-          "confirmed",
-        );
-        if (result.value.err) {
-          throw new Error(
-            `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
-          );
-        }
-        return { depositSig };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const expired =
-          msg.includes("block height exceeded") ||
-          msg.includes("TransactionExpired") ||
-          msg.includes("was not confirmed");
-        if (expired && attempt < MAX_ATTEMPTS) {
-          lastErr = err instanceof Error ? err : new Error(msg);
-          onStage("signing-init");
-          continue;
-        }
-        throw err;
-      }
+      throw err;
     }
   }
   throw lastErr ?? new Error("launchAgent: exhausted retries");
