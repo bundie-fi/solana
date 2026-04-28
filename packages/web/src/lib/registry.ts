@@ -67,6 +67,17 @@ export async function fetchRegisteredAgents(
  * Used as the `allowedCreators` filter on `fetchAllMarkets` and as the gate
  * for `/agent/[sns]` profile pages.
  */
+/** Hero-agent vault pubkeys that pre-date the registry table. The
+ *  chaos-sim daemon ticks them via static config, so their markets are
+ *  legitimate Bundie activity even without a row in `agents`. We always
+ *  include them so the /markets allowlist + /agents leaderboard show
+ *  their resolved markets. */
+const LEGACY_HERO_VAULTS = [
+  "5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm", // alice
+  "EBYDXh5RjbRX7eBobenPC59tvS4TCQzCUKYgx6auU8jb", // bob
+  "8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg", // charlie
+];
+
 export async function fetchRegisteredVaultSet(
   init?: RequestInit,
 ): Promise<Set<string>> {
@@ -76,6 +87,7 @@ export async function fetchRegisteredVaultSet(
     if (a.vault_pda) set.add(a.vault_pda);
     if (a.agent_pubkey) set.add(a.agent_pubkey);
   }
+  for (const v of LEGACY_HERO_VAULTS) set.add(v);
   return set;
 }
 
