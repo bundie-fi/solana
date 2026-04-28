@@ -49,7 +49,12 @@ const CHAOS_DIR = join(__dirname, "..");
 const DOTENV_PATH = join(CHAOS_DIR, ".env");
 loadDotEnv({ path: DOTENV_PATH });
 
-const POLL_INTERVAL_MS = Number(process.env.CHAOS_SIM_POLL_INTERVAL_MS ?? 30_000);
+// 15s is the sweet spot for "agent feels alive seconds after I register"
+// without adding meaningful RPC pressure. Each tick already fans out
+// in parallel via Promise.all, so cycle time is bounded by the slowest
+// per-agent tick (~10–20s on the brain LLM call), not the interval.
+// Override via CHAOS_SIM_POLL_INTERVAL_MS for local dev / load tests.
+const POLL_INTERVAL_MS = Number(process.env.CHAOS_SIM_POLL_INTERVAL_MS ?? 15_000);
 
 function requireEnv(name: string): string {
   const v = process.env[name];
