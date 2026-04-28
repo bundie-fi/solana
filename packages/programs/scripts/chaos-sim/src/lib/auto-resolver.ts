@@ -174,6 +174,10 @@ async function resolveOne(
   // tx layout passes SystemProgram as the placeholder; we keep that.
   const placeholder = SystemProgram.programId;
 
+  // Anchor `Option<Account>` slots must always be present in the keys
+  // list — pass the program ID itself as the sentinel for None, the
+  // actual PDA for Some. Mirrors create_market_v2's targetVaultB pattern.
+  const vaultBSlot = vaultB ?? PREDICTION_MARKET_PROGRAM_ID;
   const keys: Array<{
     pubkey: PublicKey;
     isSigner: boolean;
@@ -184,10 +188,8 @@ async function resolveOne(
     { pubkey: placeholder, isSigner: false, isWritable: false },
     { pubkey: placeholder, isSigner: false, isWritable: false },
     { pubkey: vaultA, isSigner: false, isWritable: false },
+    { pubkey: vaultBSlot, isSigner: false, isWritable: false },
   ];
-  if (vaultB) {
-    keys.push({ pubkey: vaultB, isSigner: false, isWritable: false });
-  }
 
   const ix = new TransactionInstruction({
     programId: PREDICTION_MARKET_PROGRAM_ID,
