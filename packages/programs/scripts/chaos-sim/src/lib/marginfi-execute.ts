@@ -130,8 +130,11 @@ let bufferLayoutPatched = false;
 async function patchBufferLayoutOnce(): Promise<void> {
   if (bufferLayoutPatched) return;
   bufferLayoutPatched = true;
+  // The bare specifier "buffer-layout" doesn't resolve under Node ESM (the
+  // package's package.json predates the exports field), so reach for the
+  // module file directly. This is the same module the SDK uses transitively.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bl: any = await import("buffer-layout");
+  const bl: any = await import("buffer-layout/lib/Layout.js");
   const origDecode = bl.Union.prototype.decode;
   bl.Union.prototype.decode = function (b: Buffer, offset?: number) {
     try {
