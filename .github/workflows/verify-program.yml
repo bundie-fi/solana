@@ -57,6 +57,15 @@ jobs:
           echo '${{ secrets.UPLOAD_AUTHORITY_SECRET }}' > "$HOME/.config/solana/upload-authority.json"
           chmod 600 "$HOME/.config/solana/upload-authority.json"
 
+      - name: Authorize git for the private repo
+        # solana-verify spawns its own git subprocess that doesn't inherit
+        # actions/checkout's auth. Substitute https://github.com/ with a
+        # token-authenticated URL so its clone of bundie-fi/solana succeeds.
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf \
+            "https://github.com/"
+
       - name: Build + verify reproducibly + write on-chain PDA
         run: |
           # --current-dir uses the actions/checkout copy already on disk —
