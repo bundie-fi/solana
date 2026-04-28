@@ -185,15 +185,16 @@ export async function depositKamino(
   const rpcUrl = args.rpcUrl ?? surfpool.rpcEndpoint;
   const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
 
-  // 1. Make sure USDC is sittable in the agent's ATA. Idempotent — when the
-  //    daemon's per-tick seed call has already topped the agent up above the
-  //    floor this is a single getTokenAccountBalance round-trip and a no-op.
-  //    Pass at least `amountBaseUnits` worth of UI USDC so the helper's
-  //    target floor adapts upward if the brain ever emits a giant deposit.
+  // 1. Make sure USDC is sittable in the agent's ATA. Idempotent — when
+  //    the daemon's per-tick seed call has already topped the agent up,
+  //    this is a single getTokenAccountBalance round-trip and a no-op.
+  //    Pass exactly `amountUsdcUi` so the topup is sized to the brain's
+  //    request, not inflated to a hidden floor (which would surface as
+  //    "agent lent 450 USDC" against a $50 seed in the home feed).
   const usdcResult = await ensureSurfpoolUsdc(
     surfpool,
     vault.publicKey,
-    Math.max(amountUsdcUi, 1000),
+    amountUsdcUi,
   );
 
   // 2. Build a kit Rpc + signer for the SDK to chew on. We're not actually

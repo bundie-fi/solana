@@ -355,7 +355,7 @@ export async function depositSolend(
   const usdcResult = await ensureSurfpoolUsdc(
     surfpool,
     vault.publicKey,
-    Math.max(amountUsdcUi, 1000),
+    amountUsdcUi,
   );
 
   const { pool, reserve } = await ensurePoolReserve(

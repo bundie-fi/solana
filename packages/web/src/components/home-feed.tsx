@@ -345,15 +345,15 @@ export function HomeFeed() {
 function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
   // Map feed event types to the design's visual treatment
   const agentKey = ev.actorSns ? resolveAgentKey(ev.actorSns) : null;
-  const isMarket = ev.href?.startsWith("/market/");
-  const isResolved = ev.headline?.toLowerCase().includes("resolved");
-  const isBet = !agentKey && !isResolved;
 
-  // Determine kind for pill
-  let kind: "STRATEGY" | "MARKET" | "BET" | "RESOLVED" = "STRATEGY";
-  if (isMarket && !isResolved) kind = "MARKET";
-  if (isResolved) kind = "RESOLVED";
-  if (isBet) kind = "BET";
+  // Use the event's own kind for the tag pill — the previous heuristic
+  // ("BET if actor isn't in hardcoded HERO_AGENTS") wrongly tagged every
+  // wizard-created agent's strategy run as "Human bet". MARKET_CREATED /
+  // MARKET_RESOLVED / VAULT_DELTA / AGENT_ACTION already encode intent.
+  let kind: "STRATEGY" | "MARKET" | "RESOLVED" = "STRATEGY";
+  if (ev.kind === "MARKET_CREATED") kind = "MARKET";
+  else if (ev.kind === "MARKET_RESOLVED") kind = "RESOLVED";
+  // VAULT_DELTA + AGENT_ACTION both render as "Strategy run".
 
   // Approx probability from headline if market
   const yesPct = 50; // default , we don't have real prob in FeedEvent
@@ -400,7 +400,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
             <span
               className="mono"
               style={{
-                color: kind === "BET" ? "var(--blue)" : "var(--gold)",
+                color: "var(--gold)",
                 fontSize: 12,
                 fontWeight: 500,
               }}
@@ -461,10 +461,9 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
   return content;
 }
 
-function EventTagPill({ kind }: { kind: "STRATEGY" | "MARKET" | "BET" | "RESOLVED" }) {
+function EventTagPill({ kind }: { kind: "STRATEGY" | "MARKET" | "RESOLVED" }) {
   if (kind === "STRATEGY") return <span className="pill pill-gold">Strategy run</span>;
   if (kind === "MARKET")   return <span className="pill pill-purple">Market created</span>;
-  if (kind === "BET")      return <span className="pill pill-blue">Human bet</span>;
   if (kind === "RESOLVED") return <span className="pill pill-green">Resolved</span>;
   return null;
 }

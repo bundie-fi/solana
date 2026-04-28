@@ -246,12 +246,10 @@ export async function openJupiterPerp(
   const collateralBaseUnits = BigInt(Math.round(collateralUsd * 1_000_000)); // USDC 6dp
   const sizeUsdDelta = BigInt(Math.round(notionalUsd * 1_000_000)); // 6dp price-precision
 
-  // Make sure the agent has USDC on the fork (idempotent).
-  await ensureSurfpoolUsdc(
-    surfpool,
-    kp.publicKey,
-    Math.max(collateralUsd * 1.5, 1000),
-  );
+  // Make sure the agent has USDC on the fork (idempotent). 1.5× collateral
+  // covers any opening fees / slippage; sized to the actual position
+  // rather than an inflated 1000 USDC floor.
+  await ensureSurfpoolUsdc(surfpool, kp.publicKey, collateralUsd * 1.5);
 
   const [position] = positionPda(kp.publicKey, custody, side);
   // Counter = lower 8 bits of unix-seconds — gives monotonic uniqueness across

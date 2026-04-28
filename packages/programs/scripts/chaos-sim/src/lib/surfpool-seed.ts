@@ -37,14 +37,13 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 export const MAINNET_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 /**
- * Floor below which we top up the agent's USDC. Set well above any single
- * lend / perp deposit the brain emits (≤100 USDC in practice) so the cheap
- * balance-check guard short-circuits on every tick after the first.
+ * Default top-up amount when the caller doesn't specify. Used only by the
+ * legacy hardcoded agents (alice/bob/charlie) where there's no per-agent
+ * seed amount to reference. Wizard-created agents always pass through
+ * their own `seedAmountBaseUnits` so the topup is sized to the user's
+ * actual on-chain stake — never inflated to a hidden floor.
  */
-const USDC_REFILL_FLOOR_UI = 500;
-
-/** Default top-up target when seeding kicks in. */
-const USDC_TOPUP_TARGET_UI = 1000;
+const USDC_TOPUP_TARGET_UI = 50;
 
 const USDC_DECIMALS = 6;
 
@@ -86,12 +85,17 @@ export async function ensureSurfpoolUsdc(
   const usdcMint = new PublicKey(MAINNET_USDC_MINT);
   const ata = getAssociatedTokenAddressSync(usdcMint, agentPubkey);
 
-  // The cheat-code is per-mint absolute, not additive. We only re-seed if the
-  // agent's balance has dipped below the floor — this is the cheap path that
-  // makes per-tick wiring viable.
-  const floorBaseUnits = Math.max(
+  // The cheat-code is per-mint absolute, not additive. We only re-seed if
+  // the agent's balance has dipped below the requested target — this is
+  // the cheap path that makes per-tick wiring viable.
+  //
+  // Caller-controlled, no hidden floor: passing amountUi=50 means "agent
+  // should never have more than $50 from cheat-code seeding alone." Any
+  // additional value comes from strategy receipts (Kamino reserve tokens,
+  // mSOL, etc.) — those are real fork-state, not magic-minted.
+  const targetBaseUnits = Math.max(
     1,
-    Math.floor(USDC_REFILL_FLOOR_UI * 10 ** USDC_DECIMALS),
+    Math.floor(amountUi * 10 ** USDC_DECIMALS),
   );
 
   let currentBalance = 0;
@@ -102,18 +106,13 @@ export async function ensureSurfpoolUsdc(
     // Missing ATA → 0 balance, treat as needs-funding.
     currentBalance = 0;
   }
-  if (currentBalance >= floorBaseUnits) {
+  if (currentBalance >= targetBaseUnits) {
     return {
       funded: true,
       balanceBaseUnits: currentBalance,
       method: "noop_already_funded",
     };
   }
-
-  const targetBaseUnits = Math.max(
-    floorBaseUnits,
-    Math.floor(amountUi * 10 ** USDC_DECIMALS),
-  );
 
   // surfnet_setTokenAccount takes 3 positional args:
   //   [ownerBase58, mintBase58, { amount: <integer base units> }]

@@ -332,7 +332,7 @@ export async function depositMarginfi(
   const usdcResult = await ensureSurfpoolUsdc(
     surfpool,
     vault.publicKey,
-    Math.max(amountUi, 1000),
+    amountUi,
   );
 
   const account = await ensureMarginfiAccount(surfpool, vault, true);
