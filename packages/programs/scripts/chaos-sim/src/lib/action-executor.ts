@@ -29,6 +29,7 @@ import {
 
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./marinade-execute.js";
+import { stakeJito, unstakeJito } from "./jito-execute.js";
 import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
@@ -409,15 +410,46 @@ async function executeLst(
     }
   }
 
-  // Jito / SPL stake pool — stub until the SDK wiring lands. The brain
-  // prompts already prefer Marinade unless the SPL premium beats it by
-  // >100bps, so this rarely fires in practice.
-  return {
-    phase: "execute", chain: "surfpool",
-    action: `lst_${direction}`, protocol,
-    policyGate,
-    notes: `${protocol} ${direction}: policy-gated, CPI pending (use marinade for live execution)`,
-  };
+  if (protocol === "jito") {
+    // Real Jito CPI via @solana/spl-stake-pool against the surfpool mainnet
+    // fork. The fork has Jito's StakePool / pool mint / reserve stake state
+    // populated from mainnet, so the SDK's depositSol + withdrawSol builders
+    // work without per-chain rewiring. jitoSOL ends up in the agent's ATA.
+    if (args.action.type !== "lst_stake" && args.action.type !== "lst_unstake") {
+      throw new Error("lst type mismatch");
+    }
+    if (direction === "stake") {
+      const amountSolUi = (args.action as { args: { amountSolUi: number } }).args.amountSolUi;
+      const result = await stakeJito(args.surfpool, args.kp, amountSolUi);
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig,
+        actionType: "lst_stake",
+        amountLamports: result.stakedLamports,
+        notes: `Jito stake: ${amountSolUi} SOL → jitoSOL @ ${result.jitoSolTokenAccount.slice(0, 8)}…`,
+      });
+      return {
+        phase: "execute", chain: "surfpool", action: "lst_stake", protocol,
+        txSig: result.txSig, policyGate,
+        notes: `Jito stake: ${amountSolUi} SOL → jitoSOL @ ${result.jitoSolTokenAccount.slice(0, 8)}…`,
+      };
+    } else {
+      const amountJitoSolUi = (args.action as { args: { amountMsolUi: number } }).args.amountMsolUi;
+      const result = await unstakeJito(args.surfpool, args.kp, amountJitoSolUi);
+      await persistSurfpoolAction(args, {
+        protocol, txSig: result.txSig,
+        actionType: "lst_unstake",
+        amountLamports: Math.floor(amountJitoSolUi * 1_000_000_000),
+        notes: `Jito withdrawSol: ~${amountJitoSolUi} jitoSOL → SOL`,
+      });
+      return {
+        phase: "execute", chain: "surfpool", action: "lst_unstake", protocol,
+        txSig: result.txSig, policyGate,
+        notes: `Jito withdrawSol: ~${amountJitoSolUi} jitoSOL → SOL`,
+      };
+    }
+  }
+
+  throw new Error(`executeLst: unhandled protocol ${protocol}`);
 }
 
 async function executePerp(
