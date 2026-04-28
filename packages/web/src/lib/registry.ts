@@ -78,3 +78,32 @@ export async function fetchRegisteredVaultSet(
   }
   return set;
 }
+
+/**
+ * Lookup type for resolving market creator/target pubkeys to readable
+ * agent identities. Keyed by BOTH the agent's vault_pda AND agent_pubkey
+ * so a single map satisfies all market fields (Market.created_by holds
+ * agent_pubkey for chaos-sim agents but vault_pda for legacy hero agents,
+ * and Market.strategy / strategyB always hold the target's vault_pda).
+ */
+export type AgentDirectory = Record<
+  string,
+  { sns: string; displayName: string; emoji: string | null }
+>;
+
+export async function fetchAgentDirectory(
+  init?: RequestInit,
+): Promise<AgentDirectory> {
+  const agents = await fetchRegisteredAgents(init);
+  const dir: AgentDirectory = {};
+  for (const a of agents) {
+    const entry = {
+      sns: a.sns,
+      displayName: a.display_name || a.sns.split(".")[0] || "agent",
+      emoji: a.emoji,
+    };
+    if (a.vault_pda) dir[a.vault_pda] = entry;
+    if (a.agent_pubkey) dir[a.agent_pubkey] = entry;
+  }
+  return dir;
+}

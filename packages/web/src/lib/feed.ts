@@ -47,28 +47,75 @@ export interface FeedEvent {
 }
 
 /**
- * Convert a MarketView into the "market created" feed event.
+ * Optional registry-derived directory used to resolve creator + target
+ * pubkeys to readable agent identities. Keys are agent_pubkey AND
+ * vault_pda (both forms appear on Market accounts depending on which
+ * keypair the agent's runtime used to sign create_market_v2). Pass
+ * `undefined` to fall back to the legacy hardcoded HERO_AGENTS /
+ * CHAOS_AGENTS resolver.
  */
-export function marketCreatedEvent(m: MarketView): FeedEvent {
-  const creatorSns = resolveSns(m.createdBy);
-  const creatorLabel =
-    creatorSns?.devnetName ?? truncatePubkey(m.createdBy);
-  const targetSns = m.targetAgent ? resolveSns(m.targetAgent) : null;
+export type FeedAgentDirectory = Record<
+  string,
+  { sns: string; displayName: string; emoji: string | null }
+>;
+
+function resolveAgentLabel(
+  pubkey: string,
+  dir?: FeedAgentDirectory,
+): { name: string; emoji: string | null; sns?: string } {
+  const fromDir = dir?.[pubkey];
+  if (fromDir) {
+    return {
+      name: fromDir.displayName,
+      emoji: fromDir.emoji,
+      sns: fromDir.sns,
+    };
+  }
+  const legacy = resolveSns(pubkey);
+  if (legacy?.devnetName) {
+    const heroEmoji = HERO_AGENTS.find((a) => a.vault === pubkey)?.emoji ?? null;
+    return { name: legacy.devnetName, emoji: heroEmoji, sns: legacy.devnetName };
+  }
+  return { name: truncatePubkey(pubkey), emoji: null };
+}
+
+/**
+ * Convert a MarketView into the "market created" feed event.
+ *
+ * Headline now names BOTH the creator AND the target so a viewer
+ * understands which agent is betting on whom — previously a wizard-
+ * created agent showed as "unknown" because it wasn't in the
+ * hardcoded HERO_AGENTS map. Pass `dir` from the active agent
+ * registry so wizard-launched agents resolve to their .bundie.sol
+ * identity.
+ */
+export function marketCreatedEvent(
+  m: MarketView,
+  dir?: FeedAgentDirectory,
+): FeedEvent {
+  const creator = resolveAgentLabel(m.createdBy, dir);
+  // For kinds 1/3 the predicted vault sits on Market.strategy. For
+  // kind 2 we additionally have a B side on Market.targetAgent.
+  const targetA = m.strategy ? resolveAgentLabel(m.strategy, dir) : null;
+  const targetB = m.targetAgent
+    ? resolveAgentLabel(m.targetAgent, dir)
+    : null;
 
   let headline: string;
-  if (m.kind === 2 && m.targetAgent) {
-    const targetLabel =
-      targetSns?.devnetName ?? truncatePubkey(m.targetAgent);
-    headline = `${creatorLabel} opened a head-to-head market on ${targetLabel}`;
+  if (m.kind === 2 && targetB) {
+    const aName = targetA?.name ?? "?";
+    headline = `${creator.name} opened head-to-head: ${aName} vs ${targetB.name}`;
+  } else if (m.kind === 1 && targetA) {
+    headline = `${creator.name} opened a NAV-target market on ${targetA.name}`;
+  } else if (m.kind === 3 && targetA) {
+    headline = `${creator.name} opened a drawdown market on ${targetA.name}`;
   } else if (m.kind === 1) {
-    headline = `${creatorLabel} opened a NAV target market`;
+    headline = `${creator.name} opened a NAV-target market`;
   } else if (m.kind === 3) {
-    headline = `${creatorLabel} opened a drawdown market`;
+    headline = `${creator.name} opened a drawdown market`;
   } else {
-    headline = `${creatorLabel} opened a market`;
+    headline = `${creator.name} opened a market`;
   }
-
-  const actorEmoji = HERO_AGENTS.find((a) => a.vault === m.createdBy)?.emoji;
 
   return {
     id: `created:${m.address}`,
@@ -78,8 +125,8 @@ export function marketCreatedEvent(m: MarketView): FeedEvent {
     headline,
     detail: m.question || undefined,
     href: `/market/${m.address}`,
-    actorSns: creatorSns?.devnetName,
-    actorEmoji: actorEmoji ?? "🤖",
+    actorSns: creator.sns,
+    actorEmoji: creator.emoji ?? "🤖",
   };
 }
 
@@ -89,9 +136,11 @@ export function marketCreatedEvent(m: MarketView): FeedEvent {
  * `resolved_at` in the generated IDL consistently across kinds, so
  * sorting the feed by created-time is good enough for a visual stream.
  */
-export function marketResolvedEvent(m: MarketView): FeedEvent {
-  const creatorSns = resolveSns(m.createdBy);
-  const actorEmoji = HERO_AGENTS.find((a) => a.vault === m.createdBy)?.emoji;
+export function marketResolvedEvent(
+  m: MarketView,
+  dir?: FeedAgentDirectory,
+): FeedEvent {
+  const creator = resolveAgentLabel(m.createdBy, dir);
   return {
     // Distinct ID so a market appears once as "created" and once as
     // "resolved" in the same feed.
@@ -102,8 +151,8 @@ export function marketResolvedEvent(m: MarketView): FeedEvent {
     headline: `Resolved: ${(m.outcome ?? "?").toUpperCase()}`,
     detail: m.question || undefined,
     href: `/market/${m.address}`,
-    actorSns: creatorSns?.devnetName,
-    actorEmoji: actorEmoji ?? "🤖",
+    actorSns: creator.sns,
+    actorEmoji: creator.emoji ?? "🤖",
   };
 }
 

@@ -166,19 +166,40 @@ export function HomeFeed() {
     return () => clearInterval(id);
   }, [tick]);
 
+  // Build a directory keyed on BOTH agent_pubkey and vault_pda so the
+  // feed event factories can resolve Market.created_by + Market.strategy
+  // to readable agent names (Market.created_by holds the chaos-sim
+  // agent's keypair, while target/strategy fields hold vault PDAs).
+  const agentDir = useMemo(() => {
+    const dir: Record<
+      string,
+      { sns: string; displayName: string; emoji: string | null }
+    > = {};
+    for (const a of agents) {
+      const entry = {
+        sns: a.sns,
+        displayName: a.display_name || a.sns.split(".")[0] || "agent",
+        emoji: a.emoji ?? null,
+      };
+      if (a.vault_pda) dir[a.vault_pda] = entry;
+      if (a.agent_pubkey) dir[a.agent_pubkey] = entry;
+    }
+    return dir;
+  }, [agents]);
+
   const events: FeedEvent[] = useMemo(() => {
     const ev: FeedEvent[] = [];
     for (const m of markets.slice(0, MAX_MARKETS)) {
-      ev.push(marketCreatedEvent(m));
+      ev.push(marketCreatedEvent(m, agentDir));
       if (m.status === "resolved") {
-        ev.push(marketResolvedEvent(m));
+        ev.push(marketResolvedEvent(m, agentDir));
       }
     }
     ev.push(...vaultDeltas);
     ev.push(...agentActions);
     ev.sort((a, b) => b.timestamp - a.timestamp);
     return ev;
-  }, [markets, vaultDeltas, agentActions]);
+  }, [markets, vaultDeltas, agentActions, agentDir]);
 
   const asOfLabel =
     lastTick > 0 ? formatRelative(lastTick) : "connecting…";

@@ -53,8 +53,11 @@ const PRESET_ALLOCATION: Record<AgentPreset, string> = {
   - Migrate to alternate venues only when their utilization exceeds Kamino's by >300bps.
   - Ignore LST surfaces (selectors 2, 4).`,
   "perp-trader": `Allocation target: long spot + short perp delta-neutral, harvesting funding.
-  - Track Jupiter Perps SOL-PERP funding (selector 5) — when positive and >50bps annualized, increase position.
+  - Primary signal: Jupiter Perps SOL-PERP funding (selector 5).
+    Open / increase positions whenever funding is positive (>10bps).
   - Trim when funding flips negative.
+  - When funding is flat or unfavorable, fall BACK to the strongest
+    lending opportunity (Kamino vs Solend) so capital still earns.
   - LST exposure only as collateral, not as alpha.`,
 };
 
@@ -68,7 +71,7 @@ const PRESET_RULES: Record<AgentPreset, string> = {
   "yield-hunter":
     "- One action per tick — migrate to the higher-APY pool only when delta exceeds 300bps.\n- Default to noop when both pools are within 300bps of each other.",
   "perp-trader":
-    "- One action per tick.\n- Default to noop when funding is flat (|funding| < 20bps annualized).",
+    "- One action per tick. Fall back to lending if no perp signal.\n- Default to noop ONLY when funding is flat (|funding| < 5bps) AND lending venues are also stagnant.",
 };
 
 // ───────────────────────────── brain.md ─────────────────────────────────────

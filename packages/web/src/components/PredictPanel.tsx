@@ -83,7 +83,8 @@ export function PredictPanel({
   noPrice,
   collateralMint,
 }: PredictPanelProps) {
-  const { publicKey, sendTransaction, connected } = useWallet();
+  const { publicKey, sendTransaction, signTransaction, connected } =
+    useWallet();
   const { connection } = useConnection();
 
   const [selected, setSelected] = useState<"yes" | "no">("yes");
@@ -159,14 +160,58 @@ export function PredictPanel({
       });
       tx.add(instruction);
 
-      const sig = await sendTransaction(tx, connection, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      });
+      // Surface the actual reason for any preflight failure. Phantom's
+      // `sendTransaction` wraps preflight errors as the opaque
+      // `WalletSendTransactionError: Unexpected error` and swallows the
+      // logs — so a user with no bUSD or no SOL can't tell what's wrong.
+      // Sign locally, simulate explicitly to extract the underlying
+      // error, then broadcast via sendRawTransaction (preflight already
+      // done, skip it).
+      let sig: string;
+      if (signTransaction) {
+        const presigned = await signTransaction(tx);
+        const sim = await connection.simulateTransaction(presigned);
+        if (sim.value.err) {
+          const logs = (sim.value.logs ?? []).join("\n");
+          // Token program 0x1 inside the prediction program's CPI =
+          // buyer's collateral ATA is short on bUSD.
+          if (
+            logs.includes("Tokenkeg") &&
+            (logs.includes("Error: insufficient funds") ||
+              logs.includes("custom program error: 0x1"))
+          ) {
+            throw new Error(
+              "Not enough bUSD to bet that amount. Use the wizard's faucet step or lower your bet size.",
+            );
+          }
+          // System Program rent shortage = need devnet SOL.
+          if (
+            logs.includes("Transfer: insufficient lamports") ||
+            JSON.stringify(sim.value.err).includes("AccountNotFound")
+          ) {
+            throw new Error(
+              "Not enough devnet SOL to pay tx fees. Get some at https://faucet.solana.com (paste your wallet, select Devnet, request 1 SOL).",
+            );
+          }
+          throw new Error(
+            `Preflight failed: ${JSON.stringify(sim.value.err)}\n  ${(sim.value.logs ?? []).slice(-6).join("\n  ")}`,
+          );
+        }
+        sig = await connection.sendRawTransaction(presigned.serialize(), {
+          skipPreflight: true,
+        });
+      } else {
+        // Wallets without signTransaction (rare) — fall back to the old
+        // path; user gets the opaque error but at least the bet works.
+        sig = await sendTransaction(tx, connection, {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+      }
 
       await connection.confirmTransaction(
         { signature: sig, blockhash, lastValidBlockHeight },
-        "confirmed"
+        "confirmed",
       );
 
       setTxSig(sig);
@@ -175,7 +220,7 @@ export function PredictPanel({
     } catch (err: unknown) {
       console.error("buy_shares error:", err);
       setErrorMsg(
-        err instanceof Error ? err.message : "Transaction failed"
+        err instanceof Error ? err.message : "Transaction failed",
       );
       setStatus("error");
     }
@@ -191,6 +236,7 @@ export function PredictPanel({
     collateralMint,
     connection,
     sendTransaction,
+    signTransaction,
   ]);
 
   if (!connected) {
