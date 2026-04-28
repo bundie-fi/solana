@@ -78,34 +78,36 @@ const BRAIN_FORCE_EVERY = Number(
 /** Build a stable hash of the brain's decision-relevant inputs. Two ticks
  *  with the same hash should produce the same decision, so we can skip the
  *  LLM call on the second one. We deliberately exclude `slot` (changes
- *  every tick by definition) and round NAV/USDC down to 2-decimal bUSD so
- *  sub-cent jitter doesn't trigger a re-think. */
-function hashBrainInput(state: {
-  rates: Record<string, number | string>;
-  self: { sol?: number; usdc?: number; msol?: number };
-  peers: Array<{ pubkey: string; navLamports?: bigint | number | string }>;
-}): string {
-  const round2 = (n: number | undefined) =>
+ *  every tick by definition) and round balances + peer NAVs to coarse
+ *  buckets so sub-cent jitter doesn't trigger a re-think. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hashBrainInput(state: { rates: any; self: any; peers: any }): string {
+  const round2 = (n: unknown) =>
     typeof n === "number" ? Math.round(n * 100) / 100 : 0;
   const ratesNorm = Object.fromEntries(
     Object.entries(state.rates ?? {})
       .filter(([k]) => k !== "chain" && k !== "kaminoReserve")
       .sort(([a], [b]) => a.localeCompare(b)),
   );
-  const peersNorm = (state.peers ?? [])
+  // Peers come from readPeerNavs as `{ name, owner, sol, lamports }`.
+  // `owner` is the vault pubkey base58; `sol` is the readable NAV in SOL.
+  // Bucket NAV to 2 decimals so commit_nav noise doesn't churn the hash.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const peersList: any[] = Array.isArray(state.peers) ? state.peers : [];
+  const peersNorm = peersList
     .map((p) => ({
-      pk: p.pubkey,
-      nav: typeof p.navLamports === "bigint"
-        ? Number(p.navLamports / 1_000_000n)
-        : Number(p.navLamports ?? 0),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pk: String((p as any)?.owner ?? (p as any)?.pubkey ?? ""),
+      nav: round2((p as { sol?: number; lamports?: number })?.sol ?? 0),
     }))
+    .filter((p) => p.pk.length > 0)
     .sort((a, b) => a.pk.localeCompare(b.pk));
   const payload = JSON.stringify({
     rates: ratesNorm,
     self: {
-      sol: round2(state.self.sol),
-      usdc: round2(state.self.usdc),
-      msol: round2(state.self.msol),
+      sol: round2(state.self?.sol),
+      usdc: round2(state.self?.usdc),
+      msol: round2(state.self?.msol),
     },
     peers: peersNorm,
   });
@@ -197,12 +199,9 @@ export async function runTick(args: TickArgs): Promise<void> {
   // Both skips fall through to a synthetic noop decision; commit_nav
   // continues unconditionally below.
   const inputHash = hashBrainInput({
-    rates: rates as unknown as Record<string, number | string>,
+    rates,
     self: selfNav,
-    peers: peerNavs as unknown as Array<{
-      pubkey: string;
-      navLamports?: bigint | number | string;
-    }>,
+    peers: peerNavs,
   });
   const prev = agentState.get(args.agentName) ?? {
     tickCount: 0,
