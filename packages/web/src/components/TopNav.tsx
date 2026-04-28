@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 const WalletButton = dynamic(
   () =>
@@ -13,18 +14,25 @@ const WalletButton = dynamic(
 );
 
 const LINKS: { href: string; label: string; activePrefix?: string }[] = [
-  { href: "/",         label: "Feed" },
-  { href: "/markets",  label: "Markets" },
-  { href: "/agents",   label: "Agents", activePrefix: "/agent" },
-  { href: "/portfolio",label: "Portfolio" },
+  { href: "/",          label: "Feed" },
+  { href: "/markets",   label: "Markets" },
+  { href: "/agents",    label: "Agents", activePrefix: "/agent" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/identity",  label: "Identity" },
 ];
+
+function truncateAddress(address: string): string {
+  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
 
 /**
  * Top navigation — desktop only (hidden on mobile where BottomNav is used).
- * Matches the Seeker design: dark terminal header + logo + live dot + wallet.
+ * Active-link styling uses the gold accent + bottom border, mirroring Aqua0's
+ * pattern but adapted to the Bundie paper theme.
  */
 export function TopNav() {
   const pathname = usePathname();
+  const { publicKey, connected } = useWallet();
 
   return (
     <header
@@ -73,19 +81,18 @@ export function TopNav() {
           const matchPrefix = l.activePrefix ?? l.href;
           const active =
             pathname === l.href ||
-            (matchPrefix !== "/" &&
-              matchPrefix !== "/markets" &&
-              pathname?.startsWith(matchPrefix));
+            (l.href !== "/" && pathname?.startsWith(matchPrefix));
           return (
             <Link
               key={l.href}
               href={l.href}
               aria-current={active ? "page" : undefined}
               style={{
+                position: "relative",
                 display: "inline-flex",
                 alignItems: "center",
                 height: 36,
-                padding: "0 12px",
+                padding: "0 14px",
                 borderRadius: 6,
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
@@ -93,9 +100,12 @@ export function TopNav() {
                 textTransform: "uppercase",
                 letterSpacing: "0.18em",
                 textDecoration: "none",
-                color: active ? "var(--fg-0)" : "var(--fg-3)",
-                background: active ? "var(--bg-2)" : "transparent",
-                transition: "color 160ms ease, background 160ms ease",
+                color: active ? "var(--gold)" : "var(--fg-3)",
+                background: active ? "var(--gold-tint)" : "transparent",
+                borderBottom: active
+                  ? "2px solid var(--gold)"
+                  : "2px solid transparent",
+                transition: "color 160ms ease, background 160ms ease, border-color 160ms ease",
               }}
             >
               {l.label}
@@ -104,7 +114,7 @@ export function TopNav() {
         })}
       </nav>
 
-      {/* Right cluster: Launch CTA + Wallet */}
+      {/* Right cluster: Launch CTA + Devnet pill + Wallet */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Link
           href="/create-agent"
@@ -129,20 +139,86 @@ export function TopNav() {
         >
           + Launch agent
         </Link>
-        <WalletButton
+
+        {/* Static cluster badge — Bundie is devnet-only for now, no switcher */}
+        <span
+          aria-label="Cluster: Solana Devnet"
           style={{
-            background: "var(--gold-tint)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            height: 28,
+            padding: "0 10px",
+            borderRadius: 999,
             border: "1px solid var(--line-2)",
-            borderRadius: "8px",
-            color: "var(--gold)",
-            fontSize: "11px",
+            background: "var(--bg-1)",
+            color: "var(--fg-2)",
             fontFamily: "var(--font-mono)",
-            height: "34px",
-            padding: "0 12px",
-            letterSpacing: "0.1em",
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.16em",
             textTransform: "uppercase",
           }}
-        />
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: "var(--green-2)",
+              boxShadow: "0 0 6px var(--green-tint)",
+            }}
+          />
+          Devnet
+        </span>
+
+        {connected && publicKey ? (
+          <WalletButton
+            style={{
+              background: "var(--gold-tint)",
+              border: "1px solid var(--line-2)",
+              borderRadius: "999px",
+              color: "var(--gold)",
+              fontSize: "11px",
+              fontFamily: "var(--font-mono)",
+              height: "34px",
+              padding: "0 14px",
+              letterSpacing: "0.1em",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+            startIcon={
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: "var(--gold)",
+                  boxShadow: "0 0 6px var(--gold-glow)",
+                  display: "inline-block",
+                }}
+              />
+            }
+          >
+            {truncateAddress(publicKey.toBase58())}
+          </WalletButton>
+        ) : (
+          <WalletButton
+            style={{
+              background: "var(--gold)",
+              border: "1px solid var(--gold)",
+              borderRadius: "8px",
+              color: "#fff",
+              fontSize: "11px",
+              fontFamily: "var(--font-mono)",
+              height: "34px",
+              padding: "0 14px",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          />
+        )}
       </div>
     </header>
   );
