@@ -265,7 +265,7 @@ export function PredictPanel({
           Prediction placed!
         </p>
         <a
-          href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
+          href={`https://orbmarkets.io/tx/${txSig}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-predict-purple underline underline-offset-2 hover:text-purple-300 transition-colors"
