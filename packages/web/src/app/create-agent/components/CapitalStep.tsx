@@ -32,7 +32,11 @@ export function CapitalStep({ state, dispatch }: Props) {
         publicKey,
         false,
       );
-      const info = await connection.getTokenAccountBalance(ata, "confirmed");
+      // Don't pass the string commitment — rpcfast (the configured devnet
+      // RPC) rejects positional `"confirmed"` with `expected struct
+      // CommitmentConfig`, falling into the catch{} below and silently
+      // reporting $0 even when the ATA actually holds tokens.
+      const info = await connection.getTokenAccountBalance(ata);
       const ui = info.value.uiAmount ?? 0;
       dispatch({ type: "CAPITAL/SET_BALANCE", value: ui });
     } catch {
@@ -74,10 +78,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             publicKey,
             false,
           );
-          const info = await connection.getTokenAccountBalance(
-            ata,
-            "confirmed",
-          );
+          const info = await connection.getTokenAccountBalance(ata);
           if ((info.value.uiAmount ?? 0) >= FAUCET_AMOUNT) break;
         } catch {
           /* retry */

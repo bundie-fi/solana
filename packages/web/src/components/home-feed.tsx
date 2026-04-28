@@ -105,9 +105,9 @@ export function HomeFeed() {
       const snapshots: VaultSnapshot[] = await Promise.all(
         agents.map(async (a) => {
           try {
+            // No string commitment — rpcfast strict-mode rejects it.
             const lamports = await connection.getBalance(
               new PublicKey(a.vault_pda),
-              "confirmed",
             );
             return { vault: a.vault_pda, lamports };
           } catch {

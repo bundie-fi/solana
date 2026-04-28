@@ -131,7 +131,8 @@ export async function buildDepositToVaultTx(
     args.ownerWallet,
     false,
   );
-  const ataInfo = await connection.getAccountInfo(depositorAta, "confirmed");
+  // No string commitment — rpcfast strict-mode rejects it.
+  const ataInfo = await connection.getAccountInfo(depositorAta);
   if (!ataInfo) {
     tx.add(
       createAssociatedTokenAccountInstruction(

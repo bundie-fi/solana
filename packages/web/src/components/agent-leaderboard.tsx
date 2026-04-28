@@ -92,9 +92,9 @@ export function AgentLeaderboard() {
         Promise.all(
           agents.map(async (a) => {
             try {
+              // No string commitment — rpcfast strict-mode rejects it.
               const lamports = await connection.getBalance(
                 new PublicKey(a.vault),
-                "confirmed",
               );
               return [a.vault, lamports / LAMPORTS_PER_SOL] as const;
             } catch {

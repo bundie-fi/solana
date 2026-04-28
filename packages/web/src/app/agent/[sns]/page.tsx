@@ -92,7 +92,8 @@ export default async function AgentProfilePage({
   let tokenAccounts: Array<{ mint: string; uiAmount: number }> = [];
   try {
     const [sol, parsed] = await Promise.all([
-      connection.getBalance(new PublicKey(vault), "confirmed"),
+      // No string commitment — rpcfast strict-mode rejects it.
+      connection.getBalance(new PublicKey(vault)),
       connection.getParsedTokenAccountsByOwner(new PublicKey(vault), {
         programId: new PublicKey(
           "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",

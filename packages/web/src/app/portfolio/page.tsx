@@ -49,8 +49,10 @@ export default function PortfolioPage() {
       // already swallows its own errors.
       const [marketsRes, lamportsRes, slotRes] = await Promise.allSettled([
         fetchAllMarkets(connection),
-        connection.getBalance(publicKey, "confirmed"),
-        connection.getSlot("confirmed"),
+        // Drop string commitment — rpcfast rejects positional `"confirmed"`
+        // with `expected struct RpcContextConfig`. Connection default applies.
+        connection.getBalance(publicKey),
+        connection.getSlot(),
       ]);
       const allMkts =
         marketsRes.status === "fulfilled" ? marketsRes.value : [];
@@ -309,7 +311,9 @@ async function readSplBalance(
   ata: PublicKey,
 ): Promise<number> {
   try {
-    const info = await connection.getTokenAccountBalance(ata, "confirmed");
+    // No string commitment — rpcfast rejects it with `expected struct
+    // CommitmentConfig`, which would silently zero out every position.
+    const info = await connection.getTokenAccountBalance(ata);
     return info.value.uiAmount ?? 0;
   } catch {
     return 0;

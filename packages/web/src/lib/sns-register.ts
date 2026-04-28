@@ -152,7 +152,9 @@ export async function checkAvailability(
   try {
     const { pda } = await deriveNamePda(name);
     const conn = new Connection(DEVNET_RPC, "confirmed");
-    const acc = await conn.getAccountInfo(pda, "confirmed");
+    // No string commitment — rpcfast strict-mode rejects positional
+    // `"confirmed"`. Connection was constructed with the same default.
+    const acc = await conn.getAccountInfo(pda);
     if (!acc) return { state: "available", name };
     if (!acc.owner.equals(SPL_NAME_SERVICE_PROGRAM_ID))
       return { state: "available", name }; // foreign account, treat as free
