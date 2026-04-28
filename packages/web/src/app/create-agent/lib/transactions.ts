@@ -41,8 +41,57 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { PROGRAM_IDS } from "@/lib/constants";
+import { browserConnectionConfig } from "@/lib/connection-config";
 import type { LaunchStage } from "./wizard-state";
 import type { CreateAgentResponse } from "./api";
+
+/**
+ * Build the broadcast fan-out: primary RPC plus public devnet as a
+ * second route. Devnet leader scheduling is flaky enough that a single
+ * RPC's leader-forwarding path can black-hole a tx for the full ~60s
+ * blockhash window even when the fee is competitive. Spraying to a
+ * second independent RPC roughly doubles our chance of any one route
+ * reaching a live leader. Both routes see the same signed tx, so the
+ * signature is identical and validators dedupe.
+ */
+function broadcastConnections(primary: Connection): Connection[] {
+  const out: Connection[] = [primary];
+  try {
+    out.push(
+      new Connection(
+        "https://api.devnet.solana.com",
+        browserConnectionConfig,
+      ),
+    );
+  } catch {
+    // Construction can't really fail here, but if it did we still have
+    // the primary , don't take the whole flow down.
+  }
+  return out;
+}
+
+/**
+ * Send the same signed tx to every broadcast route in parallel. Returns
+ * the first successful signature, or throws the last error if every
+ * route failed.
+ */
+async function sendRawToAll(
+  conns: Connection[],
+  rawTx: Buffer | Uint8Array,
+): Promise<string> {
+  const results = await Promise.allSettled(
+    conns.map((c) =>
+      c.sendRawTransaction(rawTx, { skipPreflight: true, maxRetries: 0 }),
+    ),
+  );
+  for (const r of results) {
+    if (r.status === "fulfilled") return r.value;
+  }
+  const lastReject = results[results.length - 1];
+  throw lastReject?.status === "rejected"
+    ? lastReject.reason
+    : new Error("all broadcast routes failed");
+}
 
 // ── Anchor discriminator ────────────────────────────────────────────────────
 // From packages/common/src/idl/prediction_market.json , depositToVault.
@@ -275,10 +324,11 @@ export async function launchAgent({
 
   // Whole flow can need a retry-with-fresh-blockhash if the wallet
   // popup is left open long enough that the *first* blockhash expires
-  // before the user even clicks Approve. Two attempts is enough; the
-  // priority-fee + aggressive rebroadcast inside one attempt almost
-  // always lands well before then.
-  const MAX_ATTEMPTS = 2;
+  // before the user even clicks Approve, OR if devnet leaders silently
+  // drop the tx for a full validity window. Three attempts gives a
+  // realistic margin without making the user wait forever.
+  const MAX_ATTEMPTS = 3;
+  const conns = broadcastConnections(connection);
   let lastErr: Error | null = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     // Fetch the freshest possible blockhash *right before* asking the
@@ -313,10 +363,10 @@ export async function launchAgent({
 
       let depositSig: string;
       try {
-        depositSig = await connection.sendRawTransaction(rawTx, {
-          skipPreflight: true, // we trust our own ix construction
-          maxRetries: 0, // we own retries
-        });
+        // Spray the initial broadcast to every route. As long as one
+        // RPC accepts it, we have a signature to track; rebroadcast
+        // takes over from there.
+        depositSig = await sendRawToAll(conns, rawTx);
       } catch (err) {
         // Initial broadcast failure (RPC down, bad blockhash before
         // submit, etc.) , try once more with a fresh blockhash if
@@ -346,15 +396,18 @@ export async function launchAgent({
         while (!stopped) {
           await new Promise((r) => setTimeout(r, 1000));
           if (stopped) break;
-          try {
-            await connection.sendRawTransaction(rawTx, {
+          // Spray every route every tick. If rpcfast's leader-forward
+          // is degraded, the public devnet RPC may catch a different
+          // leader. Validators dedupe by signature so duplicates are
+          // free.
+          for (const c of conns) {
+            c.sendRawTransaction(rawTx, {
               skipPreflight: true,
               maxRetries: 0,
+            }).catch(() => {
+              // Validators reject duplicates with "already processed"
+              // once it lands , that's the success signal, ignore.
             });
-          } catch {
-            // Validators may reject duplicates with "already
-            // processed" once it lands , that's the success signal,
-            // ignore.
           }
         }
       })();
