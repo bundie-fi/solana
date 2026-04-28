@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
-import { Providers } from "@/components/providers";
+import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 const inter = Inter({
@@ -65,16 +66,18 @@ export default function RootLayout({
       className={`${inter.variable} ${playfairDisplay.variable} ${jetbrains.variable}`}
     >
       <body className="antialiased min-h-screen" style={{ background: "var(--bg-0)", color: "var(--fg-1)", fontFamily: "var(--font-sans)" }}>
-        <Providers>
+        <ClientProviders>
           {/* Desktop top nav — hidden on mobile where BottomNav takes over */}
           <div className="hidden sm:block">
             <TopNav />
           </div>
           {/* Mobile top header is rendered per-page via the design's top-header pattern */}
           {children}
+          {/* Desktop-only footer */}
+          <Footer />
           {/* Bottom nav — mobile only */}
           <BottomNav />
-        </Providers>
+        </ClientProviders>
       </body>
     </html>
   );
