@@ -268,6 +268,47 @@ export async function launchAgent({
             "select Devnet, request 1 SOL), then click Deposit again.",
         );
       }
+
+      // Same shape of pre-check for the bUSD side: if the user's ATA
+      // has < seedAmount bUSD, the SPL transfer inside deposit_to_vault
+      // reverts with a misleading "custom program error: 0x1" (token
+      // program code 1 = InsufficientFunds). Surface a clear nudge to
+      // claim the faucet first.
+      const depositorAta = getAssociatedTokenAddressSync(
+        treasuryMint,
+        wallet.publicKey,
+        false,
+      );
+      try {
+        const bal = await connection.getTokenAccountBalance(depositorAta);
+        const have = BigInt(bal.value.amount);
+        const need = BigInt(nextSteps.seedAmountBase);
+        if (have < need) {
+          const haveUi = Number(have) / 1_000_000;
+          const needUi = Number(need) / 1_000_000;
+          throw new Error(
+            `Your wallet only has ${haveUi.toFixed(2)} bUSD (need ${needUi.toFixed(2)}). ` +
+              "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
+          );
+        }
+      } catch (err) {
+        // getTokenAccountBalance throws if the ATA doesn't exist at
+        // all. Same fix: the user needs to claim the faucet.
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          msg.includes("could not find account") ||
+          msg.includes("Invalid param") ||
+          msg.includes("AccountNotFound")
+        ) {
+          throw new Error(
+            "Your wallet has no bUSD account yet. Go back to step 4 and " +
+              "click 'Claim faucet' to get $50 bUSD.",
+          );
+        }
+        // Otherwise re-throw the original error (we don't want to mask
+        // unrelated RPC issues).
+        if (msg.includes("only has") || msg.includes("Claim faucet")) throw err;
+      }
     }
 
     // DIAGNOSTIC: simulate ourselves first so any program revert /
@@ -285,6 +326,8 @@ export async function launchAgent({
           // always means the fee payer has 0 lamports. Solana's error name
           // is misleading — surface the real cause.
           const errStr = JSON.stringify(sim.value.err);
+          const logsArr = sim.value.logs ?? [];
+          const logsStr = logsArr.join("\n");
           if (errStr.includes("AccountNotFound")) {
             throw new Error(
               "You need devnet SOL to pay transaction fees. " +
@@ -292,9 +335,24 @@ export async function launchAgent({
                 "select Devnet, request 1 SOL), then click Deposit again.",
             );
           }
+          // Token program 0x1 = InsufficientFunds. The deposit_to_vault
+          // ix CPI's the SPL transfer; if the user's ATA balance is short,
+          // that's where it reverts. Logs always include "Tokenkeg…
+          // failed: custom program error: 0x1" + "Error: insufficient
+          // funds" — match either to be safe.
+          if (
+            (logsStr.includes("Tokenkeg") &&
+              logsStr.includes("custom program error: 0x1")) ||
+            logsStr.includes("Error: insufficient funds")
+          ) {
+            throw new Error(
+              "Your wallet doesn't have enough bUSD to seed the agent. " +
+                "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
+            );
+          }
           // Otherwise: surface the err code + last few logs so the user can
           // see exactly which instruction reverted and why.
-          const logs = (sim.value.logs ?? []).slice(-8).join("\n  ");
+          const logs = logsArr.slice(-8).join("\n  ");
           throw new Error(
             `Preflight failed: ${errStr}\n  ${logs}`,
           );
