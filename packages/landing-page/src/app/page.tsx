@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { MotionSection } from "../components/motion-section";
 import { StaggerChildren, StaggerItem } from "../components/stagger-children";
-import { TickerCarousel } from "../components/ticker-carousel";
 import { FeaturesSwitcher } from "../components/FeaturesSwitcher";
 import LiveActivityBar from "../components/LiveActivityBar";
 import LiveAgentCards from "../components/LiveAgentCards";
@@ -94,9 +93,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* === TICKER === */}
-      <TickerCarousel />
 
       {/* === LIVE ACTIVITY BAR — server-rendered counts; hides on fetch
               failure so visitors never see "0 agents". === */}
