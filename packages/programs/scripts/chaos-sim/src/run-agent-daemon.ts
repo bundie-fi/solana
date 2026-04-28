@@ -152,6 +152,12 @@ interface TickTarget {
   kp: Keypair;
   brainPath: string;
   policyPath: string;
+  /** Vault PDA (devnet) — used to derive treasury_ata for the bUSD
+   *  performance-sync after each commit_nav. Undefined for legacy
+   *  hardcoded agents that pre-date the registry. */
+  vaultPda?: PublicKey;
+  /** User's bUSD seed in base units. Same caveat as vaultPda. */
+  seedBaseUnits?: bigint;
 }
 
 /**
@@ -210,6 +216,8 @@ function resolveSupabaseAgent(agent: ActiveAgent): TickTarget | null {
     kp,
     brainPath: agent.brainMdPath,
     policyPath: agent.policiesPath,
+    vaultPda: new PublicKey(agent.vaultPda),
+    seedBaseUnits: agent.seedAmountBaseUnits,
   };
 }
 
@@ -219,6 +227,14 @@ interface TickContext {
   surfpool: Connection;
   devnet: Connection;
   peers: PeerAgent[];
+  /** bUSD mint authority + mint pubkey, loaded once at supervisor
+   *  startup. Used to mint additional bUSD into each agent's treasury
+   *  after commit_nav so the on-chain treasury balance scales with the
+   *  agent's NAV growth. Undefined when the daemon doesn't have access
+   *  to the secret (local dev without env set) — the sync is then
+   *  silently skipped. */
+  busdMintAuthority?: Keypair;
+  busdMintPubkey?: PublicKey;
 }
 
 const SURFPOOL_TARGET_SOL = 5;
@@ -299,6 +315,10 @@ async function runTickForAgent(
     surfpool: ctx.surfpool,
     devnet: ctx.devnet,
     peers: ctx.peers,
+    busdMintAuthority: ctx.busdMintAuthority,
+    busdMintPubkey: ctx.busdMintPubkey,
+    vaultPda: target.vaultPda,
+    seedBaseUnits: target.seedBaseUnits,
   });
 }
 
@@ -503,7 +523,36 @@ async function main(): Promise<void> {
   const devnet = new Connection(devnetUrl, "confirmed");
   const peers = loadPeers();
 
-  const ctx: TickContext = { surfpool, devnet, peers };
+  // bUSD mint authority + mint pubkey for the per-tick treasury-sync.
+  // Same envs the backend's faucet route uses. Both must be set together;
+  // missing one logs a warning and disables sync (legacy alice/bob/charlie
+  // ticks still work, just without the user-treasury bUSD growth).
+  let busdMintAuthority: Keypair | undefined;
+  let busdMintPubkey: PublicKey | undefined;
+  if (process.env.BUSD_MINT_AUTHORITY_SECRET && process.env.BUSD_MINT) {
+    try {
+      busdMintAuthority = Keypair.fromSecretKey(
+        Uint8Array.from(JSON.parse(process.env.BUSD_MINT_AUTHORITY_SECRET)),
+      );
+      busdMintPubkey = new PublicKey(process.env.BUSD_MINT);
+    } catch (e) {
+      console.warn(
+        `[supervisor] BUSD_MINT_AUTHORITY_SECRET / BUSD_MINT parse failed: ${(e as Error).message} — treasury-sync disabled`,
+      );
+    }
+  } else {
+    console.warn(
+      `[supervisor] BUSD_MINT_AUTHORITY_SECRET / BUSD_MINT envs not set — treasury-sync disabled`,
+    );
+  }
+
+  const ctx: TickContext = {
+    surfpool,
+    devnet,
+    peers,
+    busdMintAuthority,
+    busdMintPubkey,
+  };
 
   // ─── Zeta Exchange prewarm ─────────────────────────────────────────────
   // Exchange.load() clones 30+ Zeta program / state / pricing / oracle /

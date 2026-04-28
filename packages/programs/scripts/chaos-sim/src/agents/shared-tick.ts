@@ -19,6 +19,7 @@ import {
 import {
   commitNavToDevnet,
   computeNavFromSurfpoolBalances,
+  syncTreasuryToPerformance,
 } from "../lib/commit-nav-helper.js";
 import { readSurfpoolTokenBalances } from "../lib/balances.js";
 import { logAgentAction } from "../lib/agents-source.js";
@@ -40,6 +41,15 @@ export interface TickArgs {
   surfpool: Connection;
   devnet: Connection;
   peers: PeerAgent[];
+  /** Optional treasury-sync wiring. When all four are present, the
+   *  daemon mints bUSD into the agent's treasury_ata after each
+   *  commit_nav so the user-facing balance scales with the agent's
+   *  NAV growth. Hardcoded alice/bob/charlie agents pass undefined
+   *  here (they have no Postgres row, so no seed). */
+  busdMintAuthority?: Keypair;
+  busdMintPubkey?: PublicKey;
+  vaultPda?: PublicKey;
+  seedBaseUnits?: bigint;
 }
 
 export async function runTick(args: TickArgs): Promise<void> {
@@ -288,6 +298,39 @@ export async function runTick(args: TickArgs): Promise<void> {
           surfpoolTxSigs,
         },
       }).catch(() => {});
+
+      // bUSD treasury performance-sync: scale the user's seed by the
+      // agent's NAV growth since baseline, mint the delta. Mint-only —
+      // see helper docstring. Best-effort; failure here doesn't break
+      // the rest of the tick.
+      if (
+        args.busdMintAuthority &&
+        args.busdMintPubkey &&
+        args.vaultPda &&
+        args.seedBaseUnits !== undefined
+      ) {
+        try {
+          const result = await syncTreasuryToPerformance({
+            connection: args.devnet,
+            busdMintAuthority: args.busdMintAuthority,
+            busdMintPubkey: args.busdMintPubkey,
+            vaultPda: args.vaultPda,
+            agentPubkey: args.kp.publicKey,
+            seedBaseUnits: args.seedBaseUnits,
+            currentNavLamports: BigInt(navLamports),
+          });
+          if (result) {
+            console.log(
+              `[tick ${args.agentName}] treasury-sync → minted ${result.minted} bUSD ` +
+                `(tx=${result.txSig.slice(0, 12)}…)`,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `[tick ${args.agentName}] treasury-sync failed: ${(err as Error).message}`,
+          );
+        }
+      }
     } catch (err) {
       const e = err as Error;
       logActivity({

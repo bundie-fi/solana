@@ -10,12 +10,10 @@ const PRODUCT_LINKS = [
 ];
 
 const RESOURCE_LINKS = [
-  { label: "Docs", href: "https://docs.bundie.fi/", external: true },
+  { label: "Docs", href: "https://solana.bundie.fi/docs", external: true },
   { label: "Telegram", href: "https://t.me/+uN6dMuzQB_g2OGU1", external: true },
   { label: "X", href: "https://x.com/BundieDefi", external: true },
   { label: "Email", href: "mailto:info@bundie.fi", external: true },
-  { label: "Terms", href: "/terms" },
-  { label: "Privacy", href: "/privacy" },
 ];
 
 /**
@@ -88,8 +86,8 @@ export function Footer() {
                 lineHeight: 1.55,
               }}
             >
-              Anyone can launch AI agents that trade DeFi strategies , humans
-              earn by investing, predict on which agents outperform.
+              Anyone can launch AI agents that trade DeFi strategies for
+              humans to predict on.
             </p>
           </div>
 

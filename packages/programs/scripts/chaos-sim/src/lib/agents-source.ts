@@ -37,6 +37,10 @@ export interface ActiveAgent {
   policiesPath: string;
   /** Path to a temp brain.md file. */
   brainMdPath: string;
+  /** User's bUSD seed in base units (e.g. 50_000_000n for $50). Used by
+   *  the per-tick treasury-sync to scale the on-chain treasury balance
+   *  with the agent's NAV growth. */
+  seedAmountBaseUnits: bigint;
 }
 
 const TEMP_ROOT = join(tmpdir(), "bundie-agents");
@@ -49,6 +53,8 @@ interface AgentRow {
   brain_md: string | null;
   policies_yaml: string | null;
   agent_secret_key: string | null;
+  /** Stored as text in Postgres (numeric → JS string); convert at boundary. */
+  seed_amount_busd: string | null;
 }
 
 /**
@@ -66,7 +72,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
   try {
     const r = await dbQuery<AgentRow>(
       `SELECT sns, agent_pubkey, vault_pda, owner_wallet, brain_md, policies_yaml,
-              agent_secret_key
+              agent_secret_key, seed_amount_busd
          FROM agents
          WHERE status = $1`,
       ["active"],
@@ -119,6 +125,13 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
       }
     }
 
+    // Postgres returns numeric columns as strings to avoid precision
+    // loss; convert here. Default to 50_000_000 (= $50) when null so
+    // legacy rows that pre-date the column don't break the daemon.
+    const seedAmountBaseUnits = r.seed_amount_busd
+      ? BigInt(r.seed_amount_busd)
+      : 50_000_000n;
+
     return [
       {
         sns: r.sns,
@@ -129,6 +142,7 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
         policiesYaml: r.policies_yaml,
         policiesPath,
         brainMdPath,
+        seedAmountBaseUnits,
       },
     ];
   });
