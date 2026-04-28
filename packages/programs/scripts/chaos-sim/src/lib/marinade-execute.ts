@@ -1,13 +1,16 @@
 /**
- * beethoven-execute.ts — TypeScript strategy executors following Beethoven's
- * CPI patterns (same account ordering, same instruction encoding as the Rust
- * beethoven crates in packages/beethoven/).
+ * marinade-execute.ts — direct Marinade stake/unstake executors used by
+ * the chaos-sim agent runtime.
  *
- * These functions execute real on-chain transactions on devnet. Strategy
- * execution on devnet creates persistent positions (mSOL, kUSDC, etc.) that
- * the prediction market resolution program can verify at settlement time.
+ * Calls @marinade.finance/marinade-ts-sdk in-process: SDK derives the
+ * Marinade State PDA chain (msol_mint, liq_pool_*, reserve_pda, …) and
+ * builds the same `deposit` / `liquidUnstake` ixs Marinade's UI ships.
  *
- * Mainnet rate observation is handled separately via rate-surfaces.ts.
+ * Sibling executors follow the same pattern for their respective
+ * protocols: kamino-execute.ts, marginfi-execute.ts, solend-execute.ts,
+ * zeta-execute.ts. None of these CPI through any router — they call
+ * each protocol directly. Mainnet rate observation is separate
+ * (rate-surfaces.ts).
  */
 import {
   Connection,
@@ -39,14 +42,13 @@ export interface UnstakeResult {
 /**
  * Deposit SOL into Marinade on devnet using the marinade-ts-sdk.
  *
- * Account ordering follows beethoven/crates/deposit/marinade/src/lib.rs:
+ * Account ordering produced by the SDK:
  *   state, msol_mint, liq_pool_sol_leg_pda, liq_pool_msol_leg,
  *   liq_pool_msol_leg_authority, reserve_pda, transfer_from, mint_to,
  *   msol_mint_authority, system_program, token_program
  *
  * The SDK derives all PDAs from the Marinade State account
- * (8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC) and constructs the same
- * deposit instruction that Beethoven would build in a CPI context.
+ * (8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC).
  */
 export async function stakeMarinade(
   conn: Connection,

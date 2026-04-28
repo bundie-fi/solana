@@ -1,6 +1,6 @@
 /**
  * zeta-execute.ts — Zeta Markets perp executor against the surfpool mainnet
- * fork. Mirrors beethoven-execute.ts in style + tx hygiene.
+ * fork. Mirrors marinade-execute.ts in style + tx hygiene.
  *
  * Design notes
  * ------------

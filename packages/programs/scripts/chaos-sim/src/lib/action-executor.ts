@@ -28,7 +28,7 @@ import {
 } from "@solana/web3.js";
 
 import { createNavMarket } from "../actions/create-nav-market.js";
-import { stakeMarinade, unstakeMarinade } from "./beethoven-execute.js";
+import { stakeMarinade, unstakeMarinade } from "./marinade-execute.js";
 import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";

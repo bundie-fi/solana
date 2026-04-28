@@ -461,7 +461,6 @@ const KAMINO_RESERVES_FOR_NAV: ReadonlyArray<{
 
 /**
  * Reserve byte offsets, mirrored verbatim from
- *   - `packages/beethoven/crates/deposit/kamino/src/lib.rs`
  *   - `packages/programs/scripts/probes/probe-kamino-reserve.ts`
  *   - `packages/programs/scripts/chaos-sim/src/lib/rate-surfaces.ts`
  *
@@ -624,8 +623,8 @@ async function readKaminoReserveSnapshot(
  *
  * TODO(phaseQ-followup): MarginFi + Solend deposit valuation. Both share
  * the same accounting pattern (Bank/Reserve + per-user position record)
- * but with their own layouts; mirror the offset constants from beethoven
- * into this module when those CPIs land.
+ * but with their own layouts; mirror the offset constants from the
+ * respective probe scripts when those positions need NAV pricing.
  */
 async function loadKaminoSnapshots(
   surfpool: Connection,

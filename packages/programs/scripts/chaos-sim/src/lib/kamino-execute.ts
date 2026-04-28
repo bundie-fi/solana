@@ -4,7 +4,7 @@
  * Wraps `@kamino-finance/klend-sdk` (which is built on `@solana/kit`) and
  * exposes a thin shim that submits the resulting deposit tx via the existing
  * web3.js `Connection` the chaos-sim already passes around. Same pattern as
- * `beethoven-execute.ts`: build a tx, send with `skipPreflight: true` and a
+ * `marinade-execute.ts`: build a tx, send with `skipPreflight: true` and a
  * fat blockhash validity window so surfpool's slow confirmation polling
  * doesn't blow the window.
  *
@@ -168,7 +168,7 @@ export interface DepositKaminoArgs {
  *   4. Shim them to web3.js TransactionInstructions.
  *   5. Submit via the existing surfpool Connection with the same
  *      `skipPreflight: true` + extended blockhash window pattern that
- *      Marinade uses (see beethoven-execute.ts).
+ *      Marinade uses (see marinade-execute.ts).
  *
  * If USDC funding via surfnet_setTokenAccount fails, we still attempt
  * the deposit — surfpool simulation will reject cleanly and the daemon's
@@ -276,7 +276,7 @@ export async function depositKamino(
   tx.add(ataIx, ...web3Ixs);
   tx.feePayer = vault.publicKey;
   // Same surfpool-specific blockhash treatment as Marinade — see
-  // beethoven-execute.ts for the rationale.
+  // marinade-execute.ts for the rationale.
   const { blockhash, lastValidBlockHeight } =
     await surfpool.getLatestBlockhash("processed");
   tx.recentBlockhash = blockhash;

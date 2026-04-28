@@ -6,8 +6,8 @@
  * Functions are fail-quiet: they return 0 on missing/malformed data so the
  * LLM brain treats that as "unknown" and can decide accordingly.
  *
- * Byte offsets mirror the Rust nav_readers and beethoven crates. Any changes
- * here must be validated with the corresponding probe:* scripts.
+ * Byte offsets mirror the Rust nav_readers. Any changes here must be
+ * validated with the corresponding probe:* scripts.
  *
  * Selector table (matches on-chain rate_readers/mod.rs):
  *   1 — Kamino USDC supply utilization (bps)

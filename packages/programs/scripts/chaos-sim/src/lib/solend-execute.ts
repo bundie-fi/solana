@@ -378,7 +378,7 @@ export async function depositSolend(
   );
 
   // Surfpool blockhash + extended validity window. Same hygiene as
-  // beethoven-execute / kamino-execute.
+  // marinade-execute / kamino-execute.
   const { blockhash, lastValidBlockHeight } =
     await surfpool.getLatestBlockhash("processed");
   const extendedValidity = {

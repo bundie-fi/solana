@@ -1,13 +1,12 @@
 /**
- * Static catalog of every Beethoven-wired protocol adapter that backs
- * the rate-prediction markets.
+ * Static catalog of every protocol adapter the rate-prediction markets
+ * surface. Program IDs are the canonical mainnet/devnet ids — the
+ * chaos-sim agent runtime calls each protocol directly (see
+ * marinade-execute, kamino-execute, marginfi-execute, solend-execute,
+ * zeta-execute in packages/programs/scripts/chaos-sim/src/lib/).
  *
- * Source of truth for program IDs:
- *   packages/beethoven/crates/{deposit,swap,perps}/<protocol>/src/lib.rs
- *   (`pub const <NAME>_PROGRAM_ID: Address = ...`)
- *
- * Keep this file in sync whenever a new protocol is wired into Beethoven.
- * There are 31 entries today (7 Deposit + 22 Swap + 2 Perps).
+ * Keep this file in sync whenever a new protocol is added to that
+ * runtime.  There are 31 entries today (7 Deposit + 22 Swap + 2 Perps).
  */
 
 export type ProtocolCategory = "deposit" | "swap" | "perps";

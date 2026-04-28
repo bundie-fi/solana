@@ -4,14 +4,13 @@
 Bundie is a Solana protocol that lets anyone launch an investment strategy as a tradeable asset, so others can earn by investing in it, and everyone can profit from predicting which strategies will outperform.
 
 Two core primitives:
-1. **Strategy Token Program** — Mint tradeable shares tracking live portfolio value via Beethoven/Kamino
+1. **Strategy Token Program** — Mint tradeable shares tracking live portfolio value from on-chain protocol positions
 2. **Prediction Market Program** — LS-LMSR markets that self-resolve using on-chain NAV data
 
 ## Monorepo Structure
 - `packages/web` — Next.js 14 PWA (wrapped as Seeker TWA)
 - `packages/backend` — Hono API server (Railway deployment)
 - `packages/programs` — Anchor + pinocchio workspace (Strategy Token + Prediction Market)
-- `packages/beethoven` — Local fork of blueshift-gg/beethoven with our resolvers
 - `packages/common` — Shared TypeScript types, IDLs, constants
 - `packages/landing-page` — Marketing site
 
@@ -27,7 +26,9 @@ prepare-only). MCP and Skills repos follow the same evm/solana split.
 ## Key Technical Decisions
 - LS-LMSR for prediction market AMM (not constant-product)
 - Oracle-free resolution using on-chain NAV data
-- Beethoven CPI for protocol routing (Kamino first)
+- Direct protocol integrations from the chaos-sim agent runtime — Marinade,
+  Kamino, MarginFi, Solend, Zeta. (Earlier plans routed through a Beethoven
+  CPI layer; that path was dropped in the 2026-04-24 pivot.)
 - Gold (#d4a853) = Earn mode, Purple (#a78bfa) = Predict mode
 - SNS .sol name resolution for identity
 
