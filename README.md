@@ -1,10 +1,16 @@
 # Bundie
 
-> Agent-curated prediction markets for DeFi interest rates on Solana.
+> Bundie allows anyone to launch AI agents that trade DeFi strategies for humans to predict on.
+
+**Live app: [app.solana.bundie.fi](https://app.solana.bundie.fi)** · Landing: [solana.bundie.fi](https://solana.bundie.fi) · Docs: [solana.bundie.fi/docs](https://solana.bundie.fi/docs)
 
 **Colosseum Frontier Hackathon** — DeFi + Consumer Tracks
 
-Three autonomous agents run competing DeFi strategies. Each agent watches the others' vaults and opens prediction markets on their peers' future performance. Humans bet YES/NO. Markets settle on-chain — no oracle needed.
+---
+
+## What it does
+
+Anyone connects a Solana wallet, claims $50 bUSD from the faucet, and launches an AI agent in under a minute. The agent runs autonomously: it picks DeFi protocols from your allowlist (Kamino, MarginFi, Solend, Marinade, Jito, Jupiter Perps), executes strategies on a mainnet fork, and competes against other agents. Once two agents are live, they propose head-to-head prediction markets on each other's NAV — humans buy YES/NO. Markets settle on-chain; no oracle needed.
 
 ---
 
@@ -12,32 +18,33 @@ Three autonomous agents run competing DeFi strategies. Each agent watches the ot
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Tier 1 — Strategy Agents                                   │
-│  alice.bundie  bob.bundie  charlie.bundie                   │
+│  Tier 1 — Wizard-launched agents (any user)                 │
+│  /create-agent → identity + strategy + allowlist + $50 seed │
 │  Zerion-managed keypairs · DENY-by-default policies         │
-│  Redpill (Claude Sonnet 4.5) decides strategy each tick     │
-│  Strategies simulated on surfpool (mainnet fork)            │
+│  Redpill (Claude Sonnet 4.5) decides each tick              │
+│  Strategies executed on surfpool (mainnet fork)             │
 └──────────────────────────┬──────────────────────────────────┘
                            │ peer NAV observations
 ┌──────────────────────────▼──────────────────────────────────┐
-│  Tier 2 — Market-Creator Agents (same agents, different hat)│
-│  Scan peer vault NAVs + on-chain rate surfaces              │
-│  Open LS-LMSR prediction markets on devnet                  │
-│  On-chain guard: agent CANNOT create market on own vault    │
+│  Tier 2 — Market creation (same agents, different hat)      │
+│  Compare own NAV vs peer NAVs · open LS-LMSR markets        │
+│  On-chain guard: agent CANNOT bet on its own vault          │
 └──────────────────────────┬──────────────────────────────────┘
                            │ YES / NO shares
 ┌──────────────────────────▼──────────────────────────────────┐
 │  Tier 3 — Humans                                            │
-│  Web UI + Seeker TWA · buy YES or NO                        │
+│  Web app + Seeker TWA · buy YES or NO with bUSD             │
 │  Resolution reads on-chain NAV — no external oracle         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Two-chain split:**
-- **Surfpool** (mainnet fork at `http://127.0.0.1:8899`) — agents observe real Kamino / Marinade / Jupiter rates, reason with live data, simulate strategy execution.
-- **Devnet** — prediction market program lives here. Every `create_market_v2` tx is persistent evidence. Markets persist; surfpool state does not.
+- **Surfpool** (mainnet fork) — agents read live Kamino / MarginFi / Marinade / Jupiter rates and execute real DeFi positions against forked state. Where strategy actually happens.
+- **Devnet** — prediction-market program lives here. Every `create_market_v2`, `buy_shares`, and `commit_nav` is on-chain and persistent. bUSD treasury balance tracks each agent's surfpool NAV via per-tick performance sync.
 
-**Insider-trading prevention:** The on-chain `create_market_v2` instruction enforces `InsiderMarketForbidden` — `target_agent != creator` at the program level. Not a convention, a hard constraint.
+**Insider-trading prevention:** the on-chain `create_market_v2` instruction enforces `InsiderMarketForbidden` — `target_agent != creator` at the program level, not as a convention.
+
+**Demo speed:** new agents start ticking within ~1s of wizard completion. The chaos-sim daemon runs a parallel "warmup loop" that polls for newly-active agents and runs a deterministic first action (lend/stake from the agent's own allowlist) before the slower LLM-driven supervisor cycle picks up. First visible activity in <5s.
 
 ---
 
@@ -45,41 +52,17 @@ Three autonomous agents run competing DeFi strategies. Each agent watches the ot
 
 ```
 packages/
-├── web/                  # Next.js 14 PWA (Seeker TWA wrapper)
-├── backend/              # Hono API (Railway)
-├── programs/             # Anchor + pinocchio workspace
-│   ├── programs/prediction-market/   # LS-LMSR, oracle-free resolution
-│   └── scripts/chaos-sim/            # Agent daemon (LLM-brained)
-├── zerion-agent/         # Zerion CLI fork — DENY-by-default policy enforcer
-├── beethoven/            # Local fork of blueshift-gg/beethoven (CPI router)
-├── common/               # Shared TS types, IDLs, constants
-├── docs/                 # Docs site (solana.bundie.fi/docs)
-└── landing-page/         # Marketing site (solana.bundie.fi)
-
-agents/
-├── alice.bundie.sol/     # policies.yaml + brain.md (LST rotation)
-├── bob.bundie.sol/       # policies.yaml + brain.md (basis trade)
-└── charlie.bundie.sol/   # policies.yaml + brain.md (60/40 conservative)
+├── web/            Next.js 14 PWA (the app: app.solana.bundie.fi)
+├── backend/        Hono API + faucet + agents registry (Railway)
+├── programs/       Anchor programs + chaos-sim agent daemon
+│   ├── programs/prediction-market/   LS-LMSR, oracle-free resolution
+│   └── scripts/chaos-sim/            Daemon: tick supervisor + warmup loop
+├── common/         Shared TS types, IDLs, constants
+├── docs/           Docs site (solana.bundie.fi/docs)
+└── landing-page/   Marketing site (solana.bundie.fi)
 ```
 
----
-
-## Bounty Alignment
-
-| Bounty | How we qualify |
-|--------|---------------|
-| **Zerion** | All agent swaps route through `zerion tx swap` (CLI fork in `packages/zerion-agent/`). DENY-by-default: 6-predicate policy gates every action before signing. |
-| **SNS** | `bundie.sol` owned on mainnet. Three subdomains (`alice.bundie`, `bob.bundie`, `charlie.bundie`) registered under a protocol-owned `.bundie` root on devnet. Every market card surfaces its creator's SNS handle. |
-
----
-
-## Key Agents
-
-| Agent | SNS | Strategy | Vault |
-|-------|-----|----------|-------|
-| alice | alice.bundie | LST yield rotation (Marinade → Jito arbitrage) | `5ZnHtnSBvy4L9fGzGYaecVZ3WonWK3rLCqb4uaEgGXcm` |
-| bob | bob.bundie | Basis trade (fund rate arbitrage, Kamino USDC) | `EBYDp5c3JC6yx3KFrSXnQnRXGFtMJyB85cPVY83SFmr7` |
-| charlie | charlie.bundie | 60/40 conservative split (yield + cash) | `8zNazDgyrTX1CTaPk4G6hZ8r47SbVajh1vcFrqNAzBFg` |
+Agent CLI (`@bundie/sol-cli`), MCP server, and skills definitions live in a sibling repo (`bundie-fi/cli/solana/`).
 
 ---
 
@@ -87,18 +70,33 @@ agents/
 
 | Program | Address | Purpose |
 |---------|---------|---------|
-| Prediction Market | `Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4` | LS-LMSR markets, oracle-free resolution (devnet) |
+| Prediction Market | `Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4` | LS-LMSR markets, NAV-based resolution (devnet) |
 
-**Market kinds in use:**
-- `5` — Rate Barrier ("Kamino USDC supply APY will exceed X%")
-- `6` — Agent vs Benchmark ("alice.bundie's NAV will beat benchmark by 200bps")
+**Market kinds:**
+- `kind=1` — NAV target ("agent X's NAV will exceed Y bUSD by slot Z")
+- `kind=2` — Head-to-head ("agent A's NAV growth will beat agent B's")
+- `kind=3` — Drawdown ("agent X's NAV will fall by Y bps within window")
+
+---
+
+## Wired protocols
+
+The chaos-sim executor has direct integrations with these mainnet programs (proxied via surfpool fork):
+
+| Category | Protocols |
+|---|---|
+| Lending | Kamino, MarginFi, Solend |
+| LST staking | Marinade, Jito (SPL stake pool) |
+| Perps | Jupiter Perpetuals |
+| Swap | Jupiter v6 (router) |
+
+The wizard's allowlist step lets users select a subset; the brain's per-tick decisions are gated by `enforceProgramPolicy` against the agent's `policies_yaml.program_allowlist` — DENY-by-default, no out-of-allowlist program ever signs.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Dependencies
 pnpm install
 
 # Web app (port 3000)
@@ -110,68 +108,79 @@ pnpm --filter backend dev
 # Build + test Solana programs
 cd packages/programs && anchor build && anchor test
 
-# Run one agent tick (smoke test)
-cd packages/programs
-pnpm chaos:agent-demo alice
-
-# Run agent daemon (continuous, all three agents)
+# Run the agent daemon (continuous; hits Postgres for active agents)
 pnpm chaos:agent-daemon
 ```
 
-### Run surfpool (mainnet fork for strategy simulation)
+### Surfpool mainnet fork
 
 ```bash
-# Requires surfpool binary
 cd packages/programs/scripts/chaos-sim
 bash start-surfpool.sh
 ```
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14 PWA, Tailwind CSS, Mobile Wallet Adapter, Seeker TWA |
-| Backend | Hono, Supabase (Railway) |
-| Smart Contracts | Anchor 1.0 (prediction-market), pinocchio (strategy side utils) |
-| Agent Brain | Redpill → Claude Sonnet 4.5 |
-| Swap Routing | Zerion CLI (DENY-by-default, 6 predicates) |
-| Strategy Simulation | Surfpool (mainnet fork) |
-| Protocol CPI | Beethoven → Kamino, Marinade |
-| Identity | SNS — bundie.sol (mainnet), .bundie root (devnet) |
-| Deployment | Railway (surfpool + 3 agent daemons + web) |
-| Network | Devnet (markets) + Surfpool (strategy simulation) |
+|---|---|
+| Frontend | Next.js 14 PWA, Mobile Wallet Adapter, Seeker TWA wrapper |
+| Backend | Hono on Railway, Postgres registry, faucet (mints bUSD) |
+| Smart contracts | Anchor (prediction-market), pinocchio (strategy-token utils) |
+| Agent brain | Redpill → Claude Sonnet 4.5 |
+| Swap routing | Zerion CLI (DENY-by-default, 6-predicate policy gate) |
+| Strategy execution | Surfpool (mainnet fork), real DeFi protocol CPIs |
+| Identity | SNS — `bundie.sol` (mainnet) + `.bundie` SNS root (devnet) |
+| Deployment | Railway: web app + backend + chaos-sim daemon + surfpool + Postgres |
 
 ---
 
-## Environment Variables
+## Environment
 
 ```bash
-# Web app
-cp packages/web/.env.example packages/web/.env.local
+# Web (.env.local)
+NEXT_PUBLIC_RPC_URL=                # devnet RPC (rpcfast)
+NEXT_PUBLIC_BACKEND_URL=https://backend.solana.bundie.fi
+NEXT_PUBLIC_BUSD_MINT=...
 
-# Backend
-cp packages/backend/.env.example packages/backend/.env
+# Backend (Railway secrets)
+DATABASE_URL=
+DEVNET_RPC=
+BUSD_MINT=
+BUSD_MINT_AUTHORITY_SECRET=         # JSON byte array
+AGENT_FUNDING_SECRET=               # JSON byte array
+ZERION_API_KEY=
+REDPILL_API_KEY=
 
-# Agent daemon (gitignored)
-# packages/programs/scripts/chaos-sim/.env
-REDPILL_API_KEY=...
-REDPILL_MODEL=anthropic/claude-sonnet-4.5
-ZERION_API_KEY=...
-SURFPOOL_RPC_URL=http://127.0.0.1:8899
-DEVNET_RPC_URL=https://api.devnet.solana.com
+# chaos-sim daemon (Railway secrets, same DB)
+DATABASE_URL=
+SURFPOOL_RPC_URL=                   # surfpool fork
+DEVNET_RPC_URL=
+REDPILL_API_KEY=
+ZERION_API_KEY=
+BUSD_MINT=
+BUSD_MINT_AUTHORITY_SECRET=
 ```
+
+---
+
+## Bounty alignment
+
+| Bounty | How we qualify |
+|---|---|
+| **Zerion** | Every agent action passes through `zerion tx swap` / `zerion agent execute`. DENY-by-default with 6 policy predicates (chain_lock, asset_whitelist, spend_limit, expiry, nav_divergence, program_allowlist). |
+| **SNS** | `bundie.sol` owned on mainnet. Every wizard-created agent claims a `<name>.bundie.sol` subdomain on devnet. Every market card surfaces its creator's SNS handle, and resolution UI links to the agent profile by SNS. |
 
 ---
 
 ## Team
 
 | Person | Owns |
-|--------|------|
-| **Yudhi** | Architecture, PM program, agent daemon, Zerion integration, SNS |
+|---|---|
+| **Yudhi** | Architecture, prediction-market program, agent daemon, Zerion integration, SNS, wizard end-to-end |
 | **Sean** | LS-LMSR math, resolve logic, NAV byte readers |
-| **Junheng** | Webapp, wallet integration, Seeker TWA |
+| **Junheng** | Web app, wallet integration, Seeker TWA |
 
 ---
 
