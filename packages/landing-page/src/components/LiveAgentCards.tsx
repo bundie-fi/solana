@@ -149,7 +149,7 @@ export default async function LiveAgentCards() {
             </div>
           )}
           <a
-            href={`${APP_URL}/agents/${a.handle.split(".")[0]}`}
+            href={`${APP_URL}/agent/${a.handle}`}
             target="_blank"
             rel="noopener noreferrer"
             className="agent-cta"
