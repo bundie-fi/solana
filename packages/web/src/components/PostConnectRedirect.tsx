@@ -9,13 +9,12 @@ import {
 } from "@/app/create-agent/lib/api";
 
 /**
- * Detects the false→true wallet transition and routes the user somewhere
- * useful. Active agent → /portfolio (they're an operator); no agents →
- * /markets (they're a predictor). Uses a ref to capture the transition so
- * users already connected on page load aren't bounced.
+ * Detects the false→true wallet transition and routes operators to
+ * /portfolio if they have an agent. Anyone else stays on the home feed
+ * — that's the live activity surface and the right default.
  *
- * Skipped when the user is already on a non-home route , connecting a
- * wallet from the markets list shouldn't yank them away from it.
+ * Skipped when the user is already on a non-home route — connecting a
+ * wallet from a sub-page shouldn't yank them away from it.
  */
 export function PostConnectRedirect() {
   const { connected, publicKey } = useWallet();
@@ -33,11 +32,6 @@ export function PostConnectRedirect() {
     let cancelled = false;
     (async () => {
       const owner = publicKey.toBase58();
-      // fetchPendingAgents only returns pending_init rows; treat any
-      // pending OR active row as "this wallet has agents". We try the
-      // active list via the same `?ownerWallet=` shape on /agents , but
-      // since fetchAgent takes SNS not wallet, we lean on fetchPendingAgents
-      // for the cheap path and route to /portfolio if it's non-empty.
       try {
         const pending = await fetchPendingAgents(owner);
         if (cancelled) return;
@@ -48,11 +42,10 @@ export function PostConnectRedirect() {
       } catch {
         /* fall through */
       }
-      // Best-effort: probe one well-known SNS shape , if the user typed
-      // their wallet as a .sol it'd resolve here. Cheaper & stricter to
-      // just default to /markets when no pending rows exist.
+      // No agents yet → stay on the home feed (the live activity stream
+      // is the right default; users who want to predict can tap into a
+      // market from the feed).
       void fetchAgent;
-      if (!cancelled) router.push("/markets");
     })();
 
     return () => {

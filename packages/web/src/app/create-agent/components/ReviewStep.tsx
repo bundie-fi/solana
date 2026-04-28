@@ -100,7 +100,7 @@ export function ReviewStep({ state, dispatch }: Props) {
     }
     const vaultPda = state.resume?.vaultPda;
     if (!vaultPda) {
-      // Fresh-mode case , vaultPda lives in the createAgent response,
+      // Fresh-mode case, vaultPda lives in the createAgent response,
       // which onLaunch holds in a closure. Without it we can't check
       // on-chain. Surface as null and fall through to the legacy
       // "Retry registration" button (matches prior behaviour).
@@ -135,7 +135,7 @@ export function ReviewStep({ state, dispatch }: Props) {
   ]);
 
   // Legacy alias kept for the recovery JSX further down , `orphanDeposit`
-  // now means "true orphan: deposit landed but registration didn't" , so
+  // now means "true orphan: deposit landed but registration didn't", so
   // narrows to recoveryNeeded && treasuryFunded === true.
   const orphanDeposit = recoveryNeeded && treasuryFunded === true;
   const droppedDeposit = recoveryNeeded && treasuryFunded === false;
@@ -225,7 +225,7 @@ export function ReviewStep({ state, dispatch }: Props) {
       dispatch({ type: "LAUNCH/SET_STAGE", stage: "confirming" });
       await confirmInit(sns);
       dispatch({ type: "LAUNCH/SET_STAGE", stage: "done" });
-      toast.success(`${sns} is live , opening agent page.`);
+      toast.success(`${sns} is live, opening agent page.`);
 
       // Brief pause so the user can see "Done!" before redirecting.
       setTimeout(() => {
@@ -275,7 +275,7 @@ export function ReviewStep({ state, dispatch }: Props) {
         title={state.resume ? "Finish setup." : "Ship it."}
         sub={
           state.resume
-            ? `Vault for ${sns} is already on-chain , sign one transfer to seed it with $50 bUSD and the agent goes live.`
+            ? `Vault for ${sns} is already on-chain, sign one transfer to seed it with $50 bUSD and the agent goes live.`
             : "Final review. We'll register the SNS, init the on-chain vault, then move $50 bUSD into the treasury."
         }
       />
@@ -511,7 +511,7 @@ export function ReviewStep({ state, dispatch }: Props) {
         </div>
       )}
 
-      {/* Recovery UI , split based on whether the deposit actually landed. */}
+      {/* Recovery UI, split based on whether the deposit actually landed. */}
       {(orphanDeposit || droppedDeposit || checkingRecovery) && (
         <div
           className="card hairline"
@@ -538,9 +538,9 @@ export function ReviewStep({ state, dispatch }: Props) {
             {checkingRecovery &&
               "Reading the vault treasury to figure out where to pick up."}
             {orphanDeposit &&
-              "Your deposit landed but the agent didn't go live. Retry to flip it to active , no second on-chain transaction needed."}
+              "Your deposit landed but the agent didn't go live. Retry to flip it to active, no second on-chain transaction needed."}
             {droppedDeposit &&
-              "Your previous transaction didn't land , your wallet still holds the $50 bUSD. Sign once more to seed the vault."}
+              "Your previous transaction didn't land, your wallet still holds the $50 bUSD. Sign once more to seed the vault."}
           </div>
           {launch.depositTxSig && orphanDeposit && (
             <a
@@ -666,7 +666,7 @@ function isPast(stage: LaunchStage | null, target: LaunchStage): boolean {
  * (~60s). The user sees the long pause between "wallet signed" and
  * "tx landed" filled with continuous feedback so the wizard doesn't
  * look frozen. The actual confirm logic in launchAgent races against
- * the same window , bar full ≈ "we're about to give up and retry."
+ * the same window, bar full ≈ "we're about to give up and retry."
  */
 function LandingProgress({ txSig }: { txSig: string | null }) {
   const ESTIMATED_MS = 60_000;
@@ -711,7 +711,7 @@ function LandingProgress({ txSig }: { txSig: string | null }) {
         }}
       >
         <span>
-          Waiting for the network to confirm , usually 5–15s, up to ~60s on
+          Waiting for the network to confirm, usually 5–15s, up to ~60s on
           busy slots.
         </span>
         <span className="mono">{sec}s</span>

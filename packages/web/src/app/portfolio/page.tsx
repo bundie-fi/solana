@@ -22,7 +22,7 @@ import {
 } from "@/app/create-agent/lib/api";
 
 /**
- * My Bets , shows the connected wallet's YES/NO positions across every
+ * My Bets, shows the connected wallet's YES/NO positions across every
  * Bundie prediction market.
  *
  * Read strategy: fetch every Market account, derive YES/NO mint PDAs,
@@ -54,7 +54,7 @@ export default function PortfolioPage() {
       // already swallows its own errors.
       const [marketsRes, lamportsRes, slotRes] = await Promise.allSettled([
         fetchAllMarkets(connection),
-        // Drop string commitment , rpcfast rejects positional `"confirmed"`
+        // Drop string commitment, rpcfast rejects positional `"confirmed"`
         // with `expected struct RpcContextConfig`. Connection default applies.
         connection.getBalance(publicKey),
         connection.getSlot(),
@@ -107,7 +107,7 @@ export default function PortfolioPage() {
       // misses are normal (most users only hold a handful of positions).
       if (lamportsRes.status === "rejected") {
         setErr(
-          "RPC unavailable , your bUSD balance couldn't load. Refresh in a moment.",
+          "RPC unavailable, your bUSD balance couldn't load. Refresh in a moment.",
         );
       }
     } catch (e) {
@@ -115,7 +115,7 @@ export default function PortfolioPage() {
       setErr(
         e instanceof Error
           ? `Couldn't load portfolio: ${e.message}. The devnet RPC may be rate-limiting; refresh in a moment.`
-          : "Couldn't load portfolio , refresh in a moment.",
+          : "Couldn't load portfolio, refresh in a moment.",
       );
     } finally {
       setLoading(false);
@@ -126,7 +126,7 @@ export default function PortfolioPage() {
     load();
   }, [load]);
 
-  // Pending registrations live in Postgres, not on-chain , fetched
+  // Pending registrations live in Postgres, not on-chain, fetched
   // separately from the markets/positions load so a transient backend
   // hiccup doesn't break the rest of the page.
   useEffect(() => {
@@ -243,7 +243,7 @@ export default function PortfolioPage() {
       <PositionSection
         title="Pending resolution"
         tint="amber"
-        subtitle="Resolution slot reached , awaiting on-chain resolver"
+        subtitle="Resolution slot reached, awaiting on-chain resolver"
         positions={pending}
       />
       <PositionSection
@@ -424,7 +424,7 @@ async function readSplBalance(
   ata: PublicKey,
 ): Promise<number> {
   try {
-    // No string commitment , rpcfast rejects it with `expected struct
+    // No string commitment, rpcfast rejects it with `expected struct
     // CommitmentConfig`, which would silently zero out every position.
     const info = await connection.getTokenAccountBalance(ata);
     return info.value.uiAmount ?? 0;

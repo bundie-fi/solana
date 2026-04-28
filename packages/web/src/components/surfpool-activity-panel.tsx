@@ -1,7 +1,7 @@
 /**
  * Recent on-chain activity for one agent. Each row is a real tx the
  * agent's runtime broadcast against the protocol named in the pill.
- * Server component , agent profile page is SSR.
+ * Server component, agent profile page is SSR.
  */
 
 export interface SurfpoolAction {
@@ -50,7 +50,7 @@ function formatAmount(action: SurfpoolAction): string | null {
       ? "mSOL"
       : "SOL"
     : "USDC";
-  // Two decimals for USDC, four for SOL , keeps the row tight.
+  // Two decimals for USDC, four for SOL, keeps the row tight.
   const fixed = isSolFamily ? ui.toFixed(4) : ui.toFixed(2);
   return `${fixed} ${unit}`;
 }
@@ -91,7 +91,7 @@ function rowMeta(action: SurfpoolAction): RowMeta {
 }
 
 // Map raw action types from the daemon log to user-friendly verbs.
-// Anything not in the map falls through to the raw key , flag in
+// Anything not in the map falls through to the raw key, flag in
 // review if a new action type slips past here.
 const ACTION_LABEL: Record<string, string> = {
   lend_deposit: "Lent",
@@ -329,7 +329,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                       }}
                       title={
                         placeholder
-                          ? "Pending , agent recorded the intent but the on-chain action hasn't shipped yet"
+                          ? "Pending, agent recorded the intent but the on-chain action hasn't shipped yet"
                           : "Confirmed on-chain"
                       }
                     >
