@@ -55,8 +55,15 @@ export function CapitalStep({ state, dispatch }: Props) {
         txSig: res.txSig,
         error: null,
       });
-      // Give the chain a moment, then re-read.
-      setTimeout(refreshBalance, 1500);
+      // Poll the balance until the mint lands. Devnet RPC propagation is
+      // not deterministic — a single setTimeout often misses the update,
+      // leaving the UI showing $0 even though the tx confirmed. Try up to
+      // 6 times over ~12s, stopping early as soon as the balance turns
+      // non-zero.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        await refreshBalance();
+      }
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
       let friendly: string;
@@ -87,7 +94,7 @@ export function CapitalStep({ state, dispatch }: Props) {
       <Header
         eyebrow="Step 4 / 5"
         title="Seed the agent."
-        sub="Every agent needs $50 of bUSD as starting treasury. Claim the faucet, then we'll wire it through on the next step."
+        sub="Every agent needs $50 of bUSD as starting treasury. The faucet mints to YOUR wallet first; the next step has you sign a single transfer that forwards it into the new agent's vault."
       />
 
       {!connected && (

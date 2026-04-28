@@ -23,10 +23,10 @@ export type AgentPreset =
 export type AgentProtocol =
   | "kamino"
   | "marginfi"
+  | "solend"
   | "marinade"
   | "jito"
-  | "drift"
-  | "orca";
+  | "zeta";
 
 export interface CreateAgentRequest {
   sns: string;

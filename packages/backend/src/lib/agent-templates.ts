@@ -32,7 +32,7 @@ const PRESET_PERSONALITY: Record<AgentPreset, string> = {
   "yield-hunter":
     "Yield hunter: always rotates into the highest-APY allowlisted lending pool. Ignores LSTs unless lending APY collapses.",
   "perp-trader":
-    "Funding-rate arbitrageur: long spot + short perp combos to harvest funding. Drift-heavy. Trims when funding flips negative.",
+    "Funding-rate arbitrageur: long spot + short perp combos to harvest funding. Zeta-heavy. Trims when funding flips negative.",
 };
 
 const PRESET_ALLOCATION: Record<AgentPreset, string> = {
@@ -244,20 +244,21 @@ export function generateBrainMd(opts: {
 export type AllowedProtocol =
   | "kamino"
   | "marginfi"
+  | "solend"
   | "marinade"
   | "jito"
-  | "drift"
-  | "orca";
+  | "zeta";
 
 export interface PerProtocolLimits {
   maxNotionalUsd: number;
 }
 
 /**
- * Mirrors `LEND_PROGRAM` / `LST_PROGRAM` from
- * packages/programs/scripts/chaos-sim/src/lib/action-executor.ts plus
- * additional entries for Drift (perps) and Orca (DEX). Mainnet program IDs;
- * devnet uses the same IDs for these programs.
+ * Mirrors `LEND_PROGRAM` / `LST_PROGRAM` / `PERP_PROGRAM` from
+ * packages/programs/scripts/chaos-sim/src/lib/action-executor.ts. The
+ * canonical wired-up set: Kamino + MarginFi + Solend (lending), Marinade +
+ * Jito (LST), Zeta (perps). Drift was retired in favour of Zeta; Orca was
+ * never wired through the executor.
  */
 const PROTOCOL_PROGRAMS: Record<
   AllowedProtocol,
@@ -275,6 +276,15 @@ const PROTOCOL_PROGRAMS: Record<
     programId: "MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE",
     instructions: ["lending_account_deposit", "lending_account_withdraw"],
   },
+  solend: {
+    programId: "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
+    instructions: [
+      "deposit_reserve_liquidity",
+      "redeem_reserve_collateral",
+      "refresh_reserve",
+      "refresh_obligation",
+    ],
+  },
   marinade: {
     programId: "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
     instructions: ["deposit", "liquid_unstake"],
@@ -283,13 +293,9 @@ const PROTOCOL_PROGRAMS: Record<
     programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
     instructions: ["deposit_sol", "withdraw_sol"],
   },
-  drift: {
-    programId: "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
-    instructions: ["place_perp_order", "deposit", "withdraw"],
-  },
-  orca: {
-    programId: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
-    instructions: ["swap", "increase_liquidity", "decrease_liquidity"],
+  zeta: {
+    programId: "ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD",
+    instructions: ["place_perp_order_v3", "close_position", "deposit", "withdraw"],
   },
 };
 
@@ -317,11 +323,11 @@ const PROTOCOL_MINTS: Record<AllowedProtocol, string[]> = {
     "So11111111111111111111111111111111111111112",
     "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn", // JitoSOL
   ],
-  drift: [
-    "So11111111111111111111111111111111111111112",
+  solend: [
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   ],
-  orca: [
+  zeta: [
     "So11111111111111111111111111111111111111112",
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   ],

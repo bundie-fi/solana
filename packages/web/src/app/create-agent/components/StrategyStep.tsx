@@ -8,6 +8,33 @@ import {
 } from "../lib/wizard-state";
 import { Field, Header } from "./IdentityStep";
 
+// Starter template for raw brain.md — operators kept asking "what do I put here?"
+// Mirrors the structure of alice/bob/charlie's prod brain.md and shows where
+// each personality knob lives (identity, allocation target, decision rules,
+// kill-switch). The wizard wraps this with the allowlist + observed-state
+// schema at submit time, so the operator only writes prose.
+const BRAIN_MD_TEMPLATE = `You are <handle>.bundie, an autonomous DeFi agent on Solana. Your personality:
+
+- <one-sentence identity — what you optimize for>
+- <one-sentence cadence — how often you rebalance>
+- <one-sentence risk posture — what you avoid>
+- <strategic with markets: when to open prediction markets on your own performance>
+
+Allocation target: <e.g. 60% stablecoin lending / 40% LST>.
+  - Increase the lending leg when <signal>.
+  - Increase the LST leg when <signal>.
+  - Rebalance only when allocation drifts >X% from target.
+
+Decision rules:
+  - One action per tick. Prefer the action that moves allocation closest to
+    target without overshooting.
+  - Default to noop when drift is under threshold.
+  - Hard cap: never deploy more than $<X> notional in a single tx.
+
+Kill switch: if NAV drops more than X% in a single tick, exit all positions
+into bUSD and noop until manual review.
+`;
+
 interface Props {
   state: WizardState;
   dispatch: (action: WizardAction) => void;
@@ -67,15 +94,46 @@ export function StrategyStep({ state, dispatch }: Props) {
         >
           Edit raw brain.md (advanced)
         </summary>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: 10,
+            marginBottom: 6,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              dispatch({
+                type: "STRATEGY/SET_BRAIN",
+                value: BRAIN_MD_TEMPLATE,
+              })
+            }
+            className="mono-tiny"
+            style={{
+              fontSize: 10.5,
+              padding: "4px 10px",
+              border: "1px solid var(--line-1)",
+              background: "var(--bg-2)",
+              borderRadius: 6,
+              color: "var(--fg-2)",
+              cursor: "pointer",
+            }}
+          >
+            Load template
+          </button>
+        </div>
+
         <textarea
           value={strategy.customBrainMd}
           onChange={(e) =>
             dispatch({ type: "STRATEGY/SET_BRAIN", value: e.target.value })
           }
-          placeholder={`# My agent\n\nFreeform notes the agent reads on every tick…`}
-          rows={10}
+          placeholder={BRAIN_MD_TEMPLATE}
+          rows={18}
           style={{
-            marginTop: 10,
             width: "100%",
             padding: 10,
             border: "1px solid var(--line-1)",
@@ -89,7 +147,9 @@ export function StrategyStep({ state, dispatch }: Props) {
           }}
         />
         <div className="dim mono-tiny" style={{ marginTop: 6, fontSize: 10.5 }}>
-          Overrides the preset blurb in the generated brain.md.
+          Overrides the preset blurb. The wizard wraps your text with the
+          allowlist + observed-state schema the daemon injects every tick;
+          you only write the personality + decision rules.
         </div>
       </details>
     </div>

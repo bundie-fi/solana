@@ -44,15 +44,30 @@ export default function PortfolioPage() {
     setLoading(true);
     setErr(null);
     try {
-      const [allMkts, lamports, slot] = await Promise.all([
+      // Use Promise.allSettled so a single transient RPC blip on getBalance
+      // or getSlot doesn't kill the whole page render. fetchAllMarkets
+      // already swallows its own errors.
+      const [marketsRes, lamportsRes, slotRes] = await Promise.allSettled([
         fetchAllMarkets(connection),
         connection.getBalance(publicKey, "confirmed"),
         connection.getSlot("confirmed"),
       ]);
+      const allMkts =
+        marketsRes.status === "fulfilled" ? marketsRes.value : [];
+      const lamports =
+        lamportsRes.status === "fulfilled" ? lamportsRes.value : null;
+      const slot =
+        slotRes.status === "fulfilled"
+          ? slotRes.value
+          : Math.floor(Date.now() / 400); // rough fallback; only used for "active" gating
       setMarkets(allMkts);
-      setSolBalance(lamports / LAMPORTS_PER_SOL);
+      setSolBalance(lamports == null ? null : lamports / LAMPORTS_PER_SOL);
 
       // For every market, derive YES and NO ATA balances for the user.
+      // Each ATA read is wrapped in `.catch(() => 0)` so a single missing
+      // account / RPC failure doesn't poison the rest. RPC providers
+      // commonly throttle 100+ concurrent requests; a chunked fan-out
+      // could go further but for <100 markets this is fine.
       const programId = PROGRAM_IDS.predictionMarket;
       const balances = await Promise.all(
         allMkts.flatMap((m) => {
@@ -61,16 +76,12 @@ export default function PortfolioPage() {
           const yesAta = getAssociatedTokenAddressSync(yesMint, publicKey);
           const noAta = getAssociatedTokenAddressSync(noMint, publicKey);
           return [
-            readSplBalance(connection, yesAta).then((b) => ({
-              m,
-              side: "yes" as const,
-              shares: b,
-            })),
-            readSplBalance(connection, noAta).then((b) => ({
-              m,
-              side: "no" as const,
-              shares: b,
-            })),
+            readSplBalance(connection, yesAta)
+              .catch(() => 0)
+              .then((b) => ({ m, side: "yes" as const, shares: b })),
+            readSplBalance(connection, noAta)
+              .catch(() => 0)
+              .then((b) => ({ m, side: "no" as const, shares: b })),
           ];
         }),
       );
@@ -84,9 +95,21 @@ export default function PortfolioPage() {
           state: positionState(x.m, slot),
         }));
       setPositions(live);
+
+      // Surface only top-level failures the user can act on; silent ATA
+      // misses are normal (most users only hold a handful of positions).
+      if (lamportsRes.status === "rejected") {
+        setErr(
+          "RPC unavailable — your bUSD balance couldn't load. Refresh in a moment.",
+        );
+      }
     } catch (e) {
       console.error("[portfolio] load error", e);
-      setErr(e instanceof Error ? e.message : "load failed");
+      setErr(
+        e instanceof Error
+          ? `Couldn't load portfolio: ${e.message}. The devnet RPC may be rate-limiting; refresh in a moment.`
+          : "Couldn't load portfolio — refresh in a moment.",
+      );
     } finally {
       setLoading(false);
     }

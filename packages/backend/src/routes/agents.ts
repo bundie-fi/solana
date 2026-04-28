@@ -114,10 +114,10 @@ const VALID_PRESETS: ReadonlySet<AgentPreset> = new Set([
 const VALID_PROTOCOLS: ReadonlySet<AllowedProtocol> = new Set([
   "kamino",
   "marginfi",
+  "solend",
   "marinade",
   "jito",
-  "drift",
-  "orca",
+  "zeta",
 ]);
 
 /** Row shape for the `agents` table. Keep in sync with the migration. */

@@ -60,25 +60,25 @@ export const PRESETS: { id: Preset; label: string; blurb: string }[] = [
   {
     id: "perp-trader",
     label: "Perp trader",
-    blurb: "Drift-led directional bets sized against the bUSD treasury.",
+    blurb: "Zeta-led directional bets sized against the bUSD treasury.",
   },
 ];
 
 export type Protocol =
   | "kamino"
   | "marginfi"
+  | "solend"
   | "marinade"
   | "jito"
-  | "drift"
-  | "orca";
+  | "zeta";
 
 export const ALL_PROTOCOLS: { id: Protocol; label: string; tag: string }[] = [
   { id: "kamino", label: "Kamino", tag: "Lending" },
   { id: "marginfi", label: "MarginFi", tag: "Lending" },
+  { id: "solend", label: "Solend", tag: "Lending" },
   { id: "marinade", label: "Marinade", tag: "LST" },
   { id: "jito", label: "Jito", tag: "LST" },
-  { id: "drift", label: "Drift", tag: "Perps" },
-  { id: "orca", label: "Orca", tag: "DEX" },
+  { id: "zeta", label: "Zeta", tag: "Perps" },
 ];
 
 export interface ProtocolLimits {
