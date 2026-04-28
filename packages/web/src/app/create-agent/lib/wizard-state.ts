@@ -131,6 +131,10 @@ export type LaunchStage =
   | "building-tx"
   | "signing-init"
   | "signing-deposit"
+  /** Tx broadcast, waiting for the network to land it. The visible
+   *  pause that drove us to add a progress bar — can take 5–30s on
+   *  devnet, longer on a slow leader. */
+  | "landing"
   | "confirming"
   | "done";
 

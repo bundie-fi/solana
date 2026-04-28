@@ -286,6 +286,11 @@ export async function launchAgent({
         throw err;
       }
       onDepositTx?.(depositSig);
+      // Wallet popup closed, tx broadcast — the long pause that
+      // follows is the chain landing it. Surface a distinct stage so
+      // the UI can show a progress bar instead of looking frozen on
+      // "signing-deposit".
+      onStage("landing");
 
       // Aggressive rebroadcast in the background. Re-sending the same
       // signed tx is idempotent (validators dedupe by signature);
@@ -348,6 +353,7 @@ export async function launchAgent({
         throw err;
       }
       onDepositTx?.(depositSig);
+      onStage("landing");
       try {
         const result = await connection.confirmTransaction(
           { signature: depositSig, blockhash, lastValidBlockHeight },

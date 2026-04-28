@@ -473,12 +473,25 @@ export function ReviewStep({ state, dispatch }: Props) {
               txSig={launch.depositTxSig}
             />
             <Stage
-              label="Confirming…"
+              label="Landing on-chain…"
+              active={launch.stage === "landing"}
+              past={isPast(launch.stage, "landing")}
+              txSig={
+                launch.stage === "landing" || isPast(launch.stage, "landing")
+                  ? launch.depositTxSig
+                  : null
+              }
+            />
+            <Stage
+              label="Finalizing…"
               active={launch.stage === "confirming"}
               past={isPast(launch.stage, "confirming")}
             />
             <Stage label="Done!" active={done} past={false} />
           </div>
+          {launch.stage === "landing" && (
+            <LandingProgress txSig={launch.depositTxSig} />
+          )}
           {launch.error && (
             <div
               className="mono-tiny"
@@ -631,10 +644,86 @@ function isPast(stage: LaunchStage | null, target: LaunchStage): boolean {
     "building-tx",
     "signing-init",
     "signing-deposit",
+    "landing",
     "confirming",
     "done",
   ];
   return order.indexOf(stage) > order.indexOf(target);
+}
+
+/**
+ * Animated bar that grows over the recentBlockhash validity window
+ * (~60s). The user sees the long pause between "wallet signed" and
+ * "tx landed" filled with continuous feedback so the wizard doesn't
+ * look frozen. The actual confirm logic in launchAgent races against
+ * the same window — bar full ≈ "we're about to give up and retry."
+ */
+function LandingProgress({ txSig }: { txSig: string | null }) {
+  const ESTIMATED_MS = 60_000;
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Date.now() - start);
+    }, 250);
+    return () => clearInterval(id);
+  }, []);
+  const pct = Math.min(99, Math.round((elapsed / ESTIMATED_MS) * 100));
+  const sec = Math.round(elapsed / 1000);
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div
+        style={{
+          width: "100%",
+          height: 4,
+          background: "var(--bg-3)",
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: "var(--gold)",
+            transition: "width 240ms linear",
+          }}
+        />
+      </div>
+      <div
+        className="mono-tiny"
+        style={{
+          marginTop: 6,
+          fontSize: 10.5,
+          color: "var(--fg-3)",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>
+          Waiting for the network to confirm — usually 5–15s, up to ~60s on
+          busy slots.
+        </span>
+        <span className="mono">{sec}s</span>
+      </div>
+      {txSig && (
+        <a
+          href={`https://orbmarkets.io/tx/${txSig}?cluster=devnet`}
+          target="_blank"
+          rel="noreferrer"
+          className="mono-tiny gold"
+          style={{
+            display: "inline-block",
+            marginTop: 4,
+            fontSize: 10,
+            textDecoration: "underline",
+          }}
+        >
+          View tx ↗
+        </a>
+      )}
+    </div>
+  );
 }
 
 function Stage({
