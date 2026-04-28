@@ -29,6 +29,7 @@
  *   method-builder in the client bundle.
  */
 import {
+  ComputeBudgetProgram,
   Connection,
   PublicKey,
   Transaction,
@@ -117,21 +118,26 @@ export function buildDepositToVaultIx({
 }
 
 /**
- * Build the deposit_to_vault tx and return both the tx itself and the
- * blockhash window the caller needs to do safe block-height-based
- * confirmation. Returning the window from the same RPC call avoids
- * racing two `getLatestBlockhash` reads against each other (which on
- * devnet can produce a stale `lastValidBlockHeight`).
+ * Assemble the instruction list for deposit_to_vault. Returned without a
+ * blockhash so the caller can attach the freshest possible one right
+ * before asking the wallet to sign. (Stale blockhashes are the #1 reason
+ * devnet wallet flows drop the tx — every second the user spends in the
+ * wallet UI eats into the ~60s validity window.)
  */
-export async function buildDepositToVaultTx(
+export async function buildDepositToVaultIxs(
   connection: Connection,
   args: BuildDepositArgs,
-): Promise<{
-  tx: Transaction;
-  blockhash: string;
-  lastValidBlockHeight: number;
-}> {
-  const tx = new Transaction();
+): Promise<TransactionInstruction[]> {
+  const ixs: TransactionInstruction[] = [];
+
+  // Priority fee — gives our tx better leader inclusion priority on a
+  // congested devnet. 50k microLamports * 200k CU ≈ 10k lamports
+  // (≈ 0.00001 SOL), negligible cost, big difference in landing
+  // reliability on busy slots.
+  ixs.push(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
+  );
+  ixs.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
 
   // Defensive: if the user's bUSD ATA doesn't exist yet, create it
   // first. The faucet drip should have created it, but the user may
@@ -145,7 +151,7 @@ export async function buildDepositToVaultTx(
   // No string commitment — rpcfast strict-mode rejects it.
   const ataInfo = await connection.getAccountInfo(depositorAta);
   if (!ataInfo) {
-    tx.add(
+    ixs.push(
       createAssociatedTokenAccountInstruction(
         args.ownerWallet, // payer
         depositorAta,
@@ -155,19 +161,22 @@ export async function buildDepositToVaultTx(
     );
   }
 
-  tx.add(buildDepositToVaultIx(args));
-  tx.feePayer = args.ownerWallet;
-  const { blockhash, lastValidBlockHeight } =
-    await connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  return { tx, blockhash, lastValidBlockHeight };
+  ixs.push(buildDepositToVaultIx(args));
+  return ixs;
 }
 
 // ── Orchestrator: drive the user through deposit ────────────────────────────
 
-/** Subset of the wallet-adapter's interface we actually need. */
+/**
+ * Subset of the wallet-adapter's interface we actually need.
+ *
+ * `signTransaction` is preferred — it lets us control broadcast +
+ * rebroadcast on our side. Phantom + Solflare both expose it. We fall
+ * back to `sendTransaction` for wallets that don't (rare on Solana).
+ */
 interface MinimalWallet {
   publicKey: PublicKey;
+  signTransaction?: (tx: Transaction) => Promise<Transaction>;
   sendTransaction: (
     tx: Transaction,
     connection: Connection,
@@ -205,81 +214,165 @@ export async function launchAgent({
   onStage,
   onDepositTx,
 }: LaunchAgentArgs): Promise<{ depositSig: string }> {
-  onStage("building-tx");
-
   const vaultPda = new PublicKey(nextSteps.vaultPda);
   const treasuryMint = new PublicKey(nextSteps.treasuryMint);
 
   // init_vault is server-signed (see signer-model note at top of file).
-  // We surface this stage so the user sees the timeline, but we don't
-  // collect a signature here.
+  // Cosmetic stage marker so the timeline UI walks correctly.
   onStage("signing-init");
+  onStage("building-tx");
 
-  // Build → sign → broadcast → confirm. We retry once on blockhash
-  // expiry: devnet routinely lags enough that the wallet UI delay
-  // pushes us past the blockhash's validity window before the tx hits
-  // a leader. Without retry the user gets the misleading
-  // "Transaction was not confirmed in 30.00 seconds" timeout from the
-  // legacy strategy and has to start over.
+  const ixs = await buildDepositToVaultIxs(connection, {
+    ownerWallet: wallet.publicKey,
+    vaultPda,
+    treasuryMint,
+    amountBase: nextSteps.seedAmountBase,
+  });
+
+  // Whole flow can need a retry-with-fresh-blockhash if the wallet
+  // popup is left open long enough that the *first* blockhash expires
+  // before the user even clicks Approve. Two attempts is enough; the
+  // priority-fee + aggressive rebroadcast inside one attempt almost
+  // always lands well before then.
   const MAX_ATTEMPTS = 2;
   let lastErr: Error | null = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const { tx, blockhash, lastValidBlockHeight } = await buildDepositToVaultTx(
-      connection,
-      {
-        ownerWallet: wallet.publicKey,
-        vaultPda,
-        treasuryMint,
-        amountBase: nextSteps.seedAmountBase,
-      },
-    );
+    // Fetch the freshest possible blockhash *right before* asking the
+    // wallet to sign — every second the user spends reading the popup
+    // eats the ~60s validity window. Doing this in the loop also
+    // means the second attempt gets a fully fresh window if the first
+    // expired.
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+
+    const tx = new Transaction();
+    tx.feePayer = wallet.publicKey;
+    tx.recentBlockhash = blockhash;
+    for (const ix of ixs) tx.add(ix);
 
     onStage("signing-deposit");
-    let depositSig: string;
-    try {
-      depositSig = await wallet.sendTransaction(tx, connection);
-    } catch (err) {
-      // Wallet rejection or signing failure — never lands. Surface it
-      // verbatim; nothing to retry against.
-      throw err;
-    }
-    onDepositTx?.(depositSig);
 
-    try {
-      // Block-height-based confirmation: web3.js gives up exactly when
-      // the blockhash expires (instead of an arbitrary 30s wall clock),
-      // so a `null` result means "definitely not landing, safe to
-      // rebuild." A landed tx returns its `value` even if it took
-      // longer than 30s.
-      const result = await connection.confirmTransaction(
-        { signature: depositSig, blockhash, lastValidBlockHeight },
-        "confirmed",
-      );
-      if (result.value.err) {
-        throw new Error(
-          `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
+    // Prefer signTransaction so we control broadcast + rebroadcast.
+    // Wallet-adapter's sendTransaction broadcasts exactly once and
+    // gives up — that's why first attempts so often "vanish" on
+    // congested devnet. Manual rebroadcast every 2s for the entire
+    // validity window virtually eliminates the dropped-tx case.
+    if (wallet.signTransaction) {
+      let signed: Transaction;
+      try {
+        signed = await wallet.signTransaction(tx);
+      } catch (err) {
+        // User rejected / wallet error — surface verbatim, no retry.
+        throw err;
+      }
+      const rawTx = signed.serialize();
+
+      let depositSig: string;
+      try {
+        depositSig = await connection.sendRawTransaction(rawTx, {
+          skipPreflight: true, // we trust our own ix construction
+          maxRetries: 0, // we own retries
+        });
+      } catch (err) {
+        // Initial broadcast failure (RPC down, bad blockhash before
+        // submit, etc.) — try once more with a fresh blockhash if
+        // we have an attempt left.
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt < MAX_ATTEMPTS) {
+          lastErr = err instanceof Error ? err : new Error(msg);
+          onStage("signing-init");
+          continue;
+        }
+        throw err;
+      }
+      onDepositTx?.(depositSig);
+
+      // Aggressive rebroadcast in the background. Re-sending the same
+      // signed tx is idempotent (validators dedupe by signature);
+      // landing requires a leader to *include* it, which can take
+      // several attempts on busy devnet. Loop ends as soon as confirm
+      // resolves.
+      let stopped = false;
+      const rebroadcast = (async () => {
+        while (!stopped) {
+          await new Promise((r) => setTimeout(r, 2000));
+          if (stopped) break;
+          try {
+            await connection.sendRawTransaction(rawTx, {
+              skipPreflight: true,
+              maxRetries: 0,
+            });
+          } catch {
+            // Validators may reject duplicates with "already
+            // processed" once it lands — that's the success signal,
+            // ignore.
+          }
+        }
+      })();
+
+      try {
+        const result = await connection.confirmTransaction(
+          { signature: depositSig, blockhash, lastValidBlockHeight },
+          "confirmed",
         );
+        if (result.value.err) {
+          throw new Error(
+            `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
+          );
+        }
+        return { depositSig };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const expired =
+          msg.includes("block height exceeded") ||
+          msg.includes("TransactionExpired") ||
+          msg.includes("was not confirmed");
+        if (expired && attempt < MAX_ATTEMPTS) {
+          lastErr = err instanceof Error ? err : new Error(msg);
+          onStage("signing-init");
+          continue;
+        }
+        throw err;
+      } finally {
+        stopped = true;
+        await rebroadcast.catch(() => {});
       }
-      return { depositSig };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const expired =
-        msg.includes("block height exceeded") ||
-        msg.includes("TransactionExpired") ||
-        msg.includes("was not confirmed");
-
-      if (expired && attempt < MAX_ATTEMPTS) {
-        // Tx never landed — drop the stale sig (it's not on chain),
-        // build a new one with a fresh blockhash, and re-prompt the
-        // wallet. Going back to "signing-init" briefly so the
-        // progress UI doesn't look frozen on signing-deposit.
-        lastErr = err instanceof Error ? err : new Error(msg);
-        onStage("signing-init");
-        continue;
+    } else {
+      // Fallback: wallet doesn't expose signTransaction. Use the
+      // legacy single-shot send path — same retry-on-expiry as
+      // before, no aggressive rebroadcast.
+      let depositSig: string;
+      try {
+        depositSig = await wallet.sendTransaction(tx, connection);
+      } catch (err) {
+        throw err;
       }
-      throw err;
+      onDepositTx?.(depositSig);
+      try {
+        const result = await connection.confirmTransaction(
+          { signature: depositSig, blockhash, lastValidBlockHeight },
+          "confirmed",
+        );
+        if (result.value.err) {
+          throw new Error(
+            `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
+          );
+        }
+        return { depositSig };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const expired =
+          msg.includes("block height exceeded") ||
+          msg.includes("TransactionExpired") ||
+          msg.includes("was not confirmed");
+        if (expired && attempt < MAX_ATTEMPTS) {
+          lastErr = err instanceof Error ? err : new Error(msg);
+          onStage("signing-init");
+          continue;
+        }
+        throw err;
+      }
     }
   }
-  // Defensive — the loop returns or throws on every path.
   throw lastErr ?? new Error("launchAgent: exhausted retries");
 }

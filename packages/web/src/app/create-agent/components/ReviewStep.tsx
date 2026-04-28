@@ -30,7 +30,8 @@ interface Props {
 export function ReviewStep({ state, dispatch }: Props) {
   const { identity, strategy, allowlist, capital, launch } = state;
   const router = useRouter();
-  const { publicKey, connected, sendTransaction } = useWallet();
+  const { publicKey, connected, sendTransaction, signTransaction } =
+    useWallet();
   const { connection } = useConnection();
 
   const sns = fullSns(identity.snsPrefix);
@@ -211,7 +212,7 @@ export function ReviewStep({ state, dispatch }: Props) {
 
       const result = await launchAgent({
         connection,
-        wallet: { publicKey, sendTransaction },
+        wallet: { publicKey, sendTransaction, signTransaction },
         nextSteps,
         onStage: (stage) => dispatch({ type: "LAUNCH/SET_STAGE", stage }),
         onDepositTx: (sig) => {
@@ -247,6 +248,7 @@ export function ReviewStep({ state, dispatch }: Props) {
     publicKey,
     connected,
     sendTransaction,
+    signTransaction,
     strategy.preset,
     strategy.showCustomBrain,
     strategy.customBrainMd,
