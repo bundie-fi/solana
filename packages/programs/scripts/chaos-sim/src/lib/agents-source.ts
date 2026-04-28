@@ -101,18 +101,20 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
     // already have these committed; wizard-created agents land their
     // bytes in agent_secret_key, and we materialize the file here so
     // the existing existsSync(keyPath) gate passes.
-    if (r.agent_secret_key) {
-      const shortName = r.sns.split(".")[0];
-      const keyPath = join(CHAOS_KEYS_DIR, `${shortName}-vault.json`);
-      if (!existsSync(keyPath)) {
-        try {
-          mkdirSync(CHAOS_KEYS_DIR, { recursive: true });
-          writeFileSync(keyPath, r.agent_secret_key);
-        } catch (err) {
-          console.warn(
-            `[agents-source] failed to hydrate keypair for ${r.sns}: ${(err as Error).message}`,
-          );
-        }
+    const shortName = r.sns.split(".")[0];
+    const keyPath = join(CHAOS_KEYS_DIR, `${shortName}-vault.json`);
+    console.log(
+      `[agents-source] hydrate-check ${r.sns}: existing=${existsSync(keyPath)} hasSecret=${!!r.agent_secret_key} keyPath=${keyPath}`,
+    );
+    if (r.agent_secret_key && !existsSync(keyPath)) {
+      try {
+        mkdirSync(CHAOS_KEYS_DIR, { recursive: true });
+        writeFileSync(keyPath, r.agent_secret_key);
+        console.log(`[agents-source] hydrated keypair for ${r.sns} → ${keyPath}`);
+      } catch (err) {
+        console.warn(
+          `[agents-source] failed to hydrate keypair for ${r.sns}: ${(err as Error).message}`,
+        );
       }
     }
 
