@@ -140,25 +140,18 @@ async function patchBufferLayoutOnce(): Promise<void> {
     try {
       return origDecode.call(this, b, offset);
     } catch {
-      // Return the first registered variant's shape with default values so
-      // the SDK's downstream validation ("Invalid oracle setup") doesn't
-      // trip — it sees a "valid" variant and moves on. We don't actually
-      // USE the oracle data for our deposit/withdraw ix path, so any
-      // shape works as long as the variant's property keys are present.
+      // Make the SDK think this Union holds the FIRST registered variant
+      // with empty payload. The MarginFi SDK's parseOracleSetup /
+      // parseOperationalState do `Object.keys(raw)[0].toLowerCase()`,
+      // so the spoofed key needs to look like a real variant name.
+      // The actual deposit/withdraw ix path doesn't read oracle data, so
+      // a placeholder gets the bank past the SDK's strict validation.
       const tags = Object.keys(this.registry);
       if (tags.length === 0) return null;
       const first = this.registry[tags[0]];
       const result: Record<string, unknown> = {};
-      // VariantLayout has a `property` field (the variant's name) and a
-      // `layout` field. Construct an object with that property pointing
-      // at an empty-ish value of the variant's shape.
       if (first.property) {
         result[first.property] = first.layout ? {} : 0;
-      }
-      // Also include the discriminator so any consumer reading
-      // `decoded[discriminator.property]` sees a number.
-      if (this.discriminator?.property) {
-        result[this.discriminator.property] = Number(tags[0]);
       }
       return result;
     }
@@ -197,7 +190,73 @@ async function loadMarginfiSdk(): Promise<typeof import("@mrgnlabs/marginfi-clie
   // Patch buffer-layout BEFORE the SDK module loads so the SDK's coder
   // sees the patched Union prototype.
   await patchBufferLayoutOnce();
-  return await import("@mrgnlabs/marginfi-client-v2");
+  const sdk = await import("@mrgnlabs/marginfi-client-v2");
+  await patchSdkParsersOnce(sdk);
+  return sdk;
+}
+
+/**
+ * Patch the SDK's bank.js parsers to fall back to safe defaults instead
+ * of throwing on unrecognized oracle / operational-state values.
+ *
+ * Why: the SDK has a known bug where parseOracleSetup does
+ *   `switch (Object.keys(raw)[0].toLowerCase())` against case-sensitive
+ *   case values like "PythLegacy" — they never match because lowercase
+ *   "pythlegacy" ≠ "PythLegacy". Combined with our buffer-layout patch
+ *   spoofing unknown variants as the first registered shape (commonly
+ *   "none"), most banks would still throw downstream. Wrap the parsers
+ *   so they return a None / Operational sentinel on any unrecognized
+ *   input — the deposit/withdraw ix path doesn't consume oracle data
+ *   anyway, so this is safe.
+ */
+let sdkParsersPatched = false;
+async function patchSdkParsersOnce(
+  sdk: typeof import("@mrgnlabs/marginfi-client-v2"),
+): Promise<void> {
+  if (sdkParsersPatched) return;
+  sdkParsersPatched = true;
+
+  // Wrap MarginfiClient.fetch so any bank whose oracle/state can't be
+  // parsed gets stub-replaced with a minimal "decoy" Bank. Returning
+  // null isn't safe — downstream SDK code does banks.get(addr).method()
+  // on lookup. The decoy presents the addresses + mint we can parse and
+  // throws on actually-using-it methods, which we never do for the bank
+  // we don't care about.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sdkAny: any = sdk;
+  const Bank = sdkAny.Bank ?? sdkAny.default?.Bank;
+  if (!Bank?.fromAccountParsed) return;
+  const orig = Bank.fromAccountParsed.bind(Bank);
+  let skipped = 0;
+  Bank.fromAccountParsed = function (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...args: any[]
+  ) {
+    try {
+      return orig(...args);
+    } catch (e) {
+      const msg = (e as Error).message ?? "";
+      if (
+        msg.includes("Invalid oracle setup") ||
+        msg.includes("Invalid operational state")
+      ) {
+        skipped++;
+        const [address, parsed] = args;
+        // Decoy: a sparse object that satisfies the .get(addr) / .mint
+        // contract for the bank cache without actually using oracle data.
+        return {
+          address,
+          mint: parsed?.mint,
+          group: parsed?.group,
+          __unparseable: true,
+        };
+      }
+      throw e;
+    }
+  };
+  console.log(
+    "[marginfi] Bank.fromAccountParsed wrapped — banks with unknown oracle/state get a stub",
+  );
 }
 
 async function loadMrgnCommon(): Promise<typeof import("@mrgnlabs/mrgn-common")> {
