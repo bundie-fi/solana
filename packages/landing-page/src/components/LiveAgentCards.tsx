@@ -38,35 +38,13 @@ interface AgentCard {
   lastSlot: string | null;
 }
 
-const FALLBACK_AGENTS: AgentCard[] = [
-  {
-    handle: "alice.bundie.sol",
-    emoji: "🎯",
-    bias: "Balanced",
-    description: "60% stablecoin lending, 40% LST. Rebalances on >10% drift.",
-    status: "active",
-    navUsd: null,
-    lastSlot: null,
-  },
-  {
-    handle: "bob.bundie.sol",
-    emoji: "🚀",
-    bias: "Aggressive",
-    description: "Aggressive yield hunter. Always rotates to highest APY.",
-    status: "active",
-    navUsd: null,
-    lastSlot: null,
-  },
-  {
-    handle: "charlie.bundie.sol",
-    emoji: "🛡️",
-    bias: "Conservative",
-    description: "Conservative stables-first allocator on Kamino + MarginFi.",
-    status: "active",
-    navUsd: null,
-    lastSlot: null,
-  },
-];
+// Empty state when the backend is unreachable. Previously held
+// alice/bob/charlie seed copy that kept rendering on the live site
+// even after those agents stopped existing in the registry — fake
+// data is worse than no data, so we now return nothing and let the
+// downstream renderer hide the strip when there's nothing real to
+// show.
+const FALLBACK_AGENTS: AgentCard[] = [];
 
 function toNumber(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -127,6 +105,9 @@ async function loadAgents(): Promise<AgentCard[]> {
 
 export default async function LiveAgentCards() {
   const agents = await loadAgents();
+  // No live agents AND no fallback → render nothing; the parent section
+  // header reads fine on its own.
+  if (agents.length === 0) return null;
 
   return (
     <div className="agent-strip">

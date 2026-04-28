@@ -18,7 +18,6 @@ const LINKS: { href: string; label: string; activePrefix?: string }[] = [
   { href: "/markets",   label: "Markets" },
   { href: "/agents",    label: "Agents", activePrefix: "/agent" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/identity",  label: "Identity" },
 ];
 
 function truncateAddress(address: string): string {

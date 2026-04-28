@@ -6,9 +6,8 @@ import type { JSX } from "react";
 /* ── INSIDE BUNDIE feature switcher ─────────────────────────────────────
    Mirrors Aqua0's FEATURES tab pattern: a left-rail name list, a
    middle title+body that swaps on click, and a right-side visual.
-   We only have two primitives (Strategy Token, Prediction Market),
-   plus two supporting tabs (NAV settlement, Identity) so the rail
-   has the same visual weight as Aqua0's 4-tab version.
+   Four tabs cover the actual product surface: AI agents, LS-LMSR
+   prediction markets, oracle-free NAV settlement, and SNS identity.
    ──────────────────────────────────────────────────────────────────── */
 
 type FeatureSpec = {
@@ -22,12 +21,12 @@ type FeatureSpec = {
 
 const FEATURES: FeatureSpec[] = [
   {
-    id: "strategy-token",
+    id: "ai-agents",
     number: "01",
-    name: "Strategy Token",
-    title: ["Agents are tradeable.", "Identities are on-chain."],
-    body: "Anyone can launch an AI agent on Bundie. They get a .bundie.sol identity, a $50 bUSD seed, and a tradeable token whose price tracks the agent's live portfolio NAV. Buy in early, exit anytime.",
-    Visual: StrategyTokenVisual,
+    name: "AI agents",
+    title: ["Agents trade real DeFi.", "You watch on-chain."],
+    body: "Anyone launches an AI agent on Bundie. They get a .bundie.sol identity and a brain that reasons every tick — Claude Sonnet reading live mainnet rates, then executing real Marinade / Kamino / Zeta calls. Every action lands as a verifiable on-chain tx.",
+    Visual: AiAgentVisual,
   },
   {
     id: "prediction-market",
@@ -42,7 +41,7 @@ const FEATURES: FeatureSpec[] = [
     number: "03",
     name: "NAV Settlement",
     title: ["No oracle.", "No committee."],
-    body: "Strategy NAV is computed and committed on-chain by the Strategy Token program. Markets settle by reading that account directly. The truth is the chain — there's nobody to argue with.",
+    body: "Each agent's NAV is computed from its on-chain positions and committed every few ticks. Markets settle by reading that account directly. The truth is the chain — there's nobody to argue with.",
     Visual: NavSettlementVisual,
   },
   {
@@ -96,23 +95,23 @@ function FeaturesSwitcher() {
   );
 }
 
-function StrategyTokenVisual() {
+function AiAgentVisual() {
   return (
     <div className="vis-card">
       <p className="vis-eyebrow">Agent · alpha-kamino.bundie.sol</p>
       <p className="vis-big-num">
-        $1,247<span className="vis-dim">.92</span>
+        $684<span className="vis-dim">.92</span>
       </p>
-      <p className="vis-sub">Live NAV · refreshed every Solana slot</p>
+      <p className="vis-sub">Live NAV · committed every few ticks</p>
 
       <div className="vis-row-2">
         <div>
-          <span className="vis-label">Token price</span>
-          <span className="vis-val">$1.24</span>
+          <span className="vis-label">Last action</span>
+          <span className="vis-val">Marinade stake</span>
         </div>
         <div>
-          <span className="vis-label">Holders</span>
-          <span className="vis-val">38</span>
+          <span className="vis-label">Tick</span>
+          <span className="vis-val">epoch 32</span>
         </div>
       </div>
     </div>
@@ -163,7 +162,7 @@ function NavSettlementVisual() {
       </div>
       <div className="vis-mono-row">
         <span className="vis-mono-k">signer</span>
-        <span className="vis-mono-v">strategy_token_v1</span>
+        <span className="vis-mono-v">prediction_market</span>
       </div>
       <div className="vis-mono-foot">
         <span className="vis-ok">●</span> verifiable on devnet
@@ -186,7 +185,7 @@ function IdentityVisual() {
         </div>
         <div>
           <span className="vis-label">Program</span>
-          <span className="vis-val">strategy_token_v1</span>
+          <span className="vis-val">prediction_market</span>
         </div>
       </div>
     </div>
