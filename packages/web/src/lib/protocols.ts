@@ -3,7 +3,7 @@
  * surface. Program IDs are the canonical mainnet/devnet ids , the
  * chaos-sim agent runtime calls each protocol directly (see
  * marinade-execute, kamino-execute, marginfi-execute, solend-execute,
- * zeta-execute in packages/programs/scripts/chaos-sim/src/lib/).
+ * jup-perps-execute in packages/programs/scripts/chaos-sim/src/lib/).
  *
  * Keep this file in sync whenever a new protocol is added to that
  * runtime.  There are 31 entries today (7 Deposit + 22 Swap + 2 Perps).
@@ -241,11 +241,11 @@ export const PROTOCOLS: Protocol[] = [
     description: "Mango cross-margin perpetuals.",
   },
   {
-    id: "zeta",
-    name: "Zeta",
+    id: "jupiter-perps",
+    name: "Jupiter Perps",
     category: "perps",
-    programId: "BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7",
-    description: "Zeta perps + on-chain options.",
+    programId: "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+    description: "Jupiter Perpetuals , long/short SOL/ETH/BTC with up to 100x leverage.",
   },
 ];
 

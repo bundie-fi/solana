@@ -32,7 +32,7 @@ const PRESET_PERSONALITY: Record<AgentPreset, string> = {
   "yield-hunter":
     "Yield hunter: always rotates into the highest-APY allowlisted lending pool. Ignores LSTs unless lending APY collapses.",
   "perp-trader":
-    "Funding-rate arbitrageur: long spot + short perp combos to harvest funding. Zeta-heavy. Trims when funding flips negative.",
+    "Funding-rate arbitrageur: long spot + short perp combos to harvest funding. Jupiter-Perps-heavy. Trims when funding flips negative.",
 };
 
 const PRESET_ALLOCATION: Record<AgentPreset, string> = {
@@ -123,7 +123,7 @@ export function generateBrainMd(opts: {
     `  rates.splStakePoolAboveBps      — Jito/BlazeStake SPL pool rate above par (selector 4). Compare vs Marinade.`,
   );
   lines.push(
-    `  rates.jupSolPerpFundingBps     — Zeta SOL-PERP funding rate (selector 5, 0 until probe verified).`,
+    `  rates.jupSolPerpFundingBps     — Jupiter Perps SOL-PERP funding rate (selector 5, 0 until probe verified).`,
   );
   lines.push(
     `  rates.chain                     — "mainnet" if observation RPC is live, "devnet" if fallback.`,
@@ -264,8 +264,8 @@ export interface PerProtocolLimits {
  * Mirrors `LEND_PROGRAM` / `LST_PROGRAM` / `PERP_PROGRAM` from
  * packages/programs/scripts/chaos-sim/src/lib/action-executor.ts. The
  * canonical wired-up set: Kamino + MarginFi + Solend (lending), Marinade +
- * Jito (LST), Zeta (perps). Drift was retired in favour of Zeta; Orca was
- * never wired through the executor.
+ * Jito (LST), Jupiter Perps (perps). Drift/Zeta were retired in favour of
+ * Jupiter Perps; Orca was never wired through the executor.
  */
 const PROTOCOL_PROGRAMS: Record<
   AllowedProtocol,

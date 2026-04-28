@@ -60,7 +60,7 @@ export const PRESETS: { id: Preset; label: string; blurb: string }[] = [
   {
     id: "perp-trader",
     label: "Perp trader",
-    blurb: "Zeta-led directional bets sized against the bUSD treasury.",
+    blurb: "Jupiter Perps directional bets sized against the bUSD treasury.",
   },
 ];
 

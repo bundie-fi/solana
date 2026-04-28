@@ -17,14 +17,13 @@ export interface SurfpoolAction {
 }
 
 const PROTOCOL_EMOJI: Record<string, string> = {
-  kamino:   "📈",
-  marginfi: "🏦",
-  marinade: "⚡",
-  jito:     "🔥",
-  drift:    "🎯",
-  orca:     "🌊",
-  solend:   "🟣",
-  zeta:     "🎰",
+  kamino:          "📈",
+  marginfi:        "🏦",
+  marinade:        "⚡",
+  jito:            "🔥",
+  solend:          "🟣",
+  jupiter:         "🪐",
+  "jupiter-perps": "🎰",
 };
 
 // Tokens with 9 decimals (SOL family) vs 6 decimals (USDC etc.). The
@@ -69,15 +68,15 @@ function rowMeta(action: SurfpoolAction): RowMeta {
     // "Marinade stake: 2 SOL → mSOL @ 7Tk9aL2P…"
     const m = action.notes.match(/@\s+([A-Za-z0-9]+(?:…|\.{3}))/);
     if (m) out.destination = m[1];
-  } else if (action.protocol === "zeta") {
-    // "MVP placeholder: zeta long SOL-PERP 250USDC notional (Zeta CPI pending)"
-    const m = action.notes.match(/zeta\s+(long|short)\s+([A-Z0-9-]+)\s+(\d+(?:\.\d+)?)/i);
+  } else if (action.protocol === "jupiter-perps") {
+    // "Jupiter Perps long SOL-PERP 250 USDC notional"
+    const m = action.notes.match(/(long|short)\s+([A-Z0-9-]+)\s+(\d+(?:\.\d+)?)/i);
     if (m) {
       out.side = m[1].toLowerCase() as "long" | "short";
       out.market = m[2];
       out.notional = m[3];
     } else {
-      const cl = action.notes.match(/zeta\s+close\s+([A-Z0-9-]+)/i);
+      const cl = action.notes.match(/close\s+([A-Z0-9-]+)/i);
       if (cl) out.market = cl[1];
     }
   }
