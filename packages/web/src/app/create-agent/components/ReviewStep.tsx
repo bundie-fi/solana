@@ -418,17 +418,17 @@ export function ReviewStep({ state, dispatch }: Props) {
           {state.resume ? (
             <>
               <li>
-                <span style={{ color: "var(--green-2)" }}>✓</span> Agent
-                keypair + init_vault — already done
+                <span style={{ color: "var(--green-2)" }}>✓</span> Agent + vault
+                created
               </li>
-              <li>You sign deposit_to_vault ($50 bUSD → treasury_ata)</li>
-              <li>Backend confirms + flips status to active</li>
+              <li>You sign one transfer to seed the vault with $50 bUSD</li>
+              <li>Agent goes live</li>
             </>
           ) : (
             <>
-              <li>Backend mints agent keypair + signs init_vault</li>
-              <li>You sign deposit_to_vault ($50 bUSD → treasury_ata)</li>
-              <li>Backend confirms + flips status to active</li>
+              <li>We create your agent and its vault</li>
+              <li>You sign one transfer to seed the vault with $50 bUSD</li>
+              <li>Agent goes live</li>
             </>
           )}
         </ol>
@@ -456,18 +456,18 @@ export function ReviewStep({ state, dispatch }: Props) {
               past={isPast(launch.stage, "creating-agent")}
             />
             <Stage
-              label="Building txs…"
+              label="Preparing transaction…"
               active={launch.stage === "building-tx"}
               past={isPast(launch.stage, "building-tx")}
             />
             <Stage
-              label="Sign init_vault…"
+              label="Setting up vault…"
               active={launch.stage === "signing-init"}
               past={isPast(launch.stage, "signing-init")}
               txSig={launch.initTxSig}
             />
             <Stage
-              label="Sign deposit_to_vault…"
+              label="Sign deposit ($50 bUSD)…"
               active={launch.stage === "signing-deposit"}
               past={isPast(launch.stage, "signing-deposit")}
               txSig={launch.depositTxSig}

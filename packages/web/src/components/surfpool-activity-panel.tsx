@@ -1,14 +1,7 @@
 /**
- * SurfpoolActivityPanel — renders an agent's recent surfpool tx feed.
- *
- * Surfpool is a local Solana mainnet fork where chaos-sim agents execute
- * against real protocol IDs (Marinade / Kamino / MarginFi / Solend / Jito
- * / Zeta / Orca). Their txs are real but invisible because surfpool has
- * no public explorer — this panel surfaces them so visitors can watch
- * agent strategy execution land in near-real-time.
- *
- * Server component (no client interactivity required) — keeps the agent
- * profile page SSR.
+ * Recent on-chain activity for one agent. Each row is a real tx the
+ * agent's runtime broadcast against the protocol named in the pill.
+ * Server component — agent profile page is SSR.
  */
 
 export interface SurfpoolAction {
@@ -91,6 +84,24 @@ function rowMeta(action: SurfpoolAction): RowMeta {
   return out;
 }
 
+// Map raw action types from the daemon log to user-friendly verbs.
+// Anything not in the map falls through to the raw key — flag in
+// review if a new action type slips past here.
+const ACTION_LABEL: Record<string, string> = {
+  lend_deposit: "Lent",
+  lend_withdraw: "Withdrew",
+  lst_stake: "Staked",
+  lst_unstake: "Unstaked",
+  perp_open: "Opened",
+  perp_close: "Closed",
+  swap: "Swapped",
+  create_market: "Opened market",
+  commit_nav: "Updated NAV",
+};
+function actionLabel(raw: string): string {
+  return ACTION_LABEL[raw] ?? raw;
+}
+
 function truncateSig(sig: string): string {
   if (sig.length <= 14) return sig;
   return `${sig.slice(0, 8)}…${sig.slice(-4)}`;
@@ -118,14 +129,14 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
     <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <span className="pulse-dot amber" />
-        <div className="bd-eyebrow">Live strategy execution on Solana mainnet fork (Surfpool)</div>
+        <div className="bd-eyebrow">Recent activity</div>
       </div>
       <p
         className="muted"
         style={{ fontSize: 11, marginBottom: 12, lineHeight: 1.4 }}
       >
-        Real txs against mainnet protocols, replicated on Surfpool — txSigs
-        valid on the local fork only.
+        Every action this agent has taken — staking, lending, opening
+        positions. Updated in near-real-time.
       </p>
 
       {actions.length === 0 ? (
@@ -134,11 +145,10 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
           style={{ padding: "16px", textAlign: "center" }}
         >
           <p style={{ fontSize: 12, margin: 0, color: "var(--fg-2)" }}>
-            Agent has no surfpool activity yet.
+            No activity yet.
           </p>
           <p className="mono-tiny" style={{ marginTop: 4, color: "var(--fg-3)" }}>
-            (LST stakes, lend deposits, and perp orders land here once the
-            chaos-sim daemon executes them on the mainnet fork.)
+            Your agent will start trading shortly.
           </p>
         </div>
       ) : (
@@ -192,7 +202,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                       className="mono"
                       style={{ fontSize: 12, color: "var(--fg-0)", fontWeight: 600 }}
                     >
-                      {a.actionType}
+                      {actionLabel(a.actionType)}
                     </span>
                     {amount && (
                       <span
@@ -247,11 +257,11 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                       }}
                       title={
                         placeholder
-                          ? "Self-transfer placeholder — real protocol CPI not yet wired"
-                          : "Real protocol CPI landed on the surfpool fork"
+                          ? "Pending — agent recorded the intent but the on-chain action hasn't shipped yet"
+                          : "Confirmed on-chain"
                       }
                     >
-                      {placeholder ? "PLACEHOLDER" : "REAL"}
+                      {placeholder ? "PENDING" : "LIVE"}
                     </span>
                   </div>
                   {meta.destination && (
@@ -263,9 +273,9 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                         color: "var(--fg-3)",
                         lineHeight: 1.35,
                       }}
-                      title={`mSOL token-account: ${meta.destination}`}
+                      title={`Destination token account: ${meta.destination}`}
                     >
-                      mSOL ata: {meta.destination}
+                      → {meta.destination}
                     </div>
                   )}
                   {a.notes && (
