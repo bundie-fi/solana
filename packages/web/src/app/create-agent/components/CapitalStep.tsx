@@ -91,10 +91,19 @@ export function CapitalStep({ state, dispatch }: Props) {
       });
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
+      // Best-effort: refresh the balance one more time so the cooldown
+      // copy can cite the actual amount the user has, not the stale
+      // initial-load value.
+      await refreshBalance().catch(() => {});
+      const have = capital.busdBalance ?? 0;
       let friendly: string;
       if (msg.includes("429") || msg.toLowerCase().includes("cooldown")) {
         friendly =
-          "You've already claimed today. Try again in 24 hours, or use existing bUSD in your wallet.";
+          have >= FAUCET_AMOUNT
+            ? `You've already claimed today — and your wallet already has $${have.toFixed(2)} bUSD. You're good; hit Next.`
+            : have > 0
+              ? `You've already claimed today. Wallet has $${have.toFixed(2)} bUSD; Step 5 needs at least $${FAUCET_AMOUNT}. Either wait 24h or use the escape hatch below if you have more in another wallet.`
+              : "You've already claimed today. Try again in 24 hours, or use the escape hatch below if you already have bUSD in this wallet.";
       } else if (msg.includes("400")) {
         friendly = "Faucet rejected the request. Try reconnecting your wallet.";
       } else if (msg.includes("503")) {
@@ -247,6 +256,44 @@ export function CapitalStep({ state, dispatch }: Props) {
               >
                 {capital.faucetError}
               </div>
+            )}
+            {/* Cooldown / faucet-down escape hatch: if the user already has
+                bUSD in their wallet, let them skip the faucet and advance
+                directly. The balance read on devnet sometimes flakes
+                (RPC throttle) and reports 0 even when the ATA holds tokens,
+                which is otherwise a dead end — Next stays greyed because
+                canAdvance() requires busdBalance >= 50. Clicking this
+                forces the wizard to treat capital as funded; if the
+                actual ATA balance is short the on-chain deposit_to_vault
+                tx on Step 5 will fail with a clear SPL Transfer error. */}
+            {capital.faucetError && !fundsOk && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await refreshBalance();
+                  // Force-advance even if the read still shows < $50:
+                  // operator is asserting they have it, and Step 5's
+                  // signed deposit will be the ground truth.
+                  dispatch({
+                    type: "CAPITAL/SET_BALANCE",
+                    value: Math.max(capital.busdBalance ?? 0, FAUCET_AMOUNT),
+                  });
+                }}
+                className="mono-tiny"
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  padding: "8px 12px",
+                  border: "1px solid var(--gold)",
+                  background: "var(--gold-tint)",
+                  borderRadius: 8,
+                  color: "var(--fg-0)",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                I already have ≥ $50 bUSD — continue to deposit →
+              </button>
             )}
           </div>
 
