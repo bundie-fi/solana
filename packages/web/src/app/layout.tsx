@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Toaster } from "sonner";
 import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
+import { OnboardingTour } from "@/components/OnboardingTour";
+import { PostConnectRedirect } from "@/components/PostConnectRedirect";
 import "./globals.css";
 
 const inter = Inter({
@@ -77,7 +80,23 @@ export default function RootLayout({
           <Footer />
           {/* Bottom nav — mobile only */}
           <BottomNav />
+          {/* First-run UX surfaces — must sit inside ClientProviders so
+              they can read wallet state via useWallet(). */}
+          <PostConnectRedirect />
+          <OnboardingTour />
         </ClientProviders>
+        <Toaster
+          position="top-right"
+          richColors
+          theme="light"
+          toastOptions={{
+            style: {
+              background: "var(--bg-1)",
+              color: "var(--fg-1)",
+              border: "1px solid var(--line-1)",
+            },
+          }}
+        />
       </body>
     </html>
   );

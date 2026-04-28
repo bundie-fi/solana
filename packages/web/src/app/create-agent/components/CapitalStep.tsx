@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { toast } from "sonner";
 import { BUSD_DECIMALS, BUSD_MINT } from "@bundie/common";
 import { claimFaucet } from "../lib/api";
 import type { WizardAction, WizardState } from "../lib/wizard-state";
@@ -90,6 +91,7 @@ export function CapitalStep({ state, dispatch }: Props) {
         txSig: res.txSig,
         error: null,
       });
+      toast.success(`Faucet claimed — $${FAUCET_AMOUNT} bUSD landed.`);
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
       // Best-effort: refresh the balance one more time so the cooldown
@@ -118,6 +120,7 @@ export function CapitalStep({ state, dispatch }: Props) {
         txSig: null,
         error: friendly,
       });
+      toast.error(friendly);
     }
   }, [publicKey, dispatch, refreshBalance]);
 

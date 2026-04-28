@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { toast } from "sonner";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { BUSD_MINT } from "@bundie/common";
@@ -224,6 +225,7 @@ export function ReviewStep({ state, dispatch }: Props) {
       dispatch({ type: "LAUNCH/SET_STAGE", stage: "confirming" });
       await confirmInit(sns);
       dispatch({ type: "LAUNCH/SET_STAGE", stage: "done" });
+      toast.success(`${sns} is live — opening agent page.`);
 
       // Brief pause so the user can see "Done!" before redirecting.
       setTimeout(() => {
@@ -233,10 +235,12 @@ export function ReviewStep({ state, dispatch }: Props) {
       // result is unused but typed so future callers can chain on it.
       void result;
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "launch failed";
       dispatch({
         type: "LAUNCH/SET_ERROR",
-        error: e instanceof Error ? e.message : "launch failed",
+        error: msg,
       });
+      toast.error(`Launch failed: ${msg}`);
       // If the deposit was broadcast, KEEP the stage so the recovery UI
       // (driven by `orphanDeposit`) stays visible and the depositTxSig
       // is preserved. Otherwise reset so the launch button re-enables.

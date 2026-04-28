@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import { buildBuySharesTx, buildRedeemTx } from "@/lib/tx-builders";
 import type { MarketView } from "@/lib/markets";
 import { ChainBadge } from "@/components/chain-badge";
@@ -69,6 +70,9 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
       await connection.confirmTransaction(sig, "confirmed");
       setTxSig(sig);
       setStage("success");
+      toast.success(
+        `Bet placed — ${parsed} USDC on ${side.toUpperCase()}.`,
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("User rejected")) setError("Transaction rejected.");
