@@ -254,30 +254,45 @@ export async function launchAgent({
 
     onStage("signing-deposit");
 
-    // DIAGNOSTIC PATH (replacing manual signTransaction + sendRawTransaction):
-    // The previous approach (manual sign + skipPreflight + maxRetries:0 +
-    // 2s browser-side rebroadcast) was fighting rpcfast's own server-side
-    // forwarding and silenced any preflight error. We now:
-    //   - delegate broadcast to the wallet adapter's sendTransaction so
-    //     Phantom/Solflare's internal retry stack handles the leader-side
-    //     forwarding (their broadcast goes through their own staked RPC
-    //     too, which is more robust than ours).
-    //   - leave maxRetries unset so rpcfast retries forwarding to leaders
-    //     server-side, every block, until the validity window closes.
-    //   - keep skipPreflight off on the FIRST attempt so any account-state
-    //     or program-error reverts surface as an immediate error instead of
-    //     a silent "block height exceeded" 60s later.
-    let depositSig: string;
-    try {
-      depositSig = await wallet.sendTransaction(tx, connection, {
-        skipPreflight: false,
-        preflightCommitment: "processed",
-      });
-    } catch (err) {
-      // User rejected → bubble.  Otherwise: if the wallet/preflight
-      // already rejected before broadcast, no attempt-retry will help
-      // (it's a real validation issue) so surface immediately.
-      throw err;
+    // DIAGNOSTIC: simulate ourselves first so any program revert /
+    // account-state error surfaces verbatim. Phantom's WalletSendTransactionError
+    // wrapper swallows preflight detail ("Unexpected error"), making it
+    // impossible to distinguish a real validation bug from a routing
+    // failure. Running connection.simulateTransaction here gives us the
+    // raw RPC error message, including instruction logs.
+    if (wallet.signTransaction) {
+      try {
+        const presigned = await wallet.signTransaction(tx);
+        const sim = await connection.simulateTransaction(presigned);
+        if (sim.value.err) {
+          // Build a richer error: surface the err code + last few logs
+          // so the user can see exactly which instruction reverted and why.
+          const logs = (sim.value.logs ?? []).slice(-8).join("\n  ");
+          throw new Error(
+            `Preflight failed: ${JSON.stringify(sim.value.err)}\n  ${logs}`,
+          );
+        }
+        // Simulation passed; broadcast the same already-signed tx via
+        // sendRawTransaction so we don't ask the wallet to sign twice.
+        // skipPreflight: true is safe here because we just simulated.
+        // maxRetries unset → rpcfast retries server-side every block.
+        var depositSig: string = await connection.sendRawTransaction(
+          presigned.serialize(),
+          { skipPreflight: true },
+        );
+      } catch (err) {
+        throw err;
+      }
+    } else {
+      try {
+        var depositSig: string = await wallet.sendTransaction(
+          tx,
+          connection,
+          { skipPreflight: false, preflightCommitment: "processed" },
+        );
+      } catch (err) {
+        throw err;
+      }
     }
     onDepositTx?.(depositSig);
     onStage("landing");
