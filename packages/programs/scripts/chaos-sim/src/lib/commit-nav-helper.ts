@@ -1362,7 +1362,23 @@ async function loadSolendSnapshots(
   }
 }
 
-// ─── Zeta cross-margin equity valuation ──────────────────────────────────
+// ─── Jupiter Perps equity valuation ──────────────────────────────────────
+//
+// Stub: returns 0 USD until the PositionRequest decoder is wired. The
+// open-perp executor (jup-perps-execute.ts) still issues real on-chain
+// ixs; this just means NAV under-counts active perp positions for now.
+async function computeJupiterPerpsEquityUsd(
+  _surfpool: Connection,
+  _authority: PublicKey,
+): Promise<number> {
+  // TODO(jup-perps-nav): decode the agent's PositionRequest accounts
+  // (PDA = [PERP_POSITION_REQUEST_SEED, authority, custody, market]),
+  // sum collateralUsd + (positionSize × mark). Until then NAV pricing
+  // skips perp positions.
+  return 0;
+}
+
+// ─── Zeta cross-margin equity valuation (DEAD — see Jupiter Perps stub above) ───────
 
 interface ZetaEquitySnapshot {
   /** USD value of the cross-margin account at read time. */
@@ -1781,16 +1797,17 @@ export async function computeNavFromSurfpoolBalances(
     solendUsd = 0;
   }
 
-  // 5. Zeta cross-margin equity. Idempotent on agents who never opened
-  //    a perp — returns 0. Per-agent CrossClient is cached.
+  // 5. Jupiter Perps equity. Stubbed to 0 until the PositionRequest
+  //    account decoder lands — see jup-perps-execute.ts for the open
+  //    path. perp_open ix's still broadcast as real on-chain txs, but
+  //    until we read PositionRequest collateral here, NAV under-prices
+  //    open perps. Fine for hackathon scope: brain reasons in observed
+  //    rates, not committed equity.
   try {
-    zetaUsd = await computeZetaEquityUsd(surfpool, authority);
+    zetaUsd = await computeJupiterPerpsEquityUsd(surfpool, authority);
   } catch (e) {
-    // computeZetaEquityUsd already swallows + logs internally; this
-    // catch is belt-and-braces in case the SDK throws synchronously
-    // from the import chain.
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[nav-pricing] WARN: zeta equity outer catch: ${msg}`);
+    console.warn(`[nav-pricing] WARN: jupiter-perps equity outer catch: ${msg}`);
     zetaUsd = 0;
   }
 

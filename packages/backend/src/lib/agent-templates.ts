@@ -53,7 +53,7 @@ const PRESET_ALLOCATION: Record<AgentPreset, string> = {
   - Migrate when the higher pool exceeds the current pool's utilization by >300bps.
   - Ignore LST surfaces (selectors 2, 4).`,
   "perp-trader": `Allocation target: long spot + short perp delta-neutral, harvesting funding.
-  - Track Zeta SOL-PERP funding (selector 5) — when positive and >50bps annualized, increase position.
+  - Track Jupiter Perps SOL-PERP funding (selector 5) — when positive and >50bps annualized, increase position.
   - Trim when funding flips negative.
   - LST exposure only as collateral, not as alpha.`,
 };
@@ -123,7 +123,7 @@ export function generateBrainMd(opts: {
     `  rates.splStakePoolAboveBps      — Jito/BlazeStake SPL pool rate above par (selector 4). Compare vs Marinade.`,
   );
   lines.push(
-    `  rates.zetaSolPerpFundingBps     — Zeta SOL-PERP funding rate (selector 5, 0 until probe verified).`,
+    `  rates.jupSolPerpFundingBps     — Zeta SOL-PERP funding rate (selector 5, 0 until probe verified).`,
   );
   lines.push(
     `  rates.chain                     — "mainnet" if observation RPC is live, "devnet" if fallback.`,
@@ -173,7 +173,7 @@ export function generateBrainMd(opts: {
     `  selector=4  SPL Stake Pool exchange rate premium (bps above 1.0 SOL, covers Jito/BlazeStake)`,
   );
   lines.push(
-    `  selector=5  Zeta SOL-PERP funding rate (bps, 0 if unverified)`,
+    `  selector=5  Jupiter Perps SOL-PERP funding rate (bps annualized)`,
   );
   lines.push(``);
   lines.push(
@@ -254,7 +254,7 @@ export type AllowedProtocol =
   | "solend"
   | "marinade"
   | "jito"
-  | "zeta";
+  | "jupiter-perps";
 
 export interface PerProtocolLimits {
   maxNotionalUsd: number;
@@ -300,9 +300,9 @@ const PROTOCOL_PROGRAMS: Record<
     programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
     instructions: ["deposit_sol", "withdraw_sol"],
   },
-  zeta: {
-    programId: "ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD",
-    instructions: ["place_perp_order_v3", "close_position", "deposit", "withdraw"],
+  "jupiter-perps": {
+    programId: "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
+    instructions: ["create_increase_position_request", "create_decrease_position_request", "deposit", "withdraw"],
   },
 };
 
@@ -334,7 +334,7 @@ const PROTOCOL_MINTS: Record<AllowedProtocol, string[]> = {
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   ],
-  zeta: [
+  "jupiter-perps": [
     "So11111111111111111111111111111111111111112",
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   ],

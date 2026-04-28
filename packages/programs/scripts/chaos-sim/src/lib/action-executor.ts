@@ -30,7 +30,7 @@ import {
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./marinade-execute.js";
 import { stakeJito, unstakeJito } from "./jito-execute.js";
-import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
+import { openJupiterPerp, closeJupiterPerp } from "./jup-perps-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
 import { depositSolend, withdrawSolend } from "./solend-execute.js";
@@ -68,12 +68,15 @@ const LST_PROGRAM: Record<LstProtocol, string> = {
 };
 
 const PERP_PROGRAM: Record<PerpProtocol, string> = {
-  // Zeta mainnet program — same id on the surfpool fork.
-  zeta: "ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD",
+  // Jupiter Perpetuals mainnet program — same id on the surfpool fork.
+  "jupiter-perps": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
 };
 
 const PERP_IX: Record<PerpProtocol, { open: string; close: string }> = {
-  zeta: { open: "place_perp_order_v3", close: "close_position" },
+  "jupiter-perps": {
+    open: "create_increase_position_request",
+    close: "create_decrease_position_request",
+  },
 };
 
 const LST_IX: Record<LstProtocol, { stake: string; unstake: string }> = {

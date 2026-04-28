@@ -121,7 +121,7 @@ export async function runTick(args: TickArgs): Promise<void> {
       `(mainnetRpc=${surfpoolAvailable ? "up" : "down"})  ` +
       `kamino=${rates.kaminoUsdcUtilizationBps}bps  marinade=${rates.marinadeMsolAboveBps}bps  ` +
       `marginfi=${rates.marginfiUsdcUtilizationBps}bps  jito=${rates.splStakePoolAboveBps}bps  ` +
-      `zetaFunding=${rates.zetaSolPerpFundingBps}bps  ` +
+      `jupPerpFunding=${rates.jupSolPerpFundingBps}bps  ` +
       `selfSol=${selfNav.sol.toFixed(4)} selfUsdc=${selfNav.usdc.toFixed(2)} selfMsol=${selfNav.msol.toFixed(4)}`,
   );
 

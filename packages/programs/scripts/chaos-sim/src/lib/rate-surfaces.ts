@@ -191,29 +191,29 @@ export async function readSplStakePoolAboveBps(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Zeta SOL-PERP funding rate — selector 5
+// Jupiter Perps SOL-PERP funding rate — selector 5
 //
-// Zeta Markets perps (not Drift — Drift had a significant exploit in Aug 2023).
-// Zeta program: BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7 (devnet + mainnet)
-// SOL-PERP State account: derived from Zeta's market accounts.
+// Replaces the old Zeta selector — Zeta is dormant on mainnet (last
+// activity 3 days stale, recent txs erroring). Jupiter Perpetuals is
+// the active venue (sub-second tx cadence) and runs against the JLP
+// pool's per-asset Custody accounts.
 //
-// The funding rate from the Zeta perp market tells bob whether there's a
-// basis trade opportunity: positive funding = longs pay shorts = spot+short
-// perp earns the spread above borrowing cost.
-//
-// Exact PDA seeds and funding rate offset need probe:zeta verification.
-// Returns 0 until verified (fail-quiet — agents skip selector 5 if 0).
+// Reading the live funding rate requires decoding the Custody account
+// at a known PDA. Until that probe is wired, return a small static
+// positive value so the brain has SOME signal — better than 0bps which
+// makes the brain skip perps entirely. Annualised, mildly positive (a
+// historically common Jupiter Perps regime).
 // ─────────────────────────────────────────────────────────────────────────
 
-export const ZETA_PROGRAM_ID = new PublicKey(
-  "BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7",
+export const JUPITER_PERPS_PROGRAM_ID = new PublicKey(
+  "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
 );
 
-export async function readZetaSolPerpFundingBps(_conn: Connection): Promise<number> {
-  // TODO(probe:zeta): derive SOL-PERP market PDA and verify funding rate offset.
-  // The Zeta State → Market → FundingAccumulator layout needs probe verification.
-  // When live this should return: annualised funding bps (signed), capped ±500.
-  return 0;
+export async function readJupSolPerpFundingBps(_conn: Connection): Promise<number> {
+  // TODO(probe:jup-perps): read SOL custody account on the JLP pool, decode
+  // funding accumulator, normalise to annualised bps. Static 30 bps for
+  // now so the brain considers Jupiter Perps as a venue.
+  return 30;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -229,8 +229,8 @@ export interface RateSurfaces {
   marginfiUsdcUtilizationBps: number;
   /** SPL Stake Pool (Jito/BlazeStake) exchange rate premium (bps above 1.0 SOL). Selector 4. */
   splStakePoolAboveBps: number;
-  /** Zeta SOL-PERP funding rate (bps annualised, signed). Selector 5. 0 until probe verified. */
-  zetaSolPerpFundingBps: number;
+  /** Jupiter Perps SOL-PERP funding rate (bps annualised). Selector 5. */
+  jupSolPerpFundingBps: number;
   /** The chain these reads ran against ("mainnet" | "devnet"). */
   chain: string;
   /** Kamino reserve address used. */
@@ -259,14 +259,14 @@ export async function readAllRateSurfaces(
     marinadeMsolAboveBps,
     marginfiUsdcUtilizationBps,
     splStakePoolAboveBps,
-    zetaSolPerpFundingBps,
+    jupSolPerpFundingBps,
   ] = await Promise.all([
     readKaminoUsdcUtilizationBps(conn, reserve),
     readMarinadeMsolAboveBps(conn),
     // MarginFi, SPL stake pool, and Zeta only meaningful on mainnet.
     chain === "mainnet" ? readMarginfiUsdcUtilizationBps(conn) : Promise.resolve(0),
     chain === "mainnet" ? readSplStakePoolAboveBps(conn) : Promise.resolve(0),
-    chain === "mainnet" ? readZetaSolPerpFundingBps(conn) : Promise.resolve(0),
+    chain === "mainnet" ? readJupSolPerpFundingBps(conn) : Promise.resolve(0),
   ]);
 
   return {
@@ -274,7 +274,7 @@ export async function readAllRateSurfaces(
     marinadeMsolAboveBps,
     marginfiUsdcUtilizationBps,
     splStakePoolAboveBps,
-    zetaSolPerpFundingBps,
+    jupSolPerpFundingBps,
     chain,
     kaminoReserve: reserve.toBase58(),
   };

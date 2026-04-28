@@ -16,9 +16,10 @@
 export type LendProtocol = "kamino" | "marginfi" | "solend";
 export type LstProtocol = "marinade" | "jito";
 /** Perps venue. Drift was dropped (devnet/mainnet IDL drift, deprecated SDK).
- *  Zeta Markets is the active mainnet perps DEX and runs on the surfpool
- *  fork. */
-export type PerpProtocol = "zeta";
+ *  Zeta was retired 2026-04 (mainnet dormant, txs erroring). Jupiter Perps
+ *  is the most active Solana perps venue today and runs on the surfpool
+ *  fork via the request/keeper pattern. */
+export type PerpProtocol = "jupiter-perps";
 /** Aggregators / venues the agent can route swaps through. Extend the
  *  union as new venues land — Jupiter is the v6-quoted aggregator
  *  default; future entries (raydium-cpmm, orca-whirlpool, …) drop in
