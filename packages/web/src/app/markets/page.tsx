@@ -1,20 +1,26 @@
 import Link from "next/link";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets } from "@/lib/markets";
-import { fetchRegisteredVaultSet } from "@/lib/registry";
+import {
+  fetchAgentDirectory,
+  fetchRegisteredVaultSet,
+} from "@/lib/registry";
 import { RateMarketCard } from "@/components/rate-market-card";
+import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function MarketsPage() {
   const connection = getDevnetConnection();
-  // Filter to creators in the Supabase agent registry so historical
-  // devnet markets created by unregistered agents stop leaking through.
-  // Empty set (registry unreachable) → empty list, by design.
-  const allowedCreators = await fetchRegisteredVaultSet({
-    cache: "no-store",
-  });
+  // Pull the directory + filter set in parallel — the directory keys
+  // creator/target pubkeys to readable .bundie identities so the
+  // RateMarketCard can show "by yudhish on junheng" instead of just
+  // a truncated pubkey.
+  const [allowedCreators, agentDir] = await Promise.all([
+    fetchRegisteredVaultSet({ cache: "no-store" }),
+    fetchAgentDirectory({ cache: "no-store" }),
+  ]);
   const markets = await fetchAllMarkets(connection, { allowedCreators });
 
   const totalVolumeUsdc = markets.reduce((s, m) => s + m.totalVolume / 1e6, 0);
@@ -61,7 +67,7 @@ export default async function MarketsPage() {
         </div>
 
         {/* Filter pills row */}
-        <MarketsFilterClient markets={markets} />
+        <MarketsFilterClient markets={markets} dir={agentDir} />
       </div>
     </main>
   );
@@ -69,7 +75,13 @@ export default async function MarketsPage() {
 
 // We need client-side filtering , import the interactive component
 // For now render the card grid server-side without filtering
-function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof fetchAllMarkets>> }) {
+function MarketsFilterClient({
+  markets,
+  dir,
+}: {
+  markets: Awaited<ReturnType<typeof fetchAllMarkets>>;
+  dir: Awaited<ReturnType<typeof fetchAgentDirectory>>;
+}) {
   if (markets.length === 0) {
     return (
       <div style={{ padding: "32px 16px", textAlign: "center" }}>
@@ -98,6 +110,9 @@ function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof f
 
   return (
     <div style={{ padding: "0 16px 24px" }}>
+      {/* Bettor bUSD balance + claim — only shows for connected wallets. */}
+      <BettorFaucetCTA />
+
       {/* Filter pills */}
       <div
         style={{
@@ -122,7 +137,7 @@ function MarketsFilterClient({ markets }: { markets: Awaited<ReturnType<typeof f
       {/* Cards */}
       <div className="card-stack">
         {markets.map((m) => (
-          <RateMarketCard key={m.address} market={m} />
+          <RateMarketCard key={m.address} market={m} dir={dir} />
         ))}
       </div>
     </div>

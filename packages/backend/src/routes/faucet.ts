@@ -7,7 +7,6 @@ export const faucet = new Hono();
 
 const FAUCET_AMOUNT_BUSD = 50;
 const FAUCET_AMOUNT_BASE = 50_000_000;
-const COOLDOWN_HOURS = 24;
 
 function getEnvOrThrow(name: string): string {
   const v = process.env[name];
@@ -31,27 +30,10 @@ faucet.post("/api/faucet/claim", async (c) => {
     return c.json({ error: "Invalid wallet pubkey" }, 400);
   }
 
-  // Cooldown check via Postgres (bundie-db on Railway).
-  const cutoff = new Date(
-    Date.now() - COOLDOWN_HOURS * 3600 * 1000,
-  ).toISOString();
-  const priorResult = await dbQuery<{ created_at: string }>(
-    `SELECT created_at
-       FROM faucet_claims
-       WHERE wallet = $1
-         AND created_at >= $2
-       LIMIT 1`,
-    [body.wallet, cutoff],
-  );
-  if (!priorResult) {
-    return c.json({ error: "Faucet not configured (DATABASE_URL missing)" }, 503);
-  }
-  if (priorResult.rows.length > 0) {
-    return c.json(
-      { error: `Cooldown: claim again after ${COOLDOWN_HOURS}h since last claim` },
-      429
-    );
-  }
+  // No cooldown — devnet bUSD is mint-only with no scarcity, and the
+  // 24h gate was blocking legitimate flows (bettor wallet needs bUSD,
+  // user retries after wiping an agent, etc). The faucet_claims table
+  // is still written for audit / analytics, just no longer gates.
 
   // Mint
   let mintPk: PublicKey;
