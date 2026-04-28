@@ -251,7 +251,7 @@ function parseAllowedProtocolsFromYaml(yaml: string): Protocol[] {
     So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo: "solend",
     MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD: "marinade",
     SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy: "jito",
-    ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD: "zeta",
+    PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu: "jupiter-perps",
   };
   const out = new Set<Protocol>();
   for (const [pid, proto] of Object.entries(known)) {

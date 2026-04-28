@@ -70,7 +70,7 @@ export type Protocol =
   | "solend"
   | "marinade"
   | "jito"
-  | "zeta";
+  | "jupiter-perps";
 
 export const ALL_PROTOCOLS: { id: Protocol; label: string; tag: string }[] = [
   { id: "kamino", label: "Kamino", tag: "Lending" },
@@ -78,7 +78,7 @@ export const ALL_PROTOCOLS: { id: Protocol; label: string; tag: string }[] = [
   { id: "solend", label: "Solend", tag: "Lending" },
   { id: "marinade", label: "Marinade", tag: "LST" },
   { id: "jito", label: "Jito", tag: "LST" },
-  { id: "zeta", label: "Zeta", tag: "Perps" },
+  { id: "jupiter-perps", label: "Jupiter Perps", tag: "Perps" },
 ];
 
 export interface ProtocolLimits {

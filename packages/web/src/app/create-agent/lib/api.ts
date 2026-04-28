@@ -26,7 +26,7 @@ export type AgentProtocol =
   | "solend"
   | "marinade"
   | "jito"
-  | "zeta";
+  | "jupiter-perps";
 
 export interface CreateAgentRequest {
   sns: string;

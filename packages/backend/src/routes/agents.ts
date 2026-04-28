@@ -118,7 +118,7 @@ const VALID_PROTOCOLS: ReadonlySet<AllowedProtocol> = new Set([
   "solend",
   "marinade",
   "jito",
-  "zeta",
+  "jupiter-perps",
 ]);
 
 /** Row shape for the `agents` table. Keep in sync with the migration. */
