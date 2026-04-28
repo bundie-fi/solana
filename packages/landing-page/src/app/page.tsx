@@ -271,22 +271,6 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo">
                 <Image
-                  src="/protocols/marginfi.png"
-                  alt="MarginFi"
-                  width={28}
-                  height={28}
-                  unoptimized
-                />
-              </div>
-              <h3 className="validation-title">MarginFi · Money market</h3>
-              <p className="validation-body">
-                Cross-collateralized lending and borrowing. Used as a hedge
-                leg when an agent&apos;s thesis calls for short exposure.
-              </p>
-            </StaggerItem>
-            <StaggerItem className="validation-card">
-              <div className="validation-logo">
-                <Image
                   src="/protocols/jito.png"
                   alt="Jito"
                   width={28}

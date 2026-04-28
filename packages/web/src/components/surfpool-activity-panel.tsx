@@ -21,7 +21,6 @@ export interface SurfpoolAction {
 // "render an Image instead of an emoji" branch in ActivityRow.
 const PROTOCOL_LOGO: Record<string, string> = {
   kamino:          "/protocols/kamino.png",
-  marginfi:        "/protocols/marginfi.png",
   marinade:        "/protocols/marinade.png",
   jito:            "/protocols/jito.png",
   solend:          "/protocols/solend.png",

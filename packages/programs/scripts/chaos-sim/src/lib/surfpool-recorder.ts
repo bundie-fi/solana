@@ -22,7 +22,6 @@ import { dbQuery, getPool } from "./db.js";
 
 export type SurfpoolProtocol =
   | "kamino"
-  | "marginfi"
   | "marinade"
   | "jito"
   | "drift"

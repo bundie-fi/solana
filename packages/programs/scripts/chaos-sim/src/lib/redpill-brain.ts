@@ -13,7 +13,7 @@
 
 // Node 20+ exposes global fetch — no import needed.
 
-export type LendProtocol = "kamino" | "marginfi" | "solend";
+export type LendProtocol = "kamino" | "solend";
 export type LstProtocol = "marinade" | "jito";
 /** Perps venue. Drift was dropped (devnet/mainnet IDL drift, deprecated SDK).
  *  Zeta was retired 2026-04 (mainnet dormant, txs erroring). Jupiter Perps

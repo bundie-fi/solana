@@ -32,7 +32,6 @@ import { stakeMarinade, unstakeMarinade } from "./marinade-execute.js";
 import { stakeJito, unstakeJito } from "./jito-execute.js";
 import { openJupiterPerp, closeJupiterPerp } from "./jup-perps-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
-import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
 import { depositSolend, withdrawSolend } from "./solend-execute.js";
 import { swapJupiter } from "./jupiter-execute.js";
 import { isMarketCreationRateLimited } from "./agents-source.js";
@@ -52,13 +51,11 @@ import type {
 
 const LEND_PROGRAM: Record<LendProtocol, string> = {
   kamino:   "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
-  marginfi: "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
   solend:   "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
 };
 
 const LEND_IX: Record<LendProtocol, { deposit: string; withdraw: string }> = {
   kamino:   { deposit: "deposit_reserve_liquidity",  withdraw: "withdraw_reserve_liquidity" },
-  marginfi: { deposit: "lending_account_deposit",    withdraw: "lending_account_withdraw" },
   solend:   { deposit: "deposit_reserve_liquidity",  withdraw: "redeem_reserve_collateral" },
 };
 
@@ -231,52 +228,6 @@ async function executeLend(
         protocol, txSig: result.txSig, actionType: "lend_withdraw",
         amountLamports: result.amountBaseUnits,
         tokenMint: result.reserveLiquidityMint,
-        notes,
-      });
-      return {
-        phase: "execute", chain: "surfpool",
-        action: "lend_withdraw", protocol,
-        txSig: result.txSig, policyGate, notes,
-      };
-    }
-
-    if (protocol === "marginfi" && direction === "deposit") {
-      const result = await depositMarginfi({
-        surfpool: args.surfpool,
-        vault: args.kp,
-        amountUi,
-        bankAddress: reserveAddress,
-      });
-      const notes =
-        `MarginFi deposit: ${amountUi} USDC → bank ${result.bankAddress.slice(0, 8)}… ` +
-        `acct ${result.marginfiAccount.slice(0, 8)}… (${result.ixCount} ixs)`;
-      await persistSurfpoolAction(args, {
-        protocol, txSig: result.txSig, actionType: "lend_deposit",
-        amountLamports: result.amountBaseUnits,
-        tokenMint: result.bankMint,
-        notes,
-      });
-      return {
-        phase: "execute", chain: "surfpool",
-        action: "lend_deposit", protocol,
-        txSig: result.txSig, policyGate, notes,
-      };
-    }
-
-    if (protocol === "marginfi" && direction === "withdraw") {
-      const result = await withdrawMarginfi({
-        surfpool: args.surfpool,
-        vault: args.kp,
-        amountUi,
-        bankAddress: reserveAddress,
-      });
-      const notes =
-        `MarginFi withdraw: ${amountUi} USDC ← bank ${result.bankAddress.slice(0, 8)}… ` +
-        `acct ${result.marginfiAccount.slice(0, 8)}… (${result.ixCount} ixs)`;
-      await persistSurfpoolAction(args, {
-        protocol, txSig: result.txSig, actionType: "lend_withdraw",
-        amountLamports: result.amountBaseUnits,
-        tokenMint: result.bankMint,
         notes,
       });
       return {

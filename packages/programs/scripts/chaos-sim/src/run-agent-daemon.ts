@@ -628,47 +628,27 @@ async function main(): Promise<void> {
     );
   }
 
-  // ─── MarginFi + Solend prewarm (parallel) ──────────────────────────────
-  // Mirror Zeta's pull-the-cost-forward pattern for the lend protocols:
-  //   - MarginfiClient.fetch enumerates every bank under the main group
-  //     via getProgramAccounts (~15-30s on a cold surfpool fork).
-  //   - parseLendingMarket + parseReserve hydrate Solend pool/reserve
-  //     state on first call (~5-15s).
-  // Either of those, hit lazily inside the FIRST agent's FIRST lend tick,
-  // can blow the per-tick budget and surface as a confusing "execute_error:
-  // timed out" log line. Run them in parallel via allSettled so a failure
-  // in one doesn't block the other and neither failure kills the daemon.
-  // The lazy bootstrap inside depositMarginfi / withdrawMarginfi /
-  // depositSolend / withdrawSolend is still the safety net on failure.
+  // ─── Solend prewarm ───────────────────────────────────────────────────
+  // parseLendingMarket + parseReserve hydrate Solend pool/reserve state on
+  // first call (~5-15s). Pull the cost forward so the first lend tick
+  // doesn't exceed budget. Lazy bootstrap inside depositSolend /
+  // withdrawSolend remains the safety net.
   //
-  // Same reachability gate as the Zeta block — skip when surfpool is
-  // unreachable at startup; the lazy path picks up the slack.
-  //
-  // Dynamic imports for both helpers, mirroring the Zeta workaround so the
-  // SDKs (with their @solana/web3.js@1.x.x transitives) don't get pulled
-  // into the daemon's static import graph at startup.
+  // (MarginFi removed — its SDK doesn't decode current mainnet
+  // OracleSetup variants on the fork; see commit history for context.)
   if (await isSurfpoolReachable(surfpool)) {
-    console.log(
-      "[daemon] surfpool reachable — prewarming MarginFi + Solend in parallel (60s budget each)",
-    );
+    console.log("[daemon] surfpool reachable — prewarming Solend (60s budget)");
     try {
-      const [{ prewarmMarginfiClient }, { prewarmSolendMarket }] =
-        await Promise.all([
-          import("./lib/marginfi-execute.js"),
-          import("./lib/solend-execute.js"),
-        ]);
-      await Promise.allSettled([
-        prewarmMarginfiClient(surfpool, 60_000),
-        prewarmSolendMarket(surfpool, 60_000),
-      ]);
+      const { prewarmSolendMarket } = await import("./lib/solend-execute.js");
+      await prewarmSolendMarket(surfpool, 60_000);
     } catch (e) {
       console.warn(
-        `[daemon] MarginFi/Solend prewarm import failed (continuing without prewarm): ${(e as Error).message}`,
+        `[daemon] Solend prewarm failed (continuing without prewarm): ${(e as Error).message}`,
       );
     }
   } else {
     console.warn(
-      "[daemon] surfpool unreachable at startup — skipping MarginFi/Solend prewarm; " +
+      "[daemon] surfpool unreachable at startup — skipping Solend prewarm; " +
         "lazy path will retry on first lend action",
     );
   }

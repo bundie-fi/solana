@@ -2,8 +2,8 @@
  * Static catalog of every protocol adapter the rate-prediction markets
  * surface. Program IDs are the canonical mainnet/devnet ids , the
  * chaos-sim agent runtime calls each protocol directly (see
- * marinade-execute, kamino-execute, marginfi-execute, solend-execute,
- * jup-perps-execute in packages/programs/scripts/chaos-sim/src/lib/).
+ * marinade-execute, kamino-execute, solend-execute, jup-perps-execute
+ * in packages/programs/scripts/chaos-sim/src/lib/).
  *
  * Keep this file in sync whenever a new protocol is added to that
  * runtime.  There are 31 entries today (7 Deposit + 22 Swap + 2 Perps).
@@ -39,13 +39,6 @@ export const PROTOCOLS: Protocol[] = [
     category: "deposit",
     programId: "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9",
     description: "Aggregated yield vaults curated by Jupiter.",
-  },
-  {
-    id: "marginfi",
-    name: "MarginFi",
-    category: "deposit",
-    programId: "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
-    description: "Cross-margin lending pools with isolated risk.",
   },
   {
     id: "marinade",

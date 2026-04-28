@@ -205,7 +205,6 @@ const ACTION_VERB: Record<string, string> = {
 
 const PROTOCOL_LABEL: Record<string, string> = {
   kamino: "Kamino",
-  marginfi: "MarginFi",
   marinade: "Marinade",
   jito: "Jito",
   solend: "Solend",
@@ -215,7 +214,6 @@ const PROTOCOL_LABEL: Record<string, string> = {
 
 const PROTOCOL_EMOJI: Record<string, string> = {
   kamino: "📈",
-  marginfi: "🏦",
   marinade: "⚡",
   jito: "🔥",
   solend: "🟣",
@@ -228,7 +226,6 @@ const PROTOCOL_EMOJI: Record<string, string> = {
  *  surfpool-activity-panel. */
 const PROTOCOL_LOGO: Record<string, string> = {
   kamino: "/protocols/kamino.png",
-  marginfi: "/protocols/marginfi.png",
   marinade: "/protocols/marinade.png",
   jito: "/protocols/jito.png",
   solend: "/protocols/solend.png",

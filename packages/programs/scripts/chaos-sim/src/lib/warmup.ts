@@ -32,11 +32,10 @@ import { executeAction, isSurfpoolReachable } from "./action-executor.js";
  */
 const PROGRAM_TO_PROTOCOL: Record<
   string,
-  | { kind: "lend"; protocol: "kamino" | "marginfi" | "solend" }
+  | { kind: "lend"; protocol: "kamino" | "solend" }
   | { kind: "lst"; protocol: "marinade" | "jito" }
 > = {
   KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD: { kind: "lend", protocol: "kamino" },
-  MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA: { kind: "lend", protocol: "marginfi" },
   So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo: { kind: "lend", protocol: "solend" },
   MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD: { kind: "lst", protocol: "marinade" },
   SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy: { kind: "lst", protocol: "jito" },
@@ -46,7 +45,6 @@ const PROGRAM_TO_PROTOCOL: Record<
 // Matches the brain prompt's framing of lending as the "warmup" action.
 const PREFERENCE: Array<keyof typeof PROGRAM_TO_PROTOCOL> = [
   "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",  // Kamino
-  "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",  // MarginFi
   "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",  // Solend
   "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",  // Marinade
   "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",  // Jito
@@ -115,7 +113,7 @@ function pickWarmupAction(
 ):
   | {
       type: "lend_deposit";
-      protocol: "kamino" | "marginfi" | "solend";
+      protocol: "kamino" | "solend";
       args: { amountUsdcUi: number };
     }
   | {

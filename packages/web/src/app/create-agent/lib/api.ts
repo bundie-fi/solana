@@ -22,7 +22,6 @@ export type AgentPreset =
 
 export type AgentProtocol =
   | "kamino"
-  | "marginfi"
   | "solend"
   | "marinade"
   | "jito"

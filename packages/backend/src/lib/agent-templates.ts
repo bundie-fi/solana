@@ -28,7 +28,7 @@ const PRESET_PERSONALITY: Record<AgentPreset, string> = {
   aggressive:
     "Aggressive allocator: concentrated bets, willing to take leverage when an opportunity looks asymmetric. Rebalances opportunistically rather than on a schedule.",
   conservative:
-    "Conservative allocator: stables-first, minimal LST exposure. Prefers Kamino over MarginFi by default. Capital preservation beats APY chasing.",
+    "Conservative allocator: stables-first, minimal LST exposure. Prefers Kamino lending by default. Capital preservation beats APY chasing.",
   "yield-hunter":
     "Yield hunter: always rotates into the highest-APY allowlisted lending pool. Ignores LSTs unless lending APY collapses.",
   "perp-trader":
@@ -37,20 +37,20 @@ const PRESET_PERSONALITY: Record<AgentPreset, string> = {
 
 const PRESET_ALLOCATION: Record<AgentPreset, string> = {
   balanced: `Allocation target: ~60% in stablecoin lending, ~40% in LST.
-  - For the 60% side: compare Kamino (selector 1) vs MarginFi (selector 3). Pick higher APY.
+  - For the 60% side: lending pools (Kamino selector 1).
   - For the 40% side: compare Marinade (selector 2) vs Jito/SPL (selector 4). Pick better rate.
   - Rebalance when either side drifts >10% from target.`,
   aggressive: `Allocation target: opportunistic. No fixed split.
   - Concentrate into whichever surface shows the strongest signal.
-  - Use rate divergence between protocols (Kamino vs MarginFi, Marinade vs Jito) as a directional signal.
+  - Use rate divergence between LST protocols (Marinade vs Jito) as a directional signal.
   - Open prediction markets on peers when you spot meaningful divergence.`,
   conservative: `Allocation target: ~80% stables, ~20% LST.
-  - Prefer Kamino over MarginFi unless MarginFi utilization is >1500bps higher.
+  - Lending side: Kamino.
   - LST side: only Marinade. Skip jito unless splStakePoolAboveBps > marinadeMsolAboveBps + 200.
   - Rebalance only on drift >15% from target.`,
   "yield-hunter": `Allocation target: 100% in highest-APY lending pool.
-  - Compare Kamino (selector 1) vs MarginFi (selector 3) every tick.
-  - Migrate when the higher pool exceeds the current pool's utilization by >300bps.
+  - Lending side: Kamino is the primary venue.
+  - Migrate to alternate venues only when their utilization exceeds Kamino's by >300bps.
   - Ignore LST surfaces (selectors 2, 4).`,
   "perp-trader": `Allocation target: long spot + short perp delta-neutral, harvesting funding.
   - Track Jupiter Perps SOL-PERP funding (selector 5) — when positive and >50bps annualized, increase position.
@@ -117,9 +117,6 @@ export function generateBrainMd(opts: {
     `  rates.marinadeMsolAboveBps      — Marinade mSOL price premium over 1.0 SOL (selector 2). Rising = stake more.`,
   );
   lines.push(
-    `  rates.marginfiUsdcUtilizationBps — MarginFi USDC bank utilization (selector 3). Compare vs Kamino.`,
-  );
-  lines.push(
     `  rates.splStakePoolAboveBps      — Jito/BlazeStake SPL pool rate above par (selector 4). Compare vs Marinade.`,
   );
   lines.push(
@@ -168,7 +165,6 @@ export function generateBrainMd(opts: {
   lines.push(
     `  selector=2  Marinade mSOL price premium over SOL (bps above par)`,
   );
-  lines.push(`  selector=3  MarginFi USDC bank utilization (bps, 0-10000)`);
   lines.push(
     `  selector=4  SPL Stake Pool exchange rate premium (bps above 1.0 SOL, covers Jito/BlazeStake)`,
   );
@@ -217,10 +213,10 @@ export function generateBrainMd(opts: {
   lines.push(`  "actions": [`);
   lines.push(`    {"type": "noop"} |`);
   lines.push(
-    `    {"type": "lend_deposit",  "protocol": "kamino"|"marginfi"|"solend", "args": {"amountUsdcUi": <number>}} |`,
+    `    {"type": "lend_deposit",  "protocol": "kamino"|"solend", "args": {"amountUsdcUi": <number>}} |`,
   );
   lines.push(
-    `    {"type": "lend_withdraw", "protocol": "kamino"|"marginfi"|"solend", "args": {"amountUi": <number>}} |`,
+    `    {"type": "lend_withdraw", "protocol": "kamino"|"solend", "args": {"amountUi": <number>}} |`,
   );
   lines.push(
     `    {"type": "lst_stake",     "protocol": "marinade"|"jito",            "args": {"amountSolUi": <number>}} |`,
@@ -250,7 +246,6 @@ export function generateBrainMd(opts: {
 
 export type AllowedProtocol =
   | "kamino"
-  | "marginfi"
   | "solend"
   | "marinade"
   | "jito"
@@ -263,9 +258,11 @@ export interface PerProtocolLimits {
 /**
  * Mirrors `LEND_PROGRAM` / `LST_PROGRAM` / `PERP_PROGRAM` from
  * packages/programs/scripts/chaos-sim/src/lib/action-executor.ts. The
- * canonical wired-up set: Kamino + MarginFi + Solend (lending), Marinade +
- * Jito (LST), Jupiter Perps (perps). Drift/Zeta were retired in favour of
- * Jupiter Perps; Orca was never wired through the executor.
+ * canonical wired-up set: Kamino + Solend (lending), Marinade + Jito (LST),
+ * Jupiter Perps (perps). Drift/Zeta were retired in favour of Jupiter
+ * Perps; MarginFi was retired due to SDK incompatibility with current
+ * mainnet OracleSetup variants; Orca was never wired through the
+ * executor.
  */
 const PROTOCOL_PROGRAMS: Record<
   AllowedProtocol,
@@ -278,10 +275,6 @@ const PROTOCOL_PROGRAMS: Record<
       "withdraw_reserve_liquidity",
       "refresh_reserve",
     ],
-  },
-  marginfi: {
-    programId: "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
-    instructions: ["lending_account_deposit", "lending_account_withdraw"],
   },
   solend: {
     programId: "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
@@ -312,15 +305,11 @@ const PROTOCOL_PROGRAMS: Record<
  * warning surface on its first LST signal attempt.
  */
 const PROTOCOL_MINTS: Record<AllowedProtocol, string[]> = {
-  // Kamino / MarginFi: USDC + bUSD (BUSD_MINT comes from env at runtime, so we
-  // hardcode the devnet mainnet+devnet USDC mints here as a baseline.)
+  // Kamino: USDC + bUSD (BUSD_MINT comes from env at runtime, so we
+  // hardcode the mainnet + devnet USDC mints here as a baseline.)
   kamino: [
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // mainnet USDC
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // devnet USDC
-  ],
-  marginfi: [
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   ],
   marinade: [
     "So11111111111111111111111111111111111111112", // wSOL

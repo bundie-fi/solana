@@ -225,7 +225,8 @@ export interface RateSurfaces {
   kaminoUsdcUtilizationBps: number;
   /** Marinade mSOL price premium over 1.0 SOL (bps above par). Selector 2. */
   marinadeMsolAboveBps: number;
-  /** MarginFi USDC bank utilization (0-10000 bps). Selector 3. 0 if unverified. */
+  /** MarginFi (retired). Always 0; kept on the type for backwards compat
+   *  with existing brain prompts that reference it. */
   marginfiUsdcUtilizationBps: number;
   /** SPL Stake Pool (Jito/BlazeStake) exchange rate premium (bps above 1.0 SOL). Selector 4. */
   splStakePoolAboveBps: number;
@@ -257,17 +258,16 @@ export async function readAllRateSurfaces(
   const [
     kaminoUsdcUtilizationBps,
     marinadeMsolAboveBps,
-    marginfiUsdcUtilizationBps,
     splStakePoolAboveBps,
     jupSolPerpFundingBps,
   ] = await Promise.all([
     readKaminoUsdcUtilizationBps(conn, reserve),
     readMarinadeMsolAboveBps(conn),
-    // MarginFi, SPL stake pool, and Zeta only meaningful on mainnet.
-    chain === "mainnet" ? readMarginfiUsdcUtilizationBps(conn) : Promise.resolve(0),
+    // SPL stake pool and Jupiter Perps only meaningful on mainnet.
     chain === "mainnet" ? readSplStakePoolAboveBps(conn) : Promise.resolve(0),
     chain === "mainnet" ? readJupSolPerpFundingBps(conn) : Promise.resolve(0),
   ]);
+  const marginfiUsdcUtilizationBps = 0;  // retired protocol
 
   return {
     kaminoUsdcUtilizationBps,

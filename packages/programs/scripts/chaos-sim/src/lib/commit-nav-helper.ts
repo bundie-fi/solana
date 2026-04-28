@@ -1771,18 +1771,12 @@ export async function computeNavFromSurfpoolBalances(
     );
   }
 
-  // 3. MarginFi deposits. Per-agent SDK read; returns 0 for agents who
-  //    never deposited.
+  // 3. MarginFi deposits — RETIRED. The SDK can't decode current
+  //    mainnet OracleSetup variants, and we removed marginfi from the
+  //    brain's allowed protocols, so no agent can have a position. Skip
+  //    the SDK read entirely — saves ~5-10s per tick on cold caches.
   let marginfiBreakdown: ProtocolPositionEntry[] = [];
-  try {
-    const mfi = await loadMarginfiSnapshots(surfpool, authority);
-    marginfiUsd = mfi.usdSubtotal;
-    marginfiBreakdown = mfi.breakdown;
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[nav-pricing] WARN: marginfi outer catch: ${msg}`);
-    marginfiUsd = 0;
-  }
+  marginfiUsd = 0;
 
   // 4. Solend deposits. Per-agent obligation read via SDK; returns 0
   //    when the agent has no obligation.

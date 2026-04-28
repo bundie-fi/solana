@@ -55,7 +55,7 @@ export const PRESETS: { id: Preset; label: string; blurb: string }[] = [
   {
     id: "yield-hunter",
     label: "Yield hunter",
-    blurb: "Always chasing the highest live APY across Kamino + MarginFi.",
+    blurb: "Always chasing the highest live APY across Kamino + Solend.",
   },
   {
     id: "perp-trader",
@@ -66,7 +66,6 @@ export const PRESETS: { id: Preset; label: string; blurb: string }[] = [
 
 export type Protocol =
   | "kamino"
-  | "marginfi"
   | "solend"
   | "marinade"
   | "jito"
@@ -74,7 +73,6 @@ export type Protocol =
 
 export const ALL_PROTOCOLS: { id: Protocol; label: string; tag: string }[] = [
   { id: "kamino", label: "Kamino", tag: "Lending" },
-  { id: "marginfi", label: "MarginFi", tag: "Lending" },
   { id: "solend", label: "Solend", tag: "Lending" },
   { id: "marinade", label: "Marinade", tag: "LST" },
   { id: "jito", label: "Jito", tag: "LST" },
