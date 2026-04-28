@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -79,11 +79,65 @@ export function ReviewStep({ state, dispatch }: Props) {
 
   const launching = launch.stage !== null && launch.stage !== "done";
   const done = launch.stage === "done";
-  // If we have a depositTxSig but launch errored, the user paid for the
-  // seed deposit on-chain but the backend never flipped the agent to
-  // active. Surface a recovery UI instead of silently resetting.
-  const orphanDeposit =
+  // Recovery UI fires whenever the launch errored after we got a deposit
+  // signature back. Two distinct cases live underneath:
+  //   (a) tx confirmed → confirmInit failed → true orphan; retry confirmInit
+  //   (b) tx never landed (dropped, blockhash expired) → re-broadcast deposit
+  // We disambiguate via an on-chain treasury balance read below.
+  const recoveryNeeded =
     !!launch.error && !!launch.depositTxSig && !done;
+
+  // null = haven't checked / not in recovery; true = treasury holds the
+  // seed; false = treasury still empty (deposit didn't actually land).
+  const [treasuryFunded, setTreasuryFunded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!recoveryNeeded) {
+      setTreasuryFunded(null);
+      return;
+    }
+    const vaultPda = state.resume?.vaultPda;
+    if (!vaultPda) {
+      // Fresh-mode case — vaultPda lives in the createAgent response,
+      // which onLaunch holds in a closure. Without it we can't check
+      // on-chain. Surface as null and fall through to the legacy
+      // "Retry registration" button (matches prior behaviour).
+      setTreasuryFunded(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const treasuryAta = getAssociatedTokenAddressSync(
+          new PublicKey(BUSD_MINT),
+          new PublicKey(vaultPda),
+          true,
+        );
+        const info = await connection.getTokenAccountBalance(treasuryAta);
+        const ui = info.value.uiAmount ?? 0;
+        if (!cancelled) {
+          setTreasuryFunded(ui >= (state.resume?.seedAmountBase ?? 50_000_000) / 1_000_000);
+        }
+      } catch {
+        if (!cancelled) setTreasuryFunded(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    recoveryNeeded,
+    state.resume?.vaultPda,
+    state.resume?.seedAmountBase,
+    connection,
+  ]);
+
+  // Legacy alias kept for the recovery JSX further down — `orphanDeposit`
+  // now means "true orphan: deposit landed but registration didn't" — so
+  // narrows to recoveryNeeded && treasuryFunded === true.
+  const orphanDeposit = recoveryNeeded && treasuryFunded === true;
+  const droppedDeposit = recoveryNeeded && treasuryFunded === false;
+  const checkingRecovery = recoveryNeeded && treasuryFunded === null;
 
   const finalizeConfirm = useCallback(async () => {
     dispatch({ type: "LAUNCH/SET_ERROR", error: null });
@@ -438,8 +492,8 @@ export function ReviewStep({ state, dispatch }: Props) {
         </div>
       )}
 
-      {/* Orphan-deposit recovery — deposit cleared but registration didn't */}
-      {orphanDeposit && (
+      {/* Recovery UI — split based on whether the deposit actually landed. */}
+      {(orphanDeposit || droppedDeposit || checkingRecovery) && (
         <div
           className="card hairline"
           style={{
@@ -459,14 +513,17 @@ export function ReviewStep({ state, dispatch }: Props) {
               color: "var(--gold)",
             }}
           >
-            Action needed
+            {checkingRecovery ? "Checking on-chain status…" : "Action needed"}
           </div>
           <div style={{ fontSize: 12.5, color: "var(--fg-1)", lineHeight: 1.5 }}>
-            Your deposit succeeded but agent registration is pending. We
-            kept your transaction info — retry the registration step or
-            reach out with the details below.
+            {checkingRecovery &&
+              "Reading the vault treasury to figure out where to pick up."}
+            {orphanDeposit &&
+              "Your deposit landed but the agent didn't go live. Retry to flip it to active — no second on-chain transaction needed."}
+            {droppedDeposit &&
+              "Your previous transaction didn't land — your wallet still holds the $50 bUSD. Sign once more to seed the vault."}
           </div>
-          {launch.depositTxSig && (
+          {launch.depositTxSig && orphanDeposit && (
             <a
               href={`https://orbmarkets.io/tx/${launch.depositTxSig}?cluster=devnet`}
               target="_blank"
@@ -478,18 +535,35 @@ export function ReviewStep({ state, dispatch }: Props) {
             </a>
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={finalizeConfirm}
-              disabled={launch.stage === "confirming"}
-              style={launchBtnStyle({
-                disabled: launch.stage === "confirming",
-              })}
-            >
-              {launch.stage === "confirming"
-                ? "Retrying…"
-                : "Retry registration"}
-            </button>
+            {orphanDeposit && (
+              <button
+                type="button"
+                onClick={finalizeConfirm}
+                disabled={launch.stage === "confirming"}
+                style={launchBtnStyle({
+                  disabled: launch.stage === "confirming",
+                })}
+              >
+                {launch.stage === "confirming"
+                  ? "Retrying…"
+                  : "Retry registration"}
+              </button>
+            )}
+            {droppedDeposit && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Clear the dead sig + error so the user starts from a
+                  // clean slate. onLaunch rebuilds with a fresh blockhash.
+                  dispatch({ type: "LAUNCH/RESET" });
+                  void onLaunch();
+                }}
+                disabled={launching}
+                style={launchBtnStyle({ disabled: launching })}
+              >
+                {launching ? "Signing…" : "Retry deposit"}
+              </button>
+            )}
             <a
               href={`mailto:support@bundie.fi?subject=${encodeURIComponent(
                 `Agent registration stuck: ${sns}`,
@@ -510,8 +584,8 @@ export function ReviewStep({ state, dispatch }: Props) {
         </div>
       )}
 
-      {/* Launch button (hidden once we're in orphan-deposit recovery) */}
-      {!orphanDeposit && (
+      {/* Launch button (hidden once any recovery panel is showing) */}
+      {!recoveryNeeded && (
         <button
           type="button"
           onClick={onLaunch}
