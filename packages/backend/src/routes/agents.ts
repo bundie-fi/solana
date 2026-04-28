@@ -34,6 +34,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { resolve as pathResolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import nacl from "tweetnacl";
@@ -505,14 +506,36 @@ agents.post("/api/agents", async (c) => {
   }
 
   // ── Insert into Postgres (vault now exists on-chain) ──────────────────
+  // Also persist the agent's secret-key bytes alongside brain_md /
+  // policies_yaml so the chaos-sim daemon (a separate Railway service
+  // with its own disk) can write the keypair file from the DB on first
+  // sight. Without this, wizard-created agents stall at the daemon's
+  // "missing local keypair" check forever — only hardcoded alice/bob/
+  // charlie tick because their JSON keypairs are committed to git and
+  // ship inside the daemon's Docker image.
+  //
+  // Storing a Solana secret key in Postgres is an additional plaintext
+  // location on top of the OWS vault + the backend disk file. Acceptable
+  // for hackathon / devnet; revisit with Railway shared volumes or
+  // OWS-from-daemon access for production.
+  let agentSecretKeyJson: string | null = null;
+  try {
+    agentSecretKeyJson = readFileSync(mirrorPath, "utf8").trim();
+  } catch (err) {
+    return c.json(
+      { error: `Failed to read mirror keypair: ${(err as Error).message}` },
+      500,
+    );
+  }
   let agentRow: AgentRow;
   try {
     const insertRes = await dbQuery<AgentRow>(
       `INSERT INTO agents (
          sns, display_name, tagline, emoji, owner_wallet, vault_pda,
-         agent_pubkey, brain_md, policies_yaml, preset, status, seed_amount_busd
+         agent_pubkey, brain_md, policies_yaml, preset, status, seed_amount_busd,
+         agent_secret_key
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         body.sns,
@@ -527,6 +550,7 @@ agents.post("/api/agents", async (c) => {
         body.preset,
         "pending_init",
         seedAmountBase,
+        agentSecretKeyJson,
       ],
     );
     if (!insertRes || insertRes.rows.length === 0) {

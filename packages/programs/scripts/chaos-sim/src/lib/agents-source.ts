@@ -13,11 +13,18 @@
  * warning — the daemon is expected to fall back to the legacy hardcoded list
  * in that case (dev/local workflow).
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
 import { dbQuery, getPool } from "./db.js";
+
+// Same CHAOS_DIR layout the daemon uses to look up keypairs:
+// `<chaos-sim-pkg>/keys/<short>-vault.json`. We mirror this here so the
+// supervisor's existsSync(keyPath) check finds the file we just hydrated.
+const __dirname_es = dirname(fileURLToPath(import.meta.url));
+const CHAOS_KEYS_DIR = join(__dirname_es, "..", "..", "keys");
 
 export interface ActiveAgent {
   sns: string;
@@ -41,6 +48,7 @@ interface AgentRow {
   owner_wallet: string;
   brain_md: string | null;
   policies_yaml: string | null;
+  agent_secret_key: string | null;
 }
 
 /**
@@ -57,7 +65,8 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
   let rows: AgentRow[];
   try {
     const r = await dbQuery<AgentRow>(
-      `SELECT sns, agent_pubkey, vault_pda, owner_wallet, brain_md, policies_yaml
+      `SELECT sns, agent_pubkey, vault_pda, owner_wallet, brain_md, policies_yaml,
+              agent_secret_key
          FROM agents
          WHERE status = $1`,
       ["active"],
@@ -86,6 +95,27 @@ export async function loadActiveAgents(): Promise<ActiveAgent[]> {
     const policiesPath = join(dir, "policies.yaml");
     writeFileSync(brainMdPath, r.brain_md);
     writeFileSync(policiesPath, r.policies_yaml);
+
+    // Hydrate the keypair file at the path the daemon's
+    // resolveSupabaseAgent() looks at. Hardcoded alice/bob/charlie
+    // already have these committed; wizard-created agents land their
+    // bytes in agent_secret_key, and we materialize the file here so
+    // the existing existsSync(keyPath) gate passes.
+    if (r.agent_secret_key) {
+      const shortName = r.sns.split(".")[0];
+      const keyPath = join(CHAOS_KEYS_DIR, `${shortName}-vault.json`);
+      if (!existsSync(keyPath)) {
+        try {
+          mkdirSync(CHAOS_KEYS_DIR, { recursive: true });
+          writeFileSync(keyPath, r.agent_secret_key);
+        } catch (err) {
+          console.warn(
+            `[agents-source] failed to hydrate keypair for ${r.sns}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
     return [
       {
         sns: r.sns,
