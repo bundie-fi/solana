@@ -1005,9 +1005,19 @@ async function loadMarginfiSnapshots(
     return { usdSubtotal, breakdown };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn(
-      `[nav-pricing] WARN: marginfi snapshot for ${key} failed: ${msg}`,
-    );
+    // The MarginFi SDK's borsh decoder throws "Cannot read properties of
+    // null (reading 'property')" on surfpool because the cloned account
+    // state diverges from the SDK's expected layout (Union variant
+    // discriminator missing). Until we pin the SDK or pre-clone the
+    // right MarginFi accounts into surfpool startup, treat this as a
+    // signal-free contribution and only log once per agent so the log
+    // doesn't spam every tick.
+    if (!_marginfiWarnedFor.has(key)) {
+      _marginfiWarnedFor.add(key);
+      console.warn(
+        `[nav-pricing] marginfi snapshot for ${key} unavailable on surfpool — NAV will treat as $0 (${msg.slice(0, 120)})`,
+      );
+    }
     const empty: ProtocolSnapshotResult = {
       usdSubtotal: 0,
       breakdown: [],
@@ -1017,6 +1027,11 @@ async function loadMarginfiSnapshots(
     return { usdSubtotal: 0, breakdown: [] };
   }
 }
+
+// Per-process set of agent pubkeys we've already warned about for
+// marginfi. Reset on daemon restart, which is fine — surfpool fork
+// state may have moved by then.
+const _marginfiWarnedFor: Set<string> = new Set();
 
 // ─── Solend deposit valuation ────────────────────────────────────────────
 
@@ -1049,16 +1064,30 @@ interface SolendReserveSnapshot {
 }
 const solendReserveCache: Map<string, SolendReserveSnapshot> = new Map();
 
+// Cache the Solend SDK module (or its load failure) for the lifetime of
+// the daemon process. The SDK's transitive `@metaplex-foundation/mpl-core`
+// dies at module-load with "Cannot read properties of undefined
+// (reading 'prototype')" because of a borsh class-extension mismatch.
+// Until we pin the dep tree, the per-tick warning was firing every 30s
+// for every agent — log once, then stay silent.
+let _solendSdk:
+  | typeof import("@solendprotocol/solend-sdk")
+  | null
+  | undefined = undefined;
 async function loadSolendSdkForRead(): Promise<
   typeof import("@solendprotocol/solend-sdk") | null
 > {
+  if (_solendSdk !== undefined) return _solendSdk;
   try {
-    return await import("@solendprotocol/solend-sdk");
+    _solendSdk = await import("@solendprotocol/solend-sdk");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[nav-pricing] WARN: solend SDK import failed: ${msg}`);
-    return null;
+    console.warn(
+      `[nav-pricing] solend SDK unavailable (NAV will skip Solend positions): ${msg.slice(0, 160)}`,
+    );
+    _solendSdk = null;
   }
+  return _solendSdk;
 }
 
 /**

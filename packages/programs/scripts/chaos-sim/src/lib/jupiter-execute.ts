@@ -23,8 +23,12 @@ import {
   sendAndConfirmRawTransaction,
 } from "@solana/web3.js";
 
-const JUP_QUOTE_URL = "https://quote-api.jup.ag/v6/quote";
-const JUP_SWAP_URL = "https://quote-api.jup.ag/v6/swap";
+// Jupiter migrated off `quote-api.jup.ag/v6/...` (DNS no longer resolves).
+// The free / unauthenticated tier now lives at `lite-api.jup.ag/swap/v1/...`.
+// If we ever need the higher-throughput paid endpoint, swap to
+// `api.jup.ag/swap/v1/...` with an `x-api-key` header.
+const JUP_QUOTE_URL = "https://lite-api.jup.ag/swap/v1/quote";
+const JUP_SWAP_URL = "https://lite-api.jup.ag/swap/v1/swap";
 
 interface JupQuoteResponse {
   inputMint: string;
