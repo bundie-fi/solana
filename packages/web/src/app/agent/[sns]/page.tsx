@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets, fetchBundieVault } from "@/lib/markets";
-import { fetchRegisteredVaultSet } from "@/lib/registry";
+import {
+  fetchRegisteredAgents,
+  fetchRegisteredVaultSet,
+} from "@/lib/registry";
 import { PROGRAM_IDS } from "@/lib/constants";
 import {
   resolveSns,
@@ -40,7 +43,22 @@ export default async function AgentProfilePage({
 }) {
   const decoded = decodeURIComponent(params.sns);
 
-  const vaultFromName = resolveVaultFromSns(decoded);
+  // Vault resolution has three sources, in order:
+  //   (1) hardcoded HERO_AGENTS map (alice/bob/charlie hand-rolled SNS)
+  //   (2) Supabase agent registry by SNS — wizard-created agents land here
+  //   (3) raw decoded — if the URL is already a vault pubkey
+  // The registry round-trip lets newly-launched agents work on first load
+  // without waiting for an SNS-resolver redeploy.
+  let vaultFromName = resolveVaultFromSns(decoded);
+  if (!vaultFromName && decoded.includes(".bundie")) {
+    const registry = await fetchRegisteredAgents({ cache: "no-store" });
+    const match = registry.find(
+      (a) => a.sns === decoded || a.sns === `${decoded}.sol`,
+    );
+    if (match?.vault_pda) {
+      vaultFromName = match.vault_pda;
+    }
+  }
   const vault = vaultFromName ?? decoded;
   const sns = resolveSns(vault);
 
@@ -54,10 +72,6 @@ export default async function AgentProfilePage({
     cache: "no-store",
   });
   if (!allowedCreators.has(vault)) {
-    notFound();
-  }
-
-  if (!sns && !vaultFromName) {
     notFound();
   }
 
