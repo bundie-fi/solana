@@ -288,6 +288,13 @@ function policyBundleFor(action) {
   // Non-swap actions don't carry from/to mints, so asset_whitelist + the
   // NAV-divergence kill-switch don't apply. Use the 3-policy bundle.
   const SWAP_LIKE = new Set(["rebalance"]);
+  // Setup-only actions create PDAs / ATAs and move no value (no notional).
+  // Running spend_limit on these denies them with
+  // `spend_limit_invalid_notional` ("notionalUsd must be a positive
+  // number") — fired in production when the wizard called init_vault
+  // with notionalUsd=0. spend_limit is meaningless for these ops, so
+  // drop it; chain_lock + expiry still apply.
+  const SETUP_LIKE = new Set(["init_vault"]);
   const cfg = DEFAULT_DEVNET_POLICIES;
   if (SWAP_LIKE.has(action)) {
     return [
@@ -296,6 +303,12 @@ function policyBundleFor(action) {
       { id: "asset_whitelist", config: cfg.asset_whitelist },
       { id: "expiry", config: cfg.expiry },
       { id: "nav_divergence", config: cfg.nav_divergence },
+    ];
+  }
+  if (SETUP_LIKE.has(action)) {
+    return [
+      { id: "chain_lock", config: cfg.chain_lock },
+      { id: "expiry", config: cfg.expiry },
     ];
   }
   return [
