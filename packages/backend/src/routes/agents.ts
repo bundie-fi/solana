@@ -51,7 +51,10 @@ const BUSD_DECIMALS_MULT = 1_000_000; // 6 decimals
 const INITIAL_NAV_BASE = BigInt(1_000_000); // $1.00 in 6-dec base units
 const DEVNET_RPC = process.env.DEVNET_RPC ?? "https://api.devnet.solana.com";
 const AGENT_FUND_LAMPORTS = Number(
-  process.env.AGENT_FUND_LAMPORTS ?? 10_000_000, // 0.01 SOL — covers vault + ATA rent comfortably
+  // 0.05 SOL covers init_vault (~0.005), repeated commit_nav fees, and
+  // up to ~8 create_market_v2 calls (each rents 4 PDAs ≈ 0.0053 SOL).
+  // Previous 0.01 SOL ran out after the first market attempt.
+  process.env.AGENT_FUND_LAMPORTS ?? 50_000_000,
 );
 
 // Module-load assert: surface BUSD misconfig to operators immediately, but
