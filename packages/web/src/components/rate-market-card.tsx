@@ -56,7 +56,9 @@ export function RateMarketCard({
   const noPct = 100 - yesPct;
 
   const accent = "var(--gold)";
-  const volumeUsdc = (market.totalVolume / 1e6).toFixed(2);
+  // Markets are bUSD-collateralized (mint 42LaRiwv…). The variable name
+  // is historical — every label rendered to users says bUSD now.
+  const volumeBusd = (market.totalVolume / 1e6).toFixed(2);
 
   // Build a one-line plain-language explainer of what the market is
   // really asking. The on-chain `question` is the brain's free-form
@@ -192,7 +194,7 @@ export function RateMarketCard({
         {/* Footer row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
           <div className="mono-tiny muted">
-            {volumeUsdc} USDC vol
+            {volumeBusd} bUSD vol
           </div>
           {!isResolved && (
             <div style={{ display: "flex", gap: 6 }}>

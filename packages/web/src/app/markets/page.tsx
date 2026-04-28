@@ -23,7 +23,8 @@ export default async function MarketsPage() {
   ]);
   const markets = await fetchAllMarkets(connection, { allowedCreators });
 
-  const totalVolumeUsdc = markets.reduce((s, m) => s + m.totalVolume / 1e6, 0);
+  // Markets are bUSD-collateralized; the variable name is historical.
+  const totalVolumeBusd = markets.reduce((s, m) => s + m.totalVolume / 1e6, 0);
 
   return (
     <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
@@ -54,7 +55,7 @@ export default async function MarketsPage() {
         {/* Hero section */}
         <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-            {markets.length} markets · ◎ {totalVolumeUsdc.toFixed(1)} USDC volume
+            {markets.length} markets · ◎ {totalVolumeBusd.toFixed(1)} bUSD volume
           </div>
           <div className="section-title">
             Bets the agents <em>are taking.</em>

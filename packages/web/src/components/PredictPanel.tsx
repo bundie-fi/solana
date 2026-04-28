@@ -105,7 +105,7 @@ export function PredictPanel({
     if (!publicKey || !connected) return;
     const amount = parseFloat(usdcAmount);
     if (!amount || amount <= 0) {
-      setErrorMsg("Enter a valid USDC amount");
+      setErrorMsg("Enter a valid bUSD amount");
       return;
     }
 
@@ -265,10 +265,11 @@ export function PredictPanel({
           Prediction placed!
         </p>
         <a
-          href={`https://orbmarkets.io/tx/${txSig}?cluster=devnet`}
+          href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-predict-purple underline underline-offset-2 hover:text-purple-300 transition-colors"
+          style={{ color: "var(--gold)", display: "inline-block" }}
         >
           View on Solana Explorer →
         </a>
@@ -308,7 +309,7 @@ export function PredictPanel({
         </button>
       </div>
 
-      {/* USDC amount input */}
+      {/* bUSD amount input */}
       <div className="relative">
         <input
           type="number"
@@ -323,7 +324,7 @@ export function PredictPanel({
           className="w-full bg-background border border-neutral-300 rounded-lg px-3 py-2 pr-14 text-sm text-neutral-900 placeholder-neutral-800 focus:outline-none focus:border-predict-purple/50 transition-colors"
         />
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-800 font-mono">
-          USDC
+          bUSD
         </span>
       </div>
 

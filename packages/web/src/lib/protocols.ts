@@ -31,7 +31,7 @@ export const PROTOCOLS: Protocol[] = [
     name: "Kamino",
     category: "deposit",
     programId: "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
-    description: "Lending market , supply assets to earn variable yield.",
+    description: "Lending market: supply assets to earn variable yield.",
   },
   {
     id: "jupiter",
@@ -52,7 +52,7 @@ export const PROTOCOLS: Protocol[] = [
     name: "SPL Stake Pool",
     category: "deposit",
     programId: "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
-    description: "Native stake-pool program , Jito, BlazeStake, custom LSTs.",
+    description: "Native stake-pool program: Jito, BlazeStake, custom LSTs.",
   },
   {
     id: "meteora-vaults",
@@ -238,7 +238,7 @@ export const PROTOCOLS: Protocol[] = [
     name: "Jupiter Perps",
     category: "perps",
     programId: "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
-    description: "Jupiter Perpetuals , long/short SOL/ETH/BTC with up to 100x leverage.",
+    description: "Jupiter Perpetuals: long/short SOL/ETH/BTC with up to 100x leverage.",
   },
 ];
 
