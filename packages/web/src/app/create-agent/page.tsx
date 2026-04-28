@@ -247,7 +247,7 @@ function parseAllowedProtocolsFromYaml(yaml: string): Protocol[] {
   if (!yaml) return [];
   const known: Record<string, Protocol> = {
     KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD: "kamino",
-    MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE: "marginfi",
+    MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA: "marginfi",
     So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo: "solend",
     MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD: "marinade",
     SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy: "jito",

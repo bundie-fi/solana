@@ -68,7 +68,7 @@ export const KLEND_MAINNET_PROGRAM_ID =
   "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
 
 /** Kamino "Main Market" on mainnet (the deepest USDC reserve sits here). */
-export const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs9JGqRzvShV4P";
+export const KAMINO_MAIN_MARKET = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
 
 /** Avg mainnet slot duration (used by klend for staleness math). */
 const MAINNET_SLOT_DURATION_MS = 450;

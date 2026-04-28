@@ -436,7 +436,7 @@ const KLEND_MAINNET_PROGRAM_ID_STR =
 
 /** Kamino "Main Market" PDA — same constant as `kamino-execute.ts`. */
 const KAMINO_MAIN_MARKET_PDA_STR =
-  "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs9JGqRzvShV4P";
+  "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
 
 /**
  * Reserves we know how to value. Each entry is the on-chain reserve PDA

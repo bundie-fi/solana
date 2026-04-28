@@ -280,7 +280,7 @@ const PROTOCOL_PROGRAMS: Record<
     ],
   },
   marginfi: {
-    programId: "MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE",
+    programId: "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
     instructions: ["lending_account_deposit", "lending_account_withdraw"],
   },
   solend: {

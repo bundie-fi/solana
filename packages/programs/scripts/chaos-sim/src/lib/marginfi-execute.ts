@@ -30,7 +30,7 @@
  * not a recoverable condition.
  *
  * NAMED PUBKEYS (mainnet, inherited by the fork):
- *   - Program  MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE
+ *   - Program  MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA
  *   - Group    4qp6Fx6tnZkY5Wropq9wUYgtFxXKwE6viZxFHg3rdAG8
  *   - USDC bank 2s37akK2eyBbp8DZgCm7RtsaEz8eJP3Nxd4urLHQv7yB
  *
@@ -50,7 +50,7 @@ export { MAINNET_USDC_MINT };
 
 /** MarginFi v2 program (mainnet — same id on the surfpool fork). */
 export const MARGINFI_PROGRAM_ID =
-  "MFv2hWf31Z9kbCa1snEPdcgp7X3wCuuRcuDNmq1H5NE";
+  "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA";
 
 /**
  * MarginFi's global Group account on mainnet. There is no "main pool"
