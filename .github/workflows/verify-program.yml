@@ -59,7 +59,11 @@ jobs:
 
       - name: Build + verify reproducibly + write on-chain PDA
         run: |
+          # --current-dir uses the actions/checkout copy already on disk —
+          # avoids git-cloning the private repo unauthenticated, which is
+          # what fails when the workflow runs without a PAT.
           solana-verify verify-from-repo \
+            --current-dir \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
             --commit-hash ${{ steps.sha.outputs.value }} \
             --library-name prediction_market \
