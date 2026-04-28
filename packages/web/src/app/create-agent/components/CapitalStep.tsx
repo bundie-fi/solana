@@ -50,20 +50,45 @@ export function CapitalStep({ state, dispatch }: Props) {
     dispatch({ type: "CAPITAL/FAUCET_START" });
     try {
       const res = await claimFaucet(publicKey.toBase58());
+      // Wait for the mint tx to actually confirm before reading balance.
+      // Without this, a single setTimeout(refreshBalance) almost always
+      // missed the update on devnet — the user saw $0 indefinitely and
+      // the Next button stayed greyed out.
+      try {
+        await connection.confirmTransaction(res.txSig, "confirmed");
+      } catch {
+        // confirmTransaction can throw on RPC blip — fall through to the
+        // retry-poll which will pick up the balance once it lands.
+      }
+      // Belt-and-braces: the ATA balance read can lag confirmation by a
+      // slot or two. Retry up to 5 times (~10s) and stop as soon as the
+      // ≥$50 threshold is met.
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await refreshBalance();
+        // refreshBalance dispatches; pull the latest from the closure via
+        // direct ATA read instead of stale state. We re-derive the threshold
+        // by reading the same ATA the wizard does.
+        try {
+          const ata = getAssociatedTokenAddressSync(
+            new PublicKey(BUSD_MINT),
+            publicKey,
+            false,
+          );
+          const info = await connection.getTokenAccountBalance(
+            ata,
+            "confirmed",
+          );
+          if ((info.value.uiAmount ?? 0) >= FAUCET_AMOUNT) break;
+        } catch {
+          /* retry */
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
       dispatch({
         type: "CAPITAL/FAUCET_DONE",
         txSig: res.txSig,
         error: null,
       });
-      // Poll the balance until the mint lands. Devnet RPC propagation is
-      // not deterministic — a single setTimeout often misses the update,
-      // leaving the UI showing $0 even though the tx confirmed. Try up to
-      // 6 times over ~12s, stopping early as soon as the balance turns
-      // non-zero.
-      for (let attempt = 0; attempt < 6; attempt++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        await refreshBalance();
-      }
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e);
       let friendly: string;
@@ -180,12 +205,30 @@ export function CapitalStep({ state, dispatch }: Props) {
                 })}
               >
                 {capital.faucetClaiming
-                  ? "Claiming…"
+                  ? "Claiming + confirming…"
                   : fundsOk
                     ? "Already funded"
                     : "Claim faucet"}
               </button>
             </div>
+            {capital.faucetClaiming && (
+              <div
+                className="mono-tiny"
+                style={{ fontSize: 10.5, color: "var(--fg-3)" }}
+              >
+                Waiting for the mint tx to confirm on devnet (~5-15s). Don't
+                close this tab.
+              </div>
+            )}
+            {fundsOk && (
+              <div
+                className="mono-tiny"
+                style={{ fontSize: 10.5, color: "var(--green-2)" }}
+              >
+                ✓ Funded. Hit Next — Step 5 has you sign the transfer that
+                forwards this $50 into the agent vault.
+              </div>
+            )}
             {capital.faucetTxSig && (
               <a
                 href={`https://orbmarkets.io/tx/${capital.faucetTxSig}?cluster=devnet`}
