@@ -39,6 +39,10 @@ import {
 import { isSurfpoolReachable } from "./lib/action-executor.js";
 import { ensureSurfpoolUsdc } from "./lib/surfpool-seed.js";
 import { warmupLoop } from "./lib/warmup.js";
+import {
+  fetchResolvableCandidates,
+  runResolverPass,
+} from "./lib/auto-resolver.js";
 import { prewarmZetaExchange } from "./lib/zeta-execute.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -448,6 +452,33 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
           }),
       ),
     );
+
+    // Auto-resolver keeper: once per cycle, resolve any v2 markets whose
+    // resolution_slot has been reached. Cheap when there's nothing to
+    // resolve (single getProgramAccounts read + filter). Uses the BUSD
+    // mint authority as the resolver because it's already loaded and has
+    // SOL on devnet — operator can override with RESOLVER_FUNDING_SECRET.
+    if (ctx.busdMintAuthority) {
+      try {
+        const candidates = await fetchResolvableCandidates(ctx.devnet);
+        const slot = await ctx.devnet.getSlot("confirmed");
+        const due = candidates.filter((c) => slot >= c.resolutionSlot);
+        if (due.length > 0) {
+          console.log(
+            `[auto-resolver] ${due.length} market(s) past resolution slot — resolving`,
+          );
+          await runResolverPass(
+            { devnet: ctx.devnet, resolverKp: ctx.busdMintAuthority },
+            due,
+            slot,
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `[auto-resolver] pass failed: ${(err as Error).message}`,
+        );
+      }
+    }
 
     if (stop) break;
     await sleep(intervalMs);

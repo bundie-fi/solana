@@ -164,6 +164,9 @@ importers:
       '@bonfida/spl-name-service':
         specifier: ^3.0.21
         version: 3.0.21(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.4)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.4)(utf-8-validate@5.0.10)
+      '@bundie/common':
+        specifier: workspace:*
+        version: link:../common
       buffer-layout:
         specifier: ^1.2.2
         version: 1.2.2

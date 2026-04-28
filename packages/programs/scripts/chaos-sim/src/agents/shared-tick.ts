@@ -7,6 +7,7 @@
  */
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 import { logActivity, tailActivity } from "../lib/activity-log.js";
 import { reason, type BrainDecision } from "../lib/redpill-brain.js";
@@ -50,6 +51,65 @@ export interface TickArgs {
   busdMintPubkey?: PublicKey;
   vaultPda?: PublicKey;
   seedBaseUnits?: bigint;
+}
+
+/**
+ * Per-agent state used to throttle expensive LLM calls without skipping
+ * cheap on-chain side-effects (commit_nav, treasury-sync).
+ *
+ *   tickCount       — monotonic per-process counter; brain runs every Nth tick
+ *   lastInputHash   — hash of the brain's input (rates + self + peer NAVs);
+ *                     when the next tick's hash matches we skip the LLM call
+ *                     because there's nothing new to reason about
+ */
+interface PerAgentState {
+  tickCount: number;
+  lastInputHash: string;
+}
+const agentState = new Map<string, PerAgentState>();
+
+/** Force the brain to run every Nth supervisor cycle even when the input
+ *  hash hasn't changed. Lower bound on staleness — without this, a totally
+ *  flat market would mean the brain literally never re-runs. */
+const BRAIN_FORCE_EVERY = Number(
+  process.env.CHAOS_SIM_BRAIN_FORCE_EVERY ?? 3,
+);
+
+/** Build a stable hash of the brain's decision-relevant inputs. Two ticks
+ *  with the same hash should produce the same decision, so we can skip the
+ *  LLM call on the second one. We deliberately exclude `slot` (changes
+ *  every tick by definition) and round NAV/USDC down to 2-decimal bUSD so
+ *  sub-cent jitter doesn't trigger a re-think. */
+function hashBrainInput(state: {
+  rates: Record<string, number | string>;
+  self: { sol?: number; usdc?: number; msol?: number };
+  peers: Array<{ pubkey: string; navLamports?: bigint | number | string }>;
+}): string {
+  const round2 = (n: number | undefined) =>
+    typeof n === "number" ? Math.round(n * 100) / 100 : 0;
+  const ratesNorm = Object.fromEntries(
+    Object.entries(state.rates ?? {})
+      .filter(([k]) => k !== "chain" && k !== "kaminoReserve")
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+  const peersNorm = (state.peers ?? [])
+    .map((p) => ({
+      pk: p.pubkey,
+      nav: typeof p.navLamports === "bigint"
+        ? Number(p.navLamports / 1_000_000n)
+        : Number(p.navLamports ?? 0),
+    }))
+    .sort((a, b) => a.pk.localeCompare(b.pk));
+  const payload = JSON.stringify({
+    rates: ratesNorm,
+    self: {
+      sol: round2(state.self.sol),
+      usdc: round2(state.self.usdc),
+      msol: round2(state.self.msol),
+    },
+    peers: peersNorm,
+  });
+  return createHash("sha256").update(payload).digest("hex").slice(0, 16);
 }
 
 export async function runTick(args: TickArgs): Promise<void> {
@@ -126,31 +186,78 @@ export async function runTick(args: TickArgs): Promise<void> {
   );
 
   // ─── 2. Reason (Redpill) ───────────────────────────────────────────────
+  // Two-layer LLM-cost throttle:
+  //   (a) Force-cadence: only run the brain every Nth supervisor tick.
+  //       commit_nav still fires on the off-ticks so the on-chain NAV
+  //       pulse is unchanged from a viewer's perspective.
+  //   (b) Input-hash skip: if the brain's input is bit-for-bit identical
+  //       to last successful tick (rates, self balances, peer NAVs all
+  //       unchanged at 2-decimal precision), skip the LLM call — the
+  //       decision wouldn't change.
+  // Both skips fall through to a synthetic noop decision; commit_nav
+  // continues unconditionally below.
+  const inputHash = hashBrainInput({
+    rates: rates as unknown as Record<string, number | string>,
+    self: selfNav,
+    peers: peerNavs as unknown as Array<{
+      pubkey: string;
+      navLamports?: bigint | number | string;
+    }>,
+  });
+  const prev = agentState.get(args.agentName) ?? {
+    tickCount: 0,
+    lastInputHash: "",
+  };
+  const tickIdx = prev.tickCount;
+  agentState.set(args.agentName, {
+    tickCount: prev.tickCount + 1,
+    lastInputHash: inputHash,
+  });
+  const cadenceForced = tickIdx % BRAIN_FORCE_EVERY === 0;
+  const inputUnchanged = prev.lastInputHash === inputHash;
+  const skipBrain = !cadenceForced && inputUnchanged;
+
   const brainPrompt = readFileSync(args.brainPromptPath, "utf8");
   const allowlist = extractAllowlist(args.policyPath);
   const history = tailActivity(args.agentName, 20);
 
   let decision: BrainDecision;
-  try {
-    decision = await reason({
-      brainPrompt,
-      state,
-      history,
-      allowlist,
-    });
-  } catch (err) {
-    const msg = (err as Error).message;
+  if (skipBrain) {
+    console.log(
+      `[tick ${args.agentName}] brain skipped (input unchanged, tick ${tickIdx})`,
+    );
     logActivity({
       agent: args.agentName,
-      phase: "execute_error",
-      stage: "reason",
-      error: msg.slice(0, 500),
+      phase: "reason",
+      reasoning: "skipped: inputs unchanged",
+      skipped: true,
     });
-    // Defensive: treat a brain failure as a noop tick — don't crash the daemon.
     decision = {
-      reasoning: `brain unavailable: ${msg.slice(0, 200)}`,
+      reasoning: "Inputs unchanged since last tick — holding current allocation.",
       actions: [{ type: "noop" }],
     };
+  } else {
+    try {
+      decision = await reason({
+        brainPrompt,
+        state,
+        history,
+        allowlist,
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      logActivity({
+        agent: args.agentName,
+        phase: "execute_error",
+        stage: "reason",
+        error: msg.slice(0, 500),
+      });
+      // Defensive: treat a brain failure as a noop tick — don't crash the daemon.
+      decision = {
+        reasoning: `brain unavailable: ${msg.slice(0, 200)}`,
+        actions: [{ type: "noop" }],
+      };
+    }
   }
 
   logActivity({
