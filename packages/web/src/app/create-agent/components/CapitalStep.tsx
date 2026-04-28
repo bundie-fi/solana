@@ -200,7 +200,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                     color: "var(--fg-0)",
                   }}
                 >
-                  Get $50 bUSD (devnet)
+                  Get $50 bUSD
                 </div>
                 <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
                   One-shot faucet drip — 24h cooldown.
@@ -330,7 +330,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             </div>
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {fundsOk
-                ? "Funds detected — review the agent on the next step then sign the on-chain init + deposit."
+                ? "Funds detected — review your agent on the next step, then sign one transfer to seed it."
                 : "Get to $50 bUSD first — the seed transfer happens on the Review step."}
             </div>
           </div>

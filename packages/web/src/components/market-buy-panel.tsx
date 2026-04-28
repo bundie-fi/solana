@@ -5,7 +5,6 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
 import { buildBuySharesTx, buildRedeemTx } from "@/lib/tx-builders";
 import type { MarketView } from "@/lib/markets";
-import { ZerionBadge } from "@/components/zerion-badge";
 import { ChainBadge } from "@/components/chain-badge";
 
 const WalletButton = dynamic(
@@ -206,9 +205,9 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
           }}
         />
         <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Submitting</div>
-        <div style={{ fontSize: 14, color: "var(--fg-1)" }}>Routing through Zerion…</div>
+        <div style={{ fontSize: 14, color: "var(--fg-1)" }}>Placing your bet…</div>
         <div className="dim mono-tiny" style={{ marginTop: 6, fontSize: 10 }}>
-          waiting for devnet confirmation
+          waiting for confirmation
         </div>
       </div>
     );
@@ -261,7 +260,6 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
 
         <div className="card inset" style={{ padding: 14, marginBottom: 16 }}>
           <BetRow label="Tx" value={<span className="mono dim" style={{ fontSize: 10 }}>{txSig.slice(0, 8)}…{txSig.slice(-6)}</span>} />
-          <BetRow label="Routed by" value={<ZerionBadge />} />
           <BetRow label="Chain" value={<ChainBadge chain="devnet" />} last />
         </div>
 
