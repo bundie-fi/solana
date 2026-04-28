@@ -402,12 +402,14 @@ function fmtUsd(n: number): string {
 
 /**
  * Emit the one-shot `[nav-pricing] …` banner showing every input that
- * went into NAV: Pyth-priced symbols + Kamino kToken USD subtotal + Zeta
- * cross-margin USD subtotal. Idempotent — only fires once per process.
+ * went into NAV: Pyth-priced symbols + Kamino + MarginFi + Solend +
+ * Zeta USD subtotals. Idempotent — only fires once per process.
  */
 function emitNavPricingBanner(
   prices: Record<string, number>,
   kaminoUsd: number,
+  marginfiUsd: number,
+  solendUsd: number,
   zetaUsd: number,
 ): void {
   if (priceLogEmitted) return;
@@ -417,7 +419,7 @@ function emitNavPricingBanner(
     .map((s) => `${s}=${fmtUsd(prices[s] ?? 0)}(${priceCache.get(s)?.source ?? "?"})`)
     .join(" ");
   console.log(
-    `[nav-pricing] ${sources} kamino=${fmtUsd(kaminoUsd)} zeta=${fmtUsd(zetaUsd)}`,
+    `[nav-pricing] ${sources} kamino=${fmtUsd(kaminoUsd)} marginfi=${fmtUsd(marginfiUsd)} solend=${fmtUsd(solendUsd)} zeta=${fmtUsd(zetaUsd)}`,
   );
 }
 
@@ -621,10 +623,9 @@ async function readKaminoReserveSnapshot(
  * TTL-cached so subsequent calls within `PROTOCOL_POSITION_TTL_MS`
  * resolve without an RPC round trip.
  *
- * TODO(phaseQ-followup): MarginFi + Solend deposit valuation. Both share
- * the same accounting pattern (Bank/Reserve + per-user position record)
- * but with their own layouts; mirror the offset constants from the
- * respective probe scripts when those positions need NAV pricing.
+ * MarginFi + Solend deposit pricing live in `loadMarginfiSnapshots` and
+ * `loadSolendSnapshots` below — same shape (per-agent USD subtotal +
+ * breakdown), same TTL cache pattern.
  */
 async function loadKaminoSnapshots(
   surfpool: Connection,
@@ -825,6 +826,418 @@ async function computeKaminoObligationUsd(
       `[nav-pricing] WARN: kamino obligation read for ${authority.toBase58()} failed: ${msg}`,
     );
     return 0;
+  }
+}
+
+// ─── MarginFi deposit valuation ──────────────────────────────────────────
+
+/**
+ * Per-agent USD breakdown entry returned by the protocol pricers. The
+ * shape is intentionally identical across MarginFi / Solend so the
+ * diagnostic banner can iterate them uniformly.
+ */
+interface ProtocolPositionEntry {
+  /** Human-readable label for the [nav-pricing] banner / STATE_JSON. */
+  label: string;
+  /** USD value of this single position. */
+  usd: number;
+}
+
+interface ProtocolSnapshotResult {
+  usdSubtotal: number;
+  breakdown: ProtocolPositionEntry[];
+  fetchedAt: number;
+}
+
+/**
+ * Map a SPL mint pubkey (base58) to the symbol our Pyth helper recognises.
+ * Same set of mints the Pyth-priced spot path covers — anything else
+ * contributes 0 (logged once per unknown mint).
+ */
+const MINT_TO_SYMBOL: Record<string, string> = {
+  // USDC mainnet (inherited by surfpool fork).
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
+  // SOL — represented by the wrapped-SOL mint when held inside a token account.
+  So11111111111111111111111111111111111111112: "SOL",
+  // mSOL.
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: "mSOL",
+};
+
+/**
+ * Per-agent cache of MarginFi USD subtotals. Same TTL semantics as the
+ * Kamino reserve cache — interest accrual within 60s rounds to noise.
+ */
+const marginfiCache: Map<string, ProtocolSnapshotResult> = new Map();
+
+/**
+ * Lazy-load the MarginFi v2 SDK. Mirrors `marginfi-execute.ts` — keep the
+ * import behind a dynamic boundary so eagerly importing this file does not
+ * drag the SDK's transitive web3.js@1.92 / rpc-websockets pin into the
+ * static graph (the same crash that already cost a session, see
+ * marginfi-execute.ts header).
+ */
+async function loadMarginfiSdkForRead(): Promise<
+  typeof import("@mrgnlabs/marginfi-client-v2") | null
+> {
+  try {
+    return await import("@mrgnlabs/marginfi-client-v2");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: marginfi SDK import failed: ${msg}`);
+    return null;
+  }
+}
+
+async function loadMrgnCommonForRead(): Promise<
+  typeof import("@mrgnlabs/mrgn-common") | null
+> {
+  try {
+    return await import("@mrgnlabs/mrgn-common");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: mrgn-common import failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
+ * Read the agent's MarginFi deposits and return a USD subtotal plus a
+ * per-bank breakdown. Returns `{ usdSubtotal: 0, breakdown: [] }` when
+ * the agent has no MarginfiAccount (i.e. has never deposited).
+ *
+ * We use the SDK rather than hand-rolling the LendingAccount layout: the
+ * MarginfiAccountWrapper exposes `activeBalances` and per-Balance
+ * `computeQuantityUi(bank)` which returns the asset/liability quantities
+ * already converted from `assetShares × assetShareValue` to UI base
+ * units. Hand-rolling would require parsing the I80F48 share-value drift
+ * the probe script already calls out as fragile.
+ *
+ * Per-agent fail-soft: any error logs and contributes 0.
+ */
+async function loadMarginfiSnapshots(
+  surfpool: Connection,
+  agentPubkey: PublicKey,
+): Promise<{ usdSubtotal: number; breakdown: ProtocolPositionEntry[] }> {
+  const key = agentPubkey.toBase58();
+  const cached = marginfiCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PROTOCOL_POSITION_TTL_MS) {
+    return { usdSubtotal: cached.usdSubtotal, breakdown: cached.breakdown };
+  }
+
+  try {
+    const sdk = await loadMarginfiSdkForRead();
+    const common = await loadMrgnCommonForRead();
+    if (!sdk || !common) {
+      const empty: ProtocolSnapshotResult = {
+        usdSubtotal: 0,
+        breakdown: [],
+        fetchedAt: now,
+      };
+      marginfiCache.set(key, empty);
+      return { usdSubtotal: 0, breakdown: [] };
+    }
+
+    // Build a read-only client. The wallet identity is irrelevant for
+    // `getMarginfiAccountsForAuthority` — same trick as marginfi-execute.ts
+    // uses for prewarm. We materialise an ephemeral keypair NodeWallet.
+    const config = sdk.getConfig("production");
+    const ephemeralKp = Keypair.generate();
+    const wallet = new common.NodeWallet(ephemeralKp);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client: any = await sdk.MarginfiClient.fetch(config, wallet, surfpool);
+
+    const accounts = await client.getMarginfiAccountsForAuthority(agentPubkey);
+    if (!accounts || accounts.length === 0) {
+      const empty: ProtocolSnapshotResult = {
+        usdSubtotal: 0,
+        breakdown: [],
+        fetchedAt: now,
+      };
+      marginfiCache.set(key, empty);
+      return { usdSubtotal: 0, breakdown: [] };
+    }
+
+    let usdSubtotal = 0;
+    const breakdown: ProtocolPositionEntry[] = [];
+    // An agent could in theory have multiple MarginfiAccounts under the
+    // same authority. Sum every active deposit balance across them.
+    for (const acct of accounts) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const balances = (acct as any).activeBalances ?? [];
+      for (const bal of balances) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bank = client.getBankByPk((bal as any).bankPk);
+        if (!bank) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const quantities = (bal as any).computeQuantityUi(bank);
+        const assetUi = Number(quantities.assets?.toString?.() ?? 0);
+        if (!Number.isFinite(assetUi) || assetUi <= 0) continue;
+
+        const mintStr = bank.mint.toBase58();
+        const symbol =
+          bank.tokenSymbol && MINT_TO_SYMBOL[mintStr]
+            ? MINT_TO_SYMBOL[mintStr]
+            : (MINT_TO_SYMBOL[mintStr] ?? bank.tokenSymbol);
+        if (!symbol) {
+          console.warn(
+            `[nav-pricing] WARN: marginfi bank ${bank.address.toBase58()} mint ${mintStr} has no known symbol — contributing 0`,
+          );
+          continue;
+        }
+        const px = await readPythPriceUsd(surfpool, symbol);
+        if (!Number.isFinite(px) || px <= 0) continue;
+        const usd = assetUi * px;
+        usdSubtotal += usd;
+        breakdown.push({
+          label: `MarginFi ${symbol} bank`,
+          usd,
+        });
+      }
+    }
+
+    const snap: ProtocolSnapshotResult = {
+      usdSubtotal,
+      breakdown,
+      fetchedAt: now,
+    };
+    marginfiCache.set(key, snap);
+    return { usdSubtotal, breakdown };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: marginfi snapshot for ${key} failed: ${msg}`,
+    );
+    const empty: ProtocolSnapshotResult = {
+      usdSubtotal: 0,
+      breakdown: [],
+      fetchedAt: now,
+    };
+    marginfiCache.set(key, empty);
+    return { usdSubtotal: 0, breakdown: [] };
+  }
+}
+
+// ─── Solend deposit valuation ────────────────────────────────────────────
+
+/** Solend mainnet program (same id on the surfpool fork). */
+const SOLEND_PROGRAM_ID_STR = "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo";
+
+/** Solend "Main Pool" lending market. Mirrors `solend-execute.ts`. */
+const SOLEND_MAIN_POOL_STR = "4UpD2fh7xH3VP9QQaXtsS1YY3bxzWhtfpks7FatyKvdY";
+
+/**
+ * Per-agent cache of Solend USD subtotals. Same TTL pattern as MarginFi.
+ */
+const solendCache: Map<string, ProtocolSnapshotResult> = new Map();
+
+/**
+ * Per-reserve cache of decoded Solend Reserve state. Independent of the
+ * agent — every agent's deposits in the same reserve share this.
+ */
+interface SolendReserveSnapshot {
+  reserve: string;
+  liquidityMint: string;
+  liquidityDecimals: number;
+  /** Underlying base units (available + borrowed) in the reserve. */
+  totalLiquidity: bigint;
+  /** Outstanding cToken supply, base units. */
+  cTokenSupply: bigint;
+  /** UI symbol resolvable by `readPythPriceUsd` (e.g. "USDC"). */
+  symbol: string;
+  fetchedAt: number;
+}
+const solendReserveCache: Map<string, SolendReserveSnapshot> = new Map();
+
+async function loadSolendSdkForRead(): Promise<
+  typeof import("@solendprotocol/solend-sdk") | null
+> {
+  try {
+    return await import("@solendprotocol/solend-sdk");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: solend SDK import failed: ${msg}`);
+    return null;
+  }
+}
+
+/**
+ * Decode a Solend reserve via the SDK and cache the underlying liquidity
+ * + cToken supply needed for collateral exchange-rate math.
+ */
+async function readSolendReserveSnapshot(
+  surfpool: Connection,
+  reserveStr: string,
+): Promise<SolendReserveSnapshot | null> {
+  const cached = solendReserveCache.get(reserveStr);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PROTOCOL_POSITION_TTL_MS) {
+    return cached;
+  }
+  try {
+    const sdk = await loadSolendSdkForRead();
+    if (!sdk) return null;
+    const reservePk = new PublicKey(reserveStr);
+    const info = await surfpool.getAccountInfo(reservePk, "confirmed");
+    if (!info) {
+      throw new Error(`reserve ${reserveStr} missing on surfpool`);
+    }
+    const parsed = sdk.parseReserve(reservePk, info);
+    const liq = parsed.info.liquidity;
+    const liquidityMint = liq.mintPubkey.toBase58();
+    const symbol = MINT_TO_SYMBOL[liquidityMint];
+    if (!symbol) {
+      throw new Error(
+        `solend reserve ${reserveStr} has unknown liquidity mint ${liquidityMint}`,
+      );
+    }
+    const available = BigInt(liq.availableAmount.toString());
+    // borrowedAmountWads is in WAD (1e18) fractional units — collapse to
+    // base units to add to availableAmount.
+    const WAD = 1_000_000_000_000_000_000n;
+    const borrowedWads = BigInt(liq.borrowedAmountWads.toString());
+    const borrowed = borrowedWads / WAD;
+    const totalLiquidity = available + borrowed;
+    const cTokenSupply = BigInt(parsed.info.collateral.mintTotalSupply.toString());
+
+    const snap: SolendReserveSnapshot = {
+      reserve: reserveStr,
+      liquidityMint,
+      liquidityDecimals: liq.mintDecimals,
+      totalLiquidity,
+      cTokenSupply,
+      symbol,
+      fetchedAt: now,
+    };
+    solendReserveCache.set(reserveStr, snap);
+    return snap;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: solend reserve ${reserveStr} read failed: ${msg}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Read the agent's Solend obligation, sum every deposit (cToken amount ×
+ * collateral exchange rate × Pyth price), and return a USD subtotal.
+ *
+ * Solend's obligation account is derived deterministically via
+ * `createWithSeed(owner, lendingMarket.slice(0,32), programId)` — the
+ * same derivation `solend-execute.ts` uses. No PDA seeds.
+ *
+ * SDK over hand-rolled layout: `parseObligation` and `parseReserve` are
+ * stable Solend SDK exports. Hand-rolling would require tracking
+ * Solend's `Obligation.dataFlat` variable-length deposits/borrows
+ * encoding, which is more error-prone than a bulk SDK decode.
+ */
+async function loadSolendSnapshots(
+  surfpool: Connection,
+  agentPubkey: PublicKey,
+): Promise<{ usdSubtotal: number; breakdown: ProtocolPositionEntry[] }> {
+  const key = agentPubkey.toBase58();
+  const cached = solendCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.fetchedAt < PROTOCOL_POSITION_TTL_MS) {
+    return { usdSubtotal: cached.usdSubtotal, breakdown: cached.breakdown };
+  }
+
+  try {
+    const sdk = await loadSolendSdkForRead();
+    if (!sdk) {
+      const empty: ProtocolSnapshotResult = {
+        usdSubtotal: 0,
+        breakdown: [],
+        fetchedAt: now,
+      };
+      solendCache.set(key, empty);
+      return { usdSubtotal: 0, breakdown: [] };
+    }
+
+    const programId = new PublicKey(SOLEND_PROGRAM_ID_STR);
+    const lendingMarket = SOLEND_MAIN_POOL_STR;
+    const obligationPk = await PublicKey.createWithSeed(
+      agentPubkey,
+      lendingMarket.slice(0, 32),
+      programId,
+    );
+    const info = await surfpool.getAccountInfo(obligationPk, "confirmed");
+    if (!info) {
+      const empty: ProtocolSnapshotResult = {
+        usdSubtotal: 0,
+        breakdown: [],
+        fetchedAt: now,
+      };
+      solendCache.set(key, empty);
+      return { usdSubtotal: 0, breakdown: [] };
+    }
+    if (info.owner.toBase58() !== SOLEND_PROGRAM_ID_STR) {
+      throw new Error(
+        `obligation owner ${info.owner.toBase58()} != solend program`,
+      );
+    }
+    const parsed = sdk.parseObligation(obligationPk, info);
+    const deposits = parsed.info.deposits ?? [];
+
+    let usdSubtotal = 0;
+    const breakdown: ProtocolPositionEntry[] = [];
+    for (const d of deposits) {
+      const amount = BigInt(d.depositedAmount.toString());
+      if (amount === 0n) continue;
+      const reserveStr = d.depositReserve.toBase58();
+      const snap = await readSolendReserveSnapshot(surfpool, reserveStr);
+      if (!snap) {
+        console.warn(
+          `[nav-pricing] WARN: solend obligation has deposit in unreadable reserve ${reserveStr} — contributing 0`,
+        );
+        continue;
+      }
+      // collateral_exchange_rate = totalLiquidity / cTokenSupply.
+      // Solend's convention is 1:1 when the reserve has never minted
+      // cTokens (initial state) — same fallback as klend.
+      let exchangeRate = 1;
+      if (snap.cTokenSupply > 0n) {
+        exchangeRate = Number(snap.totalLiquidity) / Number(snap.cTokenSupply);
+        if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+          console.warn(
+            `[nav-pricing] WARN: solend reserve ${reserveStr} non-positive exchange rate ${exchangeRate}`,
+          );
+          continue;
+        }
+      }
+      const px = await readPythPriceUsd(surfpool, snap.symbol);
+      if (!Number.isFinite(px) || px <= 0) continue;
+      const underlyingBaseUnits = Number(amount) * exchangeRate;
+      const ui = underlyingBaseUnits / Math.pow(10, snap.liquidityDecimals);
+      const usd = ui * px;
+      usdSubtotal += usd;
+      breakdown.push({
+        label: `Solend ${snap.symbol} reserve`,
+        usd,
+      });
+    }
+
+    const out: ProtocolSnapshotResult = {
+      usdSubtotal,
+      breakdown,
+      fetchedAt: now,
+    };
+    solendCache.set(key, out);
+    return { usdSubtotal, breakdown };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[nav-pricing] WARN: solend snapshot for ${key} failed: ${msg}`,
+    );
+    const empty: ProtocolSnapshotResult = {
+      usdSubtotal: 0,
+      breakdown: [],
+      fetchedAt: now,
+    };
+    solendCache.set(key, empty);
+    return { usdSubtotal: 0, breakdown: [] };
   }
 }
 
@@ -1100,9 +1513,8 @@ async function computeZetaEquityUsd(
  * `[nav-pricing] …` banner enumerating every input source so operators
  * can sanity-check the breakdown.
  *
- * MarginFi + Solend lend balances are NOT yet valued — see TODO inside
- * `loadKaminoSnapshotsByCToken`. Those will land in a follow-up Phase Q
- * item once their CPIs are wired.
+ * MarginFi + Solend lend balances are valued via `loadMarginfiSnapshots`
+ * and `loadSolendSnapshots` (same per-agent breakdown shape as Kamino).
  */
 export async function computeNavFromSurfpoolBalances(
   surfpool: Connection,
@@ -1140,10 +1552,12 @@ export async function computeNavFromSurfpoolBalances(
 
   // Track per-component USD subtotals so we can surface them in the
   // banner. Native SOL + non-cToken SPL balances are lumped under
-  // `baseUsd`; cTokens roll up to `kaminoUsd`; Zeta equity is its own
-  // line.
+  // `baseUsd`; cTokens roll up to `kaminoUsd`; MarginFi/Solend deposits
+  // and Zeta equity each get their own line.
   let baseUsd = 0;
   let kaminoUsd = 0;
+  let marginfiUsd = 0;
+  let solendUsd = 0;
   let zetaUsd = 0;
 
   // SOL balance is always observable.
@@ -1220,7 +1634,33 @@ export async function computeNavFromSurfpoolBalances(
     );
   }
 
-  // 3. Zeta cross-margin equity. Idempotent on agents who never opened
+  // 3. MarginFi deposits. Per-agent SDK read; returns 0 for agents who
+  //    never deposited.
+  let marginfiBreakdown: ProtocolPositionEntry[] = [];
+  try {
+    const mfi = await loadMarginfiSnapshots(surfpool, authority);
+    marginfiUsd = mfi.usdSubtotal;
+    marginfiBreakdown = mfi.breakdown;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: marginfi outer catch: ${msg}`);
+    marginfiUsd = 0;
+  }
+
+  // 4. Solend deposits. Per-agent obligation read via SDK; returns 0
+  //    when the agent has no obligation.
+  let solendBreakdown: ProtocolPositionEntry[] = [];
+  try {
+    const sol = await loadSolendSnapshots(surfpool, authority);
+    solendUsd = sol.usdSubtotal;
+    solendBreakdown = sol.breakdown;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[nav-pricing] WARN: solend outer catch: ${msg}`);
+    solendUsd = 0;
+  }
+
+  // 5. Zeta cross-margin equity. Idempotent on agents who never opened
   //    a perp — returns 0. Per-agent CrossClient is cached.
   try {
     zetaUsd = await computeZetaEquityUsd(surfpool, authority);
@@ -1233,10 +1673,18 @@ export async function computeNavFromSurfpoolBalances(
     zetaUsd = 0;
   }
 
-  // Emit the one-shot banner now that we have all three subtotals.
-  emitNavPricingBanner(prices, kaminoUsd, zetaUsd);
+  // Emit the one-shot banner now that we have every subtotal. Per-bank
+  // / per-reserve breakdowns log here too so the brain's STATE_JSON can
+  // see exactly how MarginFi + Solend deposits were valued.
+  emitNavPricingBanner(prices, kaminoUsd, marginfiUsd, solendUsd, zetaUsd);
+  for (const entry of marginfiBreakdown) {
+    console.log(`[nav-pricing] ${entry.label}: ${fmtUsd(entry.usd)}`);
+  }
+  for (const entry of solendBreakdown) {
+    console.log(`[nav-pricing] ${entry.label}: ${fmtUsd(entry.usd)}`);
+  }
 
-  const totalUsd = baseUsd + kaminoUsd + zetaUsd;
+  const totalUsd = baseUsd + kaminoUsd + marginfiUsd + solendUsd + zetaUsd;
 
   // Convert USD → bUSD lamports (6 decimals). Clamp to non-negative —
   // negative Zeta equity (a blown-out short, say) could in theory drag
