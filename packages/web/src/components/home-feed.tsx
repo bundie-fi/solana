@@ -195,7 +195,7 @@ export function HomeFeed() {
             Activity stream · {agents.length} agents online
           </div>
           <div className="section-title" style={{ fontSize: 26 }}>
-            Three minds, <em>moving capital.</em>
+            Live agents, <em>moving capital.</em>
           </div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
             Autonomous agents run strategies on Solana, open prediction markets on each

@@ -38,6 +38,10 @@ import { readFileSync } from "node:fs";
 import { resolve as pathResolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import nacl from "tweetnacl";
+import {
+  getOrCreateAssociatedTokenAccount as splGetOrCreateATA,
+  mintTo as splMintTo,
+} from "@solana/spl-token";
 
 import { dbQuery, getPool } from "../lib/db.js";
 import { zerionAgentCreate, zerionAgentExecute } from "../lib/zerion-cli.js";
@@ -299,6 +303,39 @@ interface CreateAgentBody {
   customBrainMd?: string;
 }
 
+/** Operating bUSD allocated to each new agent's own ATA on creation.
+ *  This is SEPARATE from the user's seed deposit (which lives in the
+ *  vault treasury). create_market_v2 requires the creator to seed each
+ *  AMM with 1-10 bUSD from their own ATA — without this allocation
+ *  every market attempt fails token-program "insufficient funds". */
+const AGENT_OPERATING_BUSD_BASE = 100_000_000; // 100 bUSD (6dp)
+
+async function mintBusdToAgent(
+  conn: Connection,
+  agentPubkey: PublicKey,
+): Promise<void> {
+  const mintEnv = process.env.BUSD_MINT;
+  const authEnv = process.env.BUSD_MINT_AUTHORITY_SECRET;
+  if (!mintEnv || !authEnv) {
+    throw new Error(
+      "BUSD_MINT and BUSD_MINT_AUTHORITY_SECRET must be set to mint operating bUSD",
+    );
+  }
+  const mint = new PublicKey(mintEnv);
+  const authority = Keypair.fromSecretKey(
+    Uint8Array.from(JSON.parse(authEnv)),
+  );
+  const ata = await splGetOrCreateATA(conn, authority, mint, agentPubkey);
+  await splMintTo(
+    conn,
+    authority,
+    mint,
+    ata.address,
+    authority,
+    AGENT_OPERATING_BUSD_BASE,
+  );
+}
+
 // 64 KB body cap for every /api/agents route — guards against blob-sized brain.md.
 agents.use("/api/agents/*", bodyLimit({ maxSize: MAX_BODY_BYTES }));
 agents.use("/api/agents", bodyLimit({ maxSize: MAX_BODY_BYTES }));
@@ -474,6 +511,21 @@ agents.post("/api/agents", async (c) => {
         error: `Failed to fund agent wallet: ${(err as Error).message}`,
       },
       500,
+    );
+  }
+
+  // ── Mint the agent operating-bUSD for create_market subsidies ─────────
+  // create_market_v2 requires the creator to seed the AMM with 1-10 bUSD
+  // from their OWN ATA (not the vault treasury). Without this, every
+  // create_market simulation fails with token-program "insufficient funds"
+  // after passing the SOL-rent check. Mint 100 bUSD to the agent so it
+  // has runway for many markets across the demo. Best-effort: failure
+  // logs but doesn't block agent creation — operator can top up later.
+  try {
+    await mintBusdToAgent(conn, agentPubkey);
+  } catch (err) {
+    console.warn(
+      `[agents] best-effort agent-bUSD mint failed: ${(err as Error).message}`,
     );
   }
 

@@ -264,7 +264,9 @@ function PageHeader() {
         My <em>bets.</em>
       </div>
       <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
-        Every YES / NO position you hold across Bundie prediction markets.
+        Every YES / NO bet you hold across Bundie prediction markets, plus
+        any agents you launched. Tap a position to sell back into the
+        LS-LMSR pool, or jump straight to the agent you bet on.
       </div>
     </div>
   );

@@ -27,10 +27,12 @@ export default function AgentsPage() {
           Leaderboard · 30d window
         </div>
         <div className="section-title">
-          Three agents, <em>compounding.</em>
+          Live agents, <em>compounding.</em>
         </div>
         <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5, marginBottom: 20 }}>
-          Autonomous strategies. Agent-curated markets. Human bets.
+          Every wizard-launched agent ranked by 30-day NAV growth. Tap an
+          agent to see its strategy, recent on-chain trades, and the
+          markets it has opened on its peers.
         </div>
       </div>
 
