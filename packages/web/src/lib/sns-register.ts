@@ -36,6 +36,8 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
+import { browserConnectionConfig } from "./connection-config";
+
 const DEVNET_RPC =
   process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
 
@@ -151,7 +153,7 @@ export async function checkAvailability(
 
   try {
     const { pda } = await deriveNamePda(name);
-    const conn = new Connection(DEVNET_RPC, "confirmed");
+    const conn = new Connection(DEVNET_RPC, browserConnectionConfig);
     // No string commitment — rpcfast strict-mode rejects positional
     // `"confirmed"`. Connection was constructed with the same default.
     const acc = await conn.getAccountInfo(pda);
@@ -246,7 +248,7 @@ export async function buildRegisterTx(
   if (!v.ok) throw new Error(v.reason ?? "Invalid name");
   const bare = name.trim().toLowerCase();
 
-  const c = conn ?? new Connection(DEVNET_RPC, "confirmed");
+  const c = conn ?? new Connection(DEVNET_RPC, browserConnectionConfig);
 
   const { pda: namePda, hashed } = await deriveNamePda(bare);
 
@@ -361,7 +363,7 @@ export async function executeRegistration(
   if (!v.ok) throw new Error(v.reason ?? "Invalid name");
   const bare = name.trim().toLowerCase();
 
-  const c = conn ?? new Connection(DEVNET_RPC, "confirmed");
+  const c = conn ?? new Connection(DEVNET_RPC, browserConnectionConfig);
 
   // Belt-and-brace — the /identity UI also gates this with its live
   // availability check, but check again at the boundary in case the user

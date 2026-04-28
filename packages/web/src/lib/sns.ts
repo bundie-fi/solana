@@ -19,6 +19,8 @@
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 
+import { browserConnectionConfig } from "./connection-config";
+
 // Bonfida primary-domain helper. Imported lazily inside the function so
 // SSR bundles don't pay the parse cost on every page render.
 type GetMultiplePrimaryDomains = (
@@ -131,7 +133,7 @@ export async function lookupSnsForAddress(
       devnet?: { utils?: { getPrimaryDomain?: (c: Connection, owner: PublicKey) => Promise<{ reverse: string; stale: boolean }> } };
     }).devnet?.utils;
     if (devnetUtils?.getPrimaryDomain) {
-      const conn = new Connection(DEVNET_RPC, "confirmed");
+      const conn = new Connection(DEVNET_RPC, browserConnectionConfig);
       const result = await devnetUtils.getPrimaryDomain(conn, pubkey);
       if (result?.reverse && !result.stale) {
         const full = `${result.reverse}.sol`;
@@ -150,7 +152,7 @@ export async function lookupSnsForAddress(
       "@bonfida/spl-name-service"
     )) as { getMultipleFavoriteDomains: GetMultiplePrimaryDomains };
 
-    const conn = new Connection(MAINNET_RPC, "confirmed");
+    const conn = new Connection(MAINNET_RPC, browserConnectionConfig);
     const [name] = await getMultipleFavoriteDomains(conn, [pubkey]);
     if (name) {
       const full = `${name}.sol`;
