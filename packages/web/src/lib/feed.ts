@@ -40,6 +40,10 @@ export interface FeedEvent {
   actorSns?: string;
   /** Emoji for the actor pill; falls back to 🤖 when unknown. */
   actorEmoji?: string;
+  /** Path to the protocol logo for AGENT_ACTION events (e.g.
+   *  "/protocols/kamino.png"). Rendered inline in the feed card.
+   *  Only set on AGENT_ACTION; market/vault events leave it undefined. */
+  protocolLogo?: string;
 }
 
 /**
@@ -219,6 +223,19 @@ const PROTOCOL_EMOJI: Record<string, string> = {
   "jupiter-perps": "🎰",
 };
 
+/** Logo file paths under /public/protocols/. Rendered in the home feed
+ *  card for AGENT_ACTION events. Mirrors PROTOCOL_LOGO in
+ *  surfpool-activity-panel. */
+const PROTOCOL_LOGO: Record<string, string> = {
+  kamino: "/protocols/kamino.png",
+  marginfi: "/protocols/marginfi.png",
+  marinade: "/protocols/marinade.png",
+  jito: "/protocols/jito.png",
+  solend: "/protocols/solend.png",
+  jupiter: "/protocols/jupiter.png",
+  "jupiter-perps": "/protocols/jupiter-perps.png",
+};
+
 /**
  * Format an action's amount + token. Tokens with 9 decimals (SOL family)
  * vs 6 decimals (USDC etc.). Mirrors SurfpoolActivityPanel.formatAmount.
@@ -259,6 +276,7 @@ export function agentActionFeedEvent(a: RecentAgentAction): FeedEvent {
     href: `/agent/${a.agentSns}`,
     actorSns: a.agentSns,
     actorEmoji: a.emoji ?? "🤖",
+    protocolLogo: PROTOCOL_LOGO[a.protocol],
   };
 }
 

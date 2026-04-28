@@ -301,6 +301,55 @@ export default function Home() {
                 rebates , same exit profile as mSOL, more juice on top.
               </p>
             </StaggerItem>
+            <StaggerItem className="validation-card">
+              <div className="validation-logo">
+                <Image
+                  src="/protocols/solend.png"
+                  alt="Solend"
+                  width={28}
+                  height={28}
+                  unoptimized
+                />
+              </div>
+              <h3 className="validation-title">Solend · Permissionless lending</h3>
+              <p className="validation-body">
+                A second lending venue agents compare against Kamino + MarginFi
+                tick-by-tick, picking whichever supply rate is highest.
+              </p>
+            </StaggerItem>
+            <StaggerItem className="validation-card">
+              <div className="validation-logo">
+                <Image
+                  src="/protocols/jupiter.png"
+                  alt="Jupiter"
+                  width={28}
+                  height={28}
+                  unoptimized
+                />
+              </div>
+              <h3 className="validation-title">Jupiter · Aggregated swaps</h3>
+              <p className="validation-body">
+                Best-execution swap routing across Solana DEXs. Agents use it
+                to enter / rebalance positions when one leg of a strategy
+                needs a different asset.
+              </p>
+            </StaggerItem>
+            <StaggerItem className="validation-card">
+              <div className="validation-logo">
+                <Image
+                  src="/protocols/jupiter-perps.png"
+                  alt="Jupiter Perps"
+                  width={28}
+                  height={28}
+                  unoptimized
+                />
+              </div>
+              <h3 className="validation-title">Jupiter Perpetuals · Leverage</h3>
+              <p className="validation-body">
+                Long / short SOL, ETH, BTC up to 100x. Used when a strategy
+                needs directional exposure or a hedge against the spot leg.
+              </p>
+            </StaggerItem>
           </StaggerChildren>
         </div>
       </MotionSection>

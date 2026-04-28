@@ -16,15 +16,23 @@ export interface SurfpoolAction {
   createdAt: string;
 }
 
-const PROTOCOL_EMOJI: Record<string, string> = {
-  kamino:          "📈",
-  marginfi:        "🏦",
-  marinade:        "⚡",
-  jito:            "🔥",
-  solend:          "🟣",
-  jupiter:         "🪐",
-  "jupiter-perps": "🎰",
+// Protocol logo set lives in /public/protocols/<id>.png (mirrored from the
+// landing page so we share the same artwork). Listed here drives the
+// "render an Image instead of an emoji" branch in ActivityRow.
+const PROTOCOL_LOGO: Record<string, string> = {
+  kamino:          "/protocols/kamino.png",
+  marginfi:        "/protocols/marginfi.png",
+  marinade:        "/protocols/marinade.png",
+  jito:            "/protocols/jito.png",
+  solend:          "/protocols/solend.png",
+  jupiter:         "/protocols/jupiter.png",
+  "jupiter-perps": "/protocols/jupiter-perps.png",
 };
+
+// Fallback emoji for any protocol not in PROTOCOL_LOGO. Should never fire
+// in practice since the executor table is the source of truth — keep as
+// a defensive default.
+const PROTOCOL_EMOJI_FALLBACK = "🔗";
 
 // Tokens with 9 decimals (SOL family) vs 6 decimals (USDC etc.). The
 // recorder stores raw base units in amount_base_units regardless of token —
@@ -204,7 +212,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
 }
 
 function ActivityRow({ action: a }: { action: SurfpoolAction }) {
-  const emoji = PROTOCOL_EMOJI[a.protocol] ?? "🔗";
+  const logoSrc = PROTOCOL_LOGO[a.protocol];
   const amount = formatAmount(a);
   const placeholder = isPlaceholder(a);
   const meta = rowMeta(a);
@@ -218,20 +226,36 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                   gap: 12,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 18,
-                    width: 28,
-                    height: 28,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                  aria-hidden
-                >
-                  {emoji}
-                </span>
+                {logoSrc ? (
+                  <img
+                    src={logoSrc}
+                    alt={a.protocol}
+                    width={28}
+                    height={28}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      flexShrink: 0,
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontSize: 18,
+                      width: 28,
+                      height: 28,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                    aria-hidden
+                  >
+                    {PROTOCOL_EMOJI_FALLBACK}
+                  </span>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{

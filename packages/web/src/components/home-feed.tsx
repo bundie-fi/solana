@@ -395,7 +395,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
         )}
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
-          {/* Line 1: name + tag */}
+          {/* Line 1: name + tag + protocol logo (for AGENT_ACTION events) */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
             <span
               className="mono"
@@ -408,6 +408,21 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
               {ev.actorSns ?? "unknown"}
             </span>
             <EventTagPill kind={kind} />
+            {ev.protocolLogo && (
+              <img
+                src={ev.protocolLogo}
+                alt=""
+                width={16}
+                height={16}
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 3,
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+            )}
           </div>
 
           {/* Line 2: content */}
