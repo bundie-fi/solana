@@ -22,7 +22,7 @@ export function CapitalStep({ state, dispatch }: Props) {
   const { connection } = useConnection();
 
   const refreshBalance = useCallback(async () => {
-    if (!publicKey || !connected || BUSD_MINT === "REPLACE_AFTER_SETUP") {
+    if (!publicKey || !connected) {
       dispatch({ type: "CAPITAL/SET_BALANCE", value: null });
       return;
     }

@@ -42,8 +42,22 @@ export const PRECISION = {
   LMSR_SCALE: 1_000_000_000n,
 } as const
 
-/** bUSD (Bundie USDC) — branded devnet test token used to seed agents. */
-export const BUSD_MINT = process.env.NEXT_PUBLIC_BUSD_MINT ?? "REPLACE_AFTER_SETUP";
+/**
+ * bUSD (Bundie USDC) — branded devnet test token used to seed agents.
+ *
+ * Hardcoded rather than read from `process.env.NEXT_PUBLIC_BUSD_MINT`
+ * because Next's compile-time substitution doesn't reliably reach this
+ * package's source under `transpilePackages`, leaving the bundle with
+ * the literal "REPLACE_AFTER_SETUP" sentinel string. Symptom: every
+ * wallet's bUSD ATA read in CapitalStep early-returned past the actual
+ * RPC call, so the wizard always showed "Claim faucet" even when the
+ * user already had $50 sitting in their wallet.
+ *
+ * If we ever need a per-environment mint, plumb it through web's local
+ * env reading (where `process.env.NEXT_PUBLIC_*` IS inlined) rather
+ * than re-introducing the indirection here.
+ */
+export const BUSD_MINT = "42LaRiwvuxfQv5rfHMmk9wU3K2nRxMGzgukNJztydpiB";
 export const BUSD_DECIMALS = 6;
 export const BUSD_FAUCET_AMOUNT = 50;          // dollars per claim
 export const BUSD_FAUCET_AMOUNT_BASE = 50_000_000;  // 50 * 10^6
