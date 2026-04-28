@@ -21,6 +21,10 @@ const POLL_MS = 30_000;
 interface LeaderboardAgent {
   sns: string;
   vault: string;
+  /** Agent keypair pubkey. The chaos-sim signs create_market_v2 with the
+   *  agent KEYPAIR, so Market.created_by stores agent_pubkey, not
+   *  vault_pda — both fields need matching when filtering markets. */
+  agentPubkey: string;
   emoji: string;
   /** One-line strategy handle surfaced on the leaderboard card. */
   strategyHandle: string;
@@ -30,6 +34,7 @@ function toLeaderboardAgent(a: RegisteredAgent): LeaderboardAgent {
   return {
     sns: a.sns,
     vault: a.vault_pda,
+    agentPubkey: a.agent_pubkey,
     emoji: a.emoji ?? "🤖",
     strategyHandle: a.display_name || a.sns.split(".")[0] || "agent",
   };
@@ -121,9 +126,17 @@ export function AgentLeaderboard() {
   }, [tick]);
 
   function statsFor(a: LeaderboardAgent): AgentStats {
-    const created = markets.filter((m) => m.createdBy === a.vault);
+    // Markets created BY this agent: Market.created_by holds either the
+    // vault PDA (legacy hero agents) or the agent keypair pubkey
+    // (chaos-sim / wizard agents). Match both.
+    const created = markets.filter(
+      (m) => m.createdBy === a.vault || m.createdBy === a.agentPubkey,
+    );
+    // Markets opened ON this agent: kind=1/3 store the predicted vault
+    // in Market.strategy; kind=2 also stores the B side in
+    // Market.targetAgent. Match either.
     const onMe = markets.filter(
-      (m) => m.kind === 2 && m.targetAgent === a.vault,
+      (m) => m.strategy === a.vault || m.targetAgent === a.vault,
     );
     const resolvedByThem = created.filter((m) => m.status === "resolved");
     const accuracy =

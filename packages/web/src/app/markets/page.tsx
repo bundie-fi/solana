@@ -11,7 +11,20 @@ import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function MarketsPage() {
+type FilterStatus = "all" | "open" | "resolved";
+
+function parseStatus(raw: string | string[] | undefined): FilterStatus {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v === "open" || v === "resolved") return v;
+  return "all";
+}
+
+export default async function MarketsPage({
+  searchParams,
+}: {
+  searchParams?: { status?: string | string[] };
+}) {
+  const status = parseStatus(searchParams?.status);
   const connection = getDevnetConnection();
   // Pull the directory + filter set in parallel — the directory keys
   // creator/target pubkeys to readable .bundie identities so the
@@ -21,7 +34,13 @@ export default async function MarketsPage() {
     fetchRegisteredVaultSet({ cache: "no-store" }),
     fetchAgentDirectory({ cache: "no-store" }),
   ]);
-  const markets = await fetchAllMarkets(connection, { allowedCreators });
+  const allMarkets = await fetchAllMarkets(connection, { allowedCreators });
+  const markets =
+    status === "open"
+      ? allMarkets.filter((m) => m.status === "active")
+      : status === "resolved"
+        ? allMarkets.filter((m) => m.status === "resolved")
+        : allMarkets;
 
   // Markets are bUSD-collateralized; the variable name is historical.
   const totalVolumeBusd = markets.reduce((s, m) => s + m.totalVolume / 1e6, 0);
@@ -68,42 +87,102 @@ export default async function MarketsPage() {
         </div>
 
         {/* Filter pills row */}
-        <MarketsFilterClient markets={markets} dir={agentDir} />
+        <MarketsFilterClient
+          markets={markets}
+          dir={agentDir}
+          activeStatus={status}
+        />
       </div>
     </main>
   );
 }
 
-// We need client-side filtering , import the interactive component
-// For now render the card grid server-side without filtering
+// Server-side filter renderer. The pills are <Link>s that reload the
+// page with `?status=…`; the parent reads searchParams and slices the
+// market list before this component is called.
 function MarketsFilterClient({
   markets,
   dir,
+  activeStatus,
 }: {
   markets: Awaited<ReturnType<typeof fetchAllMarkets>>;
   dir: Awaited<ReturnType<typeof fetchAgentDirectory>>;
+  activeStatus: FilterStatus;
 }) {
   if (markets.length === 0) {
+    const headline =
+      activeStatus === "resolved"
+        ? "No resolved markets yet."
+        : activeStatus === "open"
+          ? "No active markets right now."
+          : "Agent NAV markets go live shortly.";
+    const sub =
+      activeStatus === "resolved"
+        ? "Markets resolve automatically when their slot is reached. Once an agent's window closes, the keeper will set the outcome and it'll appear here."
+        : activeStatus === "open"
+          ? "All current markets are resolved. Try the All or Resolved tab."
+          : "Agents are publishing the first NAV-resolved markets. Check back shortly.";
     return (
-      <div style={{ padding: "32px 16px", textAlign: "center" }}>
+      <div style={{ padding: "0 16px 24px" }}>
+        {/* Keep the filter pills visible even on empty states so the
+            user can switch tabs without going back. */}
         <div
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 22,
-            color: "var(--fg-0)",
-            letterSpacing: "-0.015em",
-            marginBottom: 8,
+            display: "flex",
+            gap: 6,
+            padding: "14px 0",
+            overflowX: "auto",
           }}
+          className="scroll-area"
         >
-          Agent NAV markets go live shortly.
+          {(
+            [
+              { id: "all" as const, label: "All", href: "/markets" },
+              { id: "open" as const, label: "Open", href: "/markets?status=open" },
+              {
+                id: "resolved" as const,
+                label: "Resolved",
+                href: "/markets?status=resolved",
+              },
+            ]
+          ).map((f) => {
+            const isActive = activeStatus === f.id;
+            return (
+              <Link
+                key={f.id}
+                href={f.href}
+                className={`pill ${isActive ? "pill-gold" : "pill-ghost"}`}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 10.5,
+                  cursor: "pointer",
+                  textDecoration: "none",
+                }}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
         </div>
-        <div className="muted" style={{ fontSize: 12.5 }}>
-          Agents are publishing the first NAV-resolved markets. Check back after the
-          chaos-sim has seeded devnet, or visit the{" "}
-          <Link href="/agents" style={{ color: "var(--gold)", textDecoration: "underline" }}>
-            agent roster
-          </Link>{" "}
-          to see which agents are live.
+
+        <div style={{ padding: "32px 0", textAlign: "center" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 22,
+              color: "var(--fg-0)",
+              letterSpacing: "-0.015em",
+              marginBottom: 8,
+            }}
+          >
+            {headline}
+          </div>
+          <div className="muted" style={{ fontSize: 12.5 }}>
+            {sub}{" "}
+            <Link href="/agents" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+              See which agents are live →
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -114,7 +193,8 @@ function MarketsFilterClient({
       {/* Bettor bUSD balance + claim — only shows for connected wallets. */}
       <BettorFaucetCTA />
 
-      {/* Filter pills */}
+      {/* Filter pills — Link-based, no client JS. Active pill gets the
+          gold pill class so the user knows which filter is applied. */}
       <div
         style={{
           display: "flex",
@@ -124,15 +204,34 @@ function MarketsFilterClient({
         }}
         className="scroll-area"
       >
-        {["All", "Open", "Resolved"].map((f) => (
-          <span
-            key={f}
-            className="pill pill-ghost"
-            style={{ padding: "6px 12px", fontSize: 10.5, cursor: "pointer" }}
-          >
-            {f}
-          </span>
-        ))}
+        {(
+          [
+            { id: "all" as const, label: "All", href: "/markets" },
+            { id: "open" as const, label: "Open", href: "/markets?status=open" },
+            {
+              id: "resolved" as const,
+              label: "Resolved",
+              href: "/markets?status=resolved",
+            },
+          ]
+        ).map((f) => {
+          const isActive = activeStatus === f.id;
+          return (
+            <Link
+              key={f.id}
+              href={f.href}
+              className={`pill ${isActive ? "pill-gold" : "pill-ghost"}`}
+              style={{
+                padding: "6px 12px",
+                fontSize: 10.5,
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
       </div>
 
       {/* Cards */}
