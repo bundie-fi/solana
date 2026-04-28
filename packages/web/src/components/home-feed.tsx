@@ -9,12 +9,14 @@ import {
   type MarketView,
 } from "@/lib/markets";
 import {
+  agentActionFeedEvent,
   diffVaultSnapshots,
   formatRelative,
   marketCreatedEvent,
   marketResolvedEvent,
   vaultDeltaFeedEvent,
   type FeedEvent,
+  type RecentAgentAction,
   type VaultSnapshot,
 } from "@/lib/feed";
 import { MobileTopHeader } from "@/components/MobileTopHeader";
@@ -56,6 +58,7 @@ export function HomeFeed() {
   const [agents, setAgents] = useState<RegistryAgent[]>([]);
   const [markets, setMarkets] = useState<MarketView[]>([]);
   const [vaultDeltas, setVaultDeltas] = useState<FeedEvent[]>([]);
+  const [agentActions, setAgentActions] = useState<FeedEvent[]>([]);
   const [lastTick, setLastTick] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -102,6 +105,23 @@ export function HomeFeed() {
       }
       const mkts = await fetchAllMarkets(connection, { allowedCreators });
 
+      // Stream the agents' surfpool strategy execution as feed events so
+      // users see live activity even when no markets have been created
+      // yet. Endpoint returns the most recent 30 actions across every
+      // registered agent.
+      let recentActions: RecentAgentAction[] = [];
+      try {
+        const r = await fetch(
+          `${BACKEND_URL}/api/agent/_global/surfpool-activity/recent?limit=30`,
+        );
+        if (r.ok) {
+          const body = (await r.json()) as { actions?: RecentAgentAction[] };
+          recentActions = body.actions ?? [];
+        }
+      } catch (e) {
+        console.warn("[feed] failed to load recent surfpool activity", e);
+      }
+
       const snapshots: VaultSnapshot[] = await Promise.all(
         agents.map(async (a) => {
           try {
@@ -129,6 +149,7 @@ export function HomeFeed() {
         const combined = [...fresh, ...prev];
         return combined.slice(0, 30);
       });
+      setAgentActions(recentActions.map(agentActionFeedEvent));
       setLastTick(now);
       setErr(null);
     } catch (e) {
@@ -154,9 +175,10 @@ export function HomeFeed() {
       }
     }
     ev.push(...vaultDeltas);
+    ev.push(...agentActions);
     ev.sort((a, b) => b.timestamp - a.timestamp);
     return ev;
-  }, [markets, vaultDeltas]);
+  }, [markets, vaultDeltas, agentActions]);
 
   const asOfLabel =
     lastTick > 0 ? `${formatRelative(lastTick)} ago` : "connecting…";

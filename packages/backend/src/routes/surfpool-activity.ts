@@ -45,6 +45,69 @@ interface SurfpoolActionDto {
   createdAt: string;
 }
 
+/**
+ * GET /api/surfpool-activity/recent?limit=30
+ *
+ * Cross-agent stream for the home feed. Returns the most recent surfpool
+ * actions across every agent, joined with the agent registry so the UI
+ * can render the actor pill (sns + emoji) without a second round-trip.
+ */
+surfpoolActivity.get("/_global/surfpool-activity/recent", async (c) => {
+  const rawLimit = c.req.query("limit");
+  let limit = 30;
+  if (rawLimit) {
+    const parsed = Number.parseInt(rawLimit, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      limit = Math.min(parsed, MAX_LIMIT);
+    }
+  }
+  let result;
+  try {
+    result = await dbQuery<SurfpoolActionRow & {
+      agent_sns: string;
+      display_name: string | null;
+      emoji: string | null;
+    }>(
+      `SELECT a.id, a.slot, a.tx_sig, a.protocol, a.action_type,
+              a.amount_base_units, a.token_mint, a.notes, a.created_at,
+              a.agent_sns, ag.display_name, ag.emoji
+         FROM surfpool_actions a
+         LEFT JOIN agents ag ON ag.sns = a.agent_sns
+         ORDER BY a.created_at DESC
+         LIMIT $1`,
+      [limit],
+    );
+  } catch (err) {
+    return c.json(
+      {
+        error: "Failed to fetch recent surfpool activity",
+        detail: (err as Error).message,
+      },
+      500,
+    );
+  }
+  if (!result) {
+    return c.json({ actions: [], error: "Database not configured" }, 503);
+  }
+  return c.json({
+    actions: result.rows.map((r) => ({
+      id: r.id,
+      slot: Number(r.slot),
+      txSig: r.tx_sig,
+      protocol: r.protocol,
+      actionType: r.action_type,
+      amountBaseUnits:
+        r.amount_base_units != null ? Number(r.amount_base_units) : null,
+      tokenMint: r.token_mint,
+      notes: r.notes,
+      createdAt: r.created_at,
+      agentSns: r.agent_sns,
+      displayName: r.display_name,
+      emoji: r.emoji,
+    })),
+  });
+});
+
 surfpoolActivity.get("/:sns/surfpool-activity", async (c) => {
   const sns = c.req.param("sns");
   const rawLimit = c.req.query("limit");

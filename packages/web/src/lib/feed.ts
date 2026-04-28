@@ -21,7 +21,8 @@ import { HERO_AGENTS, resolveSns, truncatePubkey } from "./sns-resolver";
 export type FeedEventKind =
   | "MARKET_CREATED"
   | "MARKET_RESOLVED"
-  | "VAULT_DELTA";
+  | "VAULT_DELTA"
+  | "AGENT_ACTION";
 
 export interface FeedEvent {
   id: string;
@@ -163,6 +164,101 @@ export function vaultDeltaFeedEvent(
     href: `/agent/${sns?.devnetName ?? ev.vault}`,
     actorSns: sns?.devnetName,
     actorEmoji: actorEmoji ?? "🤖",
+  };
+}
+
+/**
+ * Recent surfpool action returned by `/api/agent/_global/surfpool-activity/recent`.
+ * Cross-agent stream — the home feed turns these into AGENT_ACTION events
+ * so users can see live strategy execution alongside markets.
+ */
+export interface RecentAgentAction {
+  id: number;
+  txSig: string;
+  protocol: string;
+  actionType: string;
+  amountBaseUnits: number | null;
+  notes: string | null;
+  createdAt: string;
+  agentSns: string;
+  displayName: string | null;
+  emoji: string | null;
+}
+
+/**
+ * Verb + protocol-aware emoji per action type. Keep in sync with
+ * SurfpoolActivityPanel.PROTOCOL_EMOJI / ACTION_LABEL.
+ */
+const ACTION_VERB: Record<string, string> = {
+  lend_deposit: "lent",
+  lend_withdraw: "withdrew",
+  lst_stake: "staked",
+  lst_unstake: "unstaked",
+  perp_open: "opened",
+  perp_close: "closed",
+  swap: "swapped",
+};
+
+const PROTOCOL_LABEL: Record<string, string> = {
+  kamino: "Kamino",
+  marginfi: "MarginFi",
+  marinade: "Marinade",
+  jito: "Jito",
+  solend: "Solend",
+  jupiter: "Jupiter",
+  "jupiter-perps": "Jupiter Perps",
+};
+
+const PROTOCOL_EMOJI: Record<string, string> = {
+  kamino: "📈",
+  marginfi: "🏦",
+  marinade: "⚡",
+  jito: "🔥",
+  solend: "🟣",
+  jupiter: "🪐",
+  "jupiter-perps": "🎰",
+};
+
+/**
+ * Format an action's amount + token. Tokens with 9 decimals (SOL family)
+ * vs 6 decimals (USDC etc.). Mirrors SurfpoolActivityPanel.formatAmount.
+ */
+function formatActionAmount(a: RecentAgentAction): string | null {
+  if (a.amountBaseUnits == null) return null;
+  const isSolFamily =
+    a.actionType === "lst_stake" ||
+    a.actionType === "lst_unstake" ||
+    a.protocol === "marinade" ||
+    a.protocol === "jito";
+  const decimals = isSolFamily ? 9 : 6;
+  const ui = a.amountBaseUnits / 10 ** decimals;
+  const unit = isSolFamily ? "SOL" : "USDC";
+  return `${ui.toFixed(isSolFamily ? 2 : 0)} ${unit}`;
+}
+
+/**
+ * Convert a surfpool action into a home-feed event. The "actor" is the
+ * agent that ran the strategy.
+ */
+export function agentActionFeedEvent(a: RecentAgentAction): FeedEvent {
+  const verb = ACTION_VERB[a.actionType] ?? a.actionType;
+  const proto = PROTOCOL_LABEL[a.protocol] ?? a.protocol;
+  const amount = formatActionAmount(a);
+  const actorName = a.displayName ?? a.agentSns.split(".")[0];
+  const headline = amount
+    ? `${actorName} ${verb} ${amount} on ${proto}`
+    : `${actorName} ${verb} on ${proto}`;
+  const ts = Math.floor(new Date(a.createdAt).getTime() / 1000);
+  return {
+    id: `action:${a.id}`,
+    kind: "AGENT_ACTION",
+    timestamp: ts,
+    emoji: PROTOCOL_EMOJI[a.protocol] ?? "🔗",
+    headline,
+    detail: a.notes ?? undefined,
+    href: `/agent/${a.agentSns}`,
+    actorSns: a.agentSns,
+    actorEmoji: a.emoji ?? "🤖",
   };
 }
 
