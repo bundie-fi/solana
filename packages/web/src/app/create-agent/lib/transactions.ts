@@ -254,6 +254,22 @@ export async function launchAgent({
 
     onStage("signing-deposit");
 
+    // Devnet wallets routinely have 0 SOL — Phantom doesn't gate signing
+    // on balance, so the deposit gets signed but dies at the validator
+    // with the unhelpful "AccountNotFound" preflight error (Solana's way
+    // of saying the fee payer has no on-chain account = 0 lamports).
+    // Catch it here with a clear, actionable message instead.
+    if (attempt === 1) {
+      const lamports = await connection.getBalance(wallet.publicKey);
+      if (lamports < 5_000) {
+        throw new Error(
+          "You need devnet SOL to pay transaction fees. " +
+            "Get some at https://faucet.solana.com (paste your wallet, " +
+            "select Devnet, request 1 SOL), then click Deposit again.",
+        );
+      }
+    }
+
     // DIAGNOSTIC: simulate ourselves first so any program revert /
     // account-state error surfaces verbatim. Phantom's WalletSendTransactionError
     // wrapper swallows preflight detail ("Unexpected error"), making it
@@ -265,11 +281,22 @@ export async function launchAgent({
         const presigned = await wallet.signTransaction(tx);
         const sim = await connection.simulateTransaction(presigned);
         if (sim.value.err) {
-          // Build a richer error: surface the err code + last few logs
-          // so the user can see exactly which instruction reverted and why.
+          // AccountNotFound at preflight, with no instruction logs, almost
+          // always means the fee payer has 0 lamports. Solana's error name
+          // is misleading — surface the real cause.
+          const errStr = JSON.stringify(sim.value.err);
+          if (errStr.includes("AccountNotFound")) {
+            throw new Error(
+              "You need devnet SOL to pay transaction fees. " +
+                "Get some at https://faucet.solana.com (paste your wallet, " +
+                "select Devnet, request 1 SOL), then click Deposit again.",
+            );
+          }
+          // Otherwise: surface the err code + last few logs so the user can
+          // see exactly which instruction reverted and why.
           const logs = (sim.value.logs ?? []).slice(-8).join("\n  ");
           throw new Error(
-            `Preflight failed: ${JSON.stringify(sim.value.err)}\n  ${logs}`,
+            `Preflight failed: ${errStr}\n  ${logs}`,
           );
         }
         // Simulation passed; broadcast the same already-signed tx via
