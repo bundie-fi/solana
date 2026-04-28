@@ -110,6 +110,56 @@ let mfiClientLoadPromise: Promise<unknown> | null = null;
 const accountCache = new Map<string, unknown>();
 const accountLoadPromises = new Map<string, Promise<unknown>>();
 
+// ─── buffer-layout patch (one-time, before any SDK import) ───────────────
+//
+// MarginFi's Bank account uses a discriminated Union for OracleSetup. The
+// SDK's IDL doesn't include every variant currently deployed on mainnet
+// (a newer oracle type was added that this SDK version doesn't know
+// about). When MarginfiClient.fetch enumerates ALL banks via
+// program.account.bank.all(), any single bank with an unknown OracleSetup
+// variant blows up the entire client-init with one of:
+//   - "Cannot read properties of null (reading 'property')"  (Union.decode)
+//   - "unable to determine span for unrecognized variant"    (Union.getSpan)
+//
+// We patch buffer-layout's Union prototype once at module load to swallow
+// both. Decode returns a sentinel object `{__unknownVariant: true}`; span
+// falls back to the largest registered variant's span as a safe upper
+// bound. The USDC bank we actually care about is well-known and decodes
+// fine — we just need the SDK to skip the others without crashing.
+let bufferLayoutPatched = false;
+async function patchBufferLayoutOnce(): Promise<void> {
+  if (bufferLayoutPatched) return;
+  bufferLayoutPatched = true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bl: any = await import("buffer-layout");
+  const origDecode = bl.Union.prototype.decode;
+  bl.Union.prototype.decode = function (b: Buffer, offset?: number) {
+    try {
+      return origDecode.call(this, b, offset);
+    } catch {
+      return { __unknownVariant: true };
+    }
+  };
+  const origGetSpan = bl.Union.prototype.getSpan;
+  bl.Union.prototype.getSpan = function (b: Buffer, offset?: number) {
+    try {
+      return origGetSpan.call(this, b, offset);
+    } catch {
+      let max = 0;
+      for (const k in this.registry) {
+        try {
+          const s = this.registry[k].getSpan(b, offset);
+          if (s > max) max = s;
+        } catch {
+          /* skip variants whose span itself errors */
+        }
+      }
+      return max;
+    }
+  };
+  console.log("[marginfi] buffer-layout Union patched for unknown OracleSetup variants");
+}
+
 // ─── Lazy SDK loader ─────────────────────────────────────────────────────
 
 /**
@@ -121,6 +171,9 @@ const accountLoadPromises = new Map<string, Promise<unknown>>();
  * symbols they need (MarginfiClient, getConfig, etc).
  */
 async function loadMarginfiSdk(): Promise<typeof import("@mrgnlabs/marginfi-client-v2")> {
+  // Patch buffer-layout BEFORE the SDK module loads so the SDK's coder
+  // sees the patched Union prototype.
+  await patchBufferLayoutOnce();
   return await import("@mrgnlabs/marginfi-client-v2");
 }
 
