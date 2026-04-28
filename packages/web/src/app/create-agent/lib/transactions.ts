@@ -118,39 +118,6 @@ export function buildDepositToVaultIx({
 }
 
 /**
- * Pick a priority fee (microLamports per CU) from the network's recent
- * prioritization-fee samples for the *exact* writable accounts our tx
- * touches. Falls back to a sane floor if the RPC doesn't honour the
- * lockedWritableAccounts filter or returns nothing.
- *
- * 75th percentile is the sweet spot: above the median noise, below the
- * desperation tail. Clamped to [50k, 1M] so we never under-bid during
- * congestion or over-pay during a single stuck slot.
- */
-async function pickPriorityFeeMicroLamports(
-  connection: Connection,
-  writableAccounts: PublicKey[],
-): Promise<number> {
-  const FLOOR = 50_000;
-  const CEIL = 1_000_000;
-  try {
-    const samples = await connection.getRecentPrioritizationFees({
-      lockedWritableAccounts: writableAccounts,
-    });
-    if (!samples.length) return FLOOR;
-    const fees = samples
-      .map((s) => s.prioritizationFee)
-      .filter((f) => f > 0)
-      .sort((a, b) => a - b);
-    if (!fees.length) return FLOOR;
-    const p75 = fees[Math.floor(fees.length * 0.75)] ?? FLOOR;
-    return Math.min(CEIL, Math.max(FLOOR, p75));
-  } catch {
-    return FLOOR;
-  }
-}
-
-/**
  * Assemble the instruction list for deposit_to_vault. Returned without a
  * blockhash so the caller can attach the freshest possible one right
  * before asking the wallet to sign. (Stale blockhashes are the #1 reason
@@ -163,35 +130,24 @@ export async function buildDepositToVaultIxs(
 ): Promise<TransactionInstruction[]> {
   const ixs: TransactionInstruction[] = [];
 
-  const depositorAta = getAssociatedTokenAddressSync(
-    args.treasuryMint,
-    args.ownerWallet,
-    false,
+  // Priority fee , gives our tx better leader inclusion priority on a
+  // congested devnet. 50k microLamports * 200k CU ≈ 10k lamports
+  // (≈ 0.00001 SOL), negligible cost, big difference in landing
+  // reliability on busy slots.
+  ixs.push(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 }),
   );
-  const treasuryAta = getAssociatedTokenAddressSync(
-    args.treasuryMint,
-    args.vaultPda,
-    true,
-  );
-
-  // Dynamic priority fee from recent samples on the writable accounts
-  // this tx will lock. Cheap when the network is quiet, competitive
-  // when it isn't.
-  const microLamports = await pickPriorityFeeMicroLamports(connection, [
-    args.ownerWallet,
-    depositorAta,
-    treasuryAta,
-  ]);
-  ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports }));
-  // Tight CU limit , deposit_to_vault + optional ATA create stays well
-  // under 80k. Tighter limits make the priority fee go further AND give
-  // the scheduler a hint that we're cheap to include.
-  ixs.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 80_000 }));
+  ixs.push(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
 
   // Defensive: if the user's bUSD ATA doesn't exist yet, create it
   // first. The faucet drip should have created it, but the user may
   // have skipped it. The init_vault path on the backend is responsible
   // for creating the *treasury* ATA , we never create that here.
+  const depositorAta = getAssociatedTokenAddressSync(
+    args.treasuryMint,
+    args.ownerWallet,
+    false,
+  );
   // No string commitment , rpcfast strict-mode rejects it.
   const ataInfo = await connection.getAccountInfo(depositorAta);
   if (!ataInfo) {
@@ -344,7 +300,7 @@ export async function launchAgent({
       let stopped = false;
       const rebroadcast = (async () => {
         while (!stopped) {
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 2000));
           if (stopped) break;
           connection.sendRawTransaction(rawTx, {
             skipPreflight: true,
