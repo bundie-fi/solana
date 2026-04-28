@@ -299,15 +299,14 @@ export async function runTick(args: TickArgs): Promise<void> {
         },
       }).catch(() => {});
 
-      // bUSD treasury performance-sync: scale the user's seed by the
-      // agent's NAV growth since baseline, mint the delta. Mint-only —
-      // see helper docstring. Best-effort; failure here doesn't break
+      // bUSD treasury performance-sync: mirror the agent's surfpool NAV
+      // 1:1 onto the on-chain bUSD treasury. Mint-only (no burn path
+      // yet — see helper docstring). Best-effort; failure doesn't break
       // the rest of the tick.
       if (
         args.busdMintAuthority &&
         args.busdMintPubkey &&
-        args.vaultPda &&
-        args.seedBaseUnits !== undefined
+        args.vaultPda
       ) {
         try {
           const result = await syncTreasuryToPerformance({
@@ -316,7 +315,6 @@ export async function runTick(args: TickArgs): Promise<void> {
             busdMintPubkey: args.busdMintPubkey,
             vaultPda: args.vaultPda,
             agentPubkey: args.kp.publicKey,
-            seedBaseUnits: args.seedBaseUnits,
             currentNavLamports: BigInt(navLamports),
           });
           if (result) {

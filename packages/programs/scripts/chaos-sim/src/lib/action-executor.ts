@@ -716,12 +716,19 @@ async function executeCreateMarket(
 
   const { PublicKey } = await import("@solana/web3.js");
 
+  // The brain prompt has historically spelled this `targetAgent`
+  // (singular), while the executor + on-chain ix use `targetAgentA`
+  // (kind=2 needs an "A"/"B" pair). Accept both names so an LLM with a
+  // slightly-stale prompt doesn't blow every market it tries to open.
+  const rawTargetA =
+    (a as { targetAgentA?: unknown }).targetAgentA ??
+    (a as { targetAgent?: unknown }).targetAgent;
   let targetAgentA: import("@solana/web3.js").PublicKey;
   try {
-    targetAgentA = new PublicKey(a.targetAgentA);
+    targetAgentA = new PublicKey(rawTargetA as string);
   } catch {
     throw new Error(
-      `create_market: invalid targetAgentA pubkey "${a.targetAgentA}"`,
+      `create_market: invalid targetAgentA pubkey "${String(rawTargetA)}"`,
     );
   }
 

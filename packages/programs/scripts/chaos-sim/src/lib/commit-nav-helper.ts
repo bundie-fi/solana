@@ -172,15 +172,6 @@ export async function commitNavToDevnet(opts: {
 // ─── bUSD treasury performance-sync ──────────────────────────────────────
 
 /**
- * Per-process baseline registry. First observed NAV per agent becomes
- * its denominator for the seed × (current/baseline) scaling.
- *
- * Daemon restart wipes the map so the baseline resets to the first NAV
- * seen post-restart. Acceptable for hackathon scope; a production build
- * persists this in agents.nav_baseline_lamports.
- */
-const _navBaselineByAgent: Map<string, bigint> = new Map();
-
 export interface SyncTreasuryArgs {
   /** Devnet connection — same one used for commit_nav. */
   connection: Connection;
@@ -190,46 +181,42 @@ export interface SyncTreasuryArgs {
   busdMintPubkey: PublicKey;
   vaultPda: PublicKey;
   agentPubkey: PublicKey;
-  /** User's seed in bUSD base units (e.g. 50_000_000n for $50). */
-  seedBaseUnits: bigint;
   /** Latest committed NAV in bUSD base units. */
   currentNavLamports: bigint;
 }
 
 /**
- * Mint extra bUSD into the agent's treasury_ata so the treasury balance
- * scales with the agent's NAV growth since baseline:
+ * Mint extra bUSD into the agent's treasury_ata so the on-chain treasury
+ * mirrors the agent's surfpool position value 1:1:
  *
- *   target_treasury = seed × (current_nav / baseline_nav)
+ *   target_treasury_busd = current_nav_lamports
  *
- * If treasury is already at or above target, no-op. We only MINT, not
- * burn — burning requires the vault PDA to sign the SPL Token Burn ix,
- * which would mean a new on-chain instruction in the prediction-market
- * program. Out of scope for the hackathon. Down-side moves are absorbed
- * silently by the seed floor; once NAV recovers above the prior peak,
- * minting resumes.
+ * That's safe because `computeNavFromSurfpoolBalances` reads ONLY from
+ * surfpool — the devnet treasury balance isn't part of NAV, so there's
+ * no feedback loop where setting treasury to NAV inflates next tick's
+ * NAV.
  *
- * On the FIRST call for an agent (no baseline registered yet), records
- * the current NAV as baseline and returns null so we don't mint a
- * meaningless first delta.
+ * Conceptually: surfpool seeds the agent with `seed` USDC (matching the
+ * user's bUSD deposit). The agent trades that USDC into LSTs / lend
+ * positions / perp equity / etc. NAV is the live USD-equivalent of
+ * those holdings (plus any leftover gas SOL — minor over short windows).
+ * Mirroring NAV to bUSD gives the user `close_vault` payouts that
+ * reflect actual trading performance.
+ *
+ * MINT-ONLY: no burn path because that needs the vault PDA to sign the
+ * SPL Token Burn ix, requiring a new on-chain instruction. Down-side
+ * moves are absorbed by the prior peak; minting resumes once NAV
+ * recovers.
  *
  * Returns the mint tx signature + delta when minting happens, or null.
  */
 export async function syncTreasuryToPerformance(
   args: SyncTreasuryArgs,
 ): Promise<{ txSig: string; minted: bigint } | null> {
-  const key = args.agentPubkey.toBase58();
-
-  // Baseline = first observed NAV per agent. If unset, set now and bail.
-  const baseline = _navBaselineByAgent.get(key);
-  if (baseline === undefined || baseline === 0n) {
-    _navBaselineByAgent.set(key, args.currentNavLamports);
-    return null;
-  }
-
-  // target = seed × current / baseline (integer math, biased down)
-  const target =
-    (args.seedBaseUnits * args.currentNavLamports) / baseline;
+  // 1:1 NAV mirror: surfpool seed = user's bUSD seed (see
+  // ensureSurfpoolUsdc plumbing in the daemon), so NAV directly
+  // represents what the user's $X has become.
+  const target = args.currentNavLamports;
 
   // Read current treasury balance.
   const treasuryAta = getAssociatedTokenAddressSync(

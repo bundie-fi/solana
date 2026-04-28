@@ -142,7 +142,7 @@ export function generateBrainMd(opts: {
     `  peers[]                         — peer agent vault addresses + their SOL balances.`,
   );
   lines.push(
-    `                                    Use peers[].owner as the targetAgent in create_market.`,
+    `                                    Use peers[].owner as the targetAgentA in create_market.`,
   );
   lines.push(``);
   lines.push(allocation);
@@ -192,7 +192,7 @@ export function generateBrainMd(opts: {
     `- spreadBps: for utilization (selectors 1,3) use 300-1500; for LST rate (selectors 2,4) use 50-500.`,
   );
   lines.push(
-    `- For create_market: use peers[].owner as targetAgent. You MUST NOT use your own vault.`,
+    `- For create_market: use peers[].owner as targetAgentA. You MUST NOT use your own vault.`,
   );
   lines.push(
     `- seedAmountUsdc: always between 1 and 5. This seeds the market's initial liquidity.`,
@@ -201,7 +201,7 @@ export function generateBrainMd(opts: {
     `- DEDUPLICATION: Before creating a market, scan HISTORY_JSON. If you already created a market with the`,
   );
   lines.push(
-    `  same targetAgent + selector combination in the last 5 entries, output noop instead. Do not create`,
+    `  same targetAgentA + selector combination in the last 5 entries, output noop instead. Do not create`,
   );
   lines.push(
     `  near-identical markets (same subject, same rate surface, overlapping time windows).`,
@@ -232,7 +232,7 @@ export function generateBrainMd(opts: {
     `    {"type": "swap",          "venue": "jupiter",                       "args": {"inputMint": "<mint>", "outputMint": "<mint>", "amountInUi": <number>, "slippageBps": <number>}} |`,
   );
   lines.push(
-    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgent": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
+    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
   );
   lines.push(`  ]`);
   lines.push(`}`);

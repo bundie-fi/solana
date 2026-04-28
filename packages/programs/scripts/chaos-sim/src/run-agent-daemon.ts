@@ -305,7 +305,18 @@ async function runTickForAgent(
   // agent's mainnet-USDC ATA on the fork. Cheat-code RPC unreachability is
   // logged but never thrown, so a transient surfpool outage never kills the
   // tick.
-  await ensureSurfpoolUsdc(ctx.surfpool, target.kp.publicKey).catch((e) => {
+  // Surfpool USDC seed mirrors the agent's bUSD seed 1:1 — the user
+  // deposits $X bUSD on devnet, the agent gets $X USDC on surfpool to
+  // actually trade with. NAV then represents what the agent has done
+  // with that $X, and the daemon mirrors NAV back into the bUSD
+  // treasury so close_vault pays out true performance.
+  // Falls back to the helper's default (~1000 USDC) for legacy agents
+  // with no recorded seed amount, which matches old behaviour.
+  const seedUsdcUi =
+    target.seedBaseUnits !== undefined
+      ? Number(target.seedBaseUnits) / 1_000_000
+      : undefined;
+  await ensureSurfpoolUsdc(ctx.surfpool, target.kp.publicKey, seedUsdcUi).catch((e) => {
     console.warn(
       `[${target.sns}] ensureSurfpoolUsdc skipped: ${(e as Error).message}`,
     );
