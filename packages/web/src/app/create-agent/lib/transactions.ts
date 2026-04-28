@@ -116,10 +116,21 @@ export function buildDepositToVaultIx({
   });
 }
 
+/**
+ * Build the deposit_to_vault tx and return both the tx itself and the
+ * blockhash window the caller needs to do safe block-height-based
+ * confirmation. Returning the window from the same RPC call avoids
+ * racing two `getLatestBlockhash` reads against each other (which on
+ * devnet can produce a stale `lastValidBlockHeight`).
+ */
 export async function buildDepositToVaultTx(
   connection: Connection,
   args: BuildDepositArgs,
-): Promise<Transaction> {
+): Promise<{
+  tx: Transaction;
+  blockhash: string;
+  lastValidBlockHeight: number;
+}> {
   const tx = new Transaction();
 
   // Defensive: if the user's bUSD ATA doesn't exist yet, create it
@@ -146,9 +157,10 @@ export async function buildDepositToVaultTx(
 
   tx.add(buildDepositToVaultIx(args));
   tx.feePayer = args.ownerWallet;
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
-  return tx;
+  return { tx, blockhash, lastValidBlockHeight };
 }
 
 // ── Orchestrator: drive the user through deposit ────────────────────────────
@@ -203,17 +215,71 @@ export async function launchAgent({
   // collect a signature here.
   onStage("signing-init");
 
-  const tx = await buildDepositToVaultTx(connection, {
-    ownerWallet: wallet.publicKey,
-    vaultPda,
-    treasuryMint,
-    amountBase: nextSteps.seedAmountBase,
-  });
+  // Build → sign → broadcast → confirm. We retry once on blockhash
+  // expiry: devnet routinely lags enough that the wallet UI delay
+  // pushes us past the blockhash's validity window before the tx hits
+  // a leader. Without retry the user gets the misleading
+  // "Transaction was not confirmed in 30.00 seconds" timeout from the
+  // legacy strategy and has to start over.
+  const MAX_ATTEMPTS = 2;
+  let lastErr: Error | null = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { tx, blockhash, lastValidBlockHeight } = await buildDepositToVaultTx(
+      connection,
+      {
+        ownerWallet: wallet.publicKey,
+        vaultPda,
+        treasuryMint,
+        amountBase: nextSteps.seedAmountBase,
+      },
+    );
 
-  onStage("signing-deposit");
-  const depositSig = await wallet.sendTransaction(tx, connection);
-  onDepositTx?.(depositSig);
+    onStage("signing-deposit");
+    let depositSig: string;
+    try {
+      depositSig = await wallet.sendTransaction(tx, connection);
+    } catch (err) {
+      // Wallet rejection or signing failure — never lands. Surface it
+      // verbatim; nothing to retry against.
+      throw err;
+    }
+    onDepositTx?.(depositSig);
 
-  await connection.confirmTransaction(depositSig, "confirmed");
-  return { depositSig };
+    try {
+      // Block-height-based confirmation: web3.js gives up exactly when
+      // the blockhash expires (instead of an arbitrary 30s wall clock),
+      // so a `null` result means "definitely not landing, safe to
+      // rebuild." A landed tx returns its `value` even if it took
+      // longer than 30s.
+      const result = await connection.confirmTransaction(
+        { signature: depositSig, blockhash, lastValidBlockHeight },
+        "confirmed",
+      );
+      if (result.value.err) {
+        throw new Error(
+          `Deposit failed on-chain: ${JSON.stringify(result.value.err)}`,
+        );
+      }
+      return { depositSig };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const expired =
+        msg.includes("block height exceeded") ||
+        msg.includes("TransactionExpired") ||
+        msg.includes("was not confirmed");
+
+      if (expired && attempt < MAX_ATTEMPTS) {
+        // Tx never landed — drop the stale sig (it's not on chain),
+        // build a new one with a fresh blockhash, and re-prompt the
+        // wallet. Going back to "signing-init" briefly so the
+        // progress UI doesn't look frozen on signing-deposit.
+        lastErr = err instanceof Error ? err : new Error(msg);
+        onStage("signing-init");
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Defensive — the loop returns or throws on every path.
+  throw lastErr ?? new Error("launchAgent: exhausted retries");
 }
