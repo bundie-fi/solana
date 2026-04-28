@@ -273,41 +273,55 @@ export async function launchAgent({
       // has < seedAmount bUSD, the SPL transfer inside deposit_to_vault
       // reverts with a misleading "custom program error: 0x1" (token
       // program code 1 = InsufficientFunds). Surface a clear nudge to
-      // claim the faucet first.
+      // claim the faucet first — but only AFTER giving rpcfast time to
+      // ingest the recent faucet claim. Backend mints bUSD via the same
+      // RPC the frontend reads from, but propagation across rpcfast's
+      // internal shards can lag confirmation by 5-10s.
       const depositorAta = getAssociatedTokenAddressSync(
         treasuryMint,
         wallet.publicKey,
         false,
       );
-      try {
-        const bal = await connection.getTokenAccountBalance(depositorAta);
-        const have = BigInt(bal.value.amount);
-        const need = BigInt(nextSteps.seedAmountBase);
-        if (have < need) {
-          const haveUi = Number(have) / 1_000_000;
-          const needUi = Number(need) / 1_000_000;
-          throw new Error(
-            `Your wallet only has ${haveUi.toFixed(2)} bUSD (need ${needUi.toFixed(2)}). ` +
-              "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
-          );
+      const need = BigInt(nextSteps.seedAmountBase);
+      const PRECHECK_RETRIES = 6; // 6 × 1.5s = ~9s window
+      let have = 0n;
+      let ataMissing = false;
+      for (let pre = 0; pre < PRECHECK_RETRIES; pre++) {
+        try {
+          const bal = await connection.getTokenAccountBalance(depositorAta);
+          have = BigInt(bal.value.amount);
+          ataMissing = false;
+          if (have >= need) break;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (
+            msg.includes("could not find account") ||
+            msg.includes("Invalid param") ||
+            msg.includes("AccountNotFound")
+          ) {
+            ataMissing = true;
+          } else {
+            // Unrelated RPC issue — don't mask it as a faucet problem.
+            throw err;
+          }
         }
-      } catch (err) {
-        // getTokenAccountBalance throws if the ATA doesn't exist at
-        // all. Same fix: the user needs to claim the faucet.
-        const msg = err instanceof Error ? err.message : String(err);
-        if (
-          msg.includes("could not find account") ||
-          msg.includes("Invalid param") ||
-          msg.includes("AccountNotFound")
-        ) {
-          throw new Error(
-            "Your wallet has no bUSD account yet. Go back to step 4 and " +
-              "click 'Claim faucet' to get $50 bUSD.",
-          );
+        if (pre < PRECHECK_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
         }
-        // Otherwise re-throw the original error (we don't want to mask
-        // unrelated RPC issues).
-        if (msg.includes("only has") || msg.includes("Claim faucet")) throw err;
+      }
+      if (ataMissing) {
+        throw new Error(
+          "Your wallet has no bUSD account yet. Go back to step 4 and " +
+            "click 'Claim faucet' to get $50 bUSD.",
+        );
+      }
+      if (have < need) {
+        const haveUi = Number(have) / 1_000_000;
+        const needUi = Number(need) / 1_000_000;
+        throw new Error(
+          `Your wallet only has ${haveUi.toFixed(2)} bUSD (need ${needUi.toFixed(2)}). ` +
+            "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
+        );
       }
     }
 
