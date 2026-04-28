@@ -285,6 +285,7 @@ async function ensureSurfpoolFunded(
 async function runTickForAgent(
   target: TickTarget,
   ctx: TickContext,
+  cyclePeers?: PeerAgent[],
 ): Promise<void> {
   // Per-tick surfpool funding check. Cheap when balance ≥ 1 SOL (single
   // getBalance call → early return). When the surfpool fork resets mid-loop
@@ -322,6 +323,15 @@ async function runTickForAgent(
     );
   });
 
+  // Peer discovery: prefer the supervisor-provided cycle list (built from
+  // `agents.status='active'` so wizard-created agents see each other), fall
+  // back to the static loadPeers() snapshot for single-agent dev mode.
+  // Always exclude self so the brain doesn't try to bet on its own NAV.
+  const selfPubkey = target.kp.publicKey.toBase58();
+  const peers = (cyclePeers ?? ctx.peers).filter(
+    (p) => p.pubkey.toBase58() !== selfPubkey,
+  );
+
   await runTick({
     agentName: target.sns,
     walletName: target.walletName,
@@ -330,7 +340,7 @@ async function runTickForAgent(
     policyPath: target.policyPath,
     surfpool: ctx.surfpool,
     devnet: ctx.devnet,
-    peers: ctx.peers,
+    peers,
     busdMintAuthority: ctx.busdMintAuthority,
     busdMintPubkey: ctx.busdMintPubkey,
     vaultPda: target.vaultPda,
@@ -401,9 +411,21 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
 
     console.log(`[supervisor] ticking ${targets.length} agent(s): ${targets.map((t) => t.sns).join(", ")}`);
 
+    // Dynamic peer list: every active agent in the DB is a potential
+    // counterparty for head-to-head markets. Built once per cycle and
+    // passed to runTickForAgent which filters out the agent itself.
+    // Without this, wizard-created agents only ever see the static
+    // alice/bob/charlie peers from agent-subdomains.json — they can't
+    // create_market against each other, which kills the demo loop where
+    // a freshly-created agent gets challenged by an existing one.
+    const cyclePeers: PeerAgent[] = [];
+    for (const t of targets) {
+      cyclePeers.push({ name: t.sns, pubkey: t.kp.publicKey });
+    }
+
     await Promise.all(
       targets.map((target) =>
-        runTickForAgent(target, ctx)
+        runTickForAgent(target, ctx, cyclePeers)
           // Phase O: per-action logging now happens inside shared-tick.ts so
           // the agent profile timeline is action-grained (not tick-grained).
           // We drop the generic `tick_ok` row here to avoid duplicate noise.
