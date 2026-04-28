@@ -50,13 +50,18 @@ export default async function AgentProfilePage({
   // The registry round-trip lets newly-launched agents work on first load
   // without waiting for an SNS-resolver redeploy.
   let vaultFromName = resolveVaultFromSns(decoded);
-  if (!vaultFromName && decoded.includes(".bundie")) {
+  // The chaos-sim signs create_market_v2 with the agent's KEYPAIR, so
+  // Market.created_by stores agent_pubkey, not vault_pda. The "markets
+  // I created" filter below needs both pubkeys to match.
+  let agentPubkey: string | null = null;
+  if (decoded.includes(".bundie")) {
     const registry = await fetchRegisteredAgents({ cache: "no-store" });
     const match = registry.find(
       (a) => a.sns === decoded || a.sns === `${decoded}.sol`,
     );
-    if (match?.vault_pda) {
-      vaultFromName = match.vault_pda;
+    if (match) {
+      if (!vaultFromName && match.vault_pda) vaultFromName = match.vault_pda;
+      if (match.agent_pubkey) agentPubkey = match.agent_pubkey;
     }
   }
   const vault = vaultFromName ?? decoded;
@@ -79,9 +84,19 @@ export default async function AgentProfilePage({
   // Pass the registry through so "markets on me" doesn't surface bets
   // opened by unregistered creators against this vault either.
   const allMarkets = await fetchAllMarkets(connection, { allowedCreators });
-  const createdByMe = allMarkets.filter((m) => m.createdBy === vault);
+  // "Markets I created": the on-chain Market.created_by field stores
+  // whichever pubkey signed create_market_v2 — that's vault_pda for the
+  // legacy hero agents, agent_pubkey for chaos-sim / wizard agents.
+  // Build a self-set so both flavors hit.
+  const myKeys = new Set<string>([vault]);
+  if (agentPubkey) myKeys.add(agentPubkey);
+  const createdByMe = allMarkets.filter((m) => myKeys.has(m.createdBy));
+  // "Markets opened against me": the brain's create_market action
+  // populates Market.strategy with the predicted vault PDA (kind=1/3),
+  // and additionally sets Market.targetAgent for kind=2's B side.
+  // Match both fields against this agent's vault.
   const onMe = allMarkets.filter(
-    (m) => m.targetAgent === vault,
+    (m) => m.strategy === vault || m.targetAgent === vault,
   );
 
   // Phase B+ NAV history for this agent , null until the agent has called
