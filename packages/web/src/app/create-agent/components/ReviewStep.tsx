@@ -603,7 +603,13 @@ export function ReviewStep({ state, dispatch }: Props) {
         </div>
       )}
 
-      {/* Launch button (hidden once any recovery panel is showing) */}
+      {/* Launch button (hidden once any recovery panel is showing).
+         The bUSD balance gate only applies to the fresh flow — in resume
+         mode the read can hit RPC propagation lag and stick at 0, which
+         would silently grey out the button forever. The deposit flow's
+         own pre-check handles the actual "not enough bUSD" case with a
+         clear message + automatic retry, so it's safe to let the click
+         through here. */}
       {!recoveryNeeded && (
         <button
           type="button"
@@ -613,7 +619,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             launching ||
             done ||
             !strategy.preset ||
-            (capital.busdBalance ?? 0) < 50
+            (!state.resume && (capital.busdBalance ?? 0) < 50)
           }
           style={launchBtnStyle({
             disabled:
@@ -621,7 +627,7 @@ export function ReviewStep({ state, dispatch }: Props) {
               launching ||
               done ||
               !strategy.preset ||
-              (capital.busdBalance ?? 0) < 50,
+              (!state.resume && (capital.busdBalance ?? 0) < 50),
           })}
         >
           {!connected
