@@ -38,6 +38,7 @@ import {
 } from "./lib/agents-source.js";
 import { isSurfpoolReachable } from "./lib/action-executor.js";
 import { ensureSurfpoolUsdc } from "./lib/surfpool-seed.js";
+import { warmupLoop } from "./lib/warmup.js";
 import { prewarmZetaExchange } from "./lib/zeta-execute.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -683,7 +684,26 @@ async function main(): Promise<void> {
   console.log(`devnet RPC:    ${devnetUrl}`);
   console.log(`peers:         ${peers.length > 0 ? peers.map((p) => p.name).join(", ") : "(none discovered)"}`);
   console.log("");
-  await supervisorLoop(ctx, cli.intervalMs);
+
+  // Run the warmup loop in parallel with the supervisor. It polls every
+  // 1s for newly-active agents (status='active' AND warmup_done_at IS NULL)
+  // and runs a single deterministic action — picked from the agent's own
+  // policies.yaml allowlist — so a freshly-created agent has visible
+  // surfpool activity within seconds, before the supervisor's slower
+  // LLM-driven cycle picks it up. Crash-safe: errors log, the loop never
+  // exits.
+  let warmupStop = false;
+  const warmup = warmupLoop({ surfpool, devnet }, () => warmupStop, 1000);
+  warmup.catch((err) =>
+    console.error("[warmup] loop crashed:", (err as Error).stack || err),
+  );
+
+  try {
+    await supervisorLoop(ctx, cli.intervalMs);
+  } finally {
+    warmupStop = true;
+    await warmup.catch(() => {});
+  }
 }
 
 main().catch((err) => {
