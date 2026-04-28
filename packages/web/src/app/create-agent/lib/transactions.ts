@@ -320,7 +320,27 @@ export async function launchAgent({
     if (wallet.signTransaction) {
       try {
         const presigned = await wallet.signTransaction(tx);
-        const sim = await connection.simulateTransaction(presigned);
+
+        // Backend's faucet mints via api.devnet.solana.com but the frontend
+        // reads from rpcfast — these are independent nodes with slight
+        // propagation lag. Right after a faucet claim, the frontend RPC
+        // can return "insufficient funds" for ~10s while the mint tx
+        // ingests. Retry simulate a few times to absorb this without
+        // surfacing a confusing error.
+        let sim = await connection.simulateTransaction(presigned);
+        let simTries = 0;
+        while (
+          sim.value.err &&
+          simTries < 5 &&
+          (sim.value.logs ?? []).some((l) =>
+            l.includes("insufficient funds"),
+          )
+        ) {
+          await new Promise((r) => setTimeout(r, 1500));
+          sim = await connection.simulateTransaction(presigned);
+          simTries += 1;
+        }
+
         if (sim.value.err) {
           // AccountNotFound at preflight, with no instruction logs, almost
           // always means the fee payer has 0 lamports. Solana's error name
