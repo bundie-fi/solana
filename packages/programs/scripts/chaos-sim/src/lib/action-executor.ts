@@ -33,6 +33,7 @@ import { openZetaPerp, closeZetaPerp } from "./zeta-execute.js";
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositMarginfi, withdrawMarginfi } from "./marginfi-execute.js";
 import { depositSolend, withdrawSolend } from "./solend-execute.js";
+import { swapJupiter } from "./jupiter-execute.js";
 import { isMarketCreationRateLimited } from "./agents-source.js";
 import { recordSurfpoolAction } from "./surfpool-recorder.js";
 // @ts-expect-error — JS module, no type declarations provided
@@ -43,6 +44,7 @@ import type {
   LendProtocol,
   LstProtocol,
   PerpProtocol,
+  SwapVenue,
 } from "./redpill-brain.js";
 
 // ─── Protocol dispatch tables ────────────────────────────────────────────
@@ -80,6 +82,13 @@ const LST_IX: Record<LstProtocol, { stake: string; unstake: string }> = {
 
 const PREDICTION_MARKET_PROGRAM_ID =
   "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4";
+
+/** Jupiter v6 aggregator program (mainnet — same id on the surfpool fork). */
+const JUPITER_PROGRAM_ID = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
+
+const SWAP_PROGRAM: Record<SwapVenue, string> = {
+  jupiter: JUPITER_PROGRAM_ID,
+};
 
 export interface ExecuteActionArgs {
   action: BrainAction;
@@ -551,6 +560,88 @@ async function persistSurfpoolAction(
 }
 
 
+async function executeSwap(
+  args: ExecuteActionArgs,
+): Promise<ExecuteActionResult> {
+  if (args.action.type !== "swap") throw new Error("type mismatch (expected swap)");
+  const { venue } = args.action;
+  const { inputMint, outputMint, amountInUi, slippageBps } = args.action.args;
+  const programId = SWAP_PROGRAM[venue];
+  const policyGate = gate(args.policyPath, programId, "route");
+
+  if (!args.surfpoolAvailable) {
+    return {
+      phase: "execute", chain: "surfpool",
+      action: "swap", protocol: venue,
+      policyGate,
+      notes: "surfpool unreachable — policy-gated but not submitted",
+    };
+  }
+
+  if (amountInUi == null || amountInUi <= 0) {
+    throw new Error(`swap ${venue}: amountInUi must be > 0 (got ${amountInUi})`);
+  }
+
+  // Resolve input mint decimals on surfpool. getParsedAccountInfo keeps
+  // this dependency-free vs pulling in @solana/spl-token's getMint, and
+  // matches the parsed-info shape mainnet token mints reliably expose.
+  const { PublicKey } = await import("@solana/web3.js");
+  let inputMintPk: import("@solana/web3.js").PublicKey;
+  try {
+    inputMintPk = new PublicKey(inputMint);
+  } catch {
+    throw new Error(`swap ${venue}: invalid inputMint "${inputMint}"`);
+  }
+  const parsed = await args.surfpool.getParsedAccountInfo(inputMintPk, "confirmed");
+  const data = parsed.value?.data;
+  let decimals: number | undefined;
+  if (data && typeof data === "object" && "parsed" in data) {
+    decimals = (data as { parsed?: { info?: { decimals?: number } } }).parsed?.info?.decimals;
+  }
+  if (typeof decimals !== "number") {
+    throw new Error(
+      `swap ${venue}: could not resolve decimals for inputMint ${inputMint}`,
+    );
+  }
+  const amountInBase = BigInt(Math.floor(amountInUi * 10 ** decimals));
+  if (amountInBase <= 0n) {
+    throw new Error(
+      `swap ${venue}: amountInUi=${amountInUi} resolves to 0 base units at ${decimals}dp`,
+    );
+  }
+
+  if (venue !== "jupiter") {
+    const exhaustive: never = venue;
+    throw new Error(`unsupported swap venue: ${String(exhaustive)}`);
+  }
+
+  const result = await swapJupiter(args.surfpool, args.kp, {
+    inputMint,
+    outputMint,
+    amountInBase,
+    slippageBps,
+  });
+
+  const notes =
+    `Jupiter swap: ${amountInUi} (${inputMint.slice(0, 4)}…) → ` +
+    `~${result.outputAmount.toString()} base (${outputMint.slice(0, 4)}…) | ` +
+    `route=${result.routePlan}`;
+  await persistSurfpoolAction(args, {
+    protocol: "jupiter",
+    txSig: result.txSig,
+    actionType: "swap",
+    amountLamports: Number(result.inputAmount),
+    tokenMint: inputMint,
+    notes,
+  });
+
+  return {
+    phase: "execute", chain: "surfpool",
+    action: "swap", protocol: venue,
+    txSig: result.txSig, policyGate, notes,
+  };
+}
+
 async function executeCreateMarket(
   args: ExecuteActionArgs,
 ): Promise<ExecuteActionResult> {
@@ -711,6 +802,8 @@ export async function executeAction(
       return executePerp(args, "open", action.protocol);
     case "perp_close":
       return executePerp(args, "close", action.protocol);
+    case "swap":
+      return executeSwap(args);
     case "create_market":
       return executeCreateMarket(args);
     default: {

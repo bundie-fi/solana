@@ -207,6 +207,10 @@ export function generateBrainMd(opts: {
     `  near-identical markets (same subject, same rate surface, overlapping time windows).`,
   );
   lines.push(``);
+  lines.push(
+    `- Use "swap" to rotate between mints when no lend/lst path exists for the source asset (e.g. USDC → SOL before a Marinade stake). Available venues: jupiter.`,
+  );
+  lines.push(``);
   lines.push(`Schema:`);
   lines.push(`{`);
   lines.push(`  "reasoning": "<1-2 sentences>",`);
@@ -223,6 +227,9 @@ export function generateBrainMd(opts: {
   );
   lines.push(
     `    {"type": "lst_unstake",   "protocol": "marinade"|"jito",            "args": {"amountMsolUi": <number>}} |`,
+  );
+  lines.push(
+    `    {"type": "swap",          "venue": "jupiter",                       "args": {"inputMint": "<mint>", "outputMint": "<mint>", "amountInUi": <number>, "slippageBps": <number>}} |`,
   );
   lines.push(
     `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgent": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
@@ -344,6 +351,12 @@ const PREDICTION_MARKET_INSTRUCTIONS = [
   "resolve_market_v2",
 ];
 
+// Jupiter v6 aggregator — swap is a venue-agnostic cross-cutting action,
+// not a per-protocol selection, so we always allow it. Notional is gated
+// by spend_limit, not by per-protocol caps.
+const JUPITER_PROGRAM_ID = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
+const JUPITER_INSTRUCTIONS = ["route"];
+
 function uniq<T>(xs: T[]): T[] {
   return Array.from(new Set(xs));
 }
@@ -434,6 +447,11 @@ export function generatePoliciesYaml(opts: {
   lines.push(
     `          instructions: [${PREDICTION_MARKET_INSTRUCTIONS.join(", ")}]`,
   );
+  // Always allow Jupiter — the swap action is venue-agnostic and orthogonal
+  // to the per-protocol allowlist (e.g. an LST-only agent still needs
+  // USDC → SOL before staking).
+  lines.push(`        - programId: "${JUPITER_PROGRAM_ID}"`);
+  lines.push(`          instructions: [${JUPITER_INSTRUCTIONS.join(", ")}]`);
   for (const proto of protocols) {
     const entry = PROTOCOL_PROGRAMS[proto];
     lines.push(`        - programId: "${entry.programId}"`);

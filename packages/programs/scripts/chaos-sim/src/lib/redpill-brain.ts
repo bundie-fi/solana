@@ -19,6 +19,11 @@ export type LstProtocol = "marinade" | "jito";
  *  Zeta Markets is the active mainnet perps DEX and runs on the surfpool
  *  fork. */
 export type PerpProtocol = "zeta";
+/** Aggregators / venues the agent can route swaps through. Extend the
+ *  union as new venues land — Jupiter is the v6-quoted aggregator
+ *  default; future entries (raydium-cpmm, orca-whirlpool, …) drop in
+ *  here without schema changes elsewhere. */
+export type SwapVenue = "jupiter";
 
 export type BrainAction =
   | { type: "noop" }
@@ -50,6 +55,18 @@ export type BrainAction =
       type: "perp_close";
       protocol: PerpProtocol;
       args: { market: string };
+    }
+  | {
+      type: "swap";
+      venue: SwapVenue;
+      args: {
+        inputMint: string;
+        outputMint: string;
+        /** Input amount in UI units (the brain reasons in human numbers). */
+        amountInUi: number;
+        /** Slippage tolerance in basis points (50 = 0.5%). */
+        slippageBps: number;
+      };
     }
   | {
       type: "create_market";
