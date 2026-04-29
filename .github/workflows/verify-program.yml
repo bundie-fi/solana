@@ -57,6 +57,22 @@ jobs:
           echo '${{ secrets.UPLOAD_AUTHORITY_SECRET }}' > "$HOME/.config/solana/upload-authority.json"
           chmod 600 "$HOME/.config/solana/upload-authority.json"
 
+      - name: Create Solana CLI config
+        # solana-verify's PDA-write code path calls get_user_config_with_path()
+        # unconditionally — even when --keypair is supplied — so it tries to
+        # load ~/.config/solana/cli/config.yml. Without this step the upload
+        # phase errors out with "No such file or directory (os error 2)" right
+        # after "Using connection url: …".
+        run: |
+          mkdir -p "$HOME/.config/solana/cli"
+          cat > "$HOME/.config/solana/cli/config.yml" <<EOF
+          ---
+          json_rpc_url: https://api.devnet.solana.com
+          websocket_url: ""
+          keypair_path: $HOME/.config/solana/upload-authority.json
+          commitment: confirmed
+          EOF
+
       - name: Authorize git for the private repo
         # solana-verify spawns its own git subprocess that doesn't inherit
         # actions/checkout's auth. Substitute https://github.com/ with a
