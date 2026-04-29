@@ -71,6 +71,10 @@ jobs:
           # --current-dir uses the actions/checkout copy already on disk —
           # avoids git-cloning the private repo unauthenticated, which is
           # what fails when the workflow runs without a PAT.
+          # NB: do NOT append `-- --locked` here. The solana-verifiable-build
+          # Docker image already passes `--locked` to cargo internally, and
+          # passing it twice errors out with
+          # `the argument '--locked' cannot be used multiple times`.
           solana-verify verify-from-repo \
             --current-dir \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
@@ -80,8 +84,7 @@ jobs:
             --keypair "$HOME/.config/solana/upload-authority.json" \
             --url https://api.devnet.solana.com \
             --skip-prompt \
-            https://github.com/${{ github.repository }} \
-            -- --locked
+            https://github.com/${{ github.repository }}
 
       - name: Submit to OSEC verifier
         run: |
