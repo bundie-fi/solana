@@ -75,12 +75,19 @@ jobs:
           # Docker image already passes `--locked` to cargo internally, and
           # passing it twice errors out with
           # `the argument '--locked' cannot be used multiple times`.
+          #
+          # --base-image: the auto-detected default for our toolchain is
+          # solana-verifiable-build:3.0.1, which ships Rust 1.84. A
+          # transitive dep (toml_parser >= 1.1) now requires edition 2024
+          # (Rust 1.85+). Pinning to 3.1.10 picks up a newer Rust without
+          # touching our Anchor.toml / Cargo.lock.
           solana-verify verify-from-repo \
             --current-dir \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
             --commit-hash ${{ steps.sha.outputs.value }} \
             --library-name prediction_market \
             --mount-path packages/programs \
+            --base-image solanafoundation/solana-verifiable-build:3.1.10 \
             --keypair "$HOME/.config/solana/upload-authority.json" \
             --url https://api.devnet.solana.com \
             --skip-prompt \
