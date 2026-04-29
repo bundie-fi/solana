@@ -112,8 +112,20 @@ jobs:
       - name: Submit to OSEC verifier
         run: |
           # Uploader pubkey = upgrade authority pubkey for our program.
-          UPLOADER=$(solana-keygen pubkey "$HOME/.config/solana/upload-authority.json" 2>/dev/null \
-            || solana-verify get-program-pda --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4)
+          # We don't ship the full Solana CLI on this runner (only
+          # solana-verify), so `solana-keygen pubkey` isn't available.
+          # Read the Signer line out of `solana-verify get-program-pda`
+          # (the verify PDA was just written by the previous step, so the
+          # account exists and the lookup is reliable).
+          UPLOADER=$(solana-verify get-program-pda \
+            --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
+            --url https://api.devnet.solana.com \
+            | awk '/^Signer:/ {print $2; exit}')
+          if [ -z "$UPLOADER" ]; then
+            echo "Failed to extract uploader pubkey from get-program-pda output" >&2
+            exit 1
+          fi
+          echo "Uploader: $UPLOADER"
           solana-verify remote submit-job \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
             --uploader "$UPLOADER" \
