@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getDevnetConnection } from "@/lib/rpc";
 import {
@@ -65,16 +66,14 @@ export default async function MarketDetailPage({
   params: { id: string };
 }) {
   const connection = getDevnetConnection();
-  // Fan out every read that doesn't depend on the resolved Market in one
-  // batch. `fetchAllMarkets` is a `getProgramAccounts` scan and used to
-  // run sequentially after the first await pair — it dominated page TTFB
-  // (~3-5s on devnet). Slot read is also creator-independent so it joins
-  // the same wave. Vault reads still need market.strategy / market.kind
-  // and follow in a second, much smaller batch.
-  const [market, agentDir, allMarkets, currentSlot] = await Promise.all([
+  // Critical-path reads only — everything the page needs to render the
+  // header, hero, and bet panel. `fetchAllMarkets` (= getProgramAccounts,
+  // ~2-3s on devnet) is deliberately NOT in here; it now powers a
+  // Suspense-streamed creator-accuracy line further down so the page
+  // doesn't block on a single decorative stat.
+  const [market, agentDir, currentSlot] = await Promise.all([
     fetchMarketByAddress(connection, params.id),
     fetchAgentDirectory({ cache: "no-store" }),
-    fetchAllMarkets(connection),
     connection.getSlot("confirmed").catch(() => 0),
   ]);
 
@@ -97,18 +96,6 @@ export default async function MarketDetailPage({
   const noPct = 100 - yesPct;
   const yesPrice = yesProbability;
   const noPrice = 1 - yesProbability;
-
-  const creatorResolved = allMarkets.filter(
-    (m) => m.createdBy === market.createdBy && m.status === "resolved",
-  );
-  const creatorAccuracy =
-    creatorResolved.length === 0
-      ? null
-      : Math.round(
-          (creatorResolved.filter((m) => m.outcome === "no").length /
-            creatorResolved.length) *
-            100,
-        );
 
   // Live bettor signal: pull the predicted vault's CURRENT NAV so the
   // user can see how close the target is to the threshold without
@@ -354,14 +341,12 @@ export default async function MarketDetailPage({
               market a creator tries to open against their own vault.
             </span>
           </div>
-          {creatorAccuracy != null && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, marginTop: 6 }}>
-              <span className="muted" style={{ lineHeight: 1.4 }}>
-                {creator.name} has resolved {creatorResolved.length} markets
-                with NO winning {creatorAccuracy}% of the time.
-              </span>
-            </div>
-          )}
+          <Suspense fallback={null}>
+            <CreatorAccuracyLine
+              createdBy={market.createdBy}
+              creatorName={creator.name}
+            />
+          </Suspense>
         </div>
 
         {/* Bet panel */}
@@ -667,6 +652,36 @@ function DataRow({
       <span className="muted" style={{ fontSize: 11 }}>{label}</span>
       <span className="mono hl" style={{ fontSize: 12, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
         {value}
+      </span>
+    </div>
+  );
+}
+
+// Streamed via <Suspense> from the page render. Keeping this server-side
+// avoids exposing the full markets list to the client; keeping it OUT of
+// the parent's Promise.all means the page header / hero / bet panel render
+// in ~1 RPC roundtrip instead of waiting on a getProgramAccounts scan.
+async function CreatorAccuracyLine({
+  createdBy,
+  creatorName,
+}: {
+  createdBy: string;
+  creatorName: string;
+}) {
+  const connection = getDevnetConnection();
+  const all = await fetchAllMarkets(connection);
+  const resolved = all.filter(
+    (m) => m.createdBy === createdBy && m.status === "resolved",
+  );
+  if (resolved.length === 0) return null;
+  const accuracy = Math.round(
+    (resolved.filter((m) => m.outcome === "no").length / resolved.length) * 100,
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, marginTop: 6 }}>
+      <span className="muted" style={{ lineHeight: 1.4 }}>
+        {creatorName} has resolved {resolved.length} markets with NO winning{" "}
+        {accuracy}% of the time.
       </span>
     </div>
   );
