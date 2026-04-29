@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getDevnetConnection } from "@/lib/rpc";
 import {
   fetchMarketByAddress,
-  fetchMarketsByCreator,
+  fetchAllMarkets,
   fetchBundieVault,
 } from "@/lib/markets";
 import { fetchAgentDirectory } from "@/lib/registry";
@@ -65,9 +65,17 @@ export default async function MarketDetailPage({
   params: { id: string };
 }) {
   const connection = getDevnetConnection();
-  const [market, agentDir] = await Promise.all([
+  // Fan out every read that doesn't depend on the resolved Market in one
+  // batch. `fetchAllMarkets` is a `getProgramAccounts` scan and used to
+  // run sequentially after the first await pair — it dominated page TTFB
+  // (~3-5s on devnet). Slot read is also creator-independent so it joins
+  // the same wave. Vault reads still need market.strategy / market.kind
+  // and follow in a second, much smaller batch.
+  const [market, agentDir, allMarkets, currentSlot] = await Promise.all([
     fetchMarketByAddress(connection, params.id),
     fetchAgentDirectory({ cache: "no-store" }),
+    fetchAllMarkets(connection),
+    connection.getSlot("confirmed").catch(() => 0),
   ]);
 
   if (!market) notFound();
@@ -90,12 +98,8 @@ export default async function MarketDetailPage({
   const yesPrice = yesProbability;
   const noPrice = 1 - yesProbability;
 
-  const allByCreator = await fetchMarketsByCreator(
-    connection,
-    market.createdBy,
-  );
-  const creatorResolved = allByCreator.filter(
-    (m) => m.status === "resolved",
+  const creatorResolved = allMarkets.filter(
+    (m) => m.createdBy === market.createdBy && m.status === "resolved",
   );
   const creatorAccuracy =
     creatorResolved.length === 0
@@ -110,8 +114,7 @@ export default async function MarketDetailPage({
   // user can see how close the target is to the threshold without
   // having to leave the page. For kind=2 we also fetch B so we can
   // show both NAVs side-by-side.
-  const [currentSlot, vaultA, vaultB] = await Promise.all([
-    connection.getSlot("confirmed").catch(() => 0),
+  const [vaultA, vaultB] = await Promise.all([
     market.strategy
       ? fetchBundieVault(connection, PROGRAM_IDS.predictionMarket, market.strategy).catch(
           () => null,
