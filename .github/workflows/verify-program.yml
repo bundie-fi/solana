@@ -13,17 +13,23 @@ on:
 # What this does, in two stages:
 #   1. solana-verify build → reproduces the on-chain bytecode from source,
 #      hashes it, compares against the deployed `.so`. Pass = the deployed
-#      program WAS built from the source at this commit.
-#   2. solana-verify remote submit-job → registers the proof with the
-#      OSEC verifier service (verify.osec.io). Their hosted Docker rebuilds
-#      from the public repo URL + commit, re-hashes, and stores the result.
-#      After success, Solana Explorer / Solscan / orbmarkets show a green
-#      "Verified ✓" badge on the program page.
+#      program WAS built from the source at this commit. Then writes the
+#      verify PDA (program ID + commit + repo URL + args) on-chain so any
+#      RPC consumer can prove the deployed bytecode came from this repo.
+#   2. solana-verify remote submit-job → registers the proof with the OSEC
+#      verifier service (verify.osec.io). Their hosted Docker rebuilds from
+#      the public repo URL + commit, re-hashes, and stores the result.
+#      After success, Solana Explorer / Solscan show a green "Verified ✓"
+#      badge on the program page. **OSEC supports mainnet only**; the step
+#      is skipped automatically on devnet/testnet runs.
 #
 # Required repo secrets:
 #   UPLOAD_AUTHORITY_SECRET  – JSON byte array of the upgrade-authority
 #                              keypair (4rebicw8…). Used to sign the on-chain
 #                              verify-PDA write.
+#
+# Inputs:
+#   cluster – devnet (default) | mainnet | testnet. Selects the RPC URL.
 #
 # Trigger: gh workflow run "Verify program build"
 #          (or manually via the GitHub UI)
@@ -109,7 +115,15 @@ jobs:
             --skip-prompt \
             https://github.com/${{ github.repository }}
 
-      - name: Submit to OSEC verifier
+      - name: Submit to OSEC verifier (mainnet only)
+        # OSEC's hosted verifier only accepts mainnet programs, so skip this
+        # step on devnet/testnet runs. The on-chain verify PDA written by
+        # the previous step is sufficient for devnet — RPC consumers can
+        # already prove the deployed bytecode came from this repo without
+        # the OSEC badge.
+        if: ${{ contains(env.CLUSTER_URL, 'mainnet') }}
+        env:
+          CLUSTER_URL: https://api.devnet.solana.com
         run: |
           # Uploader pubkey = upgrade authority pubkey for our program.
           # We don't ship the full Solana CLI on this runner (only
@@ -119,7 +133,7 @@ jobs:
           # account exists and the lookup is reliable).
           UPLOADER=$(solana-verify get-program-pda \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
-            --url https://api.devnet.solana.com \
+            --url "$CLUSTER_URL" \
             | awk '/^Signer:/ {print $2; exit}')
           if [ -z "$UPLOADER" ]; then
             echo "Failed to extract uploader pubkey from get-program-pda output" >&2
@@ -129,4 +143,14 @@ jobs:
           solana-verify remote submit-job \
             --program-id Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4 \
             --uploader "$UPLOADER" \
-            --url https://api.devnet.solana.com
+            --url "$CLUSTER_URL"
+
+      - name: Summary
+        run: |
+          echo "## Verify summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Program:** \`Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** \`${{ steps.sha.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Cluster:** devnet" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **On-chain verify PDA:** written ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **OSEC submit:** skipped (mainnet only)" >> "$GITHUB_STEP_SUMMARY"
