@@ -88,7 +88,18 @@ export function AgentLeaderboard() {
   // every market read so the leaderboard's per-agent stats can never get
   // padded by markets created by an unregistered (zombie) agent against
   // a registered one.
-  const allowedCreators = new Set(agents.map((a) => a.vault));
+  //
+  // Must include BOTH vault_pda AND agent_pubkey for each agent: chaos-sim
+  // / wizard agents sign create_market_v2 with their KEYPAIR (so
+  // Market.created_by = agent_pubkey), while the legacy hero agents wrote
+  // the vault PDA. Missing agent_pubkey here drops every chaos-sim
+  // resolved market from the leaderboard's accuracy calc — bug shipped
+  // pre-2026-04-29.
+  const allowedCreators = new Set<string>();
+  for (const a of agents) {
+    if (a.vault) allowedCreators.add(a.vault);
+    if (a.agentPubkey) allowedCreators.add(a.agentPubkey);
+  }
 
   const tick = useCallback(async () => {
     try {
