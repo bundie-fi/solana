@@ -5,7 +5,14 @@ export const revalidate = 0;
 
 export default function AgentsPage() {
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+    <main
+      style={{
+        background: "var(--bg-0)",
+        minHeight: "100vh",
+        maxWidth: 1100,
+        margin: "0 auto",
+      }}
+    >
       {/* Mobile header */}
       <div
         className="sm:hidden top-header"
