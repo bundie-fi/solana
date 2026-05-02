@@ -90,6 +90,13 @@ export function generateBrainMd(opts: {
     .map((p) => `- ${p}`)
     .join("\n");
 
+  // The prompt is structured so the cache breakpoint (LIVE_INPUTS_SENTINEL
+  // below) sits between the static framework + strategy and the per-tick
+  // dynamic values (allowlist, state, history). Anthropic prompt caching
+  // hashes the prefix up to a cache_control marker — keeping that prefix
+  // bit-identical across ticks lets the brain pay full input rate only
+  // for the small dynamic suffix. Saves ~70-80% of input cost when the
+  // wrapper LLM client splits at the sentinel.
   const lines: string[] = [];
   lines.push(
     `You are ${opts.displayName}, an autonomous DeFi agent on Solana. Your personality:`,
@@ -99,20 +106,10 @@ export function generateBrainMd(opts: {
     `- You trust observed signals and act. You do not second-guess a clear opportunity.`,
   );
   lines.push(``);
-  lines.push(
-    `Your allowed programs (enforced on-chain by enforceProgramPolicy — you CANNOT bypass):`,
-  );
-  lines.push(`{{ALLOWLIST}}`);
-  lines.push(``);
   lines.push(`Your allowed protocols (configured by your owner):`);
   lines.push(allowlistList);
   lines.push(``);
-  lines.push(
-    `Your current observed state (read from mainnet observation chain + devnet this tick):`,
-  );
-  lines.push(`{{STATE_JSON}}`);
-  lines.push(``);
-  lines.push(`State fields explained:`);
+  lines.push(`State fields explained (values appear in the LIVE INPUTS section below):`);
   lines.push(
     `  rates.kaminoUsdcUtilizationBps  — Kamino USDC pool utilization (selector 1). High = good APY for lenders.`,
   );
@@ -146,9 +143,6 @@ export function generateBrainMd(opts: {
   );
   lines.push(``);
   lines.push(allocation);
-  lines.push(``);
-  lines.push(`Your recent activity (last 20 log entries):`);
-  lines.push(`{{HISTORY_JSON}}`);
   lines.push(``);
   lines.push(`Available market kinds (Phase F on-chain market kinds):`);
   lines.push(
@@ -267,8 +261,44 @@ export function generateBrainMd(opts: {
     lines.push(opts.customAddition.trim());
   }
 
+  // ── Cache-aware split point ──────────────────────────────────────────
+  // Everything ABOVE this sentinel is bit-identical across ticks for a
+  // given agent (framework, rules, schema, strategy) — eligible for
+  // Anthropic prompt caching. Everything BELOW changes every tick
+  // (allowlist, state, history) and is the small uncached suffix.
+  // The chaos-sim's LLM client (redpill-brain.ts) splits the rendered
+  // prompt at this exact string and applies cache_control to the static
+  // prefix.
+  lines.push(``);
+  lines.push(LIVE_INPUTS_SENTINEL);
+  lines.push(``);
+  lines.push(
+    `Your allowed programs (enforced on-chain by enforceProgramPolicy — you CANNOT bypass):`,
+  );
+  lines.push(`{{ALLOWLIST}}`);
+  lines.push(``);
+  lines.push(
+    `Your current observed state (read from mainnet observation chain + devnet this tick):`,
+  );
+  lines.push(`{{STATE_JSON}}`);
+  lines.push(``);
+  lines.push(`Your recent activity (last 20 log entries):`);
+  lines.push(`{{HISTORY_JSON}}`);
+  lines.push(``);
+  lines.push(
+    `Now decide your next action(s) — output ONLY the JSON object matching the schema above.`,
+  );
+
   return lines.join("\n") + "\n";
 }
+
+/** Sentinel string written into every generated brain.md to mark the
+ *  static-prefix vs dynamic-suffix split. The LLM client searches for
+ *  this exact substring after placeholder replacement; if found, it
+ *  applies prompt caching to the prefix. Legacy brain.md files without
+ *  the sentinel fall through to the non-cached single-message path. */
+export const LIVE_INPUTS_SENTINEL =
+  "===LIVE_INPUTS_BELOW (recomputed each tick — uncached)===";
 
 // ────────────────────────── policies.yaml ───────────────────────────────────
 

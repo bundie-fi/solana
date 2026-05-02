@@ -29,14 +29,10 @@ import { generateBrainMd, type AgentPreset, type AllowedProtocol } from "../../b
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001";
+// OWNER_WALLET is required at run-time (inside main()), not at import-time —
+// other scripts (e.g. regenerate-bootstrap-brain.ts) import STRATEGIES from
+// this module and shouldn't be forced to also set BOOTSTRAP_OWNER_WALLET.
 const OWNER_WALLET = process.env.BOOTSTRAP_OWNER_WALLET;
-
-if (!OWNER_WALLET || OWNER_WALLET.trim() === "") {
-  console.error(
-    "BOOTSTRAP_OWNER_WALLET env var is required (base58 pubkey of the wallet that will own all six bootstrap agents).",
-  );
-  process.exit(1);
-}
 
 const SEED_AMOUNT_BUSD = 100;
 
@@ -53,7 +49,7 @@ interface AgentSpec {
   strategyParagraph: string;
 }
 
-const STRATEGIES: Record<string, AgentSpec> = {
+export const STRATEGIES: Record<string, AgentSpec> = {
   "kamino-stacker": {
     sns: "kamino-stacker",
     displayName: "Kamino USDC Stacker",
@@ -243,7 +239,17 @@ async function postAgent(spec: AgentSpec): Promise<SeedResult> {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+// Export so other scripts (regenerate-bootstrap-brain) can reuse the type
+// without poking at private internals.
+export interface AgentSpecExport extends AgentSpec {}
+
 async function main(): Promise<void> {
+  if (!OWNER_WALLET || OWNER_WALLET.trim() === "") {
+    console.error(
+      "BOOTSTRAP_OWNER_WALLET env var is required (base58 pubkey of the wallet that will own all six bootstrap agents).",
+    );
+    process.exit(1);
+  }
   console.log(`[seed-bootstrap-agents] backend=${BACKEND_URL}`);
   console.log(`[seed-bootstrap-agents] owner=${OWNER_WALLET}`);
   console.log(`[seed-bootstrap-agents] seeding ${Object.keys(STRATEGIES).length} agents…\n`);
@@ -273,7 +279,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error("[seed-bootstrap-agents] fatal:", err);
-  process.exit(1);
-});
+// Only run main() when this file is executed directly, not when it's
+// imported as a library (e.g. by regenerate-bootstrap-brain.ts).
+const isMain =
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1]?.endsWith("seed-bootstrap-agents.ts");
+if (isMain) {
+  main().catch((err) => {
+    console.error("[seed-bootstrap-agents] fatal:", err);
+    process.exit(1);
+  });
+}

@@ -138,6 +138,30 @@ export interface ReasonArgs {
 const REDPILL_URL = "https://api.redpill.ai/v1/chat/completions";
 
 /**
+ * Sentinel marker emitted by `generateBrainMd` (in
+ * packages/backend/src/lib/agent-templates.ts) to delimit the static
+ * prefix from the dynamic per-tick suffix. When found, we split the
+ * prompt and apply Anthropic prompt caching (`cache_control`) to the
+ * static block — Redpill is OpenAI-compatible but proxies to Anthropic
+ * for `anthropic/*` models, and SHOULD pass cache_control through. Even
+ * if Redpill silently strips it, the request still succeeds (just
+ * uncached) — graceful degradation.
+ *
+ * Mirrors the sentinel constant in agent-templates.ts. Kept inline
+ * (not imported) so the chaos-sim doesn't need to depend on the
+ * backend package.
+ */
+const LIVE_INPUTS_SENTINEL =
+  "===LIVE_INPUTS_BELOW (recomputed each tick — uncached)===";
+
+/** Cache TTL: 1h ("1h" type) covers the BRAIN_FORCE_EVERY=10 cadence
+ *  (one brain call per agent every ~5 min) without crossing the cache
+ *  boundary. Default ephemeral TTL is 5m which would put us right at
+ *  the edge. 1h costs a 25% premium on cache writes but reads are
+ *  cheap, so net win for any agent making >2 calls per hour. */
+const CACHE_CONTROL = { type: "ephemeral", ttl: "1h" } as const;
+
+/**
  * Strip common wrapping patterns Claude sometimes adds. Returns the
  * best-effort JSON string. Callers still need to try/catch the JSON.parse.
  */
@@ -172,6 +196,40 @@ export async function reason(args: ReasonArgs): Promise<BrainDecision> {
   const model = args.model ?? process.env.REDPILL_MODEL ?? "anthropic/claude-sonnet-4.5";
   const temperature = args.temperature ?? 0.3;
 
+  // Cache-aware split: if the rendered prompt contains the sentinel
+  // emitted by generateBrainMd, split into [static, dynamic] and send
+  // as structured content blocks with cache_control on the static
+  // prefix. Anthropic models (which Redpill proxies to for `anthropic/*`)
+  // honor cache_control; non-Anthropic models or older brain.md files
+  // without the sentinel fall through to the legacy single-string path.
+  const sentinelIdx = prompt.indexOf(LIVE_INPUTS_SENTINEL);
+  // Only attempt cache_control when the model is an Anthropic family —
+  // OpenAI models don't understand the field and might reject the
+  // structured-content shape entirely. Ranking models (`gpt-*` etc.)
+  // continue on the legacy path.
+  const isAnthropic = model.toLowerCase().includes("anthropic") ||
+    model.toLowerCase().includes("claude");
+  const useCacheSplit = sentinelIdx > 0 && isAnthropic;
+
+  const messages: unknown = useCacheSplit
+    ? [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt.slice(0, sentinelIdx),
+              cache_control: CACHE_CONTROL,
+            },
+            {
+              type: "text",
+              text: prompt.slice(sentinelIdx),
+            },
+          ],
+        },
+      ]
+    : [{ role: "user", content: prompt }];
+
   const resp = await fetch(REDPILL_URL, {
     method: "POST",
     headers: {
@@ -180,11 +238,12 @@ export async function reason(args: ReasonArgs): Promise<BrainDecision> {
     },
     body: JSON.stringify({
       model,
-      messages: [{ role: "user", content: prompt }],
+      messages,
       temperature,
-      // Redpill's Anthropic proxy requires max_tokens explicitly. 2048
-      // comfortably fits a reasoning blurb + a few actions.
-      max_tokens: 2048,
+      // Redpill's Anthropic proxy requires max_tokens explicitly. 512
+      // comfortably fits a reasoning blurb + a few actions; 2048 was
+      // overkill and inflated the worst-case output billing ceiling.
+      max_tokens: 512,
     }),
   });
 
@@ -195,7 +254,32 @@ export async function reason(args: ReasonArgs): Promise<BrainDecision> {
 
   const json = (await resp.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      // Anthropic-compatible response fields. Both names appear in the
+      // wild — Anthropic's native proxy returns `prompt_tokens_details`
+      // with `cached_tokens`; OpenAI-compat surfaces a flatter
+      // `cached_input_tokens`. Log whichever is present so the operator
+      // can verify cache hits without combing through Redpill's response.
+      prompt_tokens_details?: { cached_tokens?: number };
+      cached_input_tokens?: number;
+    };
   };
+  if (useCacheSplit && json.usage) {
+    const cached =
+      json.usage.cached_input_tokens ??
+      json.usage.prompt_tokens_details?.cached_tokens ??
+      0;
+    if (cached > 0) {
+      // One-line breadcrumb so log search reveals cache effectiveness
+      // without bloating each tick. Redpill typically returns this
+      // field when the upstream Anthropic call was a cache hit.
+      console.log(
+        `[brain ${model}] cache hit: ${cached}/${json.usage.prompt_tokens ?? "?"} input tokens cached`,
+      );
+    }
+  }
   const content = json.choices?.[0]?.message?.content;
   if (typeof content !== "string" || content.length === 0) {
     throw new Error("Redpill returned no content");
