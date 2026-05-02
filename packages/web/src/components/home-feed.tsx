@@ -57,8 +57,10 @@ interface RegistryAgent {
  * so we can SSR that data (per spec: no client-side API fetches for P&L).
  */
 export function HomeFeed({
+  platformStatsSlot,
   topPerformersSlot,
 }: {
+  platformStatsSlot?: React.ReactNode;
   topPerformersSlot?: React.ReactNode;
 } = {}) {
   const { connection } = useConnection();
@@ -266,6 +268,11 @@ export function HomeFeed({
             </span>
           </Link>
         </div>
+
+        {/* Platform-wide stats strip — server-rendered slot. Aggregates
+            agents/TVL/markets/7d-growth so the home page leads with the
+            "the platform is real" headline numbers. */}
+        {platformStatsSlot}
 
         {/* Top performers · 30d — server-rendered slot from /page.tsx so
             P&L API calls stay off the client per design contract. */}

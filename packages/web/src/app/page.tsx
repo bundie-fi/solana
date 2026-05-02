@@ -1,5 +1,6 @@
 import { HomeFeed } from "@/components/home-feed";
 import { TopPerformersStrip } from "@/components/top-performers-strip";
+import { PlatformStatsStrip } from "@/components/platform-stats-strip";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,10 +13,19 @@ export const revalidate = 0;
  * on a 15s tick and merging on-chain market activity with vault
  * balance deltas into a single reverse-chronological stream.
  *
- * `<TopPerformersStrip />` is a server component fetching `/api/agents/...`
- * P&L data; we pass it in as a slot so the client `HomeFeed` doesn't have
- * to make API calls itself (spec: P&L data is server-fetched only).
+ * Server-rendered slots (passed in from this server component because
+ * `<HomeFeed>` is a client component and per design contract makes no
+ * client-side P&L / aggregate API calls):
+ *   - `<PlatformStatsStrip />` — aggregate "platform is real" numbers
+ *   - `<TopPerformersStrip />` — top 3 agents by 30d return
+ *
+ * Render order: stats strip → top performers → existing feed.
  */
 export default function Home() {
-  return <HomeFeed topPerformersSlot={<TopPerformersStrip />} />;
+  return (
+    <HomeFeed
+      platformStatsSlot={<PlatformStatsStrip />}
+      topPerformersSlot={<TopPerformersStrip />}
+    />
+  );
 }

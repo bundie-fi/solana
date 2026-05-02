@@ -15,6 +15,7 @@ import {
   HERO_AGENTS,
 } from "@/lib/sns-resolver";
 import { MarketBuyPanel } from "@/components/market-buy-panel";
+import { checkAgentQualityGate } from "@/lib/quality-gate";
 
 interface AgentLabel {
   name: string;
@@ -80,6 +81,10 @@ export default async function MarketDetailPage({
   if (!market) notFound();
 
   const creator = labelFor(market.createdBy, agentDir);
+  // Track-record quality gate. Resolved server-side so the buy panel
+  // ships with the disabled state pre-baked , no client fetch flicker.
+  // Fails open when the creator has no SNS (legacy hero vaults, etc.).
+  const qualityGate = await checkAgentQualityGate(creator.sns);
   // For kinds 1 and 3 the predicted vault sits on Market.strategy.
   // Kind 2 (head-to-head) uses both: strategy = agent A, targetAgent = B.
   const targetA = market.strategy
@@ -351,7 +356,11 @@ export default async function MarketDetailPage({
 
         {/* Bet panel */}
         <div style={{ padding: "0 16px 18px" }}>
-          <MarketBuyPanel market={market} yesProbability={yesProbability} />
+          <MarketBuyPanel
+            market={market}
+            yesProbability={yesProbability}
+            qualityGate={qualityGate}
+          />
         </div>
 
         {/* Resolution data */}

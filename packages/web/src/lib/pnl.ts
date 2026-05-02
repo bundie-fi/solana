@@ -34,9 +34,25 @@ export interface PnlSnapshot {
 
 export interface PnlStats {
   seedNavLamports: string | null;
+  /**
+   * The first-ever nav_snapshot for this agent, in lamports (bigint string).
+   * This is the honest baseline for "all-time return" — `seedNavLamports`
+   * only tracks the user's strategy-token stake, not the warmup airdrop
+   * that bumps real NAV before the agent starts trading. Null when the
+   * agent has no snapshots yet.
+   */
+  startingNavLamports: string | null;
+  /** ISO timestamp of the `startingNavLamports` snapshot. Null when empty. */
+  startingTs: string | null;
   currentNavLamports: string | null;
   return7dBps: number | null;
   return30dBps: number | null;
+  /**
+   * `(currentNav - startingNav) / startingNav` in bps. Null when there's
+   * no starting snapshot, when the start NAV is zero, or when only one
+   * snapshot exists (start == current).
+   */
+  returnAllTimeBps: number | null;
   maxDrawdownBps: number;
 }
 
@@ -53,9 +69,12 @@ const EMPTY: PnlResponse = {
   snapshots: [],
   stats: {
     seedNavLamports: null,
+    startingNavLamports: null,
+    startingTs: null,
     currentNavLamports: null,
     return7dBps: null,
     return30dBps: null,
+    returnAllTimeBps: null,
     maxDrawdownBps: 0,
   },
 };

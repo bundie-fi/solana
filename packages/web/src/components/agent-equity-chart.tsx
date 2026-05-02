@@ -3,10 +3,13 @@
 /**
  * Hand-rolled SVG equity curve for the agent profile P&L block.
  *
- * Plots `navLamports` over time with a dashed horizontal seed-NAV anchor
- * line. Hovering (pointer-move) snaps to the nearest snapshot and
- * surfaces a tooltip with timestamp + NAV + per-protocol component
- * breakdown.
+ * Plots `navLamports` over time with a dashed horizontal anchor line.
+ * The anchor prefers `startingNavLamports` (real first-snapshot NAV,
+ * which includes the warmup airdrop) and falls back to `seedNavLamports`
+ * (strategy-token stake only) when no snapshots exist yet.
+ *
+ * Hovering (pointer-move) snaps to the nearest snapshot and surfaces a
+ * tooltip with timestamp + NAV + per-protocol component breakdown.
  *
  * Why not Recharts: it's not installed and the chart is thin enough to
  * draw directly. Adding a top-level dep for one chart felt heavy.
@@ -22,7 +25,10 @@ import { microsToUsd } from "@/lib/pnl";
 
 interface AgentEquityChartProps {
   snapshots: PnlSnapshot[];
+  /** Strategy-token stake from `agents.seed_amount_busd`. Fallback only. */
   seedNavLamports: string | null;
+  /** First-snapshot NAV — preferred anchor; reflects warmup airdrop. */
+  startingNavLamports?: string | null;
   height?: number;
 }
 
@@ -31,8 +37,16 @@ const PADDING = { top: 12, right: 14, bottom: 22, left: 44 };
 export function AgentEquityChart({
   snapshots,
   seedNavLamports,
+  startingNavLamports,
   height = 220,
 }: AgentEquityChartProps) {
+  // Prefer the first-snapshot NAV (real starting point) over the
+  // strategy-token stake. The latter is only ~$100 of the actual ~$600
+  // starting NAV after the warmup airdrop, and using it here would draw
+  // the anchor at the wrong height.
+  const usingStartingNav = startingNavLamports != null;
+  const anchorLamports = startingNavLamports ?? seedNavLamports;
+  const anchorLabel = usingStartingNav ? "start" : "seed";
   const wrapRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [width, setWidth] = useState(640);
@@ -64,8 +78,8 @@ export function AgentEquityChart({
   }, [snapshots]);
 
   const seedUsd = useMemo(
-    () => microsToUsd(seedNavLamports ?? null),
-    [seedNavLamports],
+    () => microsToUsd(anchorLamports ?? null),
+    [anchorLamports],
   );
 
   if (series.length < 2) {
@@ -269,7 +283,7 @@ export function AgentEquityChart({
               fontFamily="var(--font-mono)"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              seed
+              {anchorLabel}
             </text>
           </g>
         )}

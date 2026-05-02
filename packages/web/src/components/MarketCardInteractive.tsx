@@ -5,6 +5,10 @@ import { useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import type { MarketDisplay } from "@bundie/common";
 import { PredictPanel } from "./PredictPanel";
+import {
+  QUALITY_GATE_MIN_DAYS,
+  type QualityGateResult,
+} from "@/lib/quality-gate";
 
 const PREDICTION_PROGRAM_ID = new PublicKey(
   "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4"
@@ -26,10 +30,19 @@ function PriceBar({ yesPrice }: { yesPrice: number }) {
 
 interface MarketCardInteractiveProps {
   m: MarketDisplay;
+  /** Optional track-record gate result for the underlying agent.
+   *  Computed server-side and passed down so the inline "Predict" CTA
+   *  can render in a disabled state (with a "Track record building"
+   *  badge) for agents younger than 7 days. */
+  qualityGate?: QualityGateResult;
 }
 
-export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
+export function MarketCardInteractive({
+  m,
+  qualityGate,
+}: MarketCardInteractiveProps) {
   const [showPredict, setShowPredict] = useState(false);
+  const gateBlocked = qualityGate ? !qualityGate.passes : false;
 
   const yesPct = Math.round(m.yesPrice * 100);
   const noPct = Math.round(m.noPrice * 100);
@@ -92,23 +105,45 @@ export function MarketCardInteractive({ m }: MarketCardInteractiveProps) {
       </div>
       <PriceBar yesPrice={m.yesPrice} />
 
+      {gateBlocked && qualityGate && (
+        <div
+          className="mt-3 inline-flex items-center gap-2 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
+          style={{
+            background: "var(--gold-tint)",
+            color: "var(--gold)",
+            border: "1px solid var(--gold)",
+          }}
+        >
+          Track record building · {qualityGate.daysOfHistory}/
+          {QUALITY_GATE_MIN_DAYS} days
+        </div>
+      )}
+
       <div className="flex items-center justify-between mt-3">
         <p className="text-xs text-neutral-800">Vol: ${vol.toFixed(2)}</p>
         {m.status === "active" && (
           <button
-            onClick={() => setShowPredict((v) => !v)}
+            onClick={() => !gateBlocked && setShowPredict((v) => !v)}
+            disabled={gateBlocked}
+            title={
+              gateBlocked
+                ? `Bets disabled , agent has only ${qualityGate?.daysOfHistory ?? 0} of ${QUALITY_GATE_MIN_DAYS} days of NAV history.`
+                : undefined
+            }
             className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${
-              showPredict
-                ? "bg-predict-purple/20 border border-predict-purple/40 text-predict-purple"
-                : "bg-predict-purple/10 border border-predict-purple/20 text-predict-purple hover:bg-predict-purple/20"
+              gateBlocked
+                ? "bg-neutral-200 border border-neutral-300 text-neutral-500 cursor-not-allowed"
+                : showPredict
+                  ? "bg-predict-purple/20 border border-predict-purple/40 text-predict-purple"
+                  : "bg-predict-purple/10 border border-predict-purple/20 text-predict-purple hover:bg-predict-purple/20"
             }`}
           >
-            {showPredict ? "Close" : "Predict"}
+            {gateBlocked ? "Predict (locked)" : showPredict ? "Close" : "Predict"}
           </button>
         )}
       </div>
 
-      {showPredict && (
+      {showPredict && !gateBlocked && (
         <PredictPanel
           marketAddress={m.address}
           yesMintAddress={yesMintPk.toBase58()}

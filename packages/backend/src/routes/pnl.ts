@@ -96,9 +96,11 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
         snapshots: [],
         stats: {
           seedNavLamports: null,
+          startingNavLamports: null,
           currentNavLamports: null,
           return7dBps: null,
           return30dBps: null,
+          returnAllTimeBps: null,
           maxDrawdownBps: 0,
         },
       },
@@ -153,6 +155,30 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
     }
   } catch {
     // Best-effort; seed is optional in the response.
+  }
+
+  // Fetch the agent's FIRST nav snapshot — the real starting NAV (seed +
+  // warmup airdrop). This is the honest baseline for "all-time return"
+  // since `seed_amount_busd` only tracks the strategy-token stake, not the
+  // 5 SOL warmup airdrop that lands before the agent starts trading.
+  let startingNavLamports: string | null = null;
+  let startingTs: string | null = null;
+  try {
+    const r = await dbQuery<{ nav_lamports: string; ts: string }>(
+      `SELECT nav_lamports, ts
+         FROM nav_snapshots
+        WHERE agent_sns = $1
+        ORDER BY ts ASC
+        LIMIT 1`,
+      [sns],
+    );
+    const first = r?.rows[0];
+    if (first) {
+      startingNavLamports = String(first.nav_lamports);
+      startingTs = new Date(first.ts).toISOString();
+    }
+  } catch {
+    // Best-effort; null falls back to seedNavLamports on the client.
   }
 
   const snapshots: SnapshotDto[] = rows.map((row) => {
@@ -212,6 +238,7 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
 
   let return7dBps: number | null = null;
   let return30dBps: number | null = null;
+  let returnAllTimeBps: number | null = null;
   if (navSeries.length >= 2 && currentNavLamports) {
     const cur = BigInt(currentNavLamports);
     const start7 = await navAtOrAfter(7);
@@ -226,6 +253,16 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
     if (start30 !== null && start30 !== cur) {
       return30dBps = bpsReturn(start30, cur);
     }
+    // All-time return uses the first-ever snapshot as baseline — this is
+    // the honest "is the agent good" number. seed_amount_busd as a base
+    // would understate the loss since warmup airdrops bump real NAV well
+    // above the strategy stake before the agent starts trading.
+    if (startingNavLamports) {
+      const startAll = BigInt(startingNavLamports);
+      if (startAll > 0n && startAll !== cur) {
+        returnAllTimeBps = bpsReturn(startAll, cur);
+      }
+    }
   }
 
   const maxDdBps = maxDrawdownBps(navSeries);
@@ -236,9 +273,12 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
     snapshots,
     stats: {
       seedNavLamports,
+      startingNavLamports,
+      startingTs,
       currentNavLamports,
       return7dBps,
       return30dBps,
+      returnAllTimeBps,
       maxDrawdownBps: maxDdBps,
     },
   });

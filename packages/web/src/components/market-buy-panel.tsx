@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { buildBuySharesTx, buildRedeemTx } from "@/lib/tx-builders";
 import type { MarketView } from "@/lib/markets";
 import { ChainBadge } from "@/components/chain-badge";
+import {
+  QUALITY_GATE_MIN_DAYS,
+  type QualityGateResult,
+} from "@/lib/quality-gate";
 
 const WalletButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -16,6 +20,9 @@ const WalletButton = dynamic(
 interface MarketBuyPanelProps {
   market: MarketView;
   yesProbability: number; // 0..1
+  /** Result of the agent track-record check. When `passes` is false the
+   *  buy CTA is rendered disabled with a gold-accented explainer banner. */
+  qualityGate?: QualityGateResult;
 }
 
 type Stage = "idle" | "preview" | "confirm" | "success";
@@ -24,10 +31,15 @@ type Stage = "idle" | "preview" | "confirm" | "success";
  * Bet panel with 3-stage flow: idle → preview → confirm (Zerion routing) → success.
  * Matches the BetOverlay pattern from the Seeker design.
  */
-export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) {
+export function MarketBuyPanel({
+  market,
+  yesProbability,
+  qualityGate,
+}: MarketBuyPanelProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { publicKey, sendTransaction, connected } = wallet;
+  const gateBlocked = qualityGate ? !qualityGate.passes : false;
 
   const [amount, setAmount] = useState("0.5");
   const [side, setSide] = useState<"yes" | "no">("yes");
@@ -155,6 +167,10 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
     return (
       <div className="card" style={{ padding: 16 }}>
         <div className="bd-eyebrow" style={{ marginBottom: 12 }}>Place bet</div>
+
+        {gateBlocked && qualityGate && (
+          <QualityGateBanner gate={qualityGate} style={{ marginBottom: 14 }} />
+        )}
 
         {/* Side toggle (disabled) */}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -328,6 +344,10 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
     <div className="card" style={{ padding: 16 }}>
       <div className="bd-eyebrow" style={{ marginBottom: 12 }}>Place bet</div>
 
+      {gateBlocked && qualityGate && (
+        <QualityGateBanner gate={qualityGate} style={{ marginBottom: 14 }} />
+      )}
+
       {/* Side toggle */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <button
@@ -427,10 +447,10 @@ export function MarketBuyPanel({ market, yesProbability }: MarketBuyPanelProps) 
       <button
         className="btn btn-primary"
         style={{ width: "100%", padding: "14px", fontSize: 13 }}
-        disabled={loading || amountNum <= 0}
+        disabled={loading || amountNum <= 0 || gateBlocked}
         onClick={() => setStage("preview")}
       >
-        Review bet
+        {gateBlocked ? "Bets disabled , track record building" : "Review bet"}
       </button>
       <div className="dim mono-tiny" style={{ textAlign: "center", marginTop: 10, fontSize: 9.5 }}>
         0.3% slippage · 0 fees on devnet
@@ -462,6 +482,43 @@ function BetRow({
     >
       <span className="muted" style={{ fontSize: 11 }}>{label}</span>
       <span className="mono hl" style={{ fontSize: 12, fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Gold-accented banner shown above the buy CTA when the underlying agent
+ * has fewer than 7 days of NAV history. Renders in place of (or alongside)
+ * the disabled CTA so the message is unmissable rather than buried.
+ */
+function QualityGateBanner({
+  gate,
+  style,
+}: {
+  gate: QualityGateResult;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className="card"
+      style={{
+        padding: "11px 13px",
+        background: "var(--gold-tint)",
+        border: "1px solid var(--gold)",
+        ...style,
+      }}
+    >
+      <div
+        className="bd-eyebrow"
+        style={{ color: "var(--gold)", marginBottom: 4, fontSize: 9 }}
+      >
+        Track record building · {gate.daysOfHistory}/{QUALITY_GATE_MIN_DAYS} days
+      </div>
+      <div style={{ fontSize: 11.5, lineHeight: 1.45, color: "var(--gold)" }}>
+        Bundie disables bets on agents with less than {QUALITY_GATE_MIN_DAYS}{" "}
+        days of NAV history. This is to protect predictors from agents
+        without a track record.
+      </div>
     </div>
   );
 }

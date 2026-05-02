@@ -38,7 +38,21 @@ export async function AgentPerformanceBlock({
   const currentUsd = microsToUsd(pnl.stats.currentNavLamports);
   const r7 = pnl.stats.return7dBps;
   const r30 = pnl.stats.return30dBps;
+  const rAll = pnl.stats.returnAllTimeBps;
   const dd = pnl.stats.maxDrawdownBps;
+
+  // "since {date}" caption under the all-time stat, sourced from the
+  // first nav_snapshot's ts. Falls back to "—" if we don't have one.
+  const startedAt = pnl.stats.startingTs
+    ? new Date(pnl.stats.startingTs)
+    : null;
+  const sinceLabel =
+    startedAt && Number.isFinite(startedAt.getTime())
+      ? `since ${startedAt.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}`
+      : null;
 
   // Protocol-exposure breakdown only lives on snapshots[] rows. `pnl.current`
   // is the bare {navLamports, epoch, ts} from the on-chain vault read and
@@ -107,7 +121,9 @@ export async function AgentPerformanceBlock({
         </div>
       </div>
 
-      {/* Stats grid — 2x2 on mobile, 4-up on sm+ */}
+      {/* Stats grid — 2-col on mobile (3+2 wrap), 5-up on sm+. The
+          all-time stat is the most honest "is this agent good" number
+          for short-history agents, so we surface it next to current NAV. */}
       <div
         className="perf-stats-grid"
         style={{
@@ -121,6 +137,12 @@ export async function AgentPerformanceBlock({
           label="Current NAV"
           value={currentUsd != null ? `$${fmtUsd(currentUsd)}` : "—"}
           sub="bUSD"
+        />
+        <PerfStat
+          label="All-time return"
+          value={fmtReturnBps(rAll)}
+          tone={tone(rAll)}
+          caption={sinceLabel}
         />
         <PerfStat
           label="7d return"
@@ -159,6 +181,7 @@ export async function AgentPerformanceBlock({
         <AgentEquityChart
           snapshots={pnl.snapshots}
           seedNavLamports={pnl.stats.seedNavLamports}
+          startingNavLamports={pnl.stats.startingNavLamports}
         />
       </div>
 
@@ -175,12 +198,12 @@ export async function AgentPerformanceBlock({
         </div>
       )}
 
-      {/* Inline reflow rule — promotes 2x2 → 4-up at sm. We keep the
-          declaration scoped to this block to avoid bloating globals.css. */}
+      {/* Inline reflow rule — promotes 2-col (3+2 wrap) → 5-up at sm.
+          Scoped here to avoid bloating globals.css. */}
       <style>{`
         @media (min-width: 640px) {
           .perf-stats-grid {
-            grid-template-columns: repeat(4, 1fr) !important;
+            grid-template-columns: repeat(5, 1fr) !important;
           }
         }
       `}</style>
@@ -200,11 +223,14 @@ function PerfStat({
   value,
   sub,
   tone,
+  caption,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "pos" | "neg" | "neutral";
+  /** Optional small caption underneath the value (e.g. "since May 2"). */
+  caption?: string | null;
 }) {
   let color = "var(--fg-0)";
   // Brand: positive returns gold, negative red. Neutral = default fg.
@@ -236,6 +262,18 @@ function PerfStat({
           </span>
         )}
       </div>
+      {caption && (
+        <div
+          className="dim mono-tiny"
+          style={{
+            fontSize: 9,
+            marginTop: 3,
+            letterSpacing: "0.04em",
+          }}
+        >
+          {caption}
+        </div>
+      )}
     </div>
   );
 }
