@@ -15,11 +15,11 @@
  * is cheap enough but not free — we cache the response in-process for 30s
  * to keep the home page from hammering the DB on every visit.
  *
- * Markets table: there's no `markets` table in the current schema (markets
- * live on-chain, the route at packages/backend/src/routes/markets.ts is
- * mock-only). We therefore return zeros for marketsTotal/Open/Resolved with
- * a comment explaining the absence; if a markets table is added later, the
- * SQL block flagged below should be filled in.
+ * Markets totals come from the `markets` table — a Postgres mirror of
+ * on-chain Market accounts, refreshed once per supervisor cycle by
+ * chaos-sim's markets-indexer (packages/programs/scripts/chaos-sim/src/lib/
+ * markets-indexer.ts). On-chain remains the source of truth; this route
+ * trades a few seconds of staleness for sub-millisecond reads.
  */
 import { Hono } from "hono";
 import { dbQuery, getPool } from "../lib/db.js";
@@ -112,13 +112,34 @@ stats.get("/api/stats/platform", async (c) => {
   }
 
   // ── Markets totals ──────────────────────────────────────────────────
-  // No `markets` table exists in the current schema (markets live entirely
-  // on-chain — see packages/programs/programs/prediction_market). Until a
-  // mirror table lands, return zeros. Replace this block with a real query
-  // once a `markets` table with `status` (open|resolved|...) is added.
-  const marketsTotal = 0;
-  const marketsOpen = 0;
-  const marketsResolved = 0;
+  // The `markets` table is a Postgres mirror of on-chain Market accounts,
+  // refreshed once per supervisor cycle by chaos-sim's markets-indexer.
+  // Single aggregate query — `COUNT(*) FILTER (...)` keeps it to one
+  // table scan instead of three round-trips.
+  let marketsTotal = 0;
+  let marketsOpen = 0;
+  let marketsResolved = 0;
+  try {
+    const r = await dbQuery<{
+      total: string;
+      open: string;
+      resolved: string;
+    }>(
+      `SELECT
+         COUNT(*)                                 AS total,
+         COUNT(*) FILTER (WHERE status = 'open')      AS open,
+         COUNT(*) FILTER (WHERE status = 'resolved')  AS resolved
+       FROM markets`,
+    );
+    const row = r?.rows[0];
+    if (row) {
+      marketsTotal = Number(row.total);
+      marketsOpen = Number(row.open);
+      marketsResolved = Number(row.resolved);
+    }
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
 
   // ── 7d weighted NAV growth ──────────────────────────────────────────
   // For each active agent: pull current nav and the first snapshot at or

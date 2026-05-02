@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { buildBuySharesTx, buildRedeemTx } from "@/lib/tx-builders";
-import type { MarketView } from "@/lib/markets";
+import { deriveMarketPdas, type MarketView } from "@/lib/markets";
+import { PROGRAM_IDS } from "@/lib/constants";
 import { ChainBadge } from "@/components/chain-badge";
 import {
   QUALITY_GATE_MIN_DAYS,
@@ -49,6 +52,60 @@ export function MarketBuyPanel({
   const [stage, setStage] = useState<Stage>("idle");
 
   const isResolved = market.status === "resolved";
+
+  // ─── Claimable balance read (resolved markets only) ───────────────────
+  // Mirrors the on-chain redeem ix's account list — we read the bettor's
+  // ATA for the winner mint, which corresponds to the `redeemer_shares`
+  // input. Balance in base units (collateral mint = USDC = 6dp).
+  const [winnerBalanceBase, setWinnerBalanceBase] = useState<bigint | null>(
+    null,
+  );
+  const [redeemSuccessUsd, setRedeemSuccessUsd] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!isResolved || !connected || !publicKey || !market.outcome) {
+      setWinnerBalanceBase(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { yesMint, noMint } = deriveMarketPdas(
+          PROGRAM_IDS.predictionMarket,
+          new PublicKey(market.address),
+        );
+        const winnerMint = market.outcome === "yes" ? yesMint : noMint;
+        const ata = getAssociatedTokenAddressSync(winnerMint, publicKey, false);
+        const info = await connection.getTokenAccountBalance(ata, "confirmed");
+        if (!cancelled) {
+          setWinnerBalanceBase(BigInt(info.value.amount));
+        }
+      } catch {
+        // ATA missing / no balance — same as zero. Don't surface as error.
+        if (!cancelled) setWinnerBalanceBase(0n);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Re-run after a successful redeem so the balance flips to zero and
+    // the CTA hides itself.
+  }, [
+    isResolved,
+    connected,
+    publicKey,
+    market.outcome,
+    market.address,
+    connection,
+    txSig,
+  ]);
+
+  // 1:1 USDC payout estimate (base units → display units, 6dp).
+  const claimableUsd =
+    winnerBalanceBase != null ? Number(winnerBalanceBase) / 1_000_000 : null;
+  const hasClaimable = claimableUsd != null && claimableUsd > 0;
 
   const yesPrice = yesProbability;
   const noPrice = 1 - yesProbability;
@@ -100,6 +157,10 @@ export function MarketBuyPanel({
     setError(null);
     setTxSig(null);
     setLoading(true);
+    // Snapshot the claimable amount BEFORE submitting — the post-redeem
+    // balance read will be 0 (shares are burned in the ix), so we capture
+    // the pre-redeem value here for the success toast / "Redeemed $X" line.
+    const claimedUsdSnapshot = claimableUsd;
     try {
       const tx = await buildRedeemTx(connection, {
         market,
@@ -108,23 +169,41 @@ export function MarketBuyPanel({
       const sig = await sendTransaction(tx, connection);
       await connection.confirmTransaction(sig, "confirmed");
       setTxSig(sig);
+      if (claimedUsdSnapshot != null) {
+        setRedeemSuccessUsd(claimedUsdSnapshot);
+        toast.success(
+          `Redeemed $${claimedUsdSnapshot.toFixed(2)} from ${(market.outcome ?? "").toUpperCase()} shares.`,
+        );
+      } else {
+        toast.success("Redeemed winning shares.");
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg.slice(0, 160));
+      if (msg.includes("User rejected")) setError("Transaction rejected.");
+      else setError(msg.slice(0, 160));
     } finally {
       setLoading(false);
     }
   }
 
   if (isResolved) {
+    // Three states inside this branch:
+    //   1. wallet not connected → show outcome + connect prompt
+    //   2. wallet connected, has claimable balance → prominent purple
+    //      "Redeem $X" CTA (predict-mode accent — bettor surface)
+    //   3. wallet connected, zero balance → "no claim" / outcome readout
+    //      (covers both "never bought winner side" and "already redeemed")
     return (
       <div className="card" style={{ padding: 16 }}>
-        <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Market resolved</div>
+        <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
+          Market resolved
+        </div>
         <div style={{ fontSize: 13, marginBottom: 14 }}>
           Outcome:{" "}
           <span
             style={{
-              color: market.outcome === "yes" ? "var(--green-2)" : "var(--red-2)",
+              color:
+                market.outcome === "yes" ? "var(--green-2)" : "var(--red-2)",
               fontWeight: 600,
               fontFamily: "var(--font-mono)",
             }}
@@ -132,31 +211,158 @@ export function MarketBuyPanel({
             {(market.outcome ?? "-").toUpperCase()}
           </span>
         </div>
-        {connected ? (
-          <button
-            type="button"
-            onClick={handleRedeem}
-            disabled={loading || market.outcome == null}
-            className="btn btn-primary"
-            style={{ width: "100%", padding: "13px" }}
-          >
-            {loading ? "Redeeming…" : "Redeem winning shares"}
-          </button>
-        ) : (
-          <WalletButton
+
+        {!connected ? (
+          <>
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--fg-3)",
+                marginBottom: 14,
+                textAlign: "center",
+              }}
+            >
+              Connect your wallet to check for redeemable shares.
+            </p>
+            <WalletButton
+              style={{
+                width: "100%",
+                background: "var(--fg-0)",
+                border: "none",
+                borderRadius: "8px",
+                color: "#FAF7F0",
+                fontSize: "13px",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+                height: "46px",
+                padding: "0 16px",
+              }}
+            />
+          </>
+        ) : redeemSuccessUsd != null && txSig ? (
+          // Post-redeem confirmation — replaces the CTA so the user sees
+          // "Redeemed $X" rather than a stale "Redeem $X" button.
+          <div
+            className="card inset"
             style={{
-              width: "100%",
-              background: "var(--fg-0)",
-              border: "none",
-              borderRadius: "8px",
-              color: "#FAF7F0",
-              fontSize: "13px",
-              fontFamily: "var(--font-sans)",
-              fontWeight: 600,
-              height: "46px",
-              padding: "0 16px",
+              padding: 14,
+              background: "var(--green-tint)",
+              border: "1px solid rgba(34,197,94,0.24)",
             }}
-          />
+          >
+            <div
+              style={{
+                color: "var(--green-2)",
+                fontWeight: 600,
+                fontSize: 13,
+                marginBottom: 4,
+              }}
+            >
+              Redeemed ${redeemSuccessUsd.toFixed(2)}
+            </div>
+            <div
+              className="muted"
+              style={{ fontSize: 11, lineHeight: 1.4 }}
+            >
+              Winning shares burned, USDC sent to your wallet.
+            </div>
+          </div>
+        ) : winnerBalanceBase == null ? (
+          // Balance read in flight — show a placeholder so we don't flash
+          // the "no claim" state for a frame.
+          <div
+            className="muted"
+            style={{
+              fontSize: 12,
+              textAlign: "center",
+              padding: "10px 0",
+            }}
+          >
+            Checking your shares…
+          </div>
+        ) : hasClaimable ? (
+          <>
+            <div
+              className="card inset"
+              style={{
+                padding: 12,
+                marginBottom: 12,
+                // Predict-mode purple per design system — bettor-facing CTA.
+                background: "rgba(167,139,250,0.08)",
+                border: "1px solid rgba(167,139,250,0.32)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <span className="muted" style={{ fontSize: 11 }}>
+                  You hold
+                </span>
+                <span
+                  className="mono hl"
+                  style={{ fontSize: 12, fontWeight: 500 }}
+                >
+                  {claimableUsd?.toFixed(2)}{" "}
+                  {(market.outcome ?? "").toUpperCase()} shares
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span className="muted" style={{ fontSize: 11 }}>
+                  Redeemable for
+                </span>
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#a78bfa",
+                  }}
+                >
+                  ${claimableUsd?.toFixed(2)} USDC
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRedeem}
+              disabled={loading || market.outcome == null}
+              className="btn"
+              style={{
+                width: "100%",
+                padding: "14px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "#a78bfa",
+                border: "1px solid #a78bfa",
+                color: "#0a0a0a",
+              }}
+            >
+              {loading
+                ? "Redeeming…"
+                : `Redeem $${claimableUsd?.toFixed(2)}`}
+            </button>
+          </>
+        ) : (
+          <div
+            className="muted"
+            style={{
+              fontSize: 12,
+              textAlign: "center",
+              padding: "10px 0",
+              lineHeight: 1.4,
+            }}
+          >
+            No redeemable shares on this market.
+          </div>
         )}
         <TxStatus error={error} sig={txSig} />
       </div>

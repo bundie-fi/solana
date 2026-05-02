@@ -390,17 +390,24 @@ function decodePythAccount(
 }
 
 /**
- * Fetch a USD price for `symbol` from the Pyth feed account on surfpool,
- * caching successful reads for `PRICE_CACHE_TTL_MS`. On any failure
- * (account missing, decode error, confidence too wide), logs a warning
- * and returns the `STUB_PRICE_USD` fallback so the daemon keeps moving.
+ * Fetch a USD price for `symbol` from a Pyth feed account on the supplied
+ * `priceConn` (mainnet RPC for live oracles, falling back to the surfpool
+ * fork only when no separate mainnet RPC is configured), caching successful
+ * reads for `PRICE_CACHE_TTL_MS`. On any failure (account missing, decode
+ * error, confidence too wide), logs a warning and returns the
+ * `STUB_PRICE_USD` fallback so the daemon keeps moving.
+ *
+ * Reading prices from a separate live mainnet RPC avoids the
+ * "frozen-at-fork-creation" Pyth staleness on surfpool — token balances /
+ * Kamino / Solend reads still hit the fork, only oracle prices come from
+ * mainnet.
  *
  * The cache is keyed by symbol so all callers share a single price per
  * tick window; this keeps the digest deterministic across the multiple
  * NAV computations performed within one second.
  */
 async function readPythPriceUsd(
-  surfpool: Connection,
+  priceConn: Connection,
   symbol: string,
 ): Promise<number> {
   const now = Date.now();
@@ -437,9 +444,9 @@ async function readPythPriceUsd(
   }
 
   try {
-    const info = await surfpool.getAccountInfo(new PublicKey(feedAddr), "confirmed");
+    const info = await priceConn.getAccountInfo(new PublicKey(feedAddr), "confirmed");
     if (!info) {
-      throw new Error(`feed account ${feedAddr} missing on surfpool`);
+      throw new Error(`feed account ${feedAddr} missing on price RPC`);
     }
     const { price, conf } = decodePythAccount(info.data, info.owner);
     if (!Number.isFinite(price) || price <= 0) {
@@ -474,13 +481,19 @@ async function readPythPriceUsd(
  * Resolve every price the NAV computation needs. The one-time banner is
  * emitted later (in `computeNavFromSurfpoolBalances`) so it can also
  * include Kamino + Zeta breakdown numbers — see `emitNavPricingBanner`.
+ *
+ * Pyth reads target `priceConn` — typically a live mainnet RPC threaded
+ * through from the daemon. This is what keeps NAV oracle prices fresh
+ * even though the surfpool fork's Pyth accounts are frozen at
+ * fork-creation time. When no mainnet RPC is wired the caller passes the
+ * surfpool fork as `priceConn` (legacy behaviour).
  */
 async function loadPricesForNav(
-  surfpool: Connection,
+  priceConn: Connection,
 ): Promise<Record<string, number>> {
   const symbols = ["SOL", "mSOL", "USDC", "bUSD"];
   const entries = await Promise.all(
-    symbols.map(async (s) => [s, await readPythPriceUsd(surfpool, s)] as const),
+    symbols.map(async (s) => [s, await readPythPriceUsd(priceConn, s)] as const),
   );
   return Object.fromEntries(entries);
 }
@@ -1008,6 +1021,7 @@ async function loadMrgnCommonForRead(): Promise<
  */
 async function loadMarginfiSnapshots(
   surfpool: Connection,
+  mainnet: Connection,
   agentPubkey: PublicKey,
 ): Promise<{ usdSubtotal: number; breakdown: ProtocolPositionEntry[] }> {
   const key = agentPubkey.toBase58();
@@ -1077,7 +1091,7 @@ async function loadMarginfiSnapshots(
           );
           continue;
         }
-        const px = await readPythPriceUsd(surfpool, symbol);
+        const px = await readPythPriceUsd(mainnet, symbol);
         if (!Number.isFinite(px) || px <= 0) continue;
         const usd = assetUi * px;
         usdSubtotal += usd;
@@ -1256,6 +1270,7 @@ async function readSolendReserveSnapshot(
  */
 async function loadSolendSnapshots(
   surfpool: Connection,
+  mainnet: Connection,
   agentPubkey: PublicKey,
 ): Promise<{ usdSubtotal: number; breakdown: ProtocolPositionEntry[] }> {
   const key = agentPubkey.toBase58();
@@ -1328,7 +1343,7 @@ async function loadSolendSnapshots(
           continue;
         }
       }
-      const px = await readPythPriceUsd(surfpool, snap.symbol);
+      const px = await readPythPriceUsd(mainnet, snap.symbol);
       if (!Number.isFinite(px) || px <= 0) continue;
       const underlyingBaseUnits = Number(amount) * exchangeRate;
       const ui = underlyingBaseUnits / Math.pow(10, snap.liquidityDecimals);
@@ -1655,9 +1670,28 @@ async function computeZetaEquityUsd(
  */
 export async function computeNavFromSurfpoolBalances(
   surfpool: Connection,
-  authority: PublicKey,
+  mainnetOrAuthority: Connection | PublicKey,
+  authorityArg?: PublicKey,
 ): Promise<bigint> {
-  const breakdown = await computeNavBreakdown(surfpool, authority);
+  // Backward-compat overload: legacy callers pass `(surfpool, authority)`
+  // and expect prices to come from the same connection. New callers pass
+  // `(surfpool, mainnet, authority)` so Pyth reads can target a separate
+  // live mainnet RPC while balance reads still hit the surfpool fork.
+  let mainnet: Connection;
+  let authority: PublicKey;
+  if (mainnetOrAuthority instanceof PublicKey) {
+    mainnet = surfpool;
+    authority = mainnetOrAuthority;
+  } else {
+    mainnet = mainnetOrAuthority;
+    if (!authorityArg) {
+      throw new Error(
+        "computeNavFromSurfpoolBalances: authority is required when a mainnet Connection is supplied",
+      );
+    }
+    authority = authorityArg;
+  }
+  const breakdown = await computeNavBreakdown(surfpool, mainnet, authority);
   return breakdown.navLamports;
 }
 
@@ -1687,13 +1721,17 @@ export interface NavBreakdown {
  */
 export async function computeNavBreakdown(
   surfpool: Connection,
+  mainnet: Connection,
   authority: PublicKey,
 ): Promise<NavBreakdown> {
   // Resolve prices once per invocation; the cache will keep them stable
-  // across the surrounding tick window (~60s).
+  // across the surrounding tick window (~60s). Pyth reads target `mainnet`
+  // (live RPC) so prices stay fresh — the surfpool fork's Pyth accounts
+  // are frozen at fork-creation time and would mis-price NAV by 20%+ on
+  // any volatile day.
   let prices: Record<string, number>;
   try {
-    prices = await loadPricesForNav(surfpool);
+    prices = await loadPricesForNav(mainnet);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
@@ -1814,7 +1852,7 @@ export async function computeNavBreakdown(
   //    when the agent has no obligation.
   let solendBreakdown: ProtocolPositionEntry[] = [];
   try {
-    const sol = await loadSolendSnapshots(surfpool, authority);
+    const sol = await loadSolendSnapshots(surfpool, mainnet, authority);
     solendUsd = sol.usdSubtotal;
     solendBreakdown = sol.breakdown;
   } catch (e) {

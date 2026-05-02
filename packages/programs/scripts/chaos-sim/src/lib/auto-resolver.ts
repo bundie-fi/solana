@@ -81,13 +81,27 @@ function makeReadonlyWallet(): Wallet {
 }
 
 /**
- * Scan all v2 markets on devnet and return rows ready for resolve_market_v2.
- * Filters: status === Active (kind === 1, 2, or 3). Caller compares
- * resolution_slot to the current slot before submitting.
+ * Anchor-decoded market account row. The shape mirrors `Market` in
+ * packages/common/src/idl/prediction_market.json — Anchor decodes
+ * snake_case IDL fields to camelCase on the JS side, so consumers should
+ * read e.g. `account.resolutionSlot` rather than `resolution_slot`.
  */
-export async function fetchResolvableCandidates(
+export interface FetchedMarketRow {
+  publicKey: PublicKey;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  account: any;
+}
+
+/**
+ * Scan every Market account on devnet via Anchor's `account.market.all()`
+ * and return the raw decoded rows. Shared between the auto-resolver
+ * (filters to active+resolvable) and the markets indexer (mirrors all
+ * markets to Postgres). One round-trip per call — caller is expected to
+ * cache / rate-limit invocations.
+ */
+export async function fetchAllMarkets(
   devnet: Connection,
-): Promise<ResolvableMarketRow[]> {
+): Promise<FetchedMarketRow[]> {
   const provider = new AnchorProvider(devnet, makeReadonlyWallet(), {
     commitment: "confirmed",
   });
@@ -96,6 +110,18 @@ export async function fetchResolvableCandidates(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: Array<{ publicKey: PublicKey; account: any }> =
     await program.account.market.all();
+  return rows;
+}
+
+/**
+ * Scan all v2 markets on devnet and return rows ready for resolve_market_v2.
+ * Filters: status === Active (kind === 1, 2, or 3). Caller compares
+ * resolution_slot to the current slot before submitting.
+ */
+export async function fetchResolvableCandidates(
+  devnet: Connection,
+): Promise<ResolvableMarketRow[]> {
+  const rows = await fetchAllMarkets(devnet);
   return rows.flatMap((row) => {
     const a = row.account;
     // Anchor decodes MarketStatus as `{ active: {} }` / `{ resolved: {} }`.

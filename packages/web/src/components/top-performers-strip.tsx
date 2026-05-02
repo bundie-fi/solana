@@ -26,6 +26,7 @@ import {
   type PnlResponse,
 } from "@/lib/pnl";
 import { AgentPnlSparkline } from "@/components/agent-pnl-sparkline";
+import { SnsVerifiedBadge } from "@/components/sns-verified-badge";
 
 interface Ranked {
   agent: RegisteredAgent;
@@ -120,6 +121,7 @@ export async function TopPerformersStrip() {
               >
                 {agent.sns.split(".")[0]}
               </span>
+              <SnsVerifiedBadge verified={agent.sns_verified} size={10} />
             </div>
             <div
               style={{

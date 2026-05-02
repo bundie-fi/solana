@@ -41,6 +41,12 @@ export interface TickArgs {
   brainPromptPath: string;
   policyPath: string;
   surfpool: Connection;
+  /** Live mainnet RPC used ONLY for Pyth oracle reads inside the NAV
+   *  pricing path. Token balances, Kamino reserves, Solend obligations,
+   *  Jupiter Perps, and every other position read still target
+   *  `surfpool`. Falls back to `surfpool` when the daemon was launched
+   *  without `MAINNET_RPC_URL` (legacy behaviour). */
+  mainnet: Connection;
   devnet: Connection;
   peers: PeerAgent[];
   /** Optional treasury-sync wiring. When all four are present, the
@@ -370,6 +376,7 @@ export async function runTick(args: TickArgs): Promise<void> {
     try {
       const breakdown = await computeNavBreakdown(
         args.surfpool,
+        args.mainnet,
         args.kp.publicKey,
       );
       const {
@@ -442,6 +449,66 @@ export async function runTick(args: TickArgs): Promise<void> {
           perpsUsdMicros.toString(),
         ],
       ).catch(() => {});
+
+      // ─── Fork-reset auto-detector ────────────────────────────────────
+      // Heuristic: NAV has collapsed to <= 5x the supervisor's SOL fee
+      // buffer AND the previous snapshot for this agent was substantially
+      // higher. The supervisor maintains 0.1 SOL ~= $10-20, so a NAV under
+      // $30 (30_000_000 micros) while the prior snapshot was >$80
+      // (80_000_000 micros) is a near-certain surfpool fork reset.
+      //
+      // On detection: log loudly, clear `agents.warmup_done_at`, and skip
+      // further work this tick — the warmup loop will re-airdrop + re-seed
+      // within seconds. Best-effort: SQL failures don't crash the daemon.
+      try {
+        const priorRes = await dbQuery<{ nav_lamports: string }>(
+          `SELECT nav_lamports FROM nav_snapshots
+            WHERE agent_sns = $1
+            ORDER BY ts DESC
+            LIMIT 1 OFFSET 1`,
+          [args.agentName],
+        );
+        const priorRaw = priorRes?.rows[0]?.nav_lamports;
+        if (priorRaw != null) {
+          const priorNav = BigInt(priorRaw);
+          const currNav = BigInt(navLamports);
+          const PRIOR_FLOOR = 80_000_000n; // $80 in 6dp micros
+          const CURR_CEILING = 30_000_000n; // $30 in 6dp micros
+          if (priorNav > PRIOR_FLOOR && currNav < CURR_CEILING) {
+            console.warn(
+              `[tick ${args.agentName}] FORK-RESET DETECTED — ` +
+                `nav collapsed ${priorNav.toString()} → ${currNav.toString()} ` +
+                `(prior > $80, current < $30). Clearing warmup_done_at; ` +
+                `warmup loop will re-airdrop + re-seed within seconds.`,
+            );
+            logActivity({
+              agent: args.agentName,
+              phase: "daemon",
+              event: "fork_reset_detected",
+              priorNavLamports: priorNav.toString(),
+              currNavLamports: currNav.toString(),
+              note: "cleared warmup_done_at; warmup loop will re-seed",
+            });
+            await dbQuery(
+              `UPDATE agents SET warmup_done_at = NULL WHERE sns = $1`,
+              [args.agentName],
+            ).catch(() => {});
+            await logAgentAction({
+              agentSns: args.agentName,
+              actionType: "fork_reset_detected",
+              reasoning: null,
+              resultJson: {
+                priorNavLamports: priorNav.toString(),
+                currNavLamports: currNav.toString(),
+              },
+            }).catch(() => {});
+            // Skip treasury-sync below — re-warmup will reseed first.
+            return;
+          }
+        }
+      } catch {
+        // Best-effort: never crash the daemon on a detection-path SQL error.
+      }
 
       // bUSD treasury performance-sync: mirror the agent's surfpool NAV
       // 1:1 onto the on-chain bUSD treasury. Mint-only (no burn path

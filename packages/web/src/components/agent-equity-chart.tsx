@@ -77,6 +77,21 @@ export function AgentEquityChart({
       .sort((a, b) => a.ts - b.ts);
   }, [snapshots]);
 
+  // Cliff detection: a >95% drop in a single tick is reliably a surfpool
+  // fork-reset (infrastructure event), not a strategy loss — real strategy
+  // moves rarely exceed 50% per 15s tick. We mark each cliff index so the
+  // chart can render a dim vertical "fork rebuild" marker over the line,
+  // making the rebuild window visually distinct from agent performance.
+  const cliffs = useMemo(() => {
+    const out: number[] = [];
+    for (let i = 0; i < series.length - 1; i++) {
+      const a = series[i].usd;
+      const b = series[i + 1].usd;
+      if (a > 0 && b / a < 0.05) out.push(i + 1);
+    }
+    return out;
+  }, [series]);
+
   const seedUsd = useMemo(
     () => microsToUsd(anchorLamports ?? null),
     [anchorLamports],
@@ -298,6 +313,37 @@ export function AgentEquityChart({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
+        {/* Fork-rebuild cliff markers — dim grey verticals over the line.
+            Color is intentionally NOT red: this is an infrastructure event,
+            not a strategy loss. Threshold (5%) is conservative enough that
+            real strategy moves never trip it. */}
+        {cliffs.map((idx) => {
+          const cx = xOf(series[idx].ts);
+          return (
+            <g key={`cliff-${idx}`} opacity="0.7">
+              <line
+                x1={cx}
+                x2={cx}
+                y1={PADDING.top}
+                y2={height - PADDING.bottom}
+                stroke="var(--fg-3)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+              />
+              <text
+                x={cx + 3}
+                y={PADDING.top + 9}
+                fontSize="9"
+                textAnchor="start"
+                fill="var(--fg-3)"
+                fontFamily="var(--font-mono)"
+              >
+                fork rebuild
+              </text>
+            </g>
+          );
+        })}
 
         {/* Hover crosshair */}
         {hover && (

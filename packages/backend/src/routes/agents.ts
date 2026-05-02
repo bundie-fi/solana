@@ -44,6 +44,7 @@ import {
 } from "@solana/spl-token";
 
 import { dbQuery, getPool } from "../lib/db.js";
+import { resolveSnsOwner } from "../lib/sns-verify.js";
 import { zerionAgentCreate, zerionAgentExecute } from "../lib/zerion-cli.js";
 
 // `@bundie/common`'s root export uses TS-only directory imports that pure
@@ -54,6 +55,12 @@ const BUSD_MINT: string =
 const BUSD_DECIMALS_MULT = 1_000_000; // 6 decimals
 const INITIAL_NAV_BASE = BigInt(1_000_000); // $1.00 in 6-dec base units
 const DEVNET_RPC = process.env.DEVNET_RPC ?? "https://api.devnet.solana.com";
+// SNS only exists on mainnet — devnet has no NameRegistry data. Used by
+// resolveSnsOwner below to verify ownership of `<sub>.bundie.sol`.
+const MAINNET_RPC =
+  process.env.MAINNET_RPC_URL ??
+  process.env.MAINNET_RPC ??
+  "https://api.mainnet-beta.solana.com";
 const AGENT_FUND_LAMPORTS = Number(
   // 0.05 SOL covers init_vault (~0.005), repeated commit_nav fees, and
   // up to ~8 create_market_v2 calls (each rents 4 PDAs ≈ 0.0053 SOL).
@@ -141,6 +148,10 @@ interface AgentRow {
   preset: string;
   status: string;
   seed_amount_busd: number | string;
+  /** True iff `<sns>.bundie.sol` resolves on mainnet to `owner_wallet`.
+   *  False covers "no SNS record" and "owner mismatch" — see the soft-
+   *  verification block in POST /api/agents. */
+  sns_verified?: boolean;
   created_at?: string;
 }
 
@@ -581,15 +592,34 @@ agents.post("/api/agents", async (c) => {
       500,
     );
   }
+
+  // ── SNS ownership verification (soft) ─────────────────────────────────
+  // Resolve `<short>.bundie.sol` against MAINNET (SNS doesn't exist on
+  // devnet) and check whether the on-chain owner matches the wallet that
+  // initiated registration. A match flips `sns_verified = true`; anything
+  // else (no record, wrong owner, RPC failure) leaves it false. This is
+  // intentional — the bootstrap-agent script registers identifiers like
+  // "kamino-stacker" that aren't real SNS subdomains, and we don't want
+  // to block those flows. Verification is a passport stamp, not a gate.
+  let snsVerified = false;
+  try {
+    const mainnetConn = new Connection(MAINNET_RPC, "confirmed");
+    const onChainOwner = await resolveSnsOwner(mainnetConn, snsShort);
+    if (onChainOwner && onChainOwner === body.ownerWallet) {
+      snsVerified = true;
+    }
+  } catch {
+    // Network blip / SDK throw — leave snsVerified = false.
+  }
   let agentRow: AgentRow;
   try {
     const insertRes = await dbQuery<AgentRow>(
       `INSERT INTO agents (
          sns, display_name, tagline, emoji, owner_wallet, vault_pda,
          agent_pubkey, brain_md, policies_yaml, preset, status, seed_amount_busd,
-         agent_secret_key
+         agent_secret_key, sns_verified
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         body.sns,
@@ -605,6 +635,7 @@ agents.post("/api/agents", async (c) => {
         "pending_init",
         seedAmountBase,
         agentSecretKeyJson,
+        snsVerified,
       ],
     );
     if (!insertRes || insertRes.rows.length === 0) {

@@ -10,6 +10,11 @@ import {
   type RegisteredAgent,
 } from "@/lib/registry";
 import { AgentAvatar, resolveAgentKey } from "@/components/agent-avatar";
+import {
+  isBootstrapAgent,
+  BOOTSTRAP_BADGE_TOOLTIP,
+} from "@/lib/bootstrap-owner";
+import { SnsVerifiedBadge } from "@/components/sns-verified-badge";
 
 const POLL_MS = 30_000;
 
@@ -28,6 +33,12 @@ interface LeaderboardAgent {
   emoji: string;
   /** One-line strategy handle surfaced on the leaderboard card. */
   strategyHandle: string;
+  /** Wallet that funded the agent (compared against
+   *  BOOTSTRAP_OWNER_WALLET to render the platform-seed badge). */
+  ownerWallet: string | null;
+  /** Backend-verified mainnet SNS subdomain ownership. Drives the small
+   *  gold checkmark next to the agent's SNS handle on the card. */
+  snsVerified: boolean;
 }
 
 function toLeaderboardAgent(a: RegisteredAgent): LeaderboardAgent {
@@ -37,6 +48,8 @@ function toLeaderboardAgent(a: RegisteredAgent): LeaderboardAgent {
     agentPubkey: a.agent_pubkey,
     emoji: a.emoji ?? "🤖",
     strategyHandle: a.display_name || a.sns.split(".")[0] || "agent",
+    ownerWallet: a.owner_wallet ?? null,
+    snsVerified: a.sns_verified === true,
   };
 }
 
@@ -303,9 +316,25 @@ function AgentCard({
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="mono gold" style={{ fontSize: 13.5, fontWeight: 500 }}>
-              {agent.sns}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span className="mono gold" style={{ fontSize: 13.5, fontWeight: 500 }}>
+                {agent.sns}
+              </span>
+              <SnsVerifiedBadge verified={agent.snsVerified} size={12} />
+              {isBootstrapAgent(agent.ownerWallet) && (
+                <span
+                  className="pill pill-gold"
+                  title={BOOTSTRAP_BADGE_TOOLTIP}
+                  style={{
+                    padding: "1px 6px",
+                    fontSize: 8.5,
+                    letterSpacing: "0.18em",
+                  }}
+                >
+                  Bootstrap
+                </span>
+              )}
+            </div>
             <span className="pill pill-gold" style={{ alignSelf: "flex-start", padding: "3px 8px", fontSize: 9 }}>
               {archetype}
             </span>

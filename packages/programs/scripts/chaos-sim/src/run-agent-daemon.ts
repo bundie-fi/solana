@@ -42,6 +42,7 @@ import {
   fetchResolvableCandidates,
   runResolverPass,
 } from "./lib/auto-resolver.js";
+import { runMarketsIndexerPass } from "./lib/markets-indexer.js";
 import { prewarmZetaExchange } from "./lib/zeta-execute.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -234,6 +235,13 @@ function resolveSupabaseAgent(agent: ActiveAgent): TickTarget | null {
 
 interface TickContext {
   surfpool: Connection;
+  /** Live mainnet RPC threaded into the NAV-pricing path so Pyth reads
+   *  stay fresh. Surfpool's Pyth accounts are frozen at fork-creation
+   *  time, so without a separate live RPC, NAV mis-prices SOL/mSOL by
+   *  whatever mainnet has moved since the fork was spun up. Defaults to
+   *  the surfpool connection when `MAINNET_RPC_URL` is unset (legacy
+   *  behaviour — every other read still uses `surfpool`). */
+  mainnet: Connection;
   devnet: Connection;
   peers: PeerAgent[];
   /** bUSD mint authority + mint pubkey, loaded once at supervisor
@@ -346,6 +354,7 @@ async function runTickForAgent(
     brainPromptPath: target.brainPath,
     policyPath: target.policyPath,
     surfpool: ctx.surfpool,
+    mainnet: ctx.mainnet,
     devnet: ctx.devnet,
     peers,
     busdMintAuthority: ctx.busdMintAuthority,
@@ -482,6 +491,25 @@ async function supervisorLoop(ctx: TickContext, intervalMs: number): Promise<voi
       }
     }
 
+    // Markets indexer: once per cycle, mirror every on-chain Market into
+    // the `markets` table so the home-page stats strip and the discovery
+    // feed (`GET /api/markets`) can query Postgres instead of running
+    // getProgramAccounts on every request. Best-effort — pass-level
+    // errors are caught here, per-row errors are absorbed inside
+    // runMarketsIndexerPass.
+    try {
+      const summary = await runMarketsIndexerPass(ctx.devnet);
+      if (summary.fetched > 0) {
+        console.log(
+          `[markets-indexer] fetched=${summary.fetched} upserted=${summary.upserted} skipped=${summary.skipped} failed=${summary.failed}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[markets-indexer] pass failed: ${(err as Error).message}`,
+      );
+    }
+
     if (stop) break;
     await sleep(intervalMs);
   }
@@ -593,6 +621,30 @@ async function main(): Promise<void> {
   const devnetUrl = process.env.DEVNET_RPC_URL ?? "https://api.devnet.solana.com";
   const surfpool = new Connection(surfpoolUrl, "confirmed");
   const devnet = new Connection(devnetUrl, "confirmed");
+
+  // Live mainnet RPC for NAV oracle pricing only. Surfpool's Pyth feed
+  // accounts are frozen at fork-creation time, so reading them via the
+  // fork makes NAV mis-price SOL/mSOL by whatever mainnet has moved
+  // since the fork went up. We point Pyth reads at MAINNET_RPC_URL when
+  // available; everything else (token balances, Kamino reserves, Solend
+  // obligations) still hits the fork.
+  //
+  // Fallback: when MAINNET_RPC_URL is unset we reuse `surfpool` so the
+  // daemon can still boot in local dev — staleness is the cost.
+  const mainnetUrl = process.env.MAINNET_RPC_URL;
+  let mainnet: Connection;
+  if (mainnetUrl && mainnetUrl !== surfpoolUrl) {
+    mainnet = new Connection(mainnetUrl, "confirmed");
+    console.log(`[daemon] NAV oracle prices: live mainnet RPC ${mainnetUrl}`);
+  } else {
+    mainnet = surfpool;
+    console.warn(
+      "[daemon] MAINNET_RPC_URL not set (or matches SURFPOOL_RPC_URL) — " +
+        "Pyth oracle reads will fall back to the surfpool fork; NAV may " +
+        "drift from live prices.",
+    );
+  }
+
   const peers = loadPeers();
 
   // bUSD mint authority + mint pubkey for the per-tick treasury-sync.
@@ -620,6 +672,7 @@ async function main(): Promise<void> {
 
   const ctx: TickContext = {
     surfpool,
+    mainnet,
     devnet,
     peers,
     busdMintAuthority,
@@ -694,6 +747,9 @@ async function main(): Promise<void> {
   console.log("=== Bundie Agent Daemon — supervisor mode ===");
   console.log(`poll interval: ${cli.intervalMs}ms`);
   console.log(`surfpool RPC:  ${surfpoolUrl}`);
+  console.log(
+    `mainnet RPC:   ${mainnetUrl && mainnetUrl !== surfpoolUrl ? mainnetUrl : "(falls back to surfpool — set MAINNET_RPC_URL for fresh Pyth)"}`,
+  );
   console.log(`devnet RPC:    ${devnetUrl}`);
   console.log(`peers:         ${peers.length > 0 ? peers.map((p) => p.name).join(", ") : "(none discovered)"}`);
   console.log("");

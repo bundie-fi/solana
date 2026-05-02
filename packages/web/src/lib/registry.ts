@@ -33,6 +33,13 @@ export interface RegisteredAgent {
   agent_pubkey: string;
   emoji: string | null;
   display_name: string;
+  /** Wallet that signed the agent into existence. Compared against
+   *  BOOTSTRAP_OWNER_WALLET to surface the "Bundie Bootstrap" badge. */
+  owner_wallet: string | null;
+  /** True if `<sns>.bundie.sol` resolves on mainnet to `owner_wallet`.
+   *  Surfaces a small gold checkmark next to the agent name; false /
+   *  missing renders nothing (no negative signal). */
+  sns_verified?: boolean;
 }
 
 /**

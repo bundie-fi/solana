@@ -14,6 +14,11 @@ import {
   truncatePubkey,
   HERO_AGENTS,
 } from "@/lib/sns-resolver";
+import {
+  isBootstrapAgent,
+  BOOTSTRAP_BADGE_TOOLTIP,
+} from "@/lib/bootstrap-owner";
+import { SnsVerifiedBadge } from "@/components/sns-verified-badge";
 import { PortfolioCompositionBar } from "@/components/portfolio-composition-bar";
 import { AgentMarketColumn } from "@/components/agent-market-column";
 import { AgentPerformanceBlock } from "@/components/agent-performance-block";
@@ -22,6 +27,7 @@ import {
   SurfpoolActivityPanel,
   type SurfpoolAction,
 } from "@/components/surfpool-activity-panel";
+import { AgentClaimableBanner } from "@/components/agent-claimable-banner";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -64,6 +70,14 @@ export default async function AgentProfilePage({
   // Market.created_by stores agent_pubkey, not vault_pda. The "markets
   // I created" filter below needs both pubkeys to match.
   let agentPubkey: string | null = null;
+  // Tracked alongside the registry match so we can render the
+  // "Bundie Bootstrap" badge for platform-seeded agents.
+  let ownerWallet: string | null = null;
+  // True iff the backend verified `<sns>.bundie.sol` resolves on mainnet
+  // to ownerWallet at registration time (see backend/src/lib/sns-verify.ts).
+  // Falsy → no badge — registration succeeds either way, only a positive
+  // match earns the on-chain checkmark.
+  let snsVerified = false;
   if (decoded.includes(".bundie")) {
     const registry = await fetchRegisteredAgents({ cache: "no-store" });
     const match = registry.find(
@@ -72,6 +86,8 @@ export default async function AgentProfilePage({
     if (match) {
       if (!vaultFromName && match.vault_pda) vaultFromName = match.vault_pda;
       if (match.agent_pubkey) agentPubkey = match.agent_pubkey;
+      ownerWallet = match.owner_wallet ?? null;
+      snsVerified = match.sns_verified === true;
     }
   }
   const vault = vaultFromName ?? decoded;
@@ -246,7 +262,30 @@ export default async function AgentProfilePage({
             </span>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="bd-eyebrow" style={{ marginBottom: 4 }}>Bundie agent</div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 4,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="bd-eyebrow">Bundie agent</div>
+                {isBootstrapAgent(ownerWallet) && (
+                  <span
+                    className="pill pill-gold"
+                    title={BOOTSTRAP_BADGE_TOOLTIP}
+                    style={{
+                      fontSize: 9,
+                      padding: "2px 7px",
+                      letterSpacing: "0.16em",
+                    }}
+                  >
+                    Bundie Bootstrap
+                  </span>
+                )}
+              </div>
               <div
                 style={{
                   fontFamily: "var(--font-display)",
@@ -255,9 +294,14 @@ export default async function AgentProfilePage({
                   letterSpacing: "-0.02em",
                   lineHeight: 1.1,
                   wordBreak: "break-all",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flexWrap: "wrap",
                 }}
               >
-                {displayName}
+                <span>{displayName}</span>
+                <SnsVerifiedBadge verified={snsVerified} size={18} />
               </div>
               {mainnetName && (
                 <div className="muted" style={{ fontSize: 11, marginTop: 4, fontFamily: "var(--font-mono)" }}>
@@ -319,6 +363,17 @@ export default async function AgentProfilePage({
             </span>
           </div>
         </div>
+
+        {/* Claimable winnings banner — wallet-aware client component.
+            Renders only when the connected bettor has unredeemed shares
+            on a resolved market created by this agent. Hidden by default
+            so SSR-rendered profiles look identical for non-bettors. */}
+        <AgentClaimableBanner
+          resolvedMarkets={resolvedMarkets.map((m) => ({
+            address: m.address,
+            outcome: m.outcome,
+          }))}
+        />
 
         {/* Resolved Y/N strip */}
         {resolvedMarkets.length > 0 && (

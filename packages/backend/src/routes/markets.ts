@@ -1,7 +1,16 @@
 import { Hono } from "hono";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { buildPredictBuy } from "../lib/builders.js";
-import { connection, DEVNET_USDC } from "../lib/solana.js";
+import { dbQuery, getPool } from "../lib/db.js";
+import {
+  connection,
+  DEVNET_USDC,
+  getAssociatedTokenAddress,
+  getPredictionProgram,
+  noMintPDA,
+  yesMintPDA,
+} from "../lib/solana.js";
 
 export const markets = new Hono();
 
@@ -110,11 +119,93 @@ const MOCK_MARKETS: MarketDetail[] = [
 // Read routes
 // ---------------------------------------------------------------------------
 
-markets.get("/", (c) => {
-  // Return the summary shape (without LS-LMSR internals)
-  const summaries: PredictionMarket[] = MOCK_MARKETS.map(
-    ({ lsLmsr, resolutionCriteria, expiryTimestamp, createdAt, ...rest }) => rest
-  );
+// ---------------------------------------------------------------------------
+// GET /api/markets
+//
+// Reads the `markets` Postgres mirror populated by chaos-sim's
+// markets-indexer. Each row corresponds to an on-chain Market PDA, refreshed
+// once per supervisor cycle. We project the columnar mirror into the legacy
+// PredictionMarket shape so existing consumers keep working — fields the
+// mirror doesn't carry (strategyName, timeRemaining) are returned as best-
+// effort approximations:
+//   - strategy:     empty string (the on-chain Market.strategy isn't
+//                   mirrored; consumers needing it should call
+//                   `GET /api/markets/:id` which reads chain directly).
+//   - strategyName: derived from question text or empty.
+//   - yesPrice:     yes_volume / total_volume when total > 0, else 0.5.
+//   - noPrice:      1 - yesPrice.
+//   - totalVolume:  total_volume converted from 6dp base units to whole
+//                   bUSD (Number, may lose precision for >2^53 base units —
+//                   acceptable since UI rounds anyway).
+//   - timeRemaining: empty (would require a current-slot read; clients can
+//                   compute from resolution_slot if needed).
+// ---------------------------------------------------------------------------
+
+interface MarketRow {
+  market_pda: string;
+  question: string | null;
+  status: "open" | "resolved" | "expired";
+  yes_volume: string;
+  no_volume: string;
+  total_volume: string;
+}
+
+markets.get("/", async (c) => {
+  // Fail-open: if no DB is configured, fall back to the legacy mock catalog
+  // so the frontend keeps rendering during local dev without bundie-db.
+  if (!getPool()) {
+    const summaries: PredictionMarket[] = MOCK_MARKETS.map(
+      ({ lsLmsr, resolutionCriteria, expiryTimestamp, createdAt, ...rest }) => rest,
+    );
+    return c.json({ markets: summaries });
+  }
+
+  let rows: MarketRow[] = [];
+  try {
+    const r = await dbQuery<MarketRow>(
+      `SELECT market_pda,
+              question,
+              status,
+              yes_volume::text  AS yes_volume,
+              no_volume::text   AS no_volume,
+              total_volume::text AS total_volume
+         FROM markets
+        ORDER BY created_at DESC
+        LIMIT 200`,
+    );
+    rows = r?.rows ?? [];
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+
+  const summaries: PredictionMarket[] = rows.map((row) => {
+    const yesVol = BigInt(row.yes_volume);
+    const noVol = BigInt(row.no_volume);
+    const totalBaseUnits = yesVol + noVol;
+    let yesPrice = 0.5;
+    if (totalBaseUnits > 0n) {
+      // Scale by 1e6 before dividing to retain 6dp precision in number math.
+      const ratio = Number((yesVol * 1_000_000n) / totalBaseUnits) / 1_000_000;
+      yesPrice = Math.min(1, Math.max(0, ratio));
+    }
+    const noPrice = 1 - yesPrice;
+    // Convert 6dp base units → whole bUSD as a Number. Volumes well under
+    // 2^53 base units in practice; if they ever overflow the UI will still
+    // render correctly to the rounded display precision.
+    const totalVolume = Number(totalBaseUnits / 1_000_000n);
+    return {
+      address: row.market_pda,
+      strategy: "",
+      strategyName: row.question ?? "",
+      question: row.question ?? "",
+      yesPrice,
+      noPrice,
+      totalVolume,
+      status: row.status,
+      timeRemaining: "",
+    };
+  });
+
   return c.json({ markets: summaries });
 });
 
@@ -127,6 +218,140 @@ markets.get("/:id", (c) => {
   }
 
   return c.json({ market });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/markets/:marketPda/claimable?wallet=<pubkey>
+//
+// Bettor-side helper for the redeem flow. Reads the on-chain Market account
+// to determine resolution state + winner_mint, then reads the bettor's ATA
+// for that mint to determine their claimable share balance. After resolution
+// shares are redeemable 1:1 for collateral via the program's `redeem` ix
+// (see programs/prediction-market/src/instructions/redeem.rs).
+//
+// `alreadyRedeemed` is true when the market is resolved and the bettor's
+// winning-mint balance is zero — they either already burned their shares
+// via redeem, or they never bought any of the winning side.
+// ---------------------------------------------------------------------------
+
+interface ClaimableResponse {
+  resolved: boolean;
+  outcome: 0 | 1 | null;
+  winnerShareMint: string | null;
+  winnerShareBalance: string;
+  estimatedPayoutUsdc: string;
+  alreadyRedeemed: boolean;
+}
+
+markets.get("/:id/claimable", async (c) => {
+  const { id } = c.req.param();
+  const walletParam = c.req.query("wallet");
+
+  let marketPk: PublicKey;
+  try {
+    marketPk = new PublicKey(id);
+  } catch {
+    return c.json({ error: `Invalid market address: ${id}` }, 400);
+  }
+
+  if (!walletParam) {
+    return c.json({ error: "`wallet` query param is required" }, 400);
+  }
+
+  let walletPk: PublicKey;
+  try {
+    walletPk = new PublicKey(walletParam);
+  } catch {
+    return c.json({ error: `Invalid wallet pubkey: ${walletParam}` }, 400);
+  }
+
+  // Read-only Anchor client. The provider needs *some* Wallet for type
+  // compatibility but is never used to sign — fresh throwaway keypair.
+  const throwaway = Keypair.generate();
+  const provider = new AnchorProvider(
+    connection,
+    new Wallet(throwaway),
+    { commitment: "confirmed" },
+  );
+  const program = getPredictionProgram(provider);
+
+  // ── 1. Read market account; deserialize via Anchor IDL. ──────────────
+  let marketAccount: Awaited<
+    ReturnType<typeof program.account.market.fetch>
+  >;
+  try {
+    marketAccount = await program.account.market.fetch(marketPk);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json(
+      { error: "Market not found on-chain", detail: message },
+      404,
+    );
+  }
+
+  // Anchor decodes enum variants as `{ active: {} }` / `{ resolved: {} }`
+  // and `{ yes: {} }` / `{ no: {} }`. Mirror auto-resolver.ts's approach.
+  const status = marketAccount.status as
+    | { active?: unknown; resolved?: unknown }
+    | null;
+  const resolved = !!status && "resolved" in status;
+
+  let outcome: 0 | 1 | null = null;
+  const rawOutcome = marketAccount.outcome as
+    | { yes?: unknown; no?: unknown }
+    | null
+    | undefined;
+  if (rawOutcome) {
+    if ("yes" in rawOutcome && rawOutcome.yes !== undefined) outcome = 1;
+    else if ("no" in rawOutcome && rawOutcome.no !== undefined) outcome = 0;
+  }
+
+  // Not resolved yet — short-circuit before doing the token balance read.
+  if (!resolved || outcome == null) {
+    const body: ClaimableResponse = {
+      resolved: false,
+      outcome: null,
+      winnerShareMint: null,
+      winnerShareBalance: "0",
+      estimatedPayoutUsdc: "0",
+      alreadyRedeemed: false,
+    };
+    return c.json(body);
+  }
+
+  // ── 2. Derive winner mint PDA. ───────────────────────────────────────
+  const [yesMint] = yesMintPDA(marketPk);
+  const [noMint] = noMintPDA(marketPk);
+  const winnerMint = outcome === 1 ? yesMint : noMint;
+
+  // ── 3. Read bettor's ATA for the winner mint. ────────────────────────
+  const bettorAta = getAssociatedTokenAddress(winnerMint, walletPk);
+  let balanceBase = 0n;
+  try {
+    const info = await connection.getTokenAccountBalance(
+      bettorAta,
+      "confirmed",
+    );
+    balanceBase = BigInt(info.value.amount);
+  } catch {
+    // ATA doesn't exist (never bought this side, or already redeemed and
+    // closed). Treat as zero balance.
+    balanceBase = 0n;
+  }
+
+  const body: ClaimableResponse = {
+    resolved: true,
+    outcome,
+    winnerShareMint: winnerMint.toBase58(),
+    winnerShareBalance: balanceBase.toString(),
+    // 1:1 with shares — same convention used by the on-chain redeem ix
+    // when the vault holds exactly winning_supply collateral. Frontend
+    // labels this "estimated" so a partially-funded vault doesn't make
+    // the UI promise more than the program will pay.
+    estimatedPayoutUsdc: balanceBase.toString(),
+    alreadyRedeemed: balanceBase === 0n,
+  };
+  return c.json(body);
 });
 
 // ---------------------------------------------------------------------------
