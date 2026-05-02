@@ -79,13 +79,24 @@ export default async function AgentProfilePage(
   // Falsy → no badge — registration succeeds either way, only a positive
   // match earns the on-chain checkmark.
   let snsVerified = false;
-  if (decoded.includes(".bundie")) {
+  // Registry lookup runs unconditionally. Earlier this was gated on
+  // `decoded.includes(".bundie")` to short-circuit when the URL is
+  // already a vault pubkey, but bootstrap agents (kamino-stacker,
+  // apy-rotator, etc.) have plain-text SNS strings without the
+  // `.bundie.sol` suffix — they fell through the gate and 404'd
+  // because their vault_pda never made it into vaultFromName.
+  // The fetch is cheap (in-process Next.js dedup + service-side cache)
+  // so we just always do it.
+  if (!vaultFromName) {
     const registry = await fetchRegisteredAgents({ cache: "no-store" });
     const match = registry.find(
-      (a) => a.sns === decoded || a.sns === `${decoded}.sol`,
+      (a) =>
+        a.sns === decoded ||
+        a.sns === `${decoded}.sol` ||
+        a.sns === `${decoded}.bundie.sol`,
     );
     if (match) {
-      if (!vaultFromName && match.vault_pda) vaultFromName = match.vault_pda;
+      if (match.vault_pda) vaultFromName = match.vault_pda;
       if (match.agent_pubkey) agentPubkey = match.agent_pubkey;
       ownerWallet = match.owner_wallet ?? null;
       snsVerified = match.sns_verified === true;
