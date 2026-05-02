@@ -142,11 +142,18 @@ stats.get("/api/stats/platform", async (c) => {
           ORDER BY agent_sns, ts DESC
        ),
        past AS (
+         -- Most recent snapshot from at least 7 days ago. Agents with no
+         -- snapshot older than 7 days don't qualify and get NULL via the
+         -- LEFT JOIN below, so the JS reducer skips them. This is the
+         -- correct baseline for a 7d return — comparing today's NAV to
+         -- a value from a week ago, not the earliest NAV inside the
+         -- last week (which for a 30-minute-old agent would be a
+         -- pre-warmup transient and produce 1000%+ phantom growth).
          SELECT DISTINCT ON (agent_sns) agent_sns, nav_lamports AS past_nav
            FROM nav_snapshots
           WHERE agent_sns IN (SELECT sns FROM active)
-            AND ts >= now() - INTERVAL '7 days'
-          ORDER BY agent_sns, ts ASC
+            AND ts <= now() - INTERVAL '7 days'
+          ORDER BY agent_sns, ts DESC
        )
        SELECT l.agent_sns, l.current_nav::text AS current_nav, p.past_nav::text AS past_nav
          FROM latest l
