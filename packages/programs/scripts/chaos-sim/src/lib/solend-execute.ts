@@ -122,6 +122,11 @@ interface CachedPoolReserve {
     switchboardOracle: string;
     mintAddress: string;
     liquidityFeeReceiverAddress: string;
+    /** Decimals of `mintAddress` — used to scale UI amounts to base units.
+     *  Read off `reserveParsed.info.liquidity.mintDecimals` at hydrate time;
+     *  not part of the SDK's `InputReserveType` but carried alongside so the
+     *  executor can do multi-asset amount math without re-fetching state. */
+    mintDecimals: number;
   };
 }
 
@@ -199,6 +204,9 @@ async function ensurePoolReserve(
       mintAddress: reserveParsed.info.liquidity.mintPubkey.toBase58(),
       liquidityFeeReceiverAddress:
         reserveParsed.info.config.feeReceiver.toBase58(),
+      // mintDecimals is stored on the parsed reserve for multi-asset support
+      // (USDT-6, mSOL-9, jitoSOL-9, JLP-6, etc.).
+      mintDecimals: reserveParsed.info.liquidity.mintDecimals,
     };
 
     const pool = {
@@ -315,7 +323,12 @@ export interface DepositSolendArgs {
   surfpool: Connection;
   /** Agent keypair. */
   vault: Keypair;
-  /** USDC amount in UI units (e.g. 0.5 = 0.5 USDC). */
+  /**
+   * Deposit amount in UI units of the reserve's liquidity mint (USDC, USDT,
+   * mSOL, jitoSOL, JLP, …). Decimals are read from the parsed reserve at
+   * execute time. Field name is preserved for backwards compat with callers
+   * that still call it `amountUsdcUi`.
+   */
   amountUsdcUi: number;
   /** Optional reserve override; defaults to the chosen pool's USDC reserve. */
   reserveAddress?: string;
@@ -328,7 +341,7 @@ export interface DepositSolendArgs {
 export interface WithdrawSolendArgs {
   surfpool: Connection;
   vault: Keypair;
-  /** UI amount to withdraw (in USDC for the default reserve). */
+  /** UI amount to withdraw, in the reserve's liquidity-mint decimals. */
   amountUsdcUi: number;
   reserveAddress?: string;
   poolAddress?: string;
@@ -349,9 +362,12 @@ export async function depositSolend(
   args: DepositSolendArgs,
 ): Promise<SolendDepositResult> {
   const { surfpool, vault, amountUsdcUi } = args;
-  if (amountUsdcUi <= 0) {
+  // Field name kept for backwards compat; value is now interpreted in the
+  // reserve's liquidity-mint decimals.
+  const amountUi = amountUsdcUi;
+  if (amountUi <= 0) {
     throw new Error(
-      `depositSolend: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
+      `depositSolend: amountUi must be > 0 (got ${amountUi})`,
     );
   }
   const poolAddress = args.poolAddress ?? SOLEND_MAIN_POOL;
@@ -369,18 +385,11 @@ export async function depositSolend(
     reserveAddress,
   );
 
-  // Solend pools currently price liquidity by symbol via Pyth; non-USDC
-  // reserves would require widening the amount-decimals math + ATA
-  // wiring throughout this file. Fail loudly until that's implemented.
-  if (reserve.mintAddress !== MAINNET_USDC_MINT) {
-    throw new Error(
-      `depositSolend: reserve ${reserveAddress} has liquidity mint ${reserve.mintAddress}, ` +
-        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
-    );
-  }
-
+  // Multi-asset: SolendActionCore.buildDepositTxns reads the liquidity mint
+  // off the reserve struct itself, so no extra mint plumbing is needed —
+  // the only thing that changes per-asset is decimals scaling.
   const sdk = await loadSolendSdk();
-  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
+  const amountBaseUnits = Math.round(amountUi * 10 ** reserve.mintDecimals);
   const action = await sdk.SolendActionCore.buildDepositTxns(
     pool,
     reserve,
@@ -437,7 +446,7 @@ export async function depositSolend(
   }
 
   console.log(
-    `[solend] deposit ${amountUsdcUi} USDC → pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
+    `[solend] deposit ${amountUi} (mint ${reserve.mintAddress.slice(0, 8)}…) → pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
   );
 
   return {
@@ -445,7 +454,7 @@ export async function depositSolend(
     action: "lend_deposit",
     txSig: lendingSig,
     reserveAddress,
-    reserveLiquidityMint: MAINNET_USDC_MINT,
+    reserveLiquidityMint: reserve.mintAddress,
     amountBaseUnits,
     ixCount,
   };
@@ -463,9 +472,12 @@ export async function withdrawSolend(
   args: WithdrawSolendArgs,
 ): Promise<SolendWithdrawResult> {
   const { surfpool, vault, amountUsdcUi } = args;
-  if (amountUsdcUi <= 0) {
+  // Legacy field name; value is now interpreted in the reserve's
+  // liquidity-mint decimals.
+  const amountUi = amountUsdcUi;
+  if (amountUi <= 0) {
     throw new Error(
-      `withdrawSolend: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
+      `withdrawSolend: amountUi must be > 0 (got ${amountUi})`,
     );
   }
   const poolAddress = args.poolAddress ?? SOLEND_MAIN_POOL;
@@ -477,15 +489,8 @@ export async function withdrawSolend(
     reserveAddress,
   );
 
-  if (reserve.mintAddress !== MAINNET_USDC_MINT) {
-    throw new Error(
-      `withdrawSolend: reserve ${reserveAddress} has liquidity mint ${reserve.mintAddress}, ` +
-        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
-    );
-  }
-
   const sdk = await loadSolendSdk();
-  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
+  const amountBaseUnits = Math.round(amountUi * 10 ** reserve.mintDecimals);
   // Pre-flight obligation check: the SDK derives the obligation PDA
   // from (publicKey, lendingMarket, programId) seeds. If the account
   // doesn't exist on surfpool, the agent has no Solend position and
@@ -553,7 +558,7 @@ export async function withdrawSolend(
   }
 
   console.log(
-    `[solend] withdraw ${amountUsdcUi} USDC ← pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
+    `[solend] withdraw ${amountUi} (mint ${reserve.mintAddress.slice(0, 8)}…) ← pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
   );
 
   return {
@@ -561,7 +566,7 @@ export async function withdrawSolend(
     action: "lend_withdraw",
     txSig: lendingSig,
     reserveAddress,
-    reserveLiquidityMint: MAINNET_USDC_MINT,
+    reserveLiquidityMint: reserve.mintAddress,
     amountBaseUnits,
     ixCount,
   };

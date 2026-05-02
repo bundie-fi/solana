@@ -78,7 +78,7 @@ export interface KaminoDepositResult {
   txSig: string;
   reserveAddress: string;
   reserveLiquidityMint: string;
-  /** USDC base units (6dp) actually deposited. */
+  /** Base units (10^reserveDecimals) of the reserve's liquidity mint deposited. */
   amountBaseUnits: number;
   /** Number of ix's bundled into the deposit tx (setup + lending + cleanup). */
   ixCount: number;
@@ -90,7 +90,7 @@ export interface KaminoWithdrawResult {
   txSig: string;
   reserveAddress: string;
   reserveLiquidityMint: string;
-  /** USDC base units (6dp) requested to withdraw. */
+  /** Base units (10^reserveDecimals) of the reserve's liquidity mint requested to withdraw. */
   amountBaseUnits: number;
   /** Number of ix's bundled into the withdraw tx (setup + lending + cleanup). */
   ixCount: number;
@@ -141,7 +141,12 @@ export interface DepositKaminoArgs {
   surfpool: Connection;
   /** Agent keypair. */
   vault: Keypair;
-  /** USDC amount (UI units, e.g. 0.5 = 0.5 USDC). */
+  /**
+   * Deposit amount in UI units of the reserve's liquidity mint (e.g. 0.5 =
+   * 0.5 USDC for a USDC reserve, 0.5 mSOL for an mSOL reserve). Decimals
+   * are read from the on-chain reserve, so any reserve the SDK can load is
+   * supported.
+   */
   amountUsdcUi: number;
   /**
    * RPC URL string — separate arg because @solana/kit needs the URL
@@ -181,12 +186,14 @@ export async function depositKamino(
   args: DepositKaminoArgs,
 ): Promise<KaminoDepositResult> {
   const { surfpool, vault, amountUsdcUi } = args;
-  if (amountUsdcUi <= 0) {
-    throw new Error(`depositKamino: amountUsdcUi must be > 0 (got ${amountUsdcUi})`);
+  // `amountUsdcUi` is the legacy field name; the value is now interpreted as
+  // a UI amount in the reserve's liquidity-mint decimals (USDC-6, mSOL-9, …).
+  const amountUi = amountUsdcUi;
+  if (amountUi <= 0) {
+    throw new Error(`depositKamino: amountUi must be > 0 (got ${amountUi})`);
   }
   const rpcUrl = args.rpcUrl ?? surfpool.rpcEndpoint;
   const marketAddress = args.marketAddress ?? KAMINO_MAIN_MARKET;
-  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
 
   // No per-action USDC topup. The agent's seed is established once by
   // the warmup loop (see warmup.ts — gated by agents.warmup_done_at).
@@ -236,24 +243,19 @@ export async function depositKamino(
     }
   }
   const reserveAddress = reserve.address as string;
-  // Multi-asset deposits are a separate work item — the amount math below
-  // assumes 6-decimal USDC. If the brain picks a non-USDC reserve we fail
-  // loudly here rather than silently miscomputing base units.
+  // Multi-asset deposits: read decimals from the reserve and scale the UI
+  // amount accordingly. `getMintDecimals(): number` is the SDK's canonical
+  // decimals accessor (see klend-sdk dist/classes/reserve.d.ts).
   const liquidityMint = String(reserve.getLiquidityMint());
-  if (liquidityMint !== MAINNET_USDC_MINT) {
-    throw new Error(
-      `depositKamino: reserve ${reserveAddress} has liquidity mint ${liquidityMint}, ` +
-        `but only USDC (${MAINNET_USDC_MINT}) is supported today. ` +
-        `Multi-asset Kamino deposits will be added in a follow-up.`,
-    );
-  }
+  const reserveDecimals = reserve.getMintDecimals();
+  const amountBaseUnits = Math.round(amountUi * 10 ** reserveDecimals);
 
   // 5. Have the SDK assemble the full deposit ix list (setup includes
   //    obligation init / refresh-reserve / refresh-obligation, etc).
   const action = await KaminoAction.buildDepositTxns(
     market,
     new BN(amountBaseUnits),
-    MAINNET_USDC_MINT as Address,
+    liquidityMint as Address,
     kitPayer,
     new VanillaObligation(KLEND_MAINNET_PROGRAM_ID as Address),
     true, // useV2Ixs
@@ -269,18 +271,20 @@ export async function depositKamino(
   ];
   const web3Ixs = allKitIxs.map(kitIxToWeb3Ix);
 
-  // 7. Belt-and-braces: prepend an idempotent ATA-create for the USDC ATA.
-  //    The SDK *should* include this in setupIxs already, but we add it
-  //    defensively — idempotent ix is a no-op when the ATA already exists.
-  const usdcAta = getAssociatedTokenAddressSync(
-    new PublicKey(MAINNET_USDC_MINT),
+  // 7. Belt-and-braces: prepend an idempotent ATA-create for the reserve's
+  //    liquidity-mint ATA (whatever token that is). The SDK *should*
+  //    include this in setupIxs already, but we add it defensively — the
+  //    idempotent ix is a no-op when the ATA already exists.
+  const liquidityMintPk = new PublicKey(liquidityMint);
+  const liquidityAta = getAssociatedTokenAddressSync(
+    liquidityMintPk,
     vault.publicKey,
   );
   const ataIx = createAssociatedTokenAccountIdempotentInstruction(
     vault.publicKey,
-    usdcAta,
+    liquidityAta,
     vault.publicKey,
-    new PublicKey(MAINNET_USDC_MINT),
+    liquidityMintPk,
   );
 
   const tx = new Transaction();
@@ -294,7 +298,7 @@ export async function depositKamino(
   tx.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   console.log(
-    `[kamino] deposit ${amountUsdcUi} USDC → market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
+    `[kamino] deposit ${amountUi} (mint ${liquidityMint.slice(0, 8)}…) → market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
   );
 
   const txSig = await sendAndConfirmTransaction(surfpool, tx, [vault], {
@@ -307,7 +311,7 @@ export async function depositKamino(
     action: "lend_deposit",
     txSig,
     reserveAddress,
-    reserveLiquidityMint: MAINNET_USDC_MINT,
+    reserveLiquidityMint: liquidityMint,
     amountBaseUnits,
     ixCount: web3Ixs.length + 1,
   };
@@ -321,7 +325,8 @@ export interface WithdrawKaminoArgs {
   /** Agent keypair. */
   vault: Keypair;
   /**
-   * USDC amount (UI units, e.g. 0.5 = 0.5 USDC) to withdraw.
+   * UI amount to withdraw, in the reserve's liquidity-mint decimals (e.g.
+   * 0.5 = 0.5 USDC for a USDC reserve, 0.5 mSOL for an mSOL reserve).
    * Pass a value larger than the agent's deposited balance to flatten the
    * position — the SDK clamps to the obligation's available collateral.
    */
@@ -360,14 +365,16 @@ export async function withdrawKamino(
   args: WithdrawKaminoArgs,
 ): Promise<KaminoWithdrawResult> {
   const { surfpool, vault, amountUsdcUi } = args;
-  if (amountUsdcUi <= 0) {
+  // `amountUsdcUi` is the legacy field name; the value is now interpreted as
+  // a UI amount in the reserve's liquidity-mint decimals.
+  const amountUi = amountUsdcUi;
+  if (amountUi <= 0) {
     throw new Error(
-      `withdrawKamino: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
+      `withdrawKamino: amountUi must be > 0 (got ${amountUi})`,
     );
   }
   const rpcUrl = args.rpcUrl ?? surfpool.rpcEndpoint;
   const marketAddress = args.marketAddress ?? KAMINO_MAIN_MARKET;
-  const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
 
   const kitRpc = createSolanaRpc(rpcUrl);
   const kitOwner = await createKeyPairSignerFromBytes(vault.secretKey);
@@ -403,21 +410,17 @@ export async function withdrawKamino(
   }
   const reserveAddress = reserve.address as string;
   const liquidityMint = String(reserve.getLiquidityMint());
-  if (liquidityMint !== MAINNET_USDC_MINT) {
-    throw new Error(
-      `withdrawKamino: reserve ${reserveAddress} has liquidity mint ${liquidityMint}, ` +
-        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
-    );
-  }
+  const reserveDecimals = reserve.getMintDecimals();
+  const amountBaseUnits = Math.round(amountUi * 10 ** reserveDecimals);
 
   // KaminoAction.buildWithdrawTxns(market, amount, mint, owner, obligation,
   //   useV2Ixs, scopeRefreshConfig, extraComputeBudget?, includeAtaIxs?, ...)
-  // We pass `includeAtaIxs=true` so the SDK emits the create-USDC-ATA setup
-  // ix itself; we still belt-and-braces an idempotent ATA create below.
+  // We pass `includeAtaIxs=true` so the SDK emits the create-destination-ATA
+  // setup ix itself; we still belt-and-braces an idempotent ATA create below.
   const action = await KaminoAction.buildWithdrawTxns(
     market,
     new BN(amountBaseUnits),
-    MAINNET_USDC_MINT as Address,
+    liquidityMint as Address,
     kitOwner,
     new VanillaObligation(KLEND_MAINNET_PROGRAM_ID as Address),
     true, // useV2Ixs
@@ -435,15 +438,17 @@ export async function withdrawKamino(
   const web3Ixs = allKitIxs.map(kitIxToWeb3Ix);
 
   // Idempotent ATA create — defensive belt + braces, no-op when present.
-  const usdcAta = getAssociatedTokenAddressSync(
-    new PublicKey(MAINNET_USDC_MINT),
+  // Uses the reserve's liquidity mint (multi-asset).
+  const liquidityMintPk = new PublicKey(liquidityMint);
+  const liquidityAta = getAssociatedTokenAddressSync(
+    liquidityMintPk,
     vault.publicKey,
   );
   const ataIx = createAssociatedTokenAccountIdempotentInstruction(
     vault.publicKey,
-    usdcAta,
+    liquidityAta,
     vault.publicKey,
-    new PublicKey(MAINNET_USDC_MINT),
+    liquidityMintPk,
   );
 
   const tx = new Transaction();
@@ -455,7 +460,7 @@ export async function withdrawKamino(
   tx.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   console.log(
-    `[kamino] withdraw ${amountUsdcUi} USDC ← market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
+    `[kamino] withdraw ${amountUi} (mint ${liquidityMint.slice(0, 8)}…) ← market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
   );
 
   const txSig = await sendAndConfirmTransaction(surfpool, tx, [vault], {
@@ -468,7 +473,7 @@ export async function withdrawKamino(
     action: "lend_withdraw",
     txSig,
     reserveAddress,
-    reserveLiquidityMint: MAINNET_USDC_MINT,
+    reserveLiquidityMint: liquidityMint,
     amountBaseUnits,
     ixCount: web3Ixs.length + 1,
   };

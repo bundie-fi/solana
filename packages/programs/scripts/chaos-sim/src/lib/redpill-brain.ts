@@ -32,7 +32,15 @@ export type BrainAction =
       type: "lend_deposit";
       protocol: LendProtocol;
       args: {
-        amountUsdcUi: number;
+        /**
+         * Deposit amount in UI units of the reserve's liquidity token (e.g.
+         * 0.5 = 0.5 USDC for a USDC reserve, 0.5 mSOL for an mSOL reserve).
+         * Decimals are inferred from the on-chain reserve at execute time.
+         * `amountUsdcUi` is accepted as a backwards-compat alias for
+         * pre-multi-asset brain prompts; new prompts should emit `amountUi`.
+         */
+        amountUi?: number;
+        amountUsdcUi?: number;
         /** Reserve PDA inside `marketAddress`. Defaults to the main pool's
          *  USDC reserve when omitted. */
         reserveAddress?: string;
@@ -48,7 +56,10 @@ export type BrainAction =
       type: "lend_withdraw";
       protocol: LendProtocol;
       args: {
-        amountUi: number;
+        /** UI amount in the reserve's liquidity-mint decimals. `amountUsdcUi`
+         *  remains accepted as an alias for backwards compatibility. */
+        amountUi?: number;
+        amountUsdcUi?: number;
         reserveAddress?: string;
         /** See lend_deposit.marketAddress — same semantics. */
         marketAddress?: string;

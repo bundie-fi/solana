@@ -226,7 +226,7 @@ export function generateBrainMd(opts: {
     `- Override \`reserveAddress\` to pick a specific reserve within the chosen market.`,
   );
   lines.push(
-    `- LIMITATION: only USDC liquidity mints are supported today. Reserves with non-USDC mints will hard-fail with a clear error. Multi-asset support is a follow-up.`,
+    `- Multi-asset: you may target reserves of any token (USDC, USDT, mSOL, jitoSOL, JLP, etc.). Decimals are inferred from the reserve. Pre-flight: ensure the agent's ATA holds the matching token before depositing — for non-USDC tokens that means swapping (Jupiter) or staking (Marinade/Jito) into the right asset first.`,
   );
   lines.push(``);
   lines.push(`Schema:`);
@@ -235,7 +235,7 @@ export function generateBrainMd(opts: {
   lines.push(`  "actions": [`);
   lines.push(`    {"type": "noop"} |`);
   lines.push(
-    `    {"type": "lend_deposit",  "protocol": "kamino"|"solend", "args": {"amountUsdcUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
+    `    {"type": "lend_deposit",  "protocol": "kamino"|"solend", "args": {"amountUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
   );
   lines.push(
     `    {"type": "lend_withdraw", "protocol": "kamino"|"solend", "args": {"amountUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
