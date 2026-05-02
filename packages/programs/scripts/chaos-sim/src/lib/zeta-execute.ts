@@ -63,7 +63,8 @@ import {
   constants as zetaConstants,
 } from "@zetamarkets/sdk";
 
-import { ensureSurfpoolUsdc } from "./surfpool-seed.js";
+// ensureSurfpoolUsdc removed — see kamino-execute / jup-perps-execute
+// for context. Warmup owns initial seeding.
 
 // ─── Module-level caches ─────────────────────────────────────────────────
 
@@ -304,15 +305,9 @@ export async function openZetaPerp(
   await client.updateState(false, true);
   if (client.account === null) {
     const collateralUsd = Math.max(notionalUsd * 1.2, 10);
-    // Belt-and-braces USDC seed: even with the daemon's per-tick seeder,
-    // the agent's first perp_open ever might race against a fork that
-    // hasn't been seeded yet. ensureSurfpoolUsdc is idempotent and cheap
-    // when the floor is already met, so this is safe to always call.
-    await ensureSurfpoolUsdc(
-      connection,
-      kp.publicKey,
-      Math.max(collateralUsd * 1.5, 1000),
-    );
+    // No belt-and-braces USDC seed. If the agent's USDC ATA can't cover
+    // the collateral deposit, client.deposit will throw and the daemon
+    // surfaces it as phase=execute_error.
     const nativeAmount = zetaUtils.convertDecimalToNativeInteger(collateralUsd);
     await client.deposit(nativeAmount);
     await client.updateState(false, true);

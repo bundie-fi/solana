@@ -41,7 +41,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 
-import { ensureSurfpoolUsdc, MAINNET_USDC_MINT } from "./surfpool-seed.js";
+import { MAINNET_USDC_MINT } from "./surfpool-seed.js";
 
 // Re-export for symmetry with kamino-execute.
 export { MAINNET_USDC_MINT };
@@ -317,8 +317,12 @@ export interface DepositSolendArgs {
   vault: Keypair;
   /** USDC amount in UI units (e.g. 0.5 = 0.5 USDC). */
   amountUsdcUi: number;
-  /** Optional reserve override; defaults to main-pool USDC reserve. */
+  /** Optional reserve override; defaults to the chosen pool's USDC reserve. */
   reserveAddress?: string;
+  /** Optional Solend lending-market (pool) override. Defaults to
+   *  SOLEND_MAIN_POOL. Lets the brain target any Solend pool the SDK
+   *  can parse on the surfpool fork. */
+  poolAddress?: string;
 }
 
 export interface WithdrawSolendArgs {
@@ -327,6 +331,7 @@ export interface WithdrawSolendArgs {
   /** UI amount to withdraw (in USDC for the default reserve). */
   amountUsdcUi: number;
   reserveAddress?: string;
+  poolAddress?: string;
 }
 
 /**
@@ -349,20 +354,30 @@ export async function depositSolend(
       `depositSolend: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
     );
   }
+  const poolAddress = args.poolAddress ?? SOLEND_MAIN_POOL;
   const reserveAddress = args.reserveAddress ?? SOLEND_MAIN_USDC_RESERVE;
 
-  // Belt-and-braces USDC seeding before the deposit attempt.
-  const usdcResult = await ensureSurfpoolUsdc(
-    surfpool,
-    vault.publicKey,
-    amountUsdcUi,
-  );
+  // No per-action USDC topup. Initial seeding is owned by the warmup
+  // loop (one-shot, gated by agents.warmup_done_at). Auto-refilling
+  // here would mask deployed positions and recreate the per-tick
+  // re-lend loop. Insufficient USDC fails the SDK build below, which
+  // the brain sees and reasons about on the next tick.
 
   const { pool, reserve } = await ensurePoolReserve(
     surfpool,
-    SOLEND_MAIN_POOL,
+    poolAddress,
     reserveAddress,
   );
+
+  // Solend pools currently price liquidity by symbol via Pyth; non-USDC
+  // reserves would require widening the amount-decimals math + ATA
+  // wiring throughout this file. Fail loudly until that's implemented.
+  if (reserve.mintAddress !== MAINNET_USDC_MINT) {
+    throw new Error(
+      `depositSolend: reserve ${reserveAddress} has liquidity mint ${reserve.mintAddress}, ` +
+        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
+    );
+  }
 
   const sdk = await loadSolendSdk();
   const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
@@ -422,7 +437,7 @@ export async function depositSolend(
   }
 
   console.log(
-    `[solend] deposit ${amountUsdcUi} USDC → reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}  usdcFunding=${usdcResult.method}`,
+    `[solend] deposit ${amountUsdcUi} USDC → pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
   );
 
   return {
@@ -453,13 +468,21 @@ export async function withdrawSolend(
       `withdrawSolend: amountUsdcUi must be > 0 (got ${amountUsdcUi})`,
     );
   }
+  const poolAddress = args.poolAddress ?? SOLEND_MAIN_POOL;
   const reserveAddress = args.reserveAddress ?? SOLEND_MAIN_USDC_RESERVE;
 
   const { pool, reserve } = await ensurePoolReserve(
     surfpool,
-    SOLEND_MAIN_POOL,
+    poolAddress,
     reserveAddress,
   );
+
+  if (reserve.mintAddress !== MAINNET_USDC_MINT) {
+    throw new Error(
+      `withdrawSolend: reserve ${reserveAddress} has liquidity mint ${reserve.mintAddress}, ` +
+        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
+    );
+  }
 
   const sdk = await loadSolendSdk();
   const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
@@ -468,7 +491,7 @@ export async function withdrawSolend(
   // doesn't exist on surfpool, the agent has no Solend position and
   // we should hard-fail here rather than letting the SDK build a
   // refresh-obligation ix that targets nothing.
-  const obligationSeed = SOLEND_MAIN_POOL.slice(0, 32);
+  const obligationSeed = poolAddress.slice(0, 32);
   const obligationPk = await PublicKey.createWithSeed(
     vault.publicKey,
     obligationSeed,
@@ -477,7 +500,7 @@ export async function withdrawSolend(
   const obligationAi = await surfpool.getAccountInfo(obligationPk);
   if (!obligationAi) {
     throw new Error(
-      `withdrawSolend: agent ${vault.publicKey.toBase58()} has no Solend obligation under pool ${SOLEND_MAIN_POOL} — nothing to withdraw`,
+      `withdrawSolend: agent ${vault.publicKey.toBase58()} has no Solend obligation under pool ${poolAddress} — nothing to withdraw`,
     );
   }
 
@@ -530,7 +553,7 @@ export async function withdrawSolend(
   }
 
   console.log(
-    `[solend] withdraw ${amountUsdcUi} USDC ← reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
+    `[solend] withdraw ${amountUsdcUi} USDC ← pool ${poolAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${ixCount}`,
   );
 
   return {

@@ -37,7 +37,6 @@ import {
   type ActiveAgent,
 } from "./lib/agents-source.js";
 import { isSurfpoolReachable } from "./lib/action-executor.js";
-import { ensureSurfpoolUsdc } from "./lib/surfpool-seed.js";
 import { warmupLoop } from "./lib/warmup.js";
 import {
   fetchResolvableCandidates,
@@ -247,32 +246,42 @@ interface TickContext {
   busdMintPubkey?: PublicKey;
 }
 
-const SURFPOOL_TARGET_SOL = 5;
+const SURFPOOL_TARGET_SOL = 0.1;
 const SURFPOOL_AIRDROP_LAMPORTS = SURFPOOL_TARGET_SOL * 1_000_000_000;
 
 /**
- * Ensure the agent's keypair has at least 5 SOL on the surfpool fork. New
- * forks (every Railway redeploy of bundie-surfpool) start with zero state,
- * so the keypair has no SOL until we airdrop. surfpool implements the
- * standard `requestAirdrop` RPC method, which takes effect immediately.
+ * Per-tick fee buffer maintenance — NOT a staking seed. Keeps the agent's
+ * SOL above a tiny floor (~0.05 SOL) so transactions can pay their fees,
+ * topping back up to ~0.1 SOL when needed. The staking principal (~5 SOL)
+ * is seeded ONCE by the warmup loop (see warmup.ts), gated by
+ * `agents.warmup_done_at`. Auto-refilling staking-amount SOL here would
+ * mask deployed positions: an agent that staked 5 SOL into Marinade would
+ * have its wallet topped back to 5 SOL every tick, and the brain — seeing
+ * fresh SOL — would re-stake, in a loop. State persistence requires the
+ * agent's surfpool SOL balance to genuinely deplete as capital is deployed.
  *
  * Implementation note: surfpool's signature-confirmation polling is slow
  * (~30s timeout from `confirmTransaction`) even though the airdrop lands
  * within ~1s. So we send the airdrop, poll balance directly for up to 10s,
  * and bail out as soon as it lands. No tx confirmation required.
  *
- * No-op if balance ≥ 1 SOL (cheap re-runs across daemon restarts).
+ * Fork-reset recovery: if surfpool's state is wiped (Railway redeploy,
+ * etc.), agents need their staking principal re-seeded. That is an
+ * explicit operator action: `UPDATE agents SET warmup_done_at = NULL`
+ * re-triggers the warmup loop's full SOL+USDC seed pass.
+ *
+ * No-op if balance ≥ 0.05 SOL (cheap re-runs across daemon restarts).
  */
 async function ensureSurfpoolFunded(
   surfpool: Connection,
   kp: Keypair,
 ): Promise<void> {
   const initial = await surfpool.getBalance(kp.publicKey, "confirmed");
-  if (initial >= 1_000_000_000) {
-    console.log(`[daemon] surfpool balance: ${(initial / 1e9).toFixed(3)} SOL — sufficient`);
+  if (initial >= 50_000_000) {
+    console.log(`[daemon] surfpool fee buffer: ${(initial / 1e9).toFixed(3)} SOL — sufficient`);
     return;
   }
-  console.log(`[daemon] surfpool balance ${(initial / 1e9).toFixed(3)} SOL < 1 — airdropping ${SURFPOOL_TARGET_SOL} SOL`);
+  console.log(`[daemon] surfpool fee buffer ${(initial / 1e9).toFixed(3)} SOL < 0.05 — topping up to ${SURFPOOL_TARGET_SOL} SOL`);
   await surfpool.requestAirdrop(kp.publicKey, SURFPOOL_AIRDROP_LAMPORTS);
   // Poll balance directly — the airdrop lands fast, but signature confirmation
   // can take >30s on a fresh surfpool fork.
@@ -292,41 +301,34 @@ async function runTickForAgent(
   ctx: TickContext,
   cyclePeers?: PeerAgent[],
 ): Promise<void> {
-  // Per-tick surfpool funding check. Cheap when balance ≥ 1 SOL (single
-  // getBalance call → early return). When the surfpool fork resets mid-loop
-  // — e.g. on a Railway redeploy of bundie-surfpool — the agent's keypair
-  // drops to 0 SOL; this call self-heals on the very next tick instead of
-  // waiting for a daemon container restart. ensureSurfpoolFunded swallows
-  // its own errors so a transient RPC blip can't kill the tick.
+  // Per-tick fee-buffer check ONLY. Cheap when balance ≥ 0.05 SOL (single
+  // getBalance call → early return). Tops up to ~0.1 SOL so the agent can
+  // pay tx fees — staking principal is NOT refilled here (see warmup.ts
+  // for the one-shot 5 SOL seed). Auto-refilling staking-amount SOL would
+  // mask deployed positions: an agent that staked 5 SOL into Marinade
+  // would have its wallet topped back to 5 SOL every tick, and the brain
+  // — seeing fresh SOL — would re-stake, in a loop.
+  // ensureSurfpoolFunded swallows its own errors so a transient RPC blip
+  // can't kill the tick.
   await ensureSurfpoolFunded(ctx.surfpool, target.kp).catch((e) => {
     console.warn(
       `[${target.sns}] ensureSurfpoolFunded skipped: ${(e as Error).message}`,
     );
   });
 
-  // Per-tick USDC seed via surfnet_setTokenAccount (cheap balance-check guard
-  // — when the agent already holds ≥ 500 USDC the helper short-circuits to a
-  // single getTokenAccountBalance round-trip and returns). Required for real
-  // Kamino lend + Zeta perp CPIs; both fail without USDC sittable in the
-  // agent's mainnet-USDC ATA on the fork. Cheat-code RPC unreachability is
-  // logged but never thrown, so a transient surfpool outage never kills the
-  // tick.
-  // Surfpool USDC seed mirrors the agent's bUSD seed 1:1 — the user
-  // deposits $X bUSD on devnet, the agent gets $X USDC on surfpool to
-  // actually trade with. NAV then represents what the agent has done
-  // with that $X, and the daemon mirrors NAV back into the bUSD
-  // treasury so close_vault pays out true performance.
-  // Falls back to the helper's default (~1000 USDC) for legacy agents
-  // with no recorded seed amount, which matches old behaviour.
-  const seedUsdcUi =
-    target.seedBaseUnits !== undefined
-      ? Number(target.seedBaseUnits) / 1_000_000
-      : undefined;
-  await ensureSurfpoolUsdc(ctx.surfpool, target.kp.publicKey, seedUsdcUi).catch((e) => {
-    console.warn(
-      `[${target.sns}] ensureSurfpoolUsdc skipped: ${(e as Error).message}`,
-    );
-  });
+  // No per-tick USDC seed. Initial seeding is owned by the warmup loop
+  // (see warmup.ts — one-shot per agent, gated by agents.warmup_done_at).
+  // Auto-refilling here previously masked deployed positions: an agent
+  // that lent its 50 USDC on Kamino would have its ATA topped back to 50
+  // every tick, and the brain — seeing fresh USDC — would re-lend, in a
+  // loop. State persistence requires the agent's surfpool USDC ATA to
+  // genuinely deplete as capital is deployed.
+  //
+  // Fork-reset recovery: if surfpool's state is wiped (Railway redeploy,
+  // etc.), agents need re-seeding. That is now an explicit operator
+  // action: `UPDATE agents SET warmup_done_at = NULL` re-triggers the
+  // warmup loop's seed + first-action pass. Surfacing fork resets as a
+  // visible event is intentional — they are state loss, not noise.
 
   // Peer discovery: prefer the supervisor-provided cycle list (built from
   // `agents.status='active'` so wizard-created agents see each other), fall

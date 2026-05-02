@@ -133,7 +133,7 @@ export function generateBrainMd(opts: {
   );
   lines.push(`  self.lamports                   — same in lamports.`);
   lines.push(
-    `  self.usdc                       — your surfpool USDC balance (auto-seeded each tick).`,
+    `  self.usdc                       — your surfpool USDC balance. NOT auto-refilled — once spent on a position, it stays spent until you withdraw. Plan accordingly.`,
   );
   lines.push(
     `  self.msol                       — your surfpool mSOL balance from prior Marinade stakes.`,
@@ -188,7 +188,7 @@ export function generateBrainMd(opts: {
     `- windowSlots for markets: 50000-2000000 (~3h to ~9 days at 400ms/slot).`,
   );
   lines.push(
-    `- spreadBps: for utilization (selectors 1,3) use 300-1500; for LST rate (selectors 2,4) use 50-500.`,
+    `- spreadBps: for utilization (selector 1) use 300-1500; for LST rate (selectors 2,4) use 50-500.`,
   );
   lines.push(
     `- For create_market: use peers[].owner as targetAgentA. You MUST NOT use your own vault.`,
@@ -205,9 +205,28 @@ export function generateBrainMd(opts: {
   lines.push(
     `  near-identical markets (same subject, same rate surface, overlapping time windows).`,
   );
+  lines.push(
+    `- BEFORE proposing a lend_deposit, check self.usdc. If it's near zero, your capital is already deployed — propose lend_withdraw or noop, NOT another deposit. The platform no longer auto-refills USDC.`,
+  );
   lines.push(``);
   lines.push(
     `- Use "swap" to rotate between mints when no lend/lst path exists for the source asset (e.g. USDC → SOL before a Marinade stake). Available venues: jupiter.`,
+  );
+  lines.push(``);
+  lines.push(
+    `Reserve & market choice (NEW): you may target ANY Kamino lending market or Solend pool — not just main pool USDC.`,
+  );
+  lines.push(
+    `- Defaults: Kamino → KAMINO_MAIN_MARKET / USDC reserve. Solend → SOLEND_MAIN_POOL / USDC reserve.`,
+  );
+  lines.push(
+    `- Override \`marketAddress\` to access Multiply pools, JLP markets, isolated lending pools, etc.`,
+  );
+  lines.push(
+    `- Override \`reserveAddress\` to pick a specific reserve within the chosen market.`,
+  );
+  lines.push(
+    `- LIMITATION: only USDC liquidity mints are supported today. Reserves with non-USDC mints will hard-fail with a clear error. Multi-asset support is a follow-up.`,
   );
   lines.push(``);
   lines.push(`Schema:`);
@@ -216,10 +235,10 @@ export function generateBrainMd(opts: {
   lines.push(`  "actions": [`);
   lines.push(`    {"type": "noop"} |`);
   lines.push(
-    `    {"type": "lend_deposit",  "protocol": "kamino"|"solend", "args": {"amountUsdcUi": <number>}} |`,
+    `    {"type": "lend_deposit",  "protocol": "kamino"|"solend", "args": {"amountUsdcUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
   );
   lines.push(
-    `    {"type": "lend_withdraw", "protocol": "kamino"|"solend", "args": {"amountUi": <number>}} |`,
+    `    {"type": "lend_withdraw", "protocol": "kamino"|"solend", "args": {"amountUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
   );
   lines.push(
     `    {"type": "lst_stake",     "protocol": "marinade"|"jito",            "args": {"amountSolUi": <number>}} |`,
@@ -231,7 +250,13 @@ export function generateBrainMd(opts: {
     `    {"type": "swap",          "venue": "jupiter",                       "args": {"inputMint": "<mint>", "outputMint": "<mint>", "amountInUi": <number>, "slippageBps": <number>}} |`,
   );
   lines.push(
-    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "selector": <1|2|3|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
+    `    {"type": "perp_open",     "protocol": "jupiter-perps",              "args": {"market": "SOL-PERP"|"BTC-PERP"|"ETH-PERP", "side": "long"|"short", "notionalUsd": <number>}} |`,
+  );
+  lines.push(
+    `    {"type": "perp_close",    "protocol": "jupiter-perps",              "args": {"market": "SOL-PERP"|"BTC-PERP"|"ETH-PERP"}} |`,
+  );
+  lines.push(
+    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "selector": <1|2|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
   );
   lines.push(`  ]`);
   lines.push(`}`);

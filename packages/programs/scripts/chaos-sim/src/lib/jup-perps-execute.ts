@@ -62,7 +62,8 @@ import {
 } from "@solana/spl-token";
 import { createHash } from "node:crypto";
 
-import { ensureSurfpoolUsdc } from "./surfpool-seed.js";
+// ensureSurfpoolUsdc removed — initial USDC seeding lives in warmup.ts;
+// auto-refilling per-action recreated a deployed-then-refilled loop.
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -246,10 +247,10 @@ export async function openJupiterPerp(
   const collateralBaseUnits = BigInt(Math.round(collateralUsd * 1_000_000)); // USDC 6dp
   const sizeUsdDelta = BigInt(Math.round(notionalUsd * 1_000_000)); // 6dp price-precision
 
-  // Make sure the agent has USDC on the fork (idempotent). 1.5× collateral
-  // covers any opening fees / slippage; sized to the actual position
-  // rather than an inflated 1000 USDC floor.
-  await ensureSurfpoolUsdc(surfpool, kp.publicKey, collateralUsd * 1.5);
+  // No per-action USDC topup. Initial seed is owned by warmup.ts; this
+  // builder will fail with "insufficient funds" if the agent has spent
+  // its USDC on other positions, which is the correct signal — the
+  // brain learns it must withdraw or close before opening more perps.
 
   const [position] = positionPda(kp.publicKey, custody, side);
   // Counter = lower 8 bits of unix-seconds — gives monotonic uniqueness across

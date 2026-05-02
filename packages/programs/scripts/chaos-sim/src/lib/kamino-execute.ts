@@ -49,10 +49,7 @@ import {
 } from "@kamino-finance/klend-sdk";
 import BN from "bn.js";
 
-import {
-  ensureSurfpoolUsdc,
-  MAINNET_USDC_MINT,
-} from "./surfpool-seed.js";
+import { MAINNET_USDC_MINT } from "./surfpool-seed.js";
 
 // Re-export so action-executor / other callers can keep importing from here.
 export { MAINNET_USDC_MINT };
@@ -152,8 +149,13 @@ export interface DepositKaminoArgs {
    * Connection's `rpcEndpoint`.
    */
   rpcUrl?: string;
-  /** Optional reserve override; defaults to USDC reserve in the main market. */
+  /** Optional reserve override; defaults to USDC reserve in the chosen market. */
   reserveAddress?: string;
+  /** Optional Kamino market (lending-market) override. Defaults to
+   *  KAMINO_MAIN_MARKET. Pass any market PDA the SDK can load — Multiply,
+   *  JLP, isolated, etc. — to let the brain express strategies beyond
+   *  main-pool USDC. */
+  marketAddress?: string;
 }
 
 /**
@@ -183,60 +185,68 @@ export async function depositKamino(
     throw new Error(`depositKamino: amountUsdcUi must be > 0 (got ${amountUsdcUi})`);
   }
   const rpcUrl = args.rpcUrl ?? surfpool.rpcEndpoint;
+  const marketAddress = args.marketAddress ?? KAMINO_MAIN_MARKET;
   const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
 
-  // 1. Make sure USDC is sittable in the agent's ATA. Idempotent — when
-  //    the daemon's per-tick seed call has already topped the agent up,
-  //    this is a single getTokenAccountBalance round-trip and a no-op.
-  //    Pass exactly `amountUsdcUi` so the topup is sized to the brain's
-  //    request, not inflated to a hidden floor (which would surface as
-  //    "agent lent 450 USDC" against a $50 seed in the home feed).
-  const usdcResult = await ensureSurfpoolUsdc(
-    surfpool,
-    vault.publicKey,
-    amountUsdcUi,
-  );
+  // No per-action USDC topup. The agent's seed is established once by
+  // the warmup loop (see warmup.ts — gated by agents.warmup_done_at).
+  // Auto-refilling here would mask "agent already deployed its capital"
+  // as "agent has fresh USDC to lend" and produce a re-lend loop. If
+  // the agent's USDC ATA is empty, the SDK build below fails fast and
+  // the brain learns it can't lend without first withdrawing.
 
-  // 2. Build a kit Rpc + signer for the SDK to chew on. We're not actually
+  // 1. Build a kit Rpc + signer for the SDK to chew on. We're not actually
   //    using the kit signer to sign — we shim ix's back to web3.js and sign
   //    with the web3.js Keypair — but KaminoAction needs *something* that
   //    quacks like a TransactionSigner so it can attach the owner address.
   const kitRpc = createSolanaRpc(rpcUrl);
   const kitPayer = await createKeyPairSignerFromBytes(vault.secretKey);
 
-  // 3. Load the market with the mainnet program id (NOT the SDK's default
-  //    devnet PROGRAM_ID).
+  // 2. Load the market with the mainnet program id (NOT the SDK's default
+  //    devnet PROGRAM_ID). Defaults to KAMINO_MAIN_MARKET; brain can
+  //    target any other Kamino market via args.marketAddress.
   const market = await KaminoMarket.load(
     kitRpc,
-    KAMINO_MAIN_MARKET as Address,
+    marketAddress as Address,
     MAINNET_SLOT_DURATION_MS,
     KLEND_MAINNET_PROGRAM_ID as Address,
     true,
   );
   if (!market) {
     throw new Error(
-      `KaminoMarket.load returned null for ${KAMINO_MAIN_MARKET} — surfpool fork may not have the market state`,
+      `KaminoMarket.load returned null for ${marketAddress} — surfpool fork may not have the market state`,
     );
   }
 
-  // 4. Resolve reserve. Default = USDC reserve via mint lookup.
+  // 3. Resolve reserve. Default = USDC reserve via mint lookup.
   let reserve;
   if (args.reserveAddress) {
     reserve = market.reserves.get(args.reserveAddress as Address);
     if (!reserve) {
       throw new Error(
-        `reserve ${args.reserveAddress} not in market ${KAMINO_MAIN_MARKET}`,
+        `reserve ${args.reserveAddress} not in market ${marketAddress}`,
       );
     }
   } else {
     reserve = market.getReserveByMint(MAINNET_USDC_MINT as Address);
     if (!reserve) {
       throw new Error(
-        `no USDC reserve found in market ${KAMINO_MAIN_MARKET} (mint ${MAINNET_USDC_MINT})`,
+        `no USDC reserve found in market ${marketAddress} (mint ${MAINNET_USDC_MINT})`,
       );
     }
   }
   const reserveAddress = reserve.address as string;
+  // Multi-asset deposits are a separate work item — the amount math below
+  // assumes 6-decimal USDC. If the brain picks a non-USDC reserve we fail
+  // loudly here rather than silently miscomputing base units.
+  const liquidityMint = String(reserve.getLiquidityMint());
+  if (liquidityMint !== MAINNET_USDC_MINT) {
+    throw new Error(
+      `depositKamino: reserve ${reserveAddress} has liquidity mint ${liquidityMint}, ` +
+        `but only USDC (${MAINNET_USDC_MINT}) is supported today. ` +
+        `Multi-asset Kamino deposits will be added in a follow-up.`,
+    );
+  }
 
   // 5. Have the SDK assemble the full deposit ix list (setup includes
   //    obligation init / refresh-reserve / refresh-obligation, etc).
@@ -284,7 +294,7 @@ export async function depositKamino(
   tx.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   console.log(
-    `[kamino] deposit ${amountUsdcUi} USDC → reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}  usdcFunding=${usdcResult.method}`,
+    `[kamino] deposit ${amountUsdcUi} USDC → market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
   );
 
   const txSig = await sendAndConfirmTransaction(surfpool, tx, [vault], {
@@ -318,8 +328,10 @@ export interface WithdrawKaminoArgs {
   amountUsdcUi: number;
   /** Optional RPC override; defaults to surfpool.rpcEndpoint. */
   rpcUrl?: string;
-  /** Optional reserve override; defaults to USDC reserve in the main market. */
+  /** Optional reserve override; defaults to USDC reserve in the chosen market. */
   reserveAddress?: string;
+  /** Optional Kamino market override (defaults to KAMINO_MAIN_MARKET). */
+  marketAddress?: string;
 }
 
 /**
@@ -354,6 +366,7 @@ export async function withdrawKamino(
     );
   }
   const rpcUrl = args.rpcUrl ?? surfpool.rpcEndpoint;
+  const marketAddress = args.marketAddress ?? KAMINO_MAIN_MARKET;
   const amountBaseUnits = Math.round(amountUsdcUi * 1_000_000);
 
   const kitRpc = createSolanaRpc(rpcUrl);
@@ -361,14 +374,14 @@ export async function withdrawKamino(
 
   const market = await KaminoMarket.load(
     kitRpc,
-    KAMINO_MAIN_MARKET as Address,
+    marketAddress as Address,
     MAINNET_SLOT_DURATION_MS,
     KLEND_MAINNET_PROGRAM_ID as Address,
     true,
   );
   if (!market) {
     throw new Error(
-      `KaminoMarket.load returned null for ${KAMINO_MAIN_MARKET} — surfpool fork may not have the market state`,
+      `KaminoMarket.load returned null for ${marketAddress} — surfpool fork may not have the market state`,
     );
   }
 
@@ -377,18 +390,25 @@ export async function withdrawKamino(
     reserve = market.reserves.get(args.reserveAddress as Address);
     if (!reserve) {
       throw new Error(
-        `reserve ${args.reserveAddress} not in market ${KAMINO_MAIN_MARKET}`,
+        `reserve ${args.reserveAddress} not in market ${marketAddress}`,
       );
     }
   } else {
     reserve = market.getReserveByMint(MAINNET_USDC_MINT as Address);
     if (!reserve) {
       throw new Error(
-        `no USDC reserve found in market ${KAMINO_MAIN_MARKET} (mint ${MAINNET_USDC_MINT})`,
+        `no USDC reserve found in market ${marketAddress} (mint ${MAINNET_USDC_MINT})`,
       );
     }
   }
   const reserveAddress = reserve.address as string;
+  const liquidityMint = String(reserve.getLiquidityMint());
+  if (liquidityMint !== MAINNET_USDC_MINT) {
+    throw new Error(
+      `withdrawKamino: reserve ${reserveAddress} has liquidity mint ${liquidityMint}, ` +
+        `but only USDC (${MAINNET_USDC_MINT}) is supported today.`,
+    );
+  }
 
   // KaminoAction.buildWithdrawTxns(market, amount, mint, owner, obligation,
   //   useV2Ixs, scopeRefreshConfig, extraComputeBudget?, includeAtaIxs?, ...)
@@ -435,7 +455,7 @@ export async function withdrawKamino(
   tx.lastValidBlockHeight = lastValidBlockHeight + 300;
 
   console.log(
-    `[kamino] withdraw ${amountUsdcUi} USDC ← reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
+    `[kamino] withdraw ${amountUsdcUi} USDC ← market ${marketAddress.slice(0, 8)}…/reserve ${reserveAddress.slice(0, 8)}…  ixs=${web3Ixs.length + 1}`,
   );
 
   const txSig = await sendAndConfirmTransaction(surfpool, tx, [vault], {

@@ -169,7 +169,14 @@ async function executeLend(
     };
   }
 
-  const lendArgs = (args.action as { args?: { amountUsdcUi?: number; amountUi?: number; reserveAddress?: string } }).args;
+  const lendArgs = (args.action as {
+    args?: {
+      amountUsdcUi?: number;
+      amountUi?: number;
+      reserveAddress?: string;
+      marketAddress?: string;
+    };
+  }).args;
   const amountUi = lendArgs?.amountUsdcUi ?? lendArgs?.amountUi ?? null;
   if (amountUi == null || amountUi <= 0) {
     throw new Error(
@@ -177,6 +184,11 @@ async function executeLend(
     );
   }
   const reserveAddress = lendArgs?.reserveAddress;
+  // Same `marketAddress` field on the brain action covers both Kamino's
+  // lending-market and Solend's pool — naming is unified at the schema
+  // level so the brain only learns one concept. Each executor reads it
+  // under its native name (Kamino: marketAddress, Solend: poolAddress).
+  const marketAddress = lendArgs?.marketAddress;
 
   // ─── Real CPI dispatch ────────────────────────────────────────────────
   //
@@ -197,6 +209,7 @@ async function executeLend(
         vault: args.kp,
         amountUsdcUi: amountUi,
         reserveAddress,
+        marketAddress,
       });
       const notes =
         `Kamino deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… ` +
@@ -220,6 +233,7 @@ async function executeLend(
         vault: args.kp,
         amountUsdcUi: amountUi,
         reserveAddress,
+        marketAddress,
       });
       const notes =
         `Kamino withdraw: ${amountUi} USDC ← reserve ${result.reserveAddress.slice(0, 8)}… ` +
@@ -243,6 +257,7 @@ async function executeLend(
         vault: args.kp,
         amountUsdcUi: amountUi,
         reserveAddress,
+        poolAddress: marketAddress,
       });
       const notes =
         `Solend deposit: ${amountUi} USDC → reserve ${result.reserveAddress.slice(0, 8)}… ` +
@@ -266,6 +281,7 @@ async function executeLend(
         vault: args.kp,
         amountUsdcUi: amountUi,
         reserveAddress,
+        poolAddress: marketAddress,
       });
       const notes =
         `Solend withdraw: ${amountUi} USDC ← reserve ${result.reserveAddress.slice(0, 8)}… ` +

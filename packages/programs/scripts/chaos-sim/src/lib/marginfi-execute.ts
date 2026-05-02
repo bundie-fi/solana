@@ -41,7 +41,7 @@
 
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
-import { ensureSurfpoolUsdc, MAINNET_USDC_MINT } from "./surfpool-seed.js";
+import { MAINNET_USDC_MINT } from "./surfpool-seed.js";
 
 // Re-export so callers can import the mint constant from a single place.
 export { MAINNET_USDC_MINT };
@@ -461,14 +461,9 @@ export async function depositMarginfi(
   }
   const bankAddress = args.bankAddress ?? MARGINFI_USDC_BANK;
 
-  // Belt-and-braces USDC seeding before the deposit attempt. When the
-  // daemon's per-tick seed has already topped the agent up this is a
-  // single getTokenAccountBalance round-trip and a no-op.
-  const usdcResult = await ensureSurfpoolUsdc(
-    surfpool,
-    vault.publicKey,
-    amountUi,
-  );
+  // No per-action USDC topup — see kamino-execute for the rationale.
+  // The SDK's deposit will throw "insufficient funds" if the ATA is
+  // empty, which the daemon surfaces as phase=execute_error.
 
   const account = await ensureMarginfiAccount(surfpool, vault, true);
   if (!account) {
@@ -490,7 +485,7 @@ export async function depositMarginfi(
       : String(acctAny.address ?? "unknown");
 
   console.log(
-    `[marginfi] deposit ${amountUi} UI → bank ${bankAddress.slice(0, 8)}…  acct=${marginfiAccountPk.slice(0, 8)}…  usdcFunding=${usdcResult.method}`,
+    `[marginfi] deposit ${amountUi} UI → bank ${bankAddress.slice(0, 8)}…  acct=${marginfiAccountPk.slice(0, 8)}…`,
   );
 
   return {

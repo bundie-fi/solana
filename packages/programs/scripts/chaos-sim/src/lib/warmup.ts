@@ -211,9 +211,30 @@ async function runWarmupForAgent(
     return;
   }
 
-  // Make sure the agent has surfpool USDC/SOL to spend. The supervisor
-  // also seeds this per-tick, but we may run before the next supervisor
-  // cycle. Cheap when balance ≥ floor (single getBalance + early return).
+  // One-shot SOL seed: 5 SOL gives the agent room to stake into Marinade /
+  // Jito and still have fee headroom. This is the staking principal — it
+  // is NOT auto-refilled by the supervisor (only the small fee buffer is).
+  const targetLamports = 5 * 1_000_000_000;
+  const currentLamports = await ctx.surfpool.getBalance(kp.publicKey, "confirmed");
+  if (currentLamports < targetLamports) {
+    try {
+      await ctx.surfpool.requestAirdrop(kp.publicKey, targetLamports - currentLamports);
+      // Match the run-agent-daemon polling pattern — surfpool airdrop
+      // signature confirmation is slow even though balance lands fast.
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const after = await ctx.surfpool.getBalance(kp.publicKey, "confirmed");
+        if (after >= targetLamports * 0.9) break;
+      }
+    } catch (err) {
+      console.warn(`[warmup] ${agent.sns} SOL airdrop failed: ${(err as Error).message}`);
+    }
+  }
+
+  // Make sure the agent has surfpool USDC to spend. The supervisor does
+  // not seed USDC per-tick anymore (lend-loop bug), so this one-shot at
+  // warmup is the only path. Cheap when balance ≥ floor (single
+  // getTokenAccountBalance + early return).
   const seedUsdcUi =
     agent.seedAmountBusd != null
       ? Number(agent.seedAmountBusd) / 1_000_000

@@ -31,12 +31,28 @@ export type BrainAction =
   | {
       type: "lend_deposit";
       protocol: LendProtocol;
-      args: { amountUsdcUi: number; reserveAddress?: string };
+      args: {
+        amountUsdcUi: number;
+        /** Reserve PDA inside `marketAddress`. Defaults to the main pool's
+         *  USDC reserve when omitted. */
+        reserveAddress?: string;
+        /** Lending-market / pool PDA on the surfpool fork. Defaults to the
+         *  protocol's main market (Kamino: KAMINO_MAIN_MARKET, Solend:
+         *  SOLEND_MAIN_POOL) when omitted, but the brain is free to target
+         *  ANY market the SDK can load — Multiply, JLP, isolated pools,
+         *  etc. — to express richer strategies. */
+        marketAddress?: string;
+      };
     }
   | {
       type: "lend_withdraw";
       protocol: LendProtocol;
-      args: { amountUi: number; reserveAddress?: string };
+      args: {
+        amountUi: number;
+        reserveAddress?: string;
+        /** See lend_deposit.marketAddress — same semantics. */
+        marketAddress?: string;
+      };
     }
   | { type: "lst_stake";   protocol: LstProtocol; args: { amountSolUi: number } }
   | { type: "lst_unstake"; protocol: LstProtocol; args: { amountMsolUi: number } }
