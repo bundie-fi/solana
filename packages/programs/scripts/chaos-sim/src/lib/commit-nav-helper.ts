@@ -1657,6 +1657,38 @@ export async function computeNavFromSurfpoolBalances(
   surfpool: Connection,
   authority: PublicKey,
 ): Promise<bigint> {
+  const breakdown = await computeNavBreakdown(surfpool, authority);
+  return breakdown.navLamports;
+}
+
+/**
+ * Per-component NAV breakdown returned by `computeNavBreakdown`. All
+ * `*_usd_micros` fields are in micro-USD (1e6 scale) so they fit alongside
+ * NAV lamports in a bigint without losing sub-cent precision.
+ *
+ * `perpsUsdMicros` represents Jupiter Perps equity. The internal pipeline
+ * still uses the legacy `zetaUsd` variable name (a hold-over from the Zeta
+ * integration we retired); the breakdown surface renames it.
+ */
+export interface NavBreakdown {
+  navLamports: bigint;
+  baseUsdMicros: bigint;
+  kaminoUsdMicros: bigint;
+  solendUsdMicros: bigint;
+  perpsUsdMicros: bigint;
+}
+
+/**
+ * Identical math to `computeNavFromSurfpoolBalances`, but exposes the
+ * per-component USD subtotals used by the daemon's `nav-pricing` banner so
+ * callers can persist them for charting. The original function is kept as a
+ * thin wrapper around this one to preserve every existing call site (which
+ * only consumes the rolled-up `navLamports`).
+ */
+export async function computeNavBreakdown(
+  surfpool: Connection,
+  authority: PublicKey,
+): Promise<NavBreakdown> {
   // Resolve prices once per invocation; the cache will keep them stable
   // across the surrounding tick window (~60s).
   let prices: Record<string, number>;
@@ -1823,7 +1855,25 @@ export async function computeNavFromSurfpoolBalances(
   // the agent's NAV below zero, but the on-chain `commit_nav` accepts
   // u64 only.
   const navLamports = BigInt(Math.max(0, Math.round(totalUsd * 10 ** BUSD_DECIMALS)));
-  return navLamports;
+
+  // Surface micro-USD (1e6) component subtotals so callers can persist
+  // them for charting. We round to the nearest unit; sub-micro-USD jitter
+  // is well below display precision. Values are clamped to non-negative
+  // for the same reason as `navLamports` — `bigint` here is unsigned in
+  // intent even though the type permits negatives.
+  const toMicros = (usd: number): bigint =>
+    BigInt(Math.max(0, Math.round(usd * 1_000_000)));
+
+  return {
+    navLamports,
+    // `baseUsd` rolls up native SOL + non-cToken SPL balances. MarginFi
+    // is retired (always 0), so we fold its zero subtotal into base
+    // rather than minting a new column for a dead protocol.
+    baseUsdMicros: toMicros(baseUsd + marginfiUsd),
+    kaminoUsdMicros: toMicros(kaminoUsd),
+    solendUsdMicros: toMicros(solendUsd),
+    perpsUsdMicros: toMicros(zetaUsd),
+  };
 }
 
 // Re-export the PDA helper so callers in init-vaults / shared-tick can

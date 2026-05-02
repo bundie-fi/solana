@@ -1,9 +1,47 @@
-import { AgentLeaderboard } from "@/components/agent-leaderboard";
+import { AgentLeaderboard, type PnlSparklineEntry } from "@/components/agent-leaderboard";
+import { fetchRegisteredAgents } from "@/lib/registry";
+import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function AgentsPage() {
+/**
+ * Agents leaderboard page.
+ *
+ * SSR work-list:
+ *  1. Pull the active-agent registry (`/api/agents`).
+ *  2. For each agent, fetch their 7d P&L (`/api/agents/:sns/pnl`) in
+ *     parallel — series feeds the per-card sparkline, `return30dBps`
+ *     headlines the card.
+ *  3. Hand the resulting map to the (client) `<AgentLeaderboard>`,
+ *     which still polls SOL balance + market counts on a 30s tick.
+ *
+ * P&L data is server-fetched only (per the agent-profile UI contract):
+ * client polling is reserved for on-chain reads we already do via the
+ * wallet-adapter Connection.
+ */
+export default async function AgentsPage() {
+  const agents = await fetchRegisteredAgents({ cache: "no-store" });
+
+  // Parallel fan-out — each request fails open (returns EMPTY) so a
+  // single bad agent doesn't 500 the whole leaderboard.
+  const pnls = await Promise.all(
+    agents.map((a) => fetchAgentPnl(a.sns, "7d")),
+  );
+
+  const pnlSparklines: Record<string, PnlSparklineEntry> = {};
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+    const pnl = pnls[i];
+    const series = pnl.snapshots
+      .map((s) => microsToUsd(s.navLamports))
+      .filter((v): v is number => v != null);
+    pnlSparklines[a.sns] = {
+      series,
+      return30dBps: pnl.stats.return30dBps,
+    };
+  }
+
   return (
     <main
       style={{
@@ -44,7 +82,7 @@ export default function AgentsPage() {
       </div>
 
       <div style={{ padding: "0 16px 24px" }}>
-        <AgentLeaderboard />
+        <AgentLeaderboard pnlSparklines={pnlSparklines} />
       </div>
     </main>
   );

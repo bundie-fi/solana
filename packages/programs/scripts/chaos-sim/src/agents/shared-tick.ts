@@ -19,11 +19,12 @@ import {
 } from "../lib/action-executor.js";
 import {
   commitNavToDevnet,
-  computeNavFromSurfpoolBalances,
+  computeNavBreakdown,
   syncTreasuryToPerformance,
 } from "../lib/commit-nav-helper.js";
 import { readSurfpoolTokenBalances } from "../lib/balances.js";
 import { logAgentAction } from "../lib/agents-source.js";
+import { dbQuery } from "../lib/db.js";
 
 // @ts-expect-error — JS module, no type declarations provided
 import { loadPoliciesFromFile } from "../../../../../zerion-agent/src/bundie/policy-loader.js";
@@ -367,10 +368,17 @@ export async function runTick(args: TickArgs): Promise<void> {
   // `init-vaults` (one-shot) and then re-sync.
   if (surfpoolAvailable) {
     try {
-      const navLamports = await computeNavFromSurfpoolBalances(
+      const breakdown = await computeNavBreakdown(
         args.surfpool,
         args.kp.publicKey,
       );
+      const {
+        navLamports,
+        baseUsdMicros,
+        kaminoUsdMicros,
+        solendUsdMicros,
+        perpsUsdMicros,
+      } = breakdown;
       const commit = await commitNavToDevnet({
         connection: args.devnet,
         agentKp: args.kp,
@@ -404,6 +412,36 @@ export async function runTick(args: TickArgs): Promise<void> {
           surfpoolTxSigs,
         },
       }).catch(() => {});
+
+      // Mirror the commit into the nav_snapshots time-series so the UI's
+      // P&L route can chart equity curves without re-reading every
+      // BundieVault account on the RPC. `commitNavToDevnet` doesn't
+      // return the slot it landed in, so fetch a fresh confirmed slot —
+      // close enough for charting (the row's `ts` is the source of truth
+      // for ordering anyway).
+      let navSlot: number | null = null;
+      try {
+        navSlot = await args.devnet.getSlot("confirmed");
+      } catch {
+        // Best-effort; nav_slot is nullable in the schema.
+      }
+      await dbQuery(
+        `insert into nav_snapshots
+           (agent_sns, nav_epoch, nav_lamports, nav_slot,
+            base_usd_micros, kamino_usd_micros, solend_usd_micros, perps_usd_micros)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (agent_sns, nav_epoch) do nothing`,
+        [
+          args.agentName,
+          commit.epoch,
+          navLamports.toString(),
+          navSlot,
+          baseUsdMicros.toString(),
+          kaminoUsdMicros.toString(),
+          solendUsdMicros.toString(),
+          perpsUsdMicros.toString(),
+        ],
+      ).catch(() => {});
 
       // bUSD treasury performance-sync: mirror the agent's surfpool NAV
       // 1:1 onto the on-chain bUSD treasury. Mint-only (no burn path

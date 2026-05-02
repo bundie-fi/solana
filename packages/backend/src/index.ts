@@ -8,6 +8,7 @@ import { surfpoolActivity } from "./routes/surfpool-activity.js";
 import { tx } from "./routes/tx.js";
 import { faucet } from "./routes/faucet.js";
 import { agents } from "./routes/agents.js";
+import { pnl } from "./routes/pnl.js";
 
 const app = new Hono();
 
@@ -26,6 +27,8 @@ app.route("/api/tx", tx);
 app.route("/", faucet);
 // agent routes self-mount under /api/agents/* (full paths inside)
 app.route("/", agents);
+// pnl routes self-mount under /api/agents/:sns/pnl (full paths inside)
+app.route("/", pnl);
 
 const port = Number(process.env.PORT) || 3001;
 

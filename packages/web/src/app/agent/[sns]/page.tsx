@@ -16,6 +16,8 @@ import {
 } from "@/lib/sns-resolver";
 import { PortfolioCompositionBar } from "@/components/portfolio-composition-bar";
 import { AgentMarketColumn } from "@/components/agent-market-column";
+import { AgentPerformanceBlock } from "@/components/agent-performance-block";
+import type { PnlRange } from "@/lib/pnl";
 import {
   SurfpoolActivityPanel,
   type SurfpoolAction,
@@ -38,10 +40,18 @@ const AGENT_CLASSES: Record<string, string> = {
 
 export default async function AgentProfilePage({
   params,
+  searchParams,
 }: {
   params: { sns: string };
+  searchParams?: { range?: string };
 }) {
   const decoded = decodeURIComponent(params.sns);
+  // Range is read from `?range=`; default 30d. The Performance block's
+  // pill toggle just updates this searchParam, so the entire SSR pass
+  // re-runs with the new window.
+  const rawRange = searchParams?.range ?? "30d";
+  const pnlRange: PnlRange =
+    rawRange === "7d" || rawRange === "all" ? rawRange : "30d";
 
   // Vault resolution has three sources, in order:
   //   (1) hardcoded HERO_AGENTS map (alice/bob/charlie hand-rolled SNS)
@@ -291,17 +301,22 @@ export default async function AgentProfilePage({
           <StatCard label="Markets on me" value={onMe.length.toString()} accent="purple" />
         </div>
 
-        {/* NAV history , last commit_nav snapshot from BundieVault PDA */}
-        <div style={{ padding: "0 16px 12px" }}>
-          <div className="card" style={{ padding: 14 }}>
-            <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>NAV history</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, color: "var(--fg-0)" }}>
-              {(Number(bundieVault?.navLamports ?? 0n) / 1_000_000).toFixed(2)}{" "}
-              <span className="muted" style={{ fontSize: 13 }}>bUSD</span>
-            </div>
-            <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
-              Last commit at slot {bundieVault?.navSlot?.toString() ?? "-"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"})
-            </div>
+        {/* Performance — P&L stats + equity curve + protocol exposure.
+            Pulls /api/agents/:sns/pnl?range=...; range pill toggle drives
+            the `?range=` searchParam to re-render the section SSR.
+            Subsumes the older "NAV history" thumbnail card. */}
+        <AgentPerformanceBlock sns={decoded} range={pnlRange} />
+
+        {/* Last on-chain commit_nav snapshot — keeps the slot/epoch
+            provenance visible alongside the API-sourced equity curve so
+            the user can verify the chart's most recent point against
+            the BundieVault PDA. */}
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-1)" }}>
+          <div className="dim mono-tiny">
+            On-chain anchor · slot {bundieVault?.navSlot?.toString() ?? "-"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"}) ·{" "}
+            <span className="mono">
+              {(Number(bundieVault?.navLamports ?? 0n) / 1_000_000).toFixed(2)} bUSD
+            </span>
           </div>
         </div>
 

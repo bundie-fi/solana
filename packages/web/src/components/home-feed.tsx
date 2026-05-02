@@ -51,8 +51,16 @@ interface RegistryAgent {
  * The agent quick-strip + per-agent vault deltas are sourced from the
  * Supabase-backed `GET /api/agents` registry rather than a hardcoded list,
  * so any agent the backend marks `status='active'` shows up here.
+ *
+ * `topPerformersSlot` is a server-rendered ReactNode passed in by the
+ * /page.tsx server component — it holds the "Top performers · 30d" strip
+ * so we can SSR that data (per spec: no client-side API fetches for P&L).
  */
-export function HomeFeed() {
+export function HomeFeed({
+  topPerformersSlot,
+}: {
+  topPerformersSlot?: React.ReactNode;
+} = {}) {
   const { connection } = useConnection();
 
   const [agents, setAgents] = useState<RegistryAgent[]>([]);
@@ -258,6 +266,10 @@ export function HomeFeed() {
             </span>
           </Link>
         </div>
+
+        {/* Top performers · 30d — server-rendered slot from /page.tsx so
+            P&L API calls stay off the client per design contract. */}
+        {topPerformersSlot}
 
         {/* Agent quick-tap strip , sourced from /api/agents (Phase L registry). */}
         <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", overflowX: "auto" }}>

@@ -48,7 +48,9 @@ interface AgentStats {
   resolvedCount: number;
 }
 
-// Mock NAV trend data (design system default)
+// Mock NAV trend data — only used as a fallback when the server-fed
+// sparkline payload doesn't carry an entry for an agent (e.g. backend
+// 5xx during SSR). Real series come from `pnlSparklines` prop.
 const NAV_TRENDS: Record<string, number[]> = {
   "alice.bundie": [100,102,98,103,108,105,112,118,115,120,123,127,124,128,131,127,130,135,132,138,135,140,138,142,144,141,148,145,150,127],
   "bob.bundie":   [100,103,107,104,110,113,109,115,120,117,122,118,123,125,121,127,124,128,121,126,118,123,116,121,114,118,108,112,104,84],
@@ -61,7 +63,24 @@ const ARCHETYPES: Record<string, string> = {
   "charlie.bundie": "CONSERVATIVE 60/40",
 };
 
-export function AgentLeaderboard() {
+/**
+ * Server-prefetched P&L payload, keyed by SNS. Each entry holds:
+ *  - `series`: NAV in USD over the 7d window (sparkline source)
+ *  - `return30dBps`: signed bps return over 30d (drives sparkline tone +
+ *    headline color). Null if backend hasn't computed it yet.
+ * Passed in by the agents page server component so the leaderboard does
+ * not call /api/agents/.../pnl from the client (per the P&L UI contract).
+ */
+export interface PnlSparklineEntry {
+  series: number[];
+  return30dBps: number | null;
+}
+
+export function AgentLeaderboard({
+  pnlSparklines,
+}: {
+  pnlSparklines?: Record<string, PnlSparklineEntry>;
+} = {}) {
   const { connection } = useConnection();
   const [agents, setAgents] = useState<LeaderboardAgent[]>([]);
   const [markets, setMarkets] = useState<MarketView[]>([]);
@@ -202,6 +221,7 @@ export function AgentLeaderboard() {
           stats={statsFor(a)}
           loading={loading}
           rank={i + 1}
+          pnl={pnlSparklines?.[a.sns]}
         />
       ))}
     </div>
@@ -213,20 +233,34 @@ function AgentCard({
   stats,
   loading,
   rank,
+  pnl,
 }: {
   agent: LeaderboardAgent;
   stats: AgentStats;
   loading: boolean;
   rank: number;
+  pnl?: PnlSparklineEntry;
 }) {
   const agentKey = resolveAgentKey(agent.sns);
-  const navTrend = NAV_TRENDS[agent.sns] ?? [];
   const archetype = ARCHETYPES[agent.sns] ?? agent.strategyHandle;
 
-  // Compute mock NAV bps from trend data
-  const navBps = navTrend.length > 0
-    ? Math.round(navTrend[navTrend.length - 1] - 100)
-    : 0;
+  // Real NAV series sourced server-side. If the backend hasn't seeded
+  // a series for this agent yet, fall back to the mock data so the
+  // card doesn't render an empty slot while devnet is bootstrapping.
+  const realSeries = pnl?.series ?? [];
+  const navTrend = realSeries.length >= 2 ? realSeries : NAV_TRENDS[agent.sns] ?? [];
+  const usingRealPnl = realSeries.length >= 2;
+
+  // Headline number: prefer real 30d bps from /api/agents/.../pnl. The
+  // mock fallback derives a "bps vs 100" number from the synthetic
+  // trend so the card still has a value during early devnet days.
+  const realBps = pnl?.return30dBps ?? null;
+  const navBps =
+    realBps != null
+      ? realBps
+      : navTrend.length > 0
+      ? Math.round(navTrend[navTrend.length - 1] - 100)
+      : 0;
   const positive = navBps >= 0;
 
   return (
@@ -281,7 +315,9 @@ function AgentCard({
         {/* NAV row */}
         <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 14 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-            <span className="bd-eyebrow" style={{ fontSize: 9 }}>NAV vs benchmark</span>
+            <span className="bd-eyebrow" style={{ fontSize: 9 }}>
+              {usingRealPnl ? "30d return" : "NAV vs benchmark"}
+            </span>
             {loading && stats.sol === null ? (
               <div className="skeleton" style={{ height: 28, width: 80, borderRadius: 4 }} />
             ) : (
@@ -290,18 +326,29 @@ function AgentCard({
                 style={{
                   fontSize: 22,
                   fontWeight: 600,
-                  color: positive ? "var(--green-2)" : "var(--red-2)",
+                  // Brand: positive = gold (Earn surface), negative = red.
+                  color: positive ? "#d4a853" : "var(--red-2)",
+                  fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {positive ? "+" : ""}{navBps}
-                <span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>bps</span>
+                {usingRealPnl
+                  ? `${positive ? "+" : ""}${(navBps / 100).toFixed(2)}%`
+                  : (
+                    <>
+                      {positive ? "+" : ""}{navBps}
+                      <span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>bps</span>
+                    </>
+                  )}
               </span>
             )}
           </div>
           {navTrend.length > 1 && (
             <NavSparkline
               data={navTrend}
-              color={positive ? "var(--gold)" : "var(--red-2)"}
+              // Brand: positive returns render in the spec'd gold
+              // (#d4a853). The local `--gold` token maps to a green
+              // shade in this theme; we want the literal P&L gold.
+              color={positive ? "#d4a853" : "var(--red-2)"}
               width={96}
               height={32}
             />
