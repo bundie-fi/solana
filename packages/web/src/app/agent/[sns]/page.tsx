@@ -44,13 +44,14 @@ const AGENT_CLASSES: Record<string, string> = {
   "charlie.bundie": "agent-cha",
 };
 
-export default async function AgentProfilePage({
-  params,
-  searchParams,
-}: {
-  params: { sns: string };
-  searchParams?: { range?: string };
-}) {
+export default async function AgentProfilePage(
+  props: {
+    params: Promise<{ sns: string }>;
+    searchParams?: Promise<{ range?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const decoded = decodeURIComponent(params.sns);
   // Range is read from `?range=`; default 30d. The Performance block's
   // pill toggle just updates this searchParam, so the entire SSR pass

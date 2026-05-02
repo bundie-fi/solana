@@ -19,11 +19,12 @@ function parseStatus(raw: string | string[] | undefined): FilterStatus {
   return "all";
 }
 
-export default async function MarketsPage({
-  searchParams,
-}: {
-  searchParams?: { status?: string | string[] };
-}) {
+export default async function MarketsPage(
+  props: {
+    searchParams?: Promise<{ status?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const status = parseStatus(searchParams?.status);
   const connection = getDevnetConnection();
   // Pull the directory + filter set in parallel — the directory keys

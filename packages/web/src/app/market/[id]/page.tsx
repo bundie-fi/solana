@@ -61,11 +61,12 @@ function relativeSlotLabel(deltaSlots: number): string {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function MarketDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function MarketDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const connection = getDevnetConnection();
   // Critical-path reads only — everything the page needs to render the
   // header, hero, and bet panel. `fetchAllMarkets` (= getProgramAccounts,
