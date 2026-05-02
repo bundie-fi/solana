@@ -42,8 +42,7 @@ export async function readPeerNavs(
 ): Promise<Array<{ name: string; owner: string } & VaultNav>> {
   const filtered = peers.filter((p) => !p.pubkey.equals(selfPubkey));
   const navs = await Promise.all(
-    filtered.map(async (p) => ({
-      name: p.name,
+    filtered.map(async (p) => {
       // `owner` is the peer's vault PDA encoded as a base58 string. The
       // brain prompt instructs the LLM to use `peers[].owner` as the
       // `targetAgentA` for create_market — emitting it here keeps the
@@ -51,9 +50,15 @@ export async function readPeerNavs(
       // missing; the brain saw `peers[].owner === undefined` and
       // serialised the literal string "undefined" into create_market
       // payloads, which the executor rejected as an invalid pubkey.)
-      owner: p.pubkey.toBase58(),
-      ...(await readVaultNav(conn, p.pubkey)),
-    })),
+      // readVaultNav also returns `owner`; drop it from the spread so
+      // there's exactly one declaration (the values are identical).
+      const { owner: _owner, ...nav } = await readVaultNav(conn, p.pubkey);
+      return {
+        name: p.name,
+        owner: p.pubkey.toBase58(),
+        ...nav,
+      };
+    }),
   );
   return navs;
 }

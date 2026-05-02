@@ -444,84 +444,13 @@ async function executePerp(
     };
   }
 
-  // PerpProtocol is currently the singleton union "zeta", but be
-  // forward-compatible if a new venue is added.
-  if (protocol !== "zeta") {
-    return {
-      phase: "execute", chain: "surfpool",
-      action: `perp_${direction}`, protocol,
-      policyGate,
-      notes: `${protocol} ${direction}: policy-gated, perp CPI pending`,
-    };
-  }
-
-  if (direction === "open") {
-    if (args.action.type !== "perp_open") {
-      throw new Error("perp type mismatch (expected perp_open)");
-    }
-    const { market, side, notionalUsd } = args.action.args;
-    const result = await openZetaPerp(
-      args.surfpool, args.kp, market, side, notionalUsd,
-    );
-    const notes =
-      `Zeta ${side} ${market} notional=$${notionalUsd} ` +
-      `size=${result.size.toFixed(4)} mark=$${result.markPrice.toFixed(4)} ` +
-      `cma=${result.crossMarginAccount.slice(0, 8)}…`;
-    await persistSurfpoolAction(args, {
-      protocol: "zeta",
-      txSig: result.txSig,
-      actionType: "perp_open",
-      // Native USDC = 6dp. The recorder column is named "amountLamports"
-      // by convention but stores any base-unit integer.
-      amountLamports: Math.round(notionalUsd * 1_000_000),
-      tokenMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      notes,
-    });
-    return {
-      phase: "execute", chain: "surfpool",
-      action: "perp_open", protocol: "zeta",
-      txSig: result.txSig, policyGate, notes,
-    };
-  }
-
-  // direction === "close"
-  if (args.action.type !== "perp_close") {
-    throw new Error("perp type mismatch (expected perp_close)");
-  }
-  const { market } = args.action.args;
-  const result = await closeZetaPerp(args.surfpool, args.kp, market);
-
-  if (result.flat) {
-    // Nothing to flatten — informational return without a recorder row
-    // (no tx sig to anchor it to).
-    return {
-      phase: "execute", chain: "surfpool",
-      action: "perp_close", protocol: "zeta",
-      policyGate,
-      notes: `Zeta close ${market}: position already flat (no-op)`,
-    };
-  }
-
-  const closeTxSig = result.txSig as string;
-  const notes =
-    `Zeta close ${market} sizeBefore=${result.positionBefore.toFixed(4)} ` +
-    `mark=$${result.markPrice.toFixed(4)} ` +
-    `cma=${result.crossMarginAccount.slice(0, 8)}…`;
-  await persistSurfpoolAction(args, {
-    protocol: "zeta",
-    txSig: closeTxSig,
-    actionType: "perp_close",
-    // Approximate close notional (|size| × mark, 6dp USDC).
-    amountLamports: Math.round(
-      Math.abs(result.positionBefore) * result.markPrice * 1_000_000,
-    ),
-    tokenMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    notes,
-  });
+  // PerpProtocol is currently the singleton union "jupiter-perps". The
+  // Zeta CPI path was removed; jupiter-perps execution is still pending.
   return {
     phase: "execute", chain: "surfpool",
-    action: "perp_close", protocol: "zeta",
-    txSig: closeTxSig, policyGate, notes,
+    action: `perp_${direction}`, protocol,
+    policyGate,
+    notes: `${protocol} ${direction}: policy-gated, perp CPI pending`,
   };
 }
 

@@ -177,6 +177,34 @@ export function MarketBuyPanel({
       } else {
         toast.success("Redeemed winning shares.");
       }
+
+      // Fire-and-forget: record the claim in our off-chain ledger so the
+      // agent profile can show "$X paid out to bettors" without paging
+      // through chain history. Best-effort — caller wallet just signed +
+      // confirmed the tx, so a network blip writing this is recoverable
+      // from chain data later. Backend dedupes on tx_sig.
+      try {
+        const { yesMint, noMint } = deriveMarketPdas(
+          PROGRAM_IDS.predictionMarket,
+          new PublicKey(market.address),
+        );
+        const winnerMint = market.outcome === "yes" ? yesMint : noMint;
+        const sharesBase = (winnerBalanceBase ?? 0n).toString();
+        fetch(`/api/markets/${market.address}/claim-recorded`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            txSig: sig,
+            redeemer: publicKey.toBase58(),
+            shareMint: winnerMint.toBase58(),
+            sharesRedeemed: sharesBase,
+            payoutLamports: sharesBase, // 1:1 swap, same base-unit count
+          }),
+        }).catch(() => {});
+      } catch {
+        // Defensive: any sync error in PDA derivation should not surface
+        // to the user — the on-chain redeem already succeeded.
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("User rejected")) setError("Transaction rejected.");

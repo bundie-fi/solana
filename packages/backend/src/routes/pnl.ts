@@ -34,6 +34,8 @@ interface NavSnapshotRow {
 
 interface AgentSeedRow {
   seed_amount_busd: number | string | null;
+  post_warmup_starting_nav_lamports: string | number | null;
+  post_warmup_starting_ts: string | Date | null;
 }
 
 interface SnapshotDto {
@@ -139,46 +141,72 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
     return c.json({ error: (err as Error).message }, 500);
   }
 
-  // Fetch the agent's seed deposit so the UI can render a baseline line on
-  // the chart. `seed_amount_busd` is stored in 6dp base units (see
+  // Fetch the agent's seed deposit + post-warmup starting NAV in a single
+  // round-trip. `seed_amount_busd` is stored in 6dp base units (see
   // packages/backend/src/routes/agents.ts seedAmountBase). It can be a
   // string (numeric column) or number depending on driver — coerce both.
+  // `post_warmup_starting_*` is captured exactly once per agent on the
+  // first commit_nav after warmup completes (see chaos-sim shared-tick.ts).
   let seedNavLamports: string | null = null;
+  let postWarmupStartingNavLamports: string | null = null;
+  let postWarmupStartingTs: string | null = null;
   try {
     const r = await dbQuery<AgentSeedRow>(
-      `SELECT seed_amount_busd FROM agents WHERE sns = $1 LIMIT 1`,
+      `SELECT seed_amount_busd,
+              post_warmup_starting_nav_lamports,
+              post_warmup_starting_ts
+         FROM agents WHERE sns = $1 LIMIT 1`,
       [sns],
     );
-    const seed = r?.rows[0]?.seed_amount_busd ?? null;
-    if (seed !== null && seed !== undefined) {
-      seedNavLamports = String(seed);
+    const row = r?.rows[0];
+    if (row) {
+      const seed = row.seed_amount_busd ?? null;
+      if (seed !== null && seed !== undefined) {
+        seedNavLamports = String(seed);
+      }
+      if (
+        row.post_warmup_starting_nav_lamports !== null &&
+        row.post_warmup_starting_nav_lamports !== undefined
+      ) {
+        postWarmupStartingNavLamports = String(
+          row.post_warmup_starting_nav_lamports,
+        );
+      }
+      if (row.post_warmup_starting_ts) {
+        postWarmupStartingTs = new Date(row.post_warmup_starting_ts).toISOString();
+      }
     }
   } catch {
-    // Best-effort; seed is optional in the response.
+    // Best-effort; these are optional in the response.
   }
 
-  // Fetch the agent's FIRST nav snapshot — the real starting NAV (seed +
-  // warmup airdrop). This is the honest baseline for "all-time return"
-  // since `seed_amount_busd` only tracks the strategy-token stake, not the
-  // 5 SOL warmup airdrop that lands before the agent starts trading.
-  let startingNavLamports: string | null = null;
-  let startingTs: string | null = null;
-  try {
-    const r = await dbQuery<{ nav_lamports: string; ts: string }>(
-      `SELECT nav_lamports, ts
-         FROM nav_snapshots
-        WHERE agent_sns = $1
-        ORDER BY ts ASC
-        LIMIT 1`,
-      [sns],
-    );
-    const first = r?.rows[0];
-    if (first) {
-      startingNavLamports = String(first.nav_lamports);
-      startingTs = new Date(first.ts).toISOString();
+  // Resolve the all-time baseline: prefer the post-warmup capture (honest
+  // post-airdrop NAV) and fall back to the FIRST nav_snapshots row for
+  // legacy agents that haven't ticked since the migration shipped. The
+  // first-snapshot fallback IS misleading on fresh agents (it picks up the
+  // pre-warmup ~$12 transient and inflates returnAllTimeBps to +4894),
+  // but for any agent that's run a single post-warmup tick the new column
+  // overrides it.
+  let startingNavLamports: string | null = postWarmupStartingNavLamports;
+  let startingTs: string | null = postWarmupStartingTs;
+  if (startingNavLamports === null) {
+    try {
+      const r = await dbQuery<{ nav_lamports: string; ts: string }>(
+        `SELECT nav_lamports, ts
+           FROM nav_snapshots
+          WHERE agent_sns = $1
+          ORDER BY ts ASC
+          LIMIT 1`,
+        [sns],
+      );
+      const first = r?.rows[0];
+      if (first) {
+        startingNavLamports = String(first.nav_lamports);
+        startingTs = new Date(first.ts).toISOString();
+      }
+    } catch {
+      // Best-effort; null falls back to seedNavLamports on the client.
     }
-  } catch {
-    // Best-effort; null falls back to seedNavLamports on the client.
   }
 
   const snapshots: SnapshotDto[] = rows.map((row) => {
@@ -253,10 +281,12 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
     if (start30 !== null && start30 !== cur) {
       return30dBps = bpsReturn(start30, cur);
     }
-    // All-time return uses the first-ever snapshot as baseline — this is
-    // the honest "is the agent good" number. seed_amount_busd as a base
-    // would understate the loss since warmup airdrops bump real NAV well
-    // above the strategy stake before the agent starts trading.
+    // All-time return uses the post-warmup starting NAV as baseline (or
+    // the first-ever snapshot for legacy agents that predate the
+    // post-warmup capture). This is the honest "is the agent good"
+    // number. The FIRST nav_snapshots row on its own would anchor to the
+    // pre-warmup ~$12 fee buffer and report wildly inflated returns the
+    // moment the 5 SOL + 100 USDC airdrop lands.
     if (startingNavLamports) {
       const startAll = BigInt(startingNavLamports);
       if (startAll > 0n && startAll !== cur) {

@@ -444,6 +444,91 @@ markets.post("/:id/buy", async (c) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/markets/:marketPda/claim-recorded
+//
+// Off-chain ledger writer. The frontend calls this AFTER its own wallet
+// signs + confirms a `redeem` tx. We insert one row per claim so agent
+// profiles can render aggregate "paid out to bettors" totals without
+// paging through chain history.
+//
+// Unauthenticated by design (see migration header). Idempotent on tx_sig:
+// the redeem CTA may retry on a flaky network, so we ON CONFLICT DO NOTHING
+// and surface `alreadyRecorded` in the response.
+//
+// All amounts are 6dp base units. Body fields are passed through as-is —
+// no on-chain verification in this MVP. Caller has just signed the tx,
+// their wallet wouldn't lie about its own claim.
+// ---------------------------------------------------------------------------
+
+interface ClaimRecordedBody {
+  txSig: string;
+  redeemer: string;
+  shareMint: string;
+  sharesRedeemed: string;
+  payoutLamports: string;
+}
+
+markets.post("/:id/claim-recorded", async (c) => {
+  const { id: marketPda } = c.req.param();
+
+  let body: ClaimRecordedBody;
+  try {
+    body = await c.req.json<ClaimRecordedBody>();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  // Validate every field is a non-empty string. Numeric strings are kept
+  // as strings since Postgres bigint can hold values >2^53; parsing into
+  // Number would lose precision on large payouts.
+  const required: (keyof ClaimRecordedBody)[] = [
+    "txSig",
+    "redeemer",
+    "shareMint",
+    "sharesRedeemed",
+    "payoutLamports",
+  ];
+  for (const k of required) {
+    const v = body[k];
+    if (typeof v !== "string" || v.length === 0) {
+      return c.json({ error: `\`${k}\` must be a non-empty string` }, 400);
+    }
+  }
+
+  if (!getPool()) {
+    // Fail-open: no DB configured (local dev). Caller treats this as a
+    // best-effort write so a 503 keeps the UI honest without breaking it.
+    return c.json({ error: "Database not configured" }, 503);
+  }
+
+  try {
+    const result = await dbQuery<{ id: string }>(
+      `INSERT INTO claims
+         (market_pda, redeemer, share_mint, shares_redeemed,
+          payout_lamports, tx_sig)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (tx_sig) DO NOTHING
+         RETURNING id`,
+      [
+        marketPda,
+        body.redeemer,
+        body.shareMint,
+        body.sharesRedeemed,
+        body.payoutLamports,
+        body.txSig,
+      ],
+    );
+    // ON CONFLICT DO NOTHING returns 0 rows when the row was already
+    // present — that's the "already recorded" case (caller retried).
+    const alreadyRecorded = (result?.rowCount ?? 0) === 0;
+    return c.json({ ok: true, alreadyRecorded });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: "Failed to record claim", detail: message }, 500);
+  }
+});
+
 markets.post("/:id/resolve", async (c) => {
   const { id } = c.req.param();
   const market = MOCK_MARKETS.find((m) => m.address === id);

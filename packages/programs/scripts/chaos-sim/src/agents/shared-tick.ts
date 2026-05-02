@@ -75,6 +75,12 @@ interface PerAgentState {
 }
 const agentState = new Map<string, PerAgentState>();
 
+/** Per-agent timestamp of the last fork_reset_detected log emission. Used
+ *  to dedupe log spam when a reset takes >1 tick to recover (we don't
+ *  want a "fork_reset_detected" row every 15s for the same outage). */
+const lastForkResetLogMs = new Map<string, number>();
+const FORK_RESET_LOG_DEDUP_MS = 60_000;
+
 /** Force the brain to run every Nth supervisor cycle even when the input
  *  hash hasn't changed. Lower bound on staleness — without this, a totally
  *  flat market would mean the brain literally never re-runs. */
@@ -450,6 +456,25 @@ export async function runTick(args: TickArgs): Promise<void> {
         ],
       ).catch(() => {});
 
+      // Capture the post-warmup starting NAV exactly once per agent. This
+      // is the honest baseline for the "all-time return" stat — anchoring
+      // to the FIRST nav_snapshots row picks up the pre-warmup transient
+      // (~$11.92 fee buffer) and inflates returns to +4894 bps the moment
+      // the 5 SOL + 100 USDC airdrop lands. Predicate gates this to the
+      // first commit_nav AFTER warmup completes; subsequent ticks no-op
+      // because `post_warmup_starting_nav_lamports IS NULL` no longer
+      // holds. Cleared again by the fork-reset path below so the rebuild
+      // re-seeds the baseline at the new post-warmup NAV.
+      await dbQuery(
+        `UPDATE agents
+            SET post_warmup_starting_nav_lamports = $1,
+                post_warmup_starting_ts = $2
+          WHERE sns = $3
+            AND warmup_done_at IS NOT NULL
+            AND post_warmup_starting_nav_lamports IS NULL`,
+        [navLamports.toString(), new Date().toISOString(), args.agentName],
+      ).catch(() => {});
+
       // ─── Fork-reset auto-detector ────────────────────────────────────
       // Heuristic: NAV has collapsed to <= 5x the supervisor's SOL fee
       // buffer AND the previous snapshot for this agent was substantially
@@ -475,33 +500,47 @@ export async function runTick(args: TickArgs): Promise<void> {
           const PRIOR_FLOOR = 80_000_000n; // $80 in 6dp micros
           const CURR_CEILING = 30_000_000n; // $30 in 6dp micros
           if (priorNav > PRIOR_FLOOR && currNav < CURR_CEILING) {
-            console.warn(
-              `[tick ${args.agentName}] FORK-RESET DETECTED — ` +
-                `nav collapsed ${priorNav.toString()} → ${currNav.toString()} ` +
-                `(prior > $80, current < $30). Clearing warmup_done_at; ` +
-                `warmup loop will re-airdrop + re-seed within seconds.`,
-            );
-            logActivity({
-              agent: args.agentName,
-              phase: "daemon",
-              event: "fork_reset_detected",
-              priorNavLamports: priorNav.toString(),
-              currNavLamports: currNav.toString(),
-              note: "cleared warmup_done_at; warmup loop will re-seed",
-            });
-            await dbQuery(
-              `UPDATE agents SET warmup_done_at = NULL WHERE sns = $1`,
-              [args.agentName],
-            ).catch(() => {});
-            await logAgentAction({
-              agentSns: args.agentName,
-              actionType: "fork_reset_detected",
-              reasoning: null,
-              resultJson: {
+            // Dedup logging: a sustained outage (e.g. surfpool down for
+            // minutes) would otherwise emit a `fork_reset_detected` row
+            // every 15s for the same incident. Limit to one log every
+            // FORK_RESET_LOG_DEDUP_MS per agent. The DB UPDATE below is
+            // idempotent so we always run it — the dedup only suppresses
+            // the noisy log + activity rows.
+            const lastLogMs = lastForkResetLogMs.get(args.agentName) ?? 0;
+            const shouldLog = Date.now() - lastLogMs >= FORK_RESET_LOG_DEDUP_MS;
+            if (shouldLog) {
+              lastForkResetLogMs.set(args.agentName, Date.now());
+              console.warn(
+                `[tick ${args.agentName}] FORK-RESET DETECTED — ` +
+                  `nav collapsed ${priorNav.toString()} → ${currNav.toString()} ` +
+                  `(prior > $80, current < $30). Clearing warmup_done_at; ` +
+                  `warmup loop will re-airdrop + re-seed within seconds.`,
+              );
+              logActivity({
+                agent: args.agentName,
+                phase: "daemon",
+                event: "fork_reset_detected",
                 priorNavLamports: priorNav.toString(),
                 currNavLamports: currNav.toString(),
-              },
-            }).catch(() => {});
+                note: "cleared warmup_done_at; warmup loop will re-seed",
+              });
+              await logAgentAction({
+                agentSns: args.agentName,
+                actionType: "fork_reset_detected",
+                reasoning: null,
+                resultJson: {
+                  priorNavLamports: priorNav.toString(),
+                  currNavLamports: currNav.toString(),
+                },
+              }).catch(() => {});
+            }
+            await dbQuery(
+              `UPDATE agents SET warmup_done_at = NULL,
+                                  post_warmup_starting_nav_lamports = NULL,
+                                  post_warmup_starting_ts = NULL
+                WHERE sns = $1`,
+              [args.agentName],
+            ).catch(() => {});
             // Skip treasury-sync below — re-warmup will reseed first.
             return;
           }

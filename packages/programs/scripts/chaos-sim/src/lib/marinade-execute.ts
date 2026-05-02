@@ -19,7 +19,6 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
-// @ts-expect-error — CJS default export
 import { Marinade, MarinadeConfig } from "@marinade.finance/marinade-ts-sdk";
 
 export interface StakeResult {
