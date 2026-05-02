@@ -1,6 +1,7 @@
 import { HomeFeed } from "@/components/home-feed";
 import { TopPerformersStrip } from "@/components/top-performers-strip";
 import { PlatformStatsStrip } from "@/components/platform-stats-strip";
+import { SeekerBadge } from "@/components/SeekerBadge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,7 +25,12 @@ export const revalidate = 0;
 export default function Home() {
   return (
     <HomeFeed
-      platformStatsSlot={<PlatformStatsStrip />}
+      platformStatsSlot={
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <PlatformStatsStrip />
+          <SeekerBadge />
+        </div>
+      }
       topPerformersSlot={<TopPerformersStrip />}
     />
   );

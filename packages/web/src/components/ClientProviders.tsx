@@ -13,6 +13,7 @@ import {
 import { clusterApiUrl } from "@solana/web3.js";
 
 import { browserConnectionConfig } from "@/lib/connection-config";
+import { MwaRegistrar } from "@/components/MwaRegistrar";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -42,7 +43,13 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint} config={browserConnectionConfig}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          {/* Registers Mobile Wallet Adapter as a Wallet Standard wallet so
+              the existing WalletProvider auto-discovers it inside the Seeker
+              TWA shell. No-op on desktop. */}
+          <MwaRegistrar />
+          {children}
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

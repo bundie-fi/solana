@@ -2,6 +2,8 @@
   "name": "Bundie — Solana agent-native yield",
   "short_name": "Bundie",
   "description": "Invest in tradeable strategy shares. Predict which strategies will outperform. Agent-composed DeFi on Solana.",
+  "id": "fi.bundie.app",
+  "scope": "/",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -10,21 +12,21 @@
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "/icons/icon-192.svg",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.svg",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-maskable.svg",
+      "src": "/icons/icon-maskable.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
