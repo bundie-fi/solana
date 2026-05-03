@@ -243,17 +243,22 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
         }
       : null;
 
-  // For 7d / 30d returns we always reach back beyond the current `range`
-  // window — the user can ask for "all" but still want a 7d return badge.
-  // Cheap separate scans, each capped to one row.
-  async function navAtOrAfter(daysAgo: number): Promise<bigint | null> {
+  // For 7d / 30d returns we want the most recent snapshot from at LEAST
+  // `daysAgo` days ago — i.e. a value from outside the window — so the
+  // baseline is "where NAV stood a week ago" not "the earliest NAV inside
+  // the last week". Same fix that landed for the platform-wide 7d strip
+  // in commit 25bc423: a 2-day-old agent asked for return30dBps would
+  // otherwise anchor to its pre-warmup ~$11 transient and report +5570%.
+  // Agents without a snapshot older than the window get NULL and the
+  // caller leaves the return field unset.
+  async function navAtLeastNDaysAgo(daysAgo: number): Promise<bigint | null> {
     try {
       const r = await dbQuery<{ nav_lamports: string }>(
         `SELECT nav_lamports
            FROM nav_snapshots
           WHERE agent_sns = $1
-            AND ts >= now() - $2::interval
-          ORDER BY ts ASC
+            AND ts <= now() - $2::interval
+          ORDER BY ts DESC
           LIMIT 1`,
         [sns, `${daysAgo} days`],
       );
@@ -269,8 +274,8 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
   let returnAllTimeBps: number | null = null;
   if (navSeries.length >= 2 && currentNavLamports) {
     const cur = BigInt(currentNavLamports);
-    const start7 = await navAtOrAfter(7);
-    const start30 = await navAtOrAfter(30);
+    const start7 = await navAtLeastNDaysAgo(7);
+    const start30 = await navAtLeastNDaysAgo(30);
     // Need at least two distinct points inside the window for a return —
     // a single snapshot returned by `navAtOrAfter` could BE the current
     // one, which would render as 0 bps. Compare epoch via ts instead:
