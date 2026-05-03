@@ -54,6 +54,13 @@ export interface PnlStats {
    */
   returnAllTimeBps: number | null;
   maxDrawdownBps: number;
+  /** Percentage of consecutive NAV ticks that closed positive. Null when
+   *  the agent has fewer than 30 paired ticks of history. */
+  winRatePct?: number | null;
+  /** mean(per-tick return) / std(per-tick return). Same-cadence ratio,
+   *  not annualized — see backend pnl.ts for the rationale. Null below
+   *  30 ticks or when std==0. */
+  sharpeApprox?: number | null;
 }
 
 export interface PnlResponse {
@@ -76,6 +83,8 @@ const EMPTY: PnlResponse = {
     return30dBps: null,
     returnAllTimeBps: null,
     maxDrawdownBps: 0,
+    winRatePct: null,
+    sharpeApprox: null,
   },
 };
 

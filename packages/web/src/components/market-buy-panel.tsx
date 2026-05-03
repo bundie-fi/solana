@@ -352,7 +352,7 @@ export function MarketBuyPanel({
                   style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: "#a78bfa",
+                    color: "var(--predict)",
                   }}
                 >
                   ${claimableUsd?.toFixed(2)} USDC
@@ -369,8 +369,8 @@ export function MarketBuyPanel({
                 padding: "14px",
                 fontSize: 13,
                 fontWeight: 600,
-                background: "#a78bfa",
-                border: "1px solid #a78bfa",
+                background: "var(--predict)",
+                border: "1px solid var(--predict)",
                 color: "#0a0a0a",
               }}
             >

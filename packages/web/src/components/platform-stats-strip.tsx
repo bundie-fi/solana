@@ -110,7 +110,7 @@ export async function PlatformStatsStrip() {
     growth == null
       ? "var(--fg-3)"
       : growth >= 0
-        ? "#d4a853"
+        ? "var(--pos)"
         : "var(--red-2)";
 
   return (

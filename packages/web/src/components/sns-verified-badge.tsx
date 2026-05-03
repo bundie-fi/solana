@@ -36,7 +36,7 @@ export function SnsVerifiedBadge({
         // Brand: Earn-mode gold. Hardcoded literal because the local
         // `--gold` token maps to a green shade in this theme; we want
         // the spec'd gold for the verified mark.
-        color: "#d4a853",
+        color: "var(--pos)",
         fontSize: size,
         lineHeight: 1,
         fontWeight: 700,

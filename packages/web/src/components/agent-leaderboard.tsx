@@ -264,17 +264,20 @@ function AgentCard({
   const navTrend = realSeries.length >= 2 ? realSeries : NAV_TRENDS[agent.sns] ?? [];
   const usingRealPnl = realSeries.length >= 2;
 
-  // Headline number: prefer real 30d bps from /api/agents/.../pnl. The
-  // mock fallback derives a "bps vs 100" number from the synthetic
-  // trend so the card still has a value during early devnet days.
+  // Headline number: always render as percent. Real path = bps from
+  // /api/agents/.../pnl, divided by 100. Synthetic fallback derives
+  // "% above baseline 100" from the mock NAV trend (already in percent
+  // units, no conversion). Prior versions rendered the synthetic value
+  // as "+8 bps" — wrong unit AND wrong scale, two cards on the same
+  // page disagreed on what the number meant. Single % surface now.
   const realBps = pnl?.return30dBps ?? null;
-  const navBps =
+  const returnPct =
     realBps != null
-      ? realBps
+      ? realBps / 100
       : navTrend.length > 0
-      ? Math.round(navTrend[navTrend.length - 1] - 100)
+      ? navTrend[navTrend.length - 1] - 100
       : 0;
-  const positive = navBps >= 0;
+  const positive = returnPct >= 0;
 
   return (
     <Link href={`/agent/${agent.sns}`} style={{ display: "block", textDecoration: "none" }}>
@@ -355,19 +358,12 @@ function AgentCard({
                 style={{
                   fontSize: 22,
                   fontWeight: 600,
-                  // Brand: positive = gold (Earn surface), negative = red.
-                  color: positive ? "#d4a853" : "var(--red-2)",
+                  // Brand: positive = predict purple (live accent), negative = red.
+                  color: positive ? "var(--predict)" : "var(--red-2)",
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {usingRealPnl
-                  ? `${positive ? "+" : ""}${(navBps / 100).toFixed(2)}%`
-                  : (
-                    <>
-                      {positive ? "+" : ""}{navBps}
-                      <span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>bps</span>
-                    </>
-                  )}
+                {`${positive ? "+" : ""}${returnPct.toFixed(2)}%`}
               </span>
             )}
           </div>
@@ -377,7 +373,7 @@ function AgentCard({
               // Brand: positive returns render in the spec'd gold
               // (#d4a853). The local `--gold` token maps to a green
               // shade in this theme; we want the literal P&L gold.
-              color={positive ? "#d4a853" : "var(--red-2)"}
+              color={positive ? "var(--pos)" : "var(--red-2)"}
               width={96}
               height={32}
             />
