@@ -111,7 +111,7 @@ export function AgentClaimableBanner({ resolvedMarkets }: Props) {
           <div style={{ minWidth: 0 }}>
             <div
               className="bd-eyebrow"
-              style={{ color: "#a78bfa", fontSize: 9, marginBottom: 2 }}
+              style={{ color: "var(--predict)", fontSize: 9, marginBottom: 2 }}
             >
               Unredeemed winnings
             </div>
@@ -126,7 +126,7 @@ export function AgentClaimableBanner({ resolvedMarkets }: Props) {
               Claimable:{" "}
               <span
                 className="mono"
-                style={{ color: "#a78bfa", fontWeight: 600 }}
+                style={{ color: "var(--predict)", fontWeight: 600 }}
               >
                 ${totalClaimableUsd.toFixed(2)}
               </span>{" "}
@@ -138,7 +138,7 @@ export function AgentClaimableBanner({ resolvedMarkets }: Props) {
           </div>
           <span
             className="mono"
-            style={{ fontSize: 12, color: "#a78bfa", flexShrink: 0 }}
+            style={{ fontSize: 12, color: "var(--predict)", flexShrink: 0 }}
           >
             view →
           </span>

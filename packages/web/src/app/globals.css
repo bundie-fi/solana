@@ -3,53 +3,77 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Bundie Seeker , Paper Light Theme
-   Paper neutrals · warm inks · single spruce accent (#12443A)
+   Bundie , Seeker mobile redesign
+   Light warm-paper · purple Predict accent · gold reserved for future Earn
+   See packages/web/src/app/REDESIGN.md (or PR #17 description) for the
+   palette + token rationale. Predict is the active mode (Earn dropped from
+   v1, kept as a token so the share-buying surface lights up gold when it
+   ships). All component styling is via CSS vars — remap here, screens follow.
    ============================================================================ */
 
 :root {
-  /* --- Surfaces (paper neutrals, never pure white) --- */
-  --bg-0: #F4F1EA;       /* page , paper */
-  --bg-1: #FAF7F0;       /* surface , bone */
+  /* --- Surfaces (warm paper neutrals, never pure white) --- */
+  --bg-0: #F6F5F2;       /* page , paper */
+  --bg-1: #FBFAF7;       /* surface , bone */
   --bg-2: #FFFFFF;       /* raised , only for emphasis */
-  --bg-3: #EDE8DC;       /* hover , paper-2 */
-  --bg-4: #E2DCCB;       /* press / inset well */
+  --bg-3: #F1EFEA;       /* hover , paper-2 */
+  --bg-4: #E8E5DD;       /* press / inset well */
 
   /* --- Borders (warm sand) --- */
-  --line-1: #D8D2C3;
-  --line-2: #C9C0A8;
-  --line-3: #B9B2A0;
+  --line-1: #E6E3DC;
+  --line-2: #D4D0C5;
+  --line-3: #BDB7A6;
 
   /* --- Text (warm inks) --- */
-  --fg-0: #161618;
-  --fg-1: #161618;
-  --fg-2: #2A2A2D;
-  --fg-3: #5A5A60;
-  --fg-4: #8A8A90;
-  --fg-5: #A9A398;
+  --fg-0: #14141A;
+  --fg-1: #14141A;
+  --fg-2: #3A3A42;
+  --fg-3: #5A5A64;
+  --fg-4: #7C7C86;
+  --fg-5: #A0A0AA;
 
-  /* --- Single accent: Spruce --- */
-  --gold: #12443A;
-  --gold-2: #1C6154;
-  --gold-tint: #D6E4DF;
-  --gold-glow: rgba(18,68,58,0.18);
+  /* --- Brand axes ---
+     Predict (purple) is the live accent — bettors live in Predict mode.
+     Earn (gold) is reserved: lights up when strategy-token buying is mounted
+     on agent + market detail. Don't strip --earn — components reference it. */
+  --predict: #7C5CF0;
+  --predict-2: #9D86F4;
+  --predict-tint: #EFEAFE;
+  --predict-glow: rgba(124,92,240,0.18);
 
-  --purple: #12443A;
-  --purple-2: #2C8B79;
-  --purple-tint: #ECF2EF;
-  --purple-glow: rgba(18,68,58,0.10);
+  --earn: #B88A2E;
+  --earn-2: #D4A853;
+  --earn-tint: #F6EFDD;
+  --earn-glow: rgba(184,138,46,0.14);
 
-  /* --- Status (warm, not neon) --- */
-  --green: #2C8B79;
-  --green-2: #2C8B79;
-  --green-tint: rgba(44,139,121,0.12);
-  --red: #B0463A;
-  --red-2: #B0463A;
-  --red-tint: rgba(176,70,58,0.10);
+  /* Legacy --gold/--purple aliases — components written before the rename
+     read these. Predict is THE active accent, so --gold maps to predict
+     (the live UI gold previously used the spruce green token; purple is
+     the actual brand-axis-forward color now). Sweeping component code
+     would be high-risk, low-reward — this aliasing keeps everything green. */
+  --gold: var(--predict);
+  --gold-2: var(--predict-2);
+  --gold-tint: var(--predict-tint);
+  --gold-glow: var(--predict-glow);
+
+  --purple: var(--predict);
+  --purple-2: var(--predict-2);
+  --purple-tint: var(--predict-tint);
+  --purple-glow: var(--predict-glow);
+
+  /* --- Status --- */
+  --pos: #1F9E6A;
+  --neg: #D14545;
+  --green: #1F9E6A;
+  --green-2: #2DB37C;
+  --green-tint: rgba(31,158,106,0.12);
+  --red: #D14545;
+  --red-2: #E25C5C;
+  --red-tint: rgba(209,69,69,0.10);
   --amber: #C8923A;
-  --amber-tint: rgba(200,146,58,0.12);
-  --blue: #3D6796;
-  --blue-tint: rgba(61,103,150,0.10);
+  --amber-tint: rgba(200,146,58,0.14);
+  --blue: #5B8DEF;
+  --blue-tint: rgba(91,141,239,0.12);
 
   /* --- Type --- */
   --font-display: 'Playfair Display', 'GT Super Display', Georgia, serif;

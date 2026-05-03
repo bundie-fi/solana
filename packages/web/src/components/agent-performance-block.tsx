@@ -40,6 +40,8 @@ export async function AgentPerformanceBlock({
   const r30 = pnl.stats.return30dBps;
   const rAll = pnl.stats.returnAllTimeBps;
   const dd = pnl.stats.maxDrawdownBps;
+  const winRate = pnl.stats.winRatePct ?? null;
+  const sharpe = pnl.stats.sharpeApprox ?? null;
 
   // "since {date}" caption under the all-time stat, sourced from the
   // first nav_snapshot's ts. Falls back to "—" if we don't have one.
@@ -159,6 +161,18 @@ export async function AgentPerformanceBlock({
           value={dd > 0 ? fmtDrawdownBps(dd) : "—"}
           tone={dd > 0 ? "neg" : "neutral"}
         />
+        <PerfStat
+          label="Win rate"
+          value={winRate != null ? `${winRate.toFixed(0)}%` : "—"}
+          tone="neutral"
+          caption={winRate != null ? "ticks closed positive" : null}
+        />
+        <PerfStat
+          label="Sharpe (approx)"
+          value={sharpe != null ? sharpe.toFixed(2) : "—"}
+          tone={sharpe != null ? (sharpe >= 1 ? "pos" : sharpe < 0 ? "neg" : "neutral") : "neutral"}
+          caption={sharpe != null ? "per-tick · not annualized" : null}
+        />
       </div>
 
       {/* Equity curve */}
@@ -234,7 +248,7 @@ function PerfStat({
 }) {
   let color = "var(--fg-0)";
   // Brand: positive returns gold, negative red. Neutral = default fg.
-  if (tone === "pos") color = "#d4a853";
+  if (tone === "pos") color = "var(--pos)";
   if (tone === "neg") color = "var(--red-2)";
 
   return (

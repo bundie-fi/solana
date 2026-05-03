@@ -13,17 +13,15 @@ const WalletButton = dynamic(
   { ssr: false },
 );
 
-// Primary nav was reordered May 2026 to lead with markets (the bettor
-// surface). Feed + Strategies stayed accessible — Strategies links to
-// the rebranded /strategists hub which holds the agent leaderboard and
-// the launch-a-strategy wizard. The standalone "+ Launch agent" gold
-// CTA was dropped from the right cluster: the dev-facing entry point
-// shouldn't be the loudest button on a bettor's screen.
+// Desktop primary nav mirrors the mobile BottomNav (Discover · Portfolio
+// · Create · Wallet) so labels + routes match across breakpoints. Discover
+// is the bettor surface at /; Create is the launch wizard at /strategists;
+// Wallet is the new wallet hub at /wallet.
 const LINKS: { href: string; label: string; activePrefix?: string }[] = [
-  { href: "/",            label: "Markets",    activePrefix: "/markets" },
-  { href: "/feed",        label: "Feed" },
+  { href: "/",            label: "Discover",   activePrefix: "/markets" },
   { href: "/portfolio",   label: "Portfolio" },
-  { href: "/agents",      label: "Strategies", activePrefix: "/agent" },
+  { href: "/strategists", label: "Create",     activePrefix: "/agent" },
+  { href: "/wallet",      label: "Wallet" },
 ];
 
 function truncateAddress(address: string): string {

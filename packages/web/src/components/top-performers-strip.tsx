@@ -137,7 +137,7 @@ export async function TopPerformersStrip() {
                   fontSize: 14,
                   fontWeight: 600,
                   color:
-                    return30dBps >= 0 ? "#d4a853" : "var(--red-2)",
+                    return30dBps >= 0 ? "var(--pos)" : "var(--red-2)",
                   fontVariantNumeric: "tabular-nums",
                   lineHeight: 1.1,
                 }}

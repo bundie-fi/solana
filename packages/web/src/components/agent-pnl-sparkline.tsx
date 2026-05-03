@@ -66,7 +66,7 @@ export function AgentPnlSparkline({
     tone ?? (direction > 0 ? "pos" : direction < 0 ? "neg" : "neutral");
   const color =
     resolvedTone === "pos"
-      ? "#d4a853"
+      ? "var(--pos)"
       : resolvedTone === "neg"
       ? "var(--red-2)"
       : "var(--fg-4)";

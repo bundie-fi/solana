@@ -301,6 +301,7 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
   }
 
   const maxDdBps = maxDrawdownBps(navSeries);
+  const { winRatePct, sharpeApprox } = qualityStats(navSeries);
 
   return c.json({
     range,
@@ -315,6 +316,57 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
       return30dBps,
       returnAllTimeBps,
       maxDrawdownBps: maxDdBps,
+      // Quality stats — null when there isn't enough data to be meaningful.
+      // The 6-cell stats grid on the agent profile renders "—" for nulls.
+      winRatePct,
+      sharpeApprox,
     },
   });
 });
+
+/**
+ * Daily-tick win rate + a rough Sharpe approximation from the NAV series.
+ *
+ * winRatePct: percentage of consecutive snapshot pairs where NAV ticked up.
+ * Computed from whatever cadence the snapshots actually arrive at — the
+ * shared-tick daemon currently writes once per ~minute, so this is a
+ * "% of ticks that were positive". Close enough to "win rate" for the
+ * stat-grid story, and it's deterministic from the same data the chart
+ * renders. Returns null when there are fewer than 30 paired ticks.
+ *
+ * sharpeApprox: mean(per-tick return) / std(per-tick return). NOT
+ * annualized — the ratio between two same-cadence quantities so the
+ * dimensionality cancels. Returns null below 30 ticks or when std==0
+ * (would be Infinity). The label says "Sharpe" because it's the
+ * recognizable shape; the exact magnitude isn't comparable to a
+ * trad-fi Sharpe, and we're explicit about that in the UI tooltip.
+ */
+function qualityStats(navSeries: bigint[]): {
+  winRatePct: number | null;
+  sharpeApprox: number | null;
+} {
+  if (navSeries.length < 31) return { winRatePct: null, sharpeApprox: null };
+
+  const returns: number[] = [];
+  for (let i = 1; i < navSeries.length; i++) {
+    const prev = navSeries[i - 1];
+    const cur = navSeries[i];
+    if (prev <= 0n) continue;
+    // (cur - prev) / prev, in float — fine for stats, the bigint precision
+    // is overkill for ratios this small.
+    const r = Number(cur - prev) / Number(prev);
+    if (Number.isFinite(r)) returns.push(r);
+  }
+  if (returns.length < 30) return { winRatePct: null, sharpeApprox: null };
+
+  const wins = returns.filter((r) => r > 0).length;
+  const winRatePct = (wins / returns.length) * 100;
+
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance =
+    returns.reduce((s, r) => s + (r - mean) * (r - mean), 0) / returns.length;
+  const std = Math.sqrt(variance);
+  const sharpeApprox = std > 0 ? mean / std : null;
+
+  return { winRatePct, sharpeApprox };
+}
