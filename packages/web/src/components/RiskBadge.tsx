@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import type { AgentPreset } from "@/app/create-agent/lib/api";
+import type { AgentPreset } from "@/app/strategists/lib/api";
 
 export type RiskLevel = "low" | "medium" | "high";
 

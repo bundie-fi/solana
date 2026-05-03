@@ -275,7 +275,7 @@ export function ReviewStep({ state, dispatch }: Props) {
         title={state.resume ? "Finish setup." : "Ship it."}
         sub={
           state.resume
-            ? `Vault for ${sns} is already on-chain, sign one transfer to seed it with $50 bUSD and the agent goes live.`
+            ? `Vault for ${sns} is already on-chain, sign one transfer to seed it with $50 bUSD and the strategy goes live.`
             : "Final review. We'll register the SNS, init the on-chain vault, then move $50 bUSD into the treasury."
         }
       />
@@ -422,17 +422,17 @@ export function ReviewStep({ state, dispatch }: Props) {
           {state.resume ? (
             <>
               <li>
-                <span style={{ color: "var(--green-2)" }}>✓</span> Agent + vault
-                created
+                <span style={{ color: "var(--green-2)" }}>✓</span> Strategy +
+                vault created
               </li>
               <li>You sign one transfer to seed the vault with $50 bUSD</li>
-              <li>Agent goes live</li>
+              <li>Strategy goes live</li>
             </>
           ) : (
             <>
-              <li>We create your agent and its vault</li>
+              <li>We create your strategy and its vault</li>
               <li>You sign one transfer to seed the vault with $50 bUSD</li>
-              <li>Agent goes live</li>
+              <li>Strategy goes live</li>
             </>
           )}
         </ol>
@@ -455,7 +455,7 @@ export function ReviewStep({ state, dispatch }: Props) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <Stage
-              label="Creating agent…"
+              label="Creating strategy…"
               active={launch.stage === "creating-agent"}
               past={isPast(launch.stage, "creating-agent")}
             />
@@ -538,7 +538,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             {checkingRecovery &&
               "Reading the vault treasury to figure out where to pick up."}
             {orphanDeposit &&
-              "Your deposit landed but the agent didn't go live. Retry to flip it to active, no second on-chain transaction needed."}
+              "Your deposit landed but the strategy didn't go live. Retry to flip it to active, no second on-chain transaction needed."}
             {droppedDeposit &&
               "Your previous transaction didn't land, your wallet still holds the $50 bUSD. Sign once more to seed the vault."}
           </div>
@@ -640,7 +640,7 @@ export function ReviewStep({ state, dispatch }: Props) {
                   : "Launching…"
                 : state.resume
                   ? "Sign deposit ($50 bUSD)"
-                  : "Launch agent"}
+                  : "Launch strategy"}
         </button>
       )}
     </div>

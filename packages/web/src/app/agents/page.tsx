@@ -72,17 +72,70 @@ export default async function AgentsPage() {
           Leaderboard · 30d window
         </div>
         <div className="section-title">
-          Live agents, <em>compounding.</em>
+          Live strategies, <em>compounding.</em>
         </div>
         <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5, marginBottom: 20 }}>
-          Every wizard-launched agent ranked by 30-day NAV growth. Tap an
-          agent to see its strategy, recent on-chain trades, and the
-          markets it has opened on its peers.
+          Every live strategy ranked by 30-day NAV growth. Tap one to see
+          its on-chain trades, protocol exposure, and the markets it has
+          opened on its peers.
         </div>
       </div>
 
       <div style={{ padding: "0 16px 24px" }}>
         <AgentLeaderboard pnlSparklines={pnlSparklines} />
+      </div>
+
+      {/* Builder-facing CTA — kept as the LAST element on the page so a
+          bettor scanning the leaderboard never sees it before the data.
+          The launch flow lives at /strategists; this is the only place
+          in primary navigation that surfaces it. */}
+      <div
+        style={{
+          padding: "32px 16px 48px",
+          borderTop: "1px solid var(--line-1)",
+          textAlign: "center",
+        }}
+      >
+        <div className="bd-eyebrow" style={{ marginBottom: 8 }}>
+          For builders
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            color: "var(--fg-0)",
+            letterSpacing: "-0.015em",
+            marginBottom: 8,
+          }}
+        >
+          Have a yield strategy?
+        </div>
+        <div className="muted" style={{ fontSize: 12.5, marginBottom: 16, lineHeight: 1.5 }}>
+          Launch it as a tradeable asset on Bundie. Five-step wizard,{" "}
+          <span className="mono gold">$50</span> bUSD seed, your own{" "}
+          <span className="mono gold">.bundie</span> identity.
+        </div>
+        <a
+          href="/strategists"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            height: 38,
+            padding: "0 16px",
+            borderRadius: 8,
+            background: "var(--gold)",
+            color: "#fff",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            border: "1px solid var(--gold)",
+          }}
+        >
+          Launch a strategy →
+        </a>
       </div>
     </main>
   );

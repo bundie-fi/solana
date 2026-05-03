@@ -13,11 +13,17 @@ const WalletButton = dynamic(
   { ssr: false },
 );
 
+// Primary nav was reordered May 2026 to lead with markets (the bettor
+// surface). Feed + Strategies stayed accessible — Strategies links to
+// the rebranded /strategists hub which holds the agent leaderboard and
+// the launch-a-strategy wizard. The standalone "+ Launch agent" gold
+// CTA was dropped from the right cluster: the dev-facing entry point
+// shouldn't be the loudest button on a bettor's screen.
 const LINKS: { href: string; label: string; activePrefix?: string }[] = [
-  { href: "/",          label: "Feed" },
-  { href: "/markets",   label: "Markets" },
-  { href: "/agents",    label: "Agents", activePrefix: "/agent" },
-  { href: "/portfolio", label: "Portfolio" },
+  { href: "/",            label: "Markets",    activePrefix: "/markets" },
+  { href: "/feed",        label: "Feed" },
+  { href: "/portfolio",   label: "Portfolio" },
+  { href: "/agents",      label: "Strategies", activePrefix: "/agent" },
 ];
 
 function truncateAddress(address: string): string {
@@ -77,10 +83,14 @@ export function TopNav() {
       {/* Nav links */}
       <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
         {LINKS.map((l) => {
-          const matchPrefix = l.activePrefix ?? l.href;
+          // The Markets tab points at `/` but should also light up on
+          // `/markets`, so treat an explicit `activePrefix` as "also
+          // match this path family" — independent of href === "/".
           const active =
             pathname === l.href ||
-            (l.href !== "/" && pathname?.startsWith(matchPrefix));
+            (l.activePrefix
+              ? pathname?.startsWith(l.activePrefix) ?? false
+              : l.href !== "/" && (pathname?.startsWith(l.href) ?? false));
           return (
             <Link
               key={l.href}
@@ -113,32 +123,11 @@ export function TopNav() {
         })}
       </nav>
 
-      {/* Right cluster: Launch CTA + Devnet pill + Wallet */}
+      {/* Right cluster: Devnet pill + Wallet. The "+ Launch agent" gold
+          CTA used to sit here; it was removed when we repositioned the
+          app as bettor-first — the launch flow now lives one click in,
+          on the /strategists hub linked from primary nav. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Link
-          href="/create-agent"
-          aria-label="Launch your agent, $50 bUSD seed"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            height: 34,
-            padding: "0 12px",
-            borderRadius: 8,
-            background: "var(--gold)",
-            color: "#fff",
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            textDecoration: "none",
-            border: "1px solid var(--gold)",
-            transition: "background 160ms ease",
-          }}
-        >
-          + Launch agent
-        </Link>
-
         {/* Static cluster badge, Bundie is devnet-only for now, no switcher */}
         <span
           aria-label="Cluster: Solana Devnet"

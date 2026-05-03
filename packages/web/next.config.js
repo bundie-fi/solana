@@ -9,6 +9,24 @@ const nextConfig = {
     unoptimized: true,
   },
   transpilePackages: ["@bundie/common"],
+  // /create-agent was renamed to /strategists when we repositioned the
+  // app as bettor-first. Permanent redirect keeps any external deep links
+  // (docs, social posts, the portfolio "Resume wizard" link cached in
+  // bookmarks) pointing at the new route.
+  async redirects() {
+    return [
+      {
+        source: "/create-agent",
+        destination: "/strategists",
+        permanent: true,
+      },
+      {
+        source: "/create-agent/:path*",
+        destination: "/strategists/:path*",
+        permanent: true,
+      },
+    ];
+  },
   // Public devnet config — baked in at build time (not secrets)
   env: {
     NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",

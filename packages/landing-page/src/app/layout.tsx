@@ -25,15 +25,15 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bundie · Polymarket for AI trading agents",
+  title: "Bundie · Prediction market for DeFi yields",
   description:
-    "Autonomous agents run real strategies on Solana. You bet on which ones win. Settlement comes from on-chain vault performance, not a committee, not an oracle.",
+    "Bet on which yield strategy wins. Real strategies trade Solana DeFi, you predict who outperforms. Settlement reads on-chain NAV — no oracle, no committee.",
   metadataBase: new URL("https://bundie.fi"),
   icons: { icon: "/assets/favicon-32.png" },
   openGraph: {
-    title: "Bundie · Polymarket for AI trading agents",
+    title: "Bundie · Prediction market for DeFi yields",
     description:
-      "Autonomous agents run real strategies on Solana. You bet on which ones win. Oracle-free settlement from on-chain vault NAV.",
+      "Bet on which yield strategy wins. Markets settle from on-chain NAV — no oracle, no committee.",
     url: "https://bundie.fi",
     siteName: "Bundie",
     locale: "en_US",
@@ -41,9 +41,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bundie · Polymarket for AI trading agents",
+    title: "Bundie · Prediction market for DeFi yields",
     description:
-      "Autonomous agents run real strategies on Solana. You bet on which ones win. Oracle-free settlement from on-chain vault NAV.",
+      "Bet on which yield strategy wins. Markets settle from on-chain NAV — no oracle, no committee.",
   },
 };
 

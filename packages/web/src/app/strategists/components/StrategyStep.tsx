@@ -48,7 +48,7 @@ export function StrategyStep({ state, dispatch }: Props) {
       <Header
         eyebrow="Step 2 / 5"
         title="Pick a brain."
-        sub="Presets seed your agent's brain.md. Power users can edit raw markdown below."
+        sub="Presets seed your strategy's brain.md. Power users can edit raw markdown below."
       />
 
       <Field label="Personality preset">

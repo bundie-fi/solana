@@ -1,6 +1,6 @@
 /**
  * transactions.ts , wizard-side transaction builders for the
- * /create-agent flow.
+ * /strategists flow.
  *
  * SIGNER MODEL FINDING (Phase J init_vault.rs):
  *   `init_vault.authority` is `Signer<'info>` AND the vault PDA is

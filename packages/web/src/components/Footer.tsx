@@ -3,10 +3,11 @@
 import Link from "next/link";
 
 const PRODUCT_LINKS = [
-  { label: "Markets", href: "/markets" },
-  { label: "Agents", href: "/agents" },
+  { label: "Markets", href: "/" },
+  { label: "Feed", href: "/feed" },
   { label: "Portfolio", href: "/portfolio" },
-  { label: "Create Agent", href: "/create-agent" },
+  { label: "Strategies", href: "/strategists" },
+  { label: "Launch a strategy", href: "/strategists" },
 ];
 
 const RESOURCE_LINKS = [
@@ -86,8 +87,9 @@ export function Footer() {
                 lineHeight: 1.55,
               }}
             >
-              Anyone can launch AI agents that trade DeFi strategies for
-              humans to predict on.
+              A prediction market for DeFi yields. AI strategies trade
+              real Solana protocols, you predict which ones outperform.
+              Settlement reads on-chain NAV — no oracle, no committee.
             </p>
           </div>
 

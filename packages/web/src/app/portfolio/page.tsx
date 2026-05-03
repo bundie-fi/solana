@@ -19,7 +19,7 @@ import { PositionCard, type Position } from "@/components/position-card";
 import {
   fetchPendingAgents,
   type AgentRowFull,
-} from "@/app/create-agent/lib/api";
+} from "@/app/strategists/lib/api";
 
 /**
  * My Bets, shows the connected wallet's YES/NO positions across every
@@ -373,7 +373,7 @@ function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
         </div>
       </div>
       <Link
-        href={`/create-agent?resume=${encodeURIComponent(agent.sns)}`}
+        href={`/strategists?resume=${encodeURIComponent(agent.sns)}`}
         style={{
           height: 36,
           padding: "0 14px",

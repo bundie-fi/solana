@@ -1,5 +1,5 @@
 /**
- * wizard-state.ts , useReducer state machine for the /create-agent wizard.
+ * wizard-state.ts , useReducer state machine for the /strategists wizard.
  *
  * 5 steps: Identity -> Strategy -> Allowlist -> Capital -> Review.
  * Each step has its own validation that gates "Next". The reducer is
@@ -137,7 +137,7 @@ export type LaunchStage =
   | "done";
 
 /**
- * When the wizard is launched in resume mode (`/create-agent?resume=<sns>`)
+ * When the wizard is launched in resume mode (`/strategists?resume=<sns>`)
  * we already have the agent row from the backend , vault PDA, agent
  * pubkey, treasury mint, seed amount. The Launch step skips the
  * createAgent POST and feeds these directly into launchAgent so the user

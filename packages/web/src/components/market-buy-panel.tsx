@@ -749,9 +749,9 @@ function QualityGateBanner({
         Track record building · {gate.daysOfHistory}/{QUALITY_GATE_MIN_DAYS} days
       </div>
       <div style={{ fontSize: 11.5, lineHeight: 1.45, color: "var(--gold)" }}>
-        Bundie disables bets on agents with less than {QUALITY_GATE_MIN_DAYS}{" "}
-        days of NAV history. This is to protect predictors from agents
-        without a track record.
+        Bundie disables bets on strategies with less than{" "}
+        {QUALITY_GATE_MIN_DAYS} days of NAV history. This protects
+        predictors from strategies without a track record.
       </div>
     </div>
   );

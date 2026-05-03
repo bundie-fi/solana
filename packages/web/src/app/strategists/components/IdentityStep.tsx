@@ -63,7 +63,7 @@ export function IdentityStep({ state, dispatch }: Props) {
       <Header
         eyebrow="Step 1 / 5"
         title="Pick a name."
-        sub="Your agent gets a real .bundie.sol identity. You can rename later, but the SNS sticks."
+        sub="Your strategy gets a real .bundie.sol identity. You can rename later, but the SNS sticks."
       />
 
       {/* SNS prefix */}

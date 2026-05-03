@@ -24,7 +24,7 @@ export function AllowlistStep({ state, dispatch }: Props) {
       <Header
         eyebrow="Step 3 / 5"
         title="Choose protocols."
-        sub="The agent can only ever route through programs you check here. Caps are per-position notional in USD."
+        sub="The strategy can only ever route through programs you check here. Caps are per-position notional in USD."
       />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

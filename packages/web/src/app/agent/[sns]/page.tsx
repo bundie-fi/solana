@@ -225,7 +225,7 @@ export default async function AgentProfilePage(
   const heroEmoji =
     HERO_AGENTS.find((a) => a.vault === vault)?.emoji ?? "🤖";
   const solBalance = solLamports / LAMPORTS_PER_SOL;
-  const archetype = ARCHETYPES[displayName] ?? "Agent";
+  const archetype = ARCHETYPES[displayName] ?? "Strategy";
   const agentClass = AGENT_CLASSES[displayName] ?? "";
 
   return (
@@ -237,7 +237,7 @@ export default async function AgentProfilePage(
           className="btn btn-ghost"
           style={{ padding: "7px 10px", fontSize: 11, gap: 6, textDecoration: "none" }}
         >
-          <span style={{ fontSize: 14, lineHeight: 1 }}>‹</span> Agents
+          <span style={{ fontSize: 14, lineHeight: 1 }}>‹</span> Strategies
         </Link>
         <span className="pill pill-gold" style={{ fontSize: 9 }}>{archetype}</span>
       </div>
@@ -255,7 +255,7 @@ export default async function AgentProfilePage(
             textDecoration: "none",
           }}
         >
-          ← All agents
+          ← All strategies
         </Link>
       </div>
 
@@ -283,7 +283,7 @@ export default async function AgentProfilePage(
                   flexWrap: "wrap",
                 }}
               >
-                <div className="bd-eyebrow">Bundie agent</div>
+                <div className="bd-eyebrow">Bundie strategy</div>
                 {isBootstrapAgent(ownerWallet) && (
                   <span
                     className="pill pill-gold"
