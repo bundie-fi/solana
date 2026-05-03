@@ -149,7 +149,7 @@ export default async function AgentProfilePage(
   // Known devnet token mints → protocol label + selector for rate context.
   // mSOL devnet is the Marinade mSOL mint deployed on devnet.
   const KNOWN_MINTS: Record<string, { label: string; protocol: string; selector: number; unit: string }> = {
-    // Marinade mSOL (devnet) , when an agent stakes SOL via Beethoven execute
+    // Marinade mSOL (devnet) , when an agent stakes SOL via the Marinade CPI
     "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": { label: "Marinade mSOL", protocol: "marinade", selector: 2, unit: "mSOL" },
     // Kamino kUSDC (devnet main-market reserve)
     "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy": { label: "Kamino kUSDC", protocol: "kamino", selector: 1, unit: "kUSDC" },
@@ -421,7 +421,7 @@ export default async function AgentProfilePage(
           />
         </div>
 
-        {/* Strategy positions , live devnet positions from Beethoven execution */}
+        {/* Strategy positions , live devnet positions from direct-CPI execution */}
         {strategyPositions.length > 0 && (
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
             <div className="bd-eyebrow" style={{ marginBottom: 10 }}>

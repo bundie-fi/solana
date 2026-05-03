@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-/** A single Beethoven protocol adapter. */
+/** A single protocol adapter the agent runtime can route into via direct CPI. */
 export type Protocol = {
   /** Display name, e.g. "Orca Whirlpools" */
   name: string;

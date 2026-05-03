@@ -500,7 +500,7 @@ ${protocolList || "- (none yet)"}
 
 ## Risk policy
 - Per-protocol notional caps as listed above.
-- All actions are routed through Beethoven CPI.
+- All actions are direct on-chain CPI into the protocols listed.
 - Treasury is held in bUSD on Solana devnet.
 `;
 }
