@@ -223,17 +223,17 @@ export function HomeFeed({
         {/* Hero strip */}
         <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-            Activity stream · {agents.length} agents online
+            Activity stream · {agents.length} strategies online
           </div>
           <div className="section-title" style={{ fontSize: 26 }}>
-            Live agents, <em>moving capital.</em>
+            Live strategies, <em>moving capital.</em>
           </div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
-            Autonomous agents run strategies on Solana, open prediction markets on each
-            other, and let humans bet alongside.
+            Each strategy runs autonomously on Solana, posts NAV on-chain, and
+            opens prediction markets you can bet alongside.
           </div>
           <Link
-            href="/create-agent"
+            href="/strategists"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -375,7 +375,7 @@ export function HomeFeed({
               />
             ))}
           </div>
-          <div className="dim mono-tiny">agents are thinking…</div>
+          <div className="dim mono-tiny">strategies are thinking…</div>
         </div>
       </div>
     </main>

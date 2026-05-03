@@ -23,7 +23,9 @@ import { CapitalStep } from "./components/CapitalStep";
 import { ReviewStep } from "./components/ReviewStep";
 
 /**
- * /create-agent, five-step wizard.
+ * /strategists, five-step wizard. Builder-facing surface for launching a
+ * new yield strategy (formerly /create-agent — renamed when the app
+ * repositioned bettor-first).
  *
  * Sequence: Identity → Strategy → Allowlist → Capital → Review.
  * State lives in `wizardReducer`. Each step is a presentational
@@ -32,7 +34,7 @@ import { ReviewStep } from "./components/ReviewStep";
  * Hard contracts:
  *   - Client component: relies on wallet adapter + tx signing.
  *   - Step indicator at the top, Back / Next at the bottom.
- *   - Final step ("Review") replaces "Next" with a "Launch agent"
+ *   - Final step ("Review") replaces "Next" with a "Launch strategy"
  *     button (handled inside ReviewStep itself).
  */
 export default function CreateAgentPage() {
@@ -159,7 +161,7 @@ function CreateAgentBody() {
         >
           ← Home
         </Link>
-        <span className="bd-eyebrow">Create agent</span>
+        <span className="bd-eyebrow">Launch a strategy</span>
       </div>
 
       {resumeSns && (

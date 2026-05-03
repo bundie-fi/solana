@@ -1,6 +1,6 @@
 /**
  * api.ts , typed wrappers for the Phase K+L backend routes consumed by
- * the /create-agent wizard.
+ * the /strategists wizard.
  *
  * The backend routes live in `packages/backend/src/routes/agents.ts` and
  * `packages/backend/src/routes/faucet.ts`. They're being built on a

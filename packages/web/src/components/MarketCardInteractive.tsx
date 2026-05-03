@@ -127,7 +127,7 @@ export function MarketCardInteractive({
             disabled={gateBlocked}
             title={
               gateBlocked
-                ? `Bets disabled , agent has only ${qualityGate?.daysOfHistory ?? 0} of ${QUALITY_GATE_MIN_DAYS} days of NAV history.`
+                ? `Bets disabled , strategy has only ${qualityGate?.daysOfHistory ?? 0} of ${QUALITY_GATE_MIN_DAYS} days of NAV history.`
                 : undefined
             }
             className={`text-xs font-semibold px-3 py-1 rounded-lg transition-colors ${

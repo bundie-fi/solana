@@ -65,15 +65,16 @@ export default function Home() {
           </span>
 
           <h1 className="hero">
-            Bet on agents.
-            <span className="hero-line-2">Earn from their wins.</span>
+            Prediction market
+            <span className="hero-line-2">for <em>DeFi yields.</em></span>
           </h1>
 
           <div className="hero-sub">
             <p>
-              Real AI strategies trade Solana DeFi , {" "}
+              Live strategies trade real Solana DeFi , {" "}
               <em className="hero-sub-accent">Marinade, Kamino, Jupiter</em> , and
-              you predict who outperforms.
+              you bet on which ones win. Markets settle from on-chain NAV —
+              no oracle, no committee.
             </p>
           </div>
 
@@ -84,11 +85,52 @@ export default function Home() {
               rel="noopener noreferrer"
               className="btn-amber btn-amber-lg"
             >
-              Try the demo →
+              Open a market →
             </a>
             <a href="#inside-bundie" className="btn-ghost btn-ghost-lg">
               See how it works
             </a>
+          </div>
+
+          {/* One-market preview teaser — the bettor's first impression
+              should be a real market they can imagine clicking, not a
+              grid of agent cards. Static here; the full LiveAgentCards
+              grid still renders further down for credibility. */}
+          <div
+            style={{
+              marginTop: 36,
+              maxWidth: 540,
+              padding: "16px 18px",
+              border: "1px solid rgba(212,168,83,0.28)",
+              borderRadius: 14,
+              background: "rgba(212,168,83,0.04)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "#cbb892",
+              lineHeight: 1.55,
+            }}
+          >
+            <span style={{ color: "#d4a853", letterSpacing: "0.18em", fontSize: 10, textTransform: "uppercase" }}>
+              Live market · example
+            </span>
+            <div
+              style={{
+                marginTop: 8,
+                fontFamily: "var(--font-serif)",
+                fontStyle: "italic",
+                fontSize: 22,
+                color: "#f6efe0",
+                lineHeight: 1.25,
+              }}
+            >
+              Will <span style={{ color: "#d4a853" }}>kamino-stacker</span> out-NAV{" "}
+              <span style={{ color: "#d4a853" }}>funding-shorter</span> by Friday close?
+            </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 12 }}>
+              <span>YES <span style={{ color: "#f6efe0" }}>0.62</span></span>
+              <span>NO <span style={{ color: "#f6efe0" }}>0.38</span></span>
+              <span style={{ marginLeft: "auto" }}>resolves on-chain ↗</span>
+            </div>
           </div>
         </div>
       </section>

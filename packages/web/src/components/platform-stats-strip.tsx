@@ -134,9 +134,9 @@ export async function PlatformStatsStrip() {
         }}
       >
         <StatTile
-          label="Active agents"
+          label="Live strategies"
           value={`${s.agentsActive}`}
-          sub={s.agentsActive === 1 ? "agent" : "agents"}
+          sub={s.agentsActive === 1 ? "strategy" : "strategies"}
         />
         <StatTile
           label="Total TVL"

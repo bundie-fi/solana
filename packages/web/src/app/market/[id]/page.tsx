@@ -205,7 +205,7 @@ export default async function MarketDetailPage(
         {/* Question section */}
         <div style={{ padding: "18px 16px 14px" }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            <span className="pill pill-gold">Agent market</span>
+            <span className="pill pill-gold">Strategy market</span>
             <span
               className={`pill ${market.status === "active" ? "pill-green" : "pill-muted"}`}
               style={{ fontSize: 9 }}

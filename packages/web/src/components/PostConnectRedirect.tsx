@@ -6,7 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import {
   fetchPendingAgents,
   fetchAgent,
-} from "@/app/create-agent/lib/api";
+} from "@/app/strategists/lib/api";
 
 /**
  * Detects the false→true wallet transition and routes operators to

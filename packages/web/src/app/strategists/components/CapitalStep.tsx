@@ -131,8 +131,8 @@ export function CapitalStep({ state, dispatch }: Props) {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <Header
         eyebrow="Step 4 / 5"
-        title="Seed the agent."
-        sub="Every agent needs $50 of bUSD as starting treasury. The faucet mints to YOUR wallet first; the next step has you sign a single transfer that forwards it into the new agent's vault."
+        title="Seed the strategy."
+        sub="Every strategy needs $50 of bUSD as starting treasury. The faucet mints to YOUR wallet first; the next step has you sign a single transfer that forwards it into the new strategy's vault."
       />
 
       {!connected && (
@@ -333,7 +333,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             </div>
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {fundsOk
-                ? "Funds detected, review your agent on the next step, then sign one transfer to seed it."
+                ? "Funds detected, review your strategy on the next step, then sign one transfer to seed it."
                 : "Get to $50 bUSD first, the seed transfer happens on the Review step."}
             </div>
           </div>
