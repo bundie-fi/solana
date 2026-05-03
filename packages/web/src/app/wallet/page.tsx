@@ -12,12 +12,25 @@
  * connection events. SOL price is fetched from Pyth; bUSD is treated as
  * USD-pegged (matches treasury sync semantics).
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import {
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  createTransferInstruction,
+  getAssociatedTokenAddressSync,
+  getAccount,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
 
 const WalletButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -48,6 +61,7 @@ export default function WalletPage() {
   const [tab, setTab] = useState<"tokens" | "domains" | "apps">("tokens");
   const [solUsd, setSolUsd] = useState<number>(SOL_PRICE_FALLBACK);
   const [copied, setCopied] = useState(false);
+  const [actionModal, setActionModal] = useState<"send" | "receive" | null>(null);
 
   // Live SOL balance + token accounts
   useEffect(() => {
@@ -191,40 +205,44 @@ export default function WalletPage() {
         </button>
       </div>
 
-      {/* Action row */}
+      {/* Action row — Receive opens an in-app QR modal; Send opens the
+          in-app SOL/SPL transfer modal; Swap and Buy deep-link to Jupiter +
+          Solflare's onramp respectively (TWA opens these in the system
+          Chrome tab). All four are real, no "coming soon" placeholders. */}
       <div style={{ padding: "0 16px 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-        {[
-          { id: "send",    label: "Send",    icon: "↗" },
-          { id: "receive", label: "Receive", icon: "↙" },
-          { id: "swap",    label: "Swap",    icon: "⇆" },
-          { id: "buy",     label: "Buy",     icon: "$" },
-        ].map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            disabled
-            title="Coming soon"
-            style={{
-              padding: "14px 8px", borderRadius: 12,
-              background: "var(--bg-1)", border: "1px solid var(--line-1)",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-              cursor: "not-allowed", fontFamily: "inherit", color: "var(--fg-1)",
-              opacity: 0.92,
-            }}
-          >
-            <span
-              style={{
-                width: 32, height: 32, borderRadius: 10, display: "flex",
-                alignItems: "center", justifyContent: "center", fontSize: 14,
-                background: "var(--predict-tint)", color: "var(--predict)", fontWeight: 700,
-              }}
-            >
-              {a.icon}
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 600 }}>{a.label}</span>
-          </button>
-        ))}
+        <ActionTile
+          icon="↗"
+          label="Send"
+          onClick={() => setActionModal("send")}
+        />
+        <ActionTile
+          icon="↙"
+          label="Receive"
+          onClick={() => setActionModal("receive")}
+        />
+        <ActionTile
+          icon="⇆"
+          label="Swap"
+          href={`https://jup.ag/swap/USDC-SOL?wallet=${encodeURIComponent(addr)}`}
+        />
+        <ActionTile
+          icon="$"
+          label="Buy"
+          href={`https://accounts.solflare.com/buy?address=${encodeURIComponent(addr)}`}
+        />
       </div>
+
+      {actionModal === "receive" && (
+        <ReceiveModal addr={addr} onClose={() => setActionModal(null)} />
+      )}
+      {actionModal === "send" && (
+        <SendModal
+          fromAddr={addr}
+          solBalance={sol}
+          busdBalance={tokens.find((t) => t.symbol === "bUSD")?.amount ?? 0}
+          onClose={() => setActionModal(null)}
+        />
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--line-1)", padding: "0 16px", gap: 20 }}>
@@ -374,19 +392,122 @@ function TokenRow({
 }
 
 function DomainsList({ ownerAddr }: { ownerAddr: string }) {
-  // No client-side SNS resolver wired today — keep this honest. The
-  // backend `/api/agents` already filters by owner_wallet, but it's
-  // strategy-scoped, not personal SNS. Surface a Telegram-style empty
-  // state and a deep link to /strategists where the user actually claims
-  // a name.
-  if (!ownerAddr) return null;
+  // Pulls every active <name>.bundie.sol where this wallet is the owner.
+  // The backend's /api/agents?ownerWallet= filter already supports this
+  // (powers the wizard's "resume" flow); we re-use it for an honest
+  // domain list. SNS verification status surfaces as a small ✓ next to
+  // verified names — same indicator as the agent profile uses.
+  const [domains, setDomains] = useState<
+    { sns: string; verified: boolean; vaultPda: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!ownerAddr) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const url =
+          (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000") +
+          `/api/agents?ownerWallet=${encodeURIComponent(ownerAddr)}`;
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) {
+          if (!cancelled) setDomains([]);
+          return;
+        }
+        const body = (await r.json()) as {
+          agents?: {
+            sns: string;
+            sns_verified?: boolean;
+            vault_pda: string;
+            status?: string;
+          }[];
+        };
+        const list = (body.agents ?? [])
+          // Drop pending_init rows — they don't have a live name yet
+          .filter((a) => a.status !== "pending_init")
+          .map((a) => ({
+            sns: a.sns,
+            verified: a.sns_verified === true,
+            vaultPda: a.vault_pda,
+          }));
+        if (!cancelled) setDomains(list);
+      } catch {
+        if (!cancelled) setDomains([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerAddr]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12 }}>
+        Loading domains…
+      </div>
+    );
+  }
+  if (domains.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12, lineHeight: 1.5 }}>
+        No <span className="mono">.bundie</span> names registered to this wallet yet.{" "}
+        <Link href="/strategists" style={{ color: "var(--predict)", textDecoration: "underline" }}>
+          Launch a strategy →
+        </Link>
+      </div>
+    );
+  }
   return (
-    <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12, lineHeight: 1.5 }}>
-      .bundie names you own appear here. The launch wizard claims a
-      name on first run —{" "}
-      <Link href="/strategists" style={{ color: "var(--predict)", textDecoration: "underline" }}>
-        launch a strategy →
-      </Link>
+    <div>
+      {domains.map((d) => (
+        <Link
+          key={d.sns}
+          href={`/agent/${encodeURIComponent(d.sns)}`}
+          style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "14px 16px", borderBottom: "1px solid var(--line-1)",
+            textDecoration: "none", color: "var(--fg-0)",
+          }}
+        >
+          <div
+            style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: "var(--predict-tint)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-display)", fontWeight: 600,
+              color: "var(--predict)", fontSize: 16,
+              flexShrink: 0,
+            }}
+          >
+            {d.sns.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>
+                {d.sns.replace(".bundie.sol", "")}
+                <span style={{ color: "var(--fg-4)", fontWeight: 400 }}>.bundie.sol</span>
+              </span>
+              {d.verified && (
+                <span style={{ fontSize: 11, color: "var(--predict)", fontWeight: 700 }}>✓</span>
+              )}
+            </div>
+            <div
+              className="mono"
+              style={{
+                fontSize: 11, color: "var(--fg-4)", marginTop: 2,
+                fontVariantNumeric: "tabular-nums",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}
+            >
+              vault {d.vaultPda.slice(0, 4)}…{d.vaultPda.slice(-4)}
+            </div>
+          </div>
+          <span style={{ color: "var(--fg-4)", fontSize: 16 }}>›</span>
+        </Link>
+      ))}
     </div>
   );
 }
@@ -396,4 +517,406 @@ function fmtUsd(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
   return `$${n.toFixed(2)}`;
+}
+
+// ─── Action tiles ────────────────────────────────────────────────────────
+
+function ActionTile({
+  icon, label, onClick, href,
+}: {
+  icon: string;
+  label: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const tile = (
+    <span
+      style={{
+        padding: "14px 8px", borderRadius: 12,
+        background: "var(--bg-1)", border: "1px solid var(--line-1)",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+        cursor: "pointer", color: "var(--fg-1)",
+      }}
+    >
+      <span
+        style={{
+          width: 32, height: 32, borderRadius: 10, display: "flex",
+          alignItems: "center", justifyContent: "center", fontSize: 14,
+          background: "var(--predict-tint)", color: "var(--predict)", fontWeight: 700,
+        }}
+      >
+        {icon}
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600 }}>{label}</span>
+    </span>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: "none" }}
+      >
+        {tile}
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: "transparent", border: "none", padding: 0,
+        fontFamily: "inherit", cursor: "pointer", color: "inherit",
+      }}
+    >
+      {tile}
+    </button>
+  );
+}
+
+// ─── Receive modal ────────────────────────────────────────────────────────
+
+function ReceiveModal({ addr, onClose }: { addr: string; onClose: () => void }) {
+  // Lightweight QR generator: build a Google Charts URL — works offline-
+  // friendly enough for a TWA wrapper (chrome will cache after first load),
+  // and avoids pulling in a 30KB QR library for a single use case.
+  const qrUrl = useMemo(
+    () =>
+      `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(
+        `solana:${addr}`,
+      )}`,
+    [addr],
+  );
+  const [copied, setCopied] = useState(false);
+  const onCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(addr);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // noop
+    }
+  }, [addr]);
+
+  return (
+    <ModalShell title="Receive" onClose={onClose}>
+      <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={qrUrl}
+          alt="Wallet address QR"
+          width={240}
+          height={240}
+          style={{ borderRadius: 12, background: "#fff", padding: 12 }}
+        />
+      </div>
+      <div className="bd-eyebrow" style={{ textAlign: "center", marginTop: 12 }}>
+        Solana address
+      </div>
+      <div
+        className="mono"
+        style={{
+          fontSize: 13, fontVariantNumeric: "tabular-nums",
+          textAlign: "center", padding: "6px 12px", color: "var(--fg-1)",
+          wordBreak: "break-all", lineHeight: 1.5,
+        }}
+      >
+        {addr}
+      </div>
+      <button
+        type="button"
+        onClick={onCopy}
+        style={{
+          marginTop: 12, width: "100%", padding: "12px",
+          borderRadius: 10, border: "none",
+          background: "var(--predict)", color: "#fff",
+          fontSize: 13, fontWeight: 600, cursor: "pointer",
+          fontFamily: "inherit", letterSpacing: 0.2,
+        }}
+      >
+        {copied ? "Copied ✓" : "Copy address"}
+      </button>
+      <p style={{ fontSize: 11, color: "var(--fg-4)", textAlign: "center", marginTop: 12, lineHeight: 1.4 }}>
+        Send SOL or any SPL token to this address.
+        <br />
+        Devnet only — do not send mainnet funds.
+      </p>
+    </ModalShell>
+  );
+}
+
+// ─── Send modal ───────────────────────────────────────────────────────────
+
+function SendModal({
+  fromAddr, solBalance, busdBalance, onClose,
+}: {
+  fromAddr: string;
+  solBalance: number;
+  busdBalance: number;
+  onClose: () => void;
+}) {
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction } = useWallet();
+  const [token, setToken] = useState<"SOL" | "bUSD">("SOL");
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const max = token === "SOL" ? Math.max(0, solBalance - 0.001) : busdBalance; // leave 0.001 SOL for fees
+  const amountNum = parseFloat(amount) || 0;
+  const validRecipient = useMemo(() => {
+    try {
+      // Must parse as a valid base58 pubkey.
+      new PublicKey(recipient.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  }, [recipient]);
+  const canSubmit =
+    validRecipient && amountNum > 0 && amountNum <= max && !busy && !!publicKey;
+
+  async function onSubmit() {
+    if (!publicKey || !canSubmit) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const to = new PublicKey(recipient.trim());
+      const tx = new Transaction();
+
+      if (token === "SOL") {
+        tx.add(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: to,
+            lamports: Math.round(amountNum * LAMPORTS_PER_SOL),
+          }),
+        );
+      } else {
+        // bUSD = SPL token. Resolve recipient ATA, create if missing
+        // (signed by the sender — recipient pays no rent).
+        const mint = new PublicKey(BUSD_MINT);
+        const fromAta = await getAssociatedTokenAddress(mint, publicKey);
+        const toAta = await getAssociatedTokenAddress(mint, to);
+        try {
+          await getAccount(connection, toAta);
+        } catch {
+          tx.add(
+            createAssociatedTokenAccountInstruction(
+              publicKey, toAta, to, mint,
+            ),
+          );
+        }
+        // bUSD has 6 decimals (matches USDC).
+        const baseUnits = BigInt(Math.round(amountNum * 1_000_000));
+        tx.add(
+          createTransferInstruction(fromAta, toAta, publicKey, baseUnits),
+        );
+      }
+
+      const sig = await sendTransaction(tx, connection);
+      await connection.confirmTransaction(sig, "confirmed");
+      toast.success(
+        `Sent ${amountNum} ${token} → ${recipient.slice(0, 4)}…${recipient.slice(-4)}`,
+      );
+      onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg.includes("User rejected") ? "Transaction rejected." : msg.slice(0, 200));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Send" onClose={onClose}>
+      {/* Token selector */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {(["SOL", "bUSD"] as const).map((t) => {
+          const active = token === t;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setToken(t)}
+              style={{
+                flex: 1, padding: "8px 12px", borderRadius: 8,
+                border: active ? "1px solid var(--predict)" : "1px solid var(--line-1)",
+                background: active ? "var(--predict-tint)" : "transparent",
+                color: active ? "var(--predict)" : "var(--fg-3)",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+
+      <label style={{ display: "block", fontSize: 11, color: "var(--fg-4)", letterSpacing: 0.2 }}>
+        Recipient address
+      </label>
+      <input
+        type="text"
+        value={recipient}
+        onChange={(e) => setRecipient(e.target.value)}
+        placeholder="11111111…1111"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        style={{
+          width: "100%", padding: "10px 12px", marginTop: 4,
+          borderRadius: 8, border: "1px solid var(--line-1)",
+          background: "var(--bg-2)", color: "var(--fg-0)",
+          fontFamily: "var(--font-mono)", fontSize: 12,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      />
+      {recipient && !validRecipient && (
+        <div style={{ fontSize: 11, color: "var(--neg)", marginTop: 4 }}>
+          Not a valid Solana address.
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 14 }}>
+        <label style={{ fontSize: 11, color: "var(--fg-4)", letterSpacing: 0.2 }}>
+          Amount
+        </label>
+        <button
+          type="button"
+          onClick={() => setAmount(max.toFixed(token === "SOL" ? 4 : 2))}
+          style={{
+            background: "transparent", border: "none", padding: 0,
+            fontSize: 11, color: "var(--predict)", cursor: "pointer",
+          }}
+        >
+          Max {max.toFixed(token === "SOL" ? 4 : 2)} {token}
+        </button>
+      </div>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+        placeholder={token === "SOL" ? "0.10" : "10.00"}
+        style={{
+          width: "100%", padding: "10px 12px", marginTop: 4,
+          borderRadius: 8, border: "1px solid var(--line-1)",
+          background: "var(--bg-2)", color: "var(--fg-0)",
+          fontFamily: "var(--font-mono)", fontSize: 16,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      />
+      {amountNum > max && (
+        <div style={{ fontSize: 11, color: "var(--neg)", marginTop: 4 }}>
+          Over balance. Max {max.toFixed(token === "SOL" ? 4 : 2)} {token}.
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            marginTop: 10, padding: "8px 10px", borderRadius: 8,
+            background: "var(--red-tint)", color: "var(--neg)",
+            fontSize: 11, lineHeight: 1.4,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!canSubmit}
+        style={{
+          marginTop: 16, width: "100%", padding: "12px",
+          borderRadius: 10, border: "none",
+          background: canSubmit ? "var(--predict)" : "var(--bg-3)",
+          color: canSubmit ? "#fff" : "var(--fg-4)",
+          fontSize: 13, fontWeight: 600,
+          cursor: canSubmit ? "pointer" : "not-allowed",
+          fontFamily: "inherit", letterSpacing: 0.2,
+        }}
+      >
+        {busy ? "Sending…" : `Send ${token}`}
+      </button>
+    </ModalShell>
+  );
+}
+
+// ─── Modal shell ──────────────────────────────────────────────────────────
+
+function ModalShell({
+  title, children, onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  // Esc to close — stops the user from getting stuck in a modal on
+  // desktop (mobile users tap the backdrop or back button).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "rgba(20,20,26,0.5)",
+        display: "flex", alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 420,
+          background: "var(--bg-0)", borderTopLeftRadius: 16, borderTopRightRadius: 16,
+          padding: "16px 16px 32px",
+          maxHeight: "92vh", overflowY: "auto",
+          paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            paddingBottom: 12, borderBottom: "1px solid var(--line-1)", marginBottom: 14,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-display)", fontSize: 20,
+              letterSpacing: -0.3, color: "var(--fg-0)",
+            }}
+          >
+            {title}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              fontSize: 22, color: "var(--fg-3)", padding: 0,
+              fontFamily: "inherit",
+            }}
+          >
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }

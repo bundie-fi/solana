@@ -168,10 +168,10 @@ export async function AgentPerformanceBlock({
           caption={winRate != null ? "ticks closed positive" : null}
         />
         <PerfStat
-          label="Sharpe (approx)"
+          label="Sharpe (ann.)"
           value={sharpe != null ? sharpe.toFixed(2) : "—"}
           tone={sharpe != null ? (sharpe >= 1 ? "pos" : sharpe < 0 ? "neg" : "neutral") : "neutral"}
-          caption={sharpe != null ? "per-tick · not annualized" : null}
+          caption={sharpe != null ? "annualized from tick cadence" : null}
         />
       </div>
 
