@@ -301,7 +301,10 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
   }
 
   const maxDdBps = maxDrawdownBps(navSeries);
-  const { winRatePct, sharpeApprox } = qualityStats(navSeries);
+  const { winRatePct, sharpeApprox } = qualityStats(
+    navSeries,
+    snapshots.map((s) => s.ts),
+  );
 
   return c.json({
     range,
@@ -325,23 +328,35 @@ pnl.get("/api/agents/:sns/pnl", async (c) => {
 });
 
 /**
- * Daily-tick win rate + a rough Sharpe approximation from the NAV series.
+ * Tick-level win rate + annualized Sharpe from the NAV series.
  *
  * winRatePct: percentage of consecutive snapshot pairs where NAV ticked up.
- * Computed from whatever cadence the snapshots actually arrive at — the
- * shared-tick daemon currently writes once per ~minute, so this is a
- * "% of ticks that were positive". Close enough to "win rate" for the
- * stat-grid story, and it's deterministic from the same data the chart
- * renders. Returns null when there are fewer than 30 paired ticks.
+ * The shared-tick daemon writes ~every 15s when active so this is a
+ * "% of ticks that were positive" — directly comparable across agents
+ * because they all read off the same snapshot cadence.
  *
- * sharpeApprox: mean(per-tick return) / std(per-tick return). NOT
- * annualized — the ratio between two same-cadence quantities so the
- * dimensionality cancels. Returns null below 30 ticks or when std==0
- * (would be Infinity). The label says "Sharpe" because it's the
- * recognizable shape; the exact magnitude isn't comparable to a
- * trad-fi Sharpe, and we're explicit about that in the UI tooltip.
+ * sharpeApprox: annualized Sharpe ratio computed empirically from the
+ * snapshot timestamps. Steps:
+ *
+ *   1. tick_returns = (NAV[i] - NAV[i-1]) / NAV[i-1], unitless
+ *   2. mean = average tick return; std = stddev of tick returns
+ *   3. tick_dt = MEDIAN delta-t between consecutive snapshots, in seconds.
+ *      Median (not mean) is robust to single outliers — fork resets
+ *      occasionally produce 30-min gaps and we don't want one of those
+ *      gaps to halve everyone's Sharpe.
+ *   4. ticks_per_year = 31_557_600 / tick_dt
+ *   5. sharpe_annual = (mean / std) * sqrt(ticks_per_year)
+ *
+ * For 15s ticks, ticks_per_year ≈ 2.1M, sqrt ≈ 1450 — meaningful only when
+ * mean/std is genuinely small (sub-bp). This produces Sharpes comparable
+ * in shape to trad-fi numbers (typically -2 to +5 for live strategies).
+ *
+ * Both null below 30 paired ticks or when std==0.
  */
-function qualityStats(navSeries: bigint[]): {
+function qualityStats(
+  navSeries: bigint[],
+  isoTimestamps: string[],
+): {
   winRatePct: number | null;
   sharpeApprox: number | null;
 } {
@@ -366,7 +381,25 @@ function qualityStats(navSeries: bigint[]): {
   const variance =
     returns.reduce((s, r) => s + (r - mean) * (r - mean), 0) / returns.length;
   const std = Math.sqrt(variance);
-  const sharpeApprox = std > 0 ? mean / std : null;
+  if (std <= 0) return { winRatePct, sharpeApprox: null };
+
+  // Empirical tick cadence (median delta-t between snapshots, seconds).
+  const deltas: number[] = [];
+  for (let i = 1; i < isoTimestamps.length; i++) {
+    const a = Date.parse(isoTimestamps[i - 1]);
+    const b = Date.parse(isoTimestamps[i]);
+    if (Number.isFinite(a) && Number.isFinite(b) && b > a) {
+      deltas.push((b - a) / 1000);
+    }
+  }
+  if (deltas.length === 0) return { winRatePct, sharpeApprox: null };
+  deltas.sort((a, b) => a - b);
+  const medianDt = deltas[Math.floor(deltas.length / 2)];
+  if (medianDt <= 0) return { winRatePct, sharpeApprox: null };
+
+  const SECONDS_PER_YEAR = 31_557_600;
+  const ticksPerYear = SECONDS_PER_YEAR / medianDt;
+  const sharpeApprox = (mean / std) * Math.sqrt(ticksPerYear);
 
   return { winRatePct, sharpeApprox };
 }
