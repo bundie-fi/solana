@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * ProtocolCoverage , surfaces which Beethoven protocols a strategy
- * "uses" as a row of category-tagged chips (Deposit / Swap / Perps).
+ * ProtocolCoverage , surfaces which protocols a strategy "uses" as a row of
+ * category-tagged chips (Deposit / Swap / Perps).
  *
  * TODO: replace with on-chain rebalance-history reader. Today the strategy
  * account doesn't store its protocol list , we'd derive it from the program
