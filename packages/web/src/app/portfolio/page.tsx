@@ -8,7 +8,7 @@ import {
   PublicKey,
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   deriveMarketPdas,
   fetchAllMarkets,
@@ -70,37 +70,53 @@ export default function PortfolioPage() {
       setMarkets(allMkts);
       setSolBalance(lamports == null ? null : lamports / LAMPORTS_PER_SOL);
 
-      // For every market, derive YES and NO ATA balances for the user.
-      // Each ATA read is wrapped in `.catch(() => 0)` so a single missing
-      // account / RPC failure doesn't poison the rest. RPC providers
-      // commonly throttle 100+ concurrent requests; a chunked fan-out
-      // could go further but for <100 markets this is fine.
+      // Position discovery: previously fanned out 2 ATA reads per market
+      // (134 RPC calls for 67 markets), which crushed rpcfast's per-key
+      // throttle and made the page take 10-30s to load. Replaced with
+      // ONE getParsedTokenAccountsByOwner call to enumerate every SPL
+      // token the user holds, then a local mint→market lookup.
+      // Net: 1 RPC read instead of N×2.
       const programId = PROGRAM_IDS.predictionMarket;
-      const balances = await Promise.all(
-        allMkts.flatMap((m) => {
-          const marketPk = new PublicKey(m.address);
-          const { yesMint, noMint } = deriveMarketPdas(programId, marketPk);
-          const yesAta = getAssociatedTokenAddressSync(yesMint, publicKey);
-          const noAta = getAssociatedTokenAddressSync(noMint, publicKey);
-          return [
-            readSplBalance(connection, yesAta)
-              .catch(() => 0)
-              .then((b) => ({ m, side: "yes" as const, shares: b })),
-            readSplBalance(connection, noAta)
-              .catch(() => 0)
-              .then((b) => ({ m, side: "no" as const, shares: b })),
-          ];
-        }),
-      );
+      const mintIndex = new Map<string, { m: MarketView; side: "yes" | "no" }>();
+      for (const m of allMkts) {
+        const { yesMint, noMint } = deriveMarketPdas(
+          programId,
+          new PublicKey(m.address),
+        );
+        mintIndex.set(yesMint.toBase58(), { m, side: "yes" });
+        mintIndex.set(noMint.toBase58(), { m, side: "no" });
+      }
 
-      const live = balances
-        .filter((x) => x.shares > 0)
-        .map<Position>((x) => ({
-          market: x.m,
-          side: x.side,
-          shares: x.shares,
-          state: positionState(x.m, slot),
-        }));
+      let userTokens: Awaited<
+        ReturnType<typeof connection.getParsedTokenAccountsByOwner>
+      >;
+      try {
+        userTokens = await connection.getParsedTokenAccountsByOwner(
+          publicKey,
+          { programId: TOKEN_PROGRAM_ID },
+        );
+      } catch (e) {
+        console.error("[portfolio] getParsedTokenAccountsByOwner failed", e);
+        userTokens = { context: { slot: 0 }, value: [] };
+      }
+
+      const live: Position[] = [];
+      for (const acc of userTokens.value) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const info = (acc.account.data as any).parsed?.info;
+        if (!info) continue;
+        const mint: string = info.mint;
+        const shares = Number(info.tokenAmount?.uiAmount ?? 0);
+        if (shares <= 0) continue;
+        const hit = mintIndex.get(mint);
+        if (!hit) continue;
+        live.push({
+          market: hit.m,
+          side: hit.side,
+          shares,
+          state: positionState(hit.m, slot),
+        });
+      }
       setPositions(live);
 
       // Surface only top-level failures the user can act on; silent ATA

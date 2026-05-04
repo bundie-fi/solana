@@ -50,7 +50,11 @@ export function DiscoverMarketGrid({
     if (id === "all") params.delete("filter");
     else params.set("filter", id);
     const qs = params.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
+    // scroll: false — without it, Next 14's app router scrolls the page
+    // back to the top on every filter pill click, which on mobile feels
+    // like the UI just jumped away. Filter changes are an in-place tab,
+    // not a navigation, so preserving scroll position is the right call.
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
   return (

@@ -58,7 +58,10 @@ export default function WalletPage() {
 
   const [solLamports, setSolLamports] = useState<number | null>(null);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
-  const [tab, setTab] = useState<"tokens" | "domains" | "apps">("tokens");
+  // Single-surface wallet — Domains + Connected apps tabs were dropped
+  // (the .bundie SNS list lives on the agent profile / identity flow,
+  // and there's no MWA session list to surface yet). The tokens view is
+  // the only relevant content, so we render it inline.
   const [solUsd, setSolUsd] = useState<number>(SOL_PRICE_FALLBACK);
   const [copied, setCopied] = useState(false);
   const [actionModal, setActionModal] = useState<"send" | "receive" | null>(null);
@@ -205,11 +208,11 @@ export default function WalletPage() {
         </button>
       </div>
 
-      {/* Action row — Receive opens an in-app QR modal; Send opens the
-          in-app SOL/SPL transfer modal; Swap and Buy deep-link to Jupiter +
-          Solflare's onramp respectively (TWA opens these in the system
-          Chrome tab). All four are real, no "coming soon" placeholders. */}
-      <div style={{ padding: "0 16px 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+      {/* Action row — Send opens the in-app SOL/SPL transfer modal,
+          Receive opens an in-app QR modal. Swap + Buy deep-links removed
+          since they're not relevant for the devnet bUSD demo flow (no
+          Jupiter route exists for bUSD, no fiat onramp for testnet). */}
+      <div style={{ padding: "0 16px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <ActionTile
           icon="↗"
           label="Send"
@@ -219,16 +222,6 @@ export default function WalletPage() {
           icon="↙"
           label="Receive"
           onClick={() => setActionModal("receive")}
-        />
-        <ActionTile
-          icon="⇆"
-          label="Swap"
-          href={`https://jup.ag/swap/USDC-SOL?wallet=${encodeURIComponent(addr)}`}
-        />
-        <ActionTile
-          icon="$"
-          label="Buy"
-          href={`https://accounts.solflare.com/buy?address=${encodeURIComponent(addr)}`}
         />
       </div>
 
@@ -244,64 +237,37 @@ export default function WalletPage() {
         />
       )}
 
-      {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: "1px solid var(--line-1)", padding: "0 16px", gap: 20 }}>
-        {(
-          [
-            { id: "tokens",  label: "Tokens" },
-            { id: "domains", label: "Domains" },
-            { id: "apps",    label: "Connected apps" },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              padding: "10px 0", border: "none", background: "transparent",
-              color: tab === t.id ? "var(--fg-0)" : "var(--fg-4)",
-              fontSize: 13, fontWeight: 500, cursor: "pointer",
-              borderBottom: tab === t.id ? "2px solid var(--predict)" : "2px solid transparent",
-              marginBottom: -1, fontFamily: "inherit",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Tokens — only surface left after Domains + Connected apps were
+          removed. Heading kept so the section has a visible label. */}
+      <div style={{ borderBottom: "1px solid var(--line-1)", padding: "10px 16px" }}>
+        <span style={{
+          fontSize: 11, fontWeight: 600, color: "var(--fg-3)",
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          fontFamily: "var(--font-mono)",
+        }}>
+          Tokens
+        </span>
       </div>
-
-      {tab === "tokens" && (
-        <div>
-          <TokenRow symbol="SOL" name="Solana" amount={sol} usdValue={solUsdValue} change={null} bg="#000" fg="#fff" />
-          {tokens.map((t) => (
-            <TokenRow
-              key={t.mint}
-              symbol={t.symbol}
-              name={t.name}
-              amount={t.amount}
-              usdValue={t.usdValue}
-              change={t.change24Pct}
-              bg="var(--predict-tint)"
-              fg="var(--predict)"
-            />
-          ))}
-          {tokens.length === 0 && solLamports != null && (
-            <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12 }}>
-              No SPL tokens detected. Open the bUSD faucet on the Discover tab to get started.
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "domains" && (
-        <DomainsList ownerAddr={addr} />
-      )}
-
-      {tab === "apps" && (
-        <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12, lineHeight: 1.5 }}>
-          Mobile Wallet Adapter sessions appear here once you authorize a Bundie
-          interaction inside the TWA. Nothing connected yet.
-        </div>
-      )}
+      <div>
+        <TokenRow symbol="SOL" name="Solana" amount={sol} usdValue={solUsdValue} change={null} bg="#000" fg="#fff" />
+        {tokens.map((t) => (
+          <TokenRow
+            key={t.mint}
+            symbol={t.symbol}
+            name={t.name}
+            amount={t.amount}
+            usdValue={t.usdValue}
+            change={t.change24Pct}
+            bg="var(--predict-tint)"
+            fg="var(--predict)"
+          />
+        ))}
+        {tokens.length === 0 && solLamports != null && (
+          <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12 }}>
+            No SPL tokens detected. Open the bUSD faucet on the Discover tab to get started.
+          </div>
+        )}
+      </div>
 
       {/* Disconnect — last action, not loud */}
       <div style={{ padding: "32px 16px 16px" }}>

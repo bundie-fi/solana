@@ -137,7 +137,7 @@ export default async function Home(props: {
             color: "var(--fg-0)",
           }}
         >
-          live across {agentRows.filter((r) => r.marketCount > 0).length} strategies
+          live across {agentRows.filter((r) => r.marketCount > 0).length} agents
         </div>
       </div>
       <DiscoverMarketGrid markets={liveMarkets} dir={agentDir} activeFilter={filter} />
