@@ -15,6 +15,7 @@ import {
   HERO_AGENTS,
 } from "@/lib/sns-resolver";
 import { MarketBuyPanel } from "@/components/market-buy-panel";
+import { AgentInsight } from "@/components/agent-insight";
 import { checkAgentQualityGate } from "@/lib/quality-gate";
 
 interface AgentLabel {
@@ -364,6 +365,35 @@ export default async function MarketDetailPage(
           />
         </div>
 
+        {/* Agent insight — NAV chart + recent decisions + vault
+            composition. Streamed via Suspense so the page above the
+            fold renders immediately while the insight panel hydrates.
+            Two panels for kind=2 (head-to-head); one for kinds 1/3. */}
+        <div style={{ padding: "0 16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <Suspense
+            fallback={<InsightSkeleton label={targetA?.name ?? "Target"} />}
+          >
+            <AgentInsight
+              sns={targetA?.sns ?? null}
+              vaultPda={market.strategy ?? null}
+              connection={connection}
+              displayName={targetA?.name}
+            />
+          </Suspense>
+          {market.kind === 2 && market.targetAgent && (
+            <Suspense
+              fallback={<InsightSkeleton label={targetB?.name ?? "Target B"} />}
+            >
+              <AgentInsight
+                sns={targetB?.sns ?? null}
+                vaultPda={market.targetAgent}
+                connection={connection}
+                displayName={targetB?.name}
+              />
+            </Suspense>
+          )}
+        </div>
+
         {/* Resolution data */}
         <div style={{ padding: "0 16px 18px" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Resolution data</div>
@@ -406,6 +436,27 @@ export default async function MarketDetailPage(
         </div>
       </div>
     </main>
+  );
+}
+
+function InsightSkeleton({ label }: { label: string }) {
+  return (
+    <section
+      style={{
+        padding: 16,
+        border: "1px solid var(--line-1)",
+        borderRadius: 12,
+        background: "var(--bg-1)",
+        minHeight: 220,
+      }}
+    >
+      <div className="bd-eyebrow" style={{ marginBottom: 6 }}>
+        Target · {label}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--fg-3)" }}>
+        Loading agent insight…
+      </div>
+    </section>
   );
 }
 

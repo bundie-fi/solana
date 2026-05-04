@@ -865,10 +865,21 @@ agents.get("/api/activity", async (c) => {
     Number.isFinite(limitParam) && limitParam > 0
       ? Math.min(Math.floor(limitParam), 50)
       : 8;
+  // Optional per-agent scope. Used by the bet page's agent insight panel
+  // to surface "what is THIS agent thinking right now". Empty / missing
+  // returns the global feed (default behaviour).
+  const agentSnsFilter = c.req.query("agent")?.trim() || null;
 
   // Use array literal for the type filter so postgres can index it well.
   const allowedTypes = Array.from(ACTIVITY_DISPLAY_TYPES);
   try {
+    const params: unknown[] = [allowedTypes];
+    let agentClause = "";
+    if (agentSnsFilter) {
+      params.push(agentSnsFilter);
+      agentClause = `AND al.agent_sns = $${params.length}`;
+    }
+    params.push(limit);
     const r = await dbQuery<ActivityRow>(
       `SELECT al.agent_sns,
               a.emoji        AS agent_emoji,
@@ -878,9 +889,10 @@ agents.get("/api/activity", async (c) => {
          FROM agent_action_log al
          JOIN agents a ON a.sns = al.agent_sns
          WHERE al.action_type = ANY($1::text[])
+         ${agentClause}
          ORDER BY al.tick_at DESC
-         LIMIT $2`,
-      [allowedTypes, limit],
+         LIMIT $${params.length}`,
+      params,
     );
     const rows = r?.rows ?? [];
     return c.json({
