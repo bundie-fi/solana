@@ -136,9 +136,19 @@ function Sparkline({
   if (!data || data.length < 2) return <svg width={width} height={height} />;
   const min = Math.min(...data);
   const max = Math.max(...data);
-  const span = max - min || 1;
+  const rawSpan = max - min;
+  // When NAV hasn't moved at all (brand-new agents, or one that hasn't
+  // made a single trade yet), the original "span || 1" math drew the
+  // line at y=height-4 (the chart floor) where it visually disappears.
+  // Center it instead so users can still see the agent has data — just
+  // no movement.
+  const flat = rawSpan === 0;
+  const span = rawSpan || 1;
   const stepX = width / (data.length - 1);
-  const pts = data.map((v, i) => [i * stepX, height - 4 - ((v - min) / span) * (height - 8)]);
+  const pts = data.map((v, i) => [
+    i * stepX,
+    flat ? height / 2 : height - 4 - ((v - min) / span) * (height - 8),
+  ]);
   const path = pts
     .map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`))
     .join(" ");
