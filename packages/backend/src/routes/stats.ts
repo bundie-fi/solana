@@ -114,8 +114,10 @@ stats.get("/api/stats/platform", async (c) => {
   // ── Markets totals ──────────────────────────────────────────────────
   // The `markets` table is a Postgres mirror of on-chain Market accounts,
   // refreshed once per supervisor cycle by chaos-sim's markets-indexer.
-  // Single aggregate query — `COUNT(*) FILTER (...)` keeps it to one
-  // table scan instead of three round-trips.
+  // Counts are scoped to markets whose `created_by` matches an active
+  // agent's pubkey — the home page filters out markets created by
+  // unregistered / SystemProgram-sentinel pubkeys, so the numeric tile
+  // would otherwise overcount vs what bettors actually see in the grid.
   let marketsTotal = 0;
   let marketsOpen = 0;
   let marketsResolved = 0;
@@ -126,10 +128,13 @@ stats.get("/api/stats/platform", async (c) => {
       resolved: string;
     }>(
       `SELECT
-         COUNT(*)                                 AS total,
+         COUNT(*)                                     AS total,
          COUNT(*) FILTER (WHERE status = 'open')      AS open,
          COUNT(*) FILTER (WHERE status = 'resolved')  AS resolved
-       FROM markets`,
+       FROM markets
+      WHERE created_by IN (
+        SELECT agent_pubkey FROM agents WHERE status = 'active'
+      )`,
     );
     const row = r?.rows[0];
     if (row) {

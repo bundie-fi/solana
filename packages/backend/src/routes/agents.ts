@@ -849,6 +849,14 @@ const ACTIVITY_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   "swap",
 ]);
 
+// Per-agent feed (the bet page's insight panel) drops periodic system
+// actions like commit_nav — bettors care about strategy decisions, not
+// the every-tick NAV checkpoint pulse. The global feed keeps commit_nav
+// as a "pulse" signal that the platform is alive.
+const PER_AGENT_DROP_TYPES: ReadonlySet<string> = new Set([
+  "commit_nav",
+]);
+
 interface ActivityRow {
   agent_sns: string;
   agent_emoji: string | null;
@@ -871,7 +879,11 @@ agents.get("/api/activity", async (c) => {
   const agentSnsFilter = c.req.query("agent")?.trim() || null;
 
   // Use array literal for the type filter so postgres can index it well.
-  const allowedTypes = Array.from(ACTIVITY_DISPLAY_TYPES);
+  // For per-agent queries we drop the periodic system actions (commit_nav)
+  // so the bet page's insight panel only shows real strategy moves.
+  const allowedTypes = Array.from(ACTIVITY_DISPLAY_TYPES).filter(
+    (t) => !agentSnsFilter || !PER_AGENT_DROP_TYPES.has(t),
+  );
   try {
     const params: unknown[] = [allowedTypes];
     let agentClause = "";

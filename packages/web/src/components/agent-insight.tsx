@@ -192,8 +192,8 @@ export async function AgentInsight({
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--predict)", letterSpacing: "0.06em" }}>
-                    {a.actionType}
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--predict)", letterSpacing: "0.02em" }}>
+                    {prettyAction(a.actionType)}
                   </span>
                   <span className="mono" style={{ fontSize: 10, color: "var(--fg-4)" }}>
                     {relativeTime(a.tickAt)}
@@ -287,6 +287,25 @@ function NavChart({ data }: { data: number[] }) {
       <path d={line} fill="none" stroke={stroke} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
+}
+
+/** Convert a raw action_type from agent_action_log into a bettor-
+ *  friendly label. The raw types are technical (lend_deposit,
+ *  lst_stake, …); bettors don't need to learn the action vocabulary. */
+function prettyAction(actionType: string): string {
+  switch (actionType) {
+    case "commit_nav": return "NAV checkpoint";
+    case "lend_deposit": return "Deposited into lending";
+    case "lend_withdraw": return "Withdrew from lending";
+    case "lst_stake": return "Staked SOL into LST";
+    case "lst_unstake": return "Unstaked LST";
+    case "swap": return "Swapped tokens";
+    case "create_market": return "Opened a prediction market";
+    case "perp_open": return "Opened perp position";
+    case "perp_close": return "Closed perp position";
+    case "noop": return "Held position";
+    default: return actionType.replace(/_/g, " ");
+  }
 }
 
 function relativeTime(iso: string): string {
