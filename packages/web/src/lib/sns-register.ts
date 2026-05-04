@@ -356,8 +356,8 @@ export async function executeRegistration(
   conn?: Connection,
 ): Promise<RegistrationOutcome> {
   if (!wallet?.publicKey) throw new Error("Wallet not connected");
-  if (!wallet.sendTransaction)
-    throw new Error("Wallet does not support sendTransaction");
+  if (!wallet.signTransaction && !wallet.sendTransaction)
+    throw new Error("Wallet supports neither signTransaction nor sendTransaction");
 
   const v = validateName(name);
   if (!v.ok) throw new Error(v.reason ?? "Invalid name");
@@ -398,7 +398,36 @@ export async function executeRegistration(
   const partiallySignedTx = Transaction.from(rootSignedBytes);
 
   // Step 2 , wallet signs + sends.
-  const signature = await wallet.sendTransaction(partiallySignedTx, c);
+  //
+  // CRITICAL — Mobile Wallet Adapter caveat: this is a MULTI-SIGNER tx
+  // (bundie-root parent_owner + user payer). The bundie-root sig is
+  // already attached. If we use `wallet.sendTransaction` here it routes
+  // through MWA's `signAndSendTransactions`, which on Seeker / mobile
+  // wallets often does NOT preserve the existing partial signatures —
+  // the wallet treats the input as "sign and broadcast" and may emit a
+  // tx where bundie-root's slot is empty. Validator rejects with
+  // "signature verification failed - missing signature for public key
+  // <bundie-root>".
+  //
+  // Use `signTransaction` instead: the wallet ADDS its signature to the
+  // existing slot (preserves bundie-root's), returns the fully-signed
+  // tx, and we broadcast via sendRawTransaction. signTransactions is
+  // soft-deprecated in MWA 2.0+ but every current MWA wallet still
+  // supports it (per @solana-mobile/wallet-standard-mobile source).
+  // Falls through to sendTransaction for wallets that don't expose
+  // signTransaction at all.
+  let signature: string;
+  if (wallet.signTransaction) {
+    const signed = await wallet.signTransaction(partiallySignedTx);
+    signature = await c.sendRawTransaction(signed.serialize(), {
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+    });
+  } else if (wallet.sendTransaction) {
+    signature = await wallet.sendTransaction(partiallySignedTx, c);
+  } else {
+    throw new Error("Wallet supports neither signTransaction nor sendTransaction");
+  }
   await c
     .confirmTransaction(
       { signature, blockhash, lastValidBlockHeight },

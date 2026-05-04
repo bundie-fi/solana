@@ -375,6 +375,18 @@ export async function launchAgent({
     let needsSendTransactionFallback = isMwa || !wallet.signTransaction;
     let depositSig: string | null = null;
 
+    // Diagnostic — surfaces the exact wallet routing decision so when a
+    // user reports "missing signature for public key X" we can correlate
+    // X against feePayer + adapter name without guesswork.
+    console.log("[deposit] wallet routing", {
+      walletName: wallet.walletName ?? "<unknown>",
+      isMwa,
+      hasSignTransaction: !!wallet.signTransaction,
+      walletPublicKey: wallet.publicKey.toBase58(),
+      txFeePayer: tx.feePayer?.toBase58() ?? "<unset>",
+      attempt,
+    });
+
     if (!isMwa && wallet.signTransaction) {
       try {
         const presigned = await wallet.signTransaction(tx);
@@ -501,11 +513,26 @@ export async function launchAgent({
     }
 
     if (needsSendTransactionFallback) {
-      depositSig = await wallet.sendTransaction(
-        tx,
-        connection,
-        { skipPreflight: false, preflightCommitment: "processed" },
-      );
+      try {
+        depositSig = await wallet.sendTransaction(
+          tx,
+          connection,
+          { skipPreflight: false, preflightCommitment: "processed" },
+        );
+        console.log("[deposit] sendTransaction succeeded", {
+          signature: depositSig,
+          path: isMwa ? "mwa-signAndSend" : "non-mwa-fallback",
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[deposit] sendTransaction FAILED", {
+          path: isMwa ? "mwa-signAndSend" : "non-mwa-fallback",
+          walletPublicKey: wallet.publicKey.toBase58(),
+          txFeePayer: tx.feePayer?.toBase58(),
+          error: msg,
+        });
+        throw err;
+      }
     }
     if (depositSig === null) {
       throw new Error("launchAgent: broadcast did not return a signature");
