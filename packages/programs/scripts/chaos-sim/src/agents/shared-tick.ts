@@ -173,11 +173,21 @@ export async function runTick(args: TickArgs): Promise<void> {
     msol: surfpoolBalances.msol,
   };
 
+  // Surface own pubkey explicitly so the brain has a NAMED value to
+  // exclude when picking targetAgentA / targetAgentB. Without this the
+  // LLM has hallucinated its own pubkey by stitching characters from
+  // peers[] / history, producing create_market actions that the
+  // executor rejects with "targetAgentA must not equal creator
+  // (insider guard)".
+  const selfWithPubkey = {
+    ...selfNav,
+    pubkey: args.kp.publicKey.toBase58(),
+  };
   const state = {
     observedFrom: observeChain,
     surfpoolReachable: surfpoolAvailable,
     slot: await observeConn.getSlot("confirmed").catch(() => null),
-    self: selfNav,
+    self: selfWithPubkey,
     rates,
     peers: peerNavs,
   };

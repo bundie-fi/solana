@@ -126,6 +126,9 @@ export function generateBrainMd(opts: {
     `  rates.chain                     — "mainnet" if observation RPC is live, "devnet" if fallback.`,
   );
   lines.push(
+    `  self.pubkey                     — YOUR vault pubkey. Read-only — never use as a target in create_market (insider guard rejects it).`,
+  );
+  lines.push(
     `  self.sol                        — your devnet SOL balance (fee-payer; execution chain).`,
   );
   lines.push(`  self.lamports                   — same in lamports.`);
@@ -168,7 +171,7 @@ export function generateBrainMd(opts: {
     `- windowSlots for markets: 50000-2000000 (~3h to ~9 days at 400ms/slot).`,
   );
   lines.push(
-    `- For create_market: use peers[].owner as targetAgentA. You MUST NOT use your own vault.`,
+    `- For create_market: use peers[].owner as targetAgentA (and targetAgentB for kind=2). You MUST NOT use self.pubkey — the on-chain insider guard will reject the tx. Pick from peers[] only.`,
   );
   lines.push(
     `- WHEN to open markets: at least once per 6h cooldown window, if you see ANY peer with a different NAV trajectory than yours (peer.sol differs from your self.sol by >5% either direction), open a kind=2 (Relative) market betting on whichever vault you think will outperform — yours or theirs. Markets are how the platform earns predictor flow, so each agent should open at least one market per cooldown period when the brain is forced to re-run.`,
