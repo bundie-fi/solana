@@ -38,7 +38,11 @@ export function DiscoverMarketGrid({
   const sp = useSearchParams();
 
   const filterDef = FILTERS.find((f) => f.id === activeFilter) ?? FILTERS[0];
-  const filtered = markets.filter((m) => filterDef.kindMatches(m.kind));
+  // "Trending" implies live — resolved markets carry no betting decision.
+  // Drop them before the kind/volume sort so the top-8 surface doesn't
+  // get crowded out by historical winners with high settled volume.
+  const open = markets.filter((m) => m.status === "active");
+  const filtered = open.filter((m) => filterDef.kindMatches(m.kind));
   const trending = [...filtered].sort((a, b) => b.totalVolume - a.totalVolume).slice(0, 8);
 
   const setFilter = (id: FilterId) => {

@@ -104,6 +104,11 @@ const NEW_JSON_LINE =
 
 // 1. Kinds header + selectors block (one big swap, deletes the
 //    "Available rate surfaces" subsection entirely).
+//
+//    The selector=3 (MarginFi USDC) line is OPTIONAL because agents
+//    created before MarginFi was retired (commit 5b68f39) have a
+//    5-selector rate-surfaces list; current agents have 4. Both
+//    legacy variants get fully replaced by the v2 NAV-based block.
 const LEGACY_KINDS_BLOCK = new RegExp(
   [
     "^Available market kinds \\(Phase F on-chain market kinds\\):\\n",
@@ -114,6 +119,7 @@ const LEGACY_KINDS_BLOCK = new RegExp(
     "Available rate surfaces \\(on-chain selectors for kind=3\\):\\n",
     "  selector=1[^\\n]*\\n",
     "  selector=2[^\\n]*\\n",
+    "(?:  selector=3[^\\n]*\\n)?",
     "  selector=4[^\\n]*\\n",
     "  selector=5[^\\n]*\\n",
   ].join(""),
@@ -121,8 +127,12 @@ const LEGACY_KINDS_BLOCK = new RegExp(
 );
 
 // 2. spreadBps rule line (single line).
+//
+//    Pre-MarginFi-retirement template said `(selectors 1,3)`; current
+//    template says `(selector 1)`. Both refer to legacy utilization
+//    selectors and get dropped wholesale.
 const LEGACY_SPREAD_RULE =
-  /^- spreadBps: for utilization \(selector 1\) use 300-1500; for LST rate \(selectors 2,4\) use 50-500\.\n/m;
+  /^- spreadBps: for utilization \(selectors? 1(?:,3)?\) use 300-1500; for LST rate \(selectors 2,4\) use 50-500\.\n/m;
 
 // Marker that we add the per-kind REQUIRES rules immediately AFTER (the
 // targetAgentA rule is preserved verbatim from both old + new prompts).
@@ -140,8 +150,11 @@ const LEGACY_DEDUP_RATE_SURFACE_PHRASE =
   /near-identical markets \(same subject, same rate surface, overlapping time windows\)\./g;
 
 // 5. JSON schema line.
+//
+//    Selector list is `<1|2|3|4|5>` for pre-MarginFi-retirement agents,
+//    `<1|2|4|5>` for current ones. Both get rewritten to the v2 schema.
 const LEGACY_JSON_LINE =
-  /^    \{"type": "create_market", "args": \{"kind": <1\|2\|3>, "targetAgentA": "<vault_pubkey>", "selector": <1\|2\|4\|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>\}\}$/m;
+  /^    \{"type": "create_market", "args": \{"kind": <1\|2\|3>, "targetAgentA": "<vault_pubkey>", "selector": <1\|2(?:\|3)?\|4\|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>\}\}$/m;
 
 // Idempotency marker — present in any v2-migrated brain_md, absent from
 // legacy. Anchored on a phrase the generator emits exactly once.
