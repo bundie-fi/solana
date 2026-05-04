@@ -144,29 +144,15 @@ export function generateBrainMd(opts: {
   lines.push(``);
   lines.push(allocation);
   lines.push(``);
-  lines.push(`Available market kinds (Phase F on-chain market kinds):`);
+  lines.push(`Available market kinds (v2 NAV-based, resolved against on-chain BundieVault snapshots):`);
   lines.push(
-    `  kind=1  Single-vault NAV vs spread — predict whether YOUR vault NAV moves up by spreadBps over windowSlots.`,
+    `  kind=1  NavTarget — predict whether targetAgentA's vault NAV reaches thresholdLamports (6dp bUSD base units, 1 bUSD = 1_000_000) by the resolution slot.`,
   );
   lines.push(
-    `  kind=2  Vault-vs-vault NAV race — predict whether vault A out-NAVs vault B by spreadBps.`,
+    `  kind=2  Relative — predict whether targetAgentA's NAV growth beats targetAgentB's NAV growth between creation and the resolution slot. Both NAVs are snapshotted on-chain at create time.`,
   );
   lines.push(
-    `  kind=3  Rate-surface vs benchmark — predict whether a named rate surface (Kamino utilization, mSOL premium, etc.) crosses spreadBps.`,
-  );
-  lines.push(``);
-  lines.push(`Available rate surfaces (on-chain selectors for kind=3):`);
-  lines.push(
-    `  selector=1  Kamino USDC lending supply utilization (bps, 0-10000)`,
-  );
-  lines.push(
-    `  selector=2  Marinade mSOL price premium over SOL (bps above par)`,
-  );
-  lines.push(
-    `  selector=4  SPL Stake Pool exchange rate premium (bps above 1.0 SOL, covers Jito/BlazeStake)`,
-  );
-  lines.push(
-    `  selector=5  Jupiter Perps SOL-PERP funding rate (bps annualized)`,
+    `  kind=3  Drawdown — predict whether targetAgentA's vault NAV falls by drawdownBps (1-10000) below the creation-time snapshot before the resolution slot.`,
   );
   lines.push(``);
   lines.push(
@@ -182,22 +168,28 @@ export function generateBrainMd(opts: {
     `- windowSlots for markets: 50000-2000000 (~3h to ~9 days at 400ms/slot).`,
   );
   lines.push(
-    `- spreadBps: for utilization (selector 1) use 300-1500; for LST rate (selectors 2,4) use 50-500.`,
-  );
-  lines.push(
     `- For create_market: use peers[].owner as targetAgentA. You MUST NOT use your own vault.`,
   );
   lines.push(
-    `- seedAmountUsdc: always between 1 and 5. This seeds the market's initial liquidity.`,
+    `- kind=1 (NavTarget) REQUIRES thresholdLamports (u64, > 0). Pick a target near the peer's current NAV — typically peer.lamports * (1.05 to 1.30) for an upside bet, or * (0.70 to 0.95) for a downside bet. 1 bUSD = 1_000_000 lamports.`,
+  );
+  lines.push(
+    `- kind=2 (Relative) REQUIRES targetAgentB (a SECOND peers[].owner, distinct from targetAgentA, distinct from your own vault). Omit thresholdLamports/drawdownBps.`,
+  );
+  lines.push(
+    `- kind=3 (Drawdown) REQUIRES drawdownBps (integer in [1, 10000]). 500 = 5% drawdown, 2000 = 20% drawdown.`,
+  );
+  lines.push(
+    `- seedAmountBusd: always between 1 and 5. This seeds the market's initial liquidity in bUSD.`,
   );
   lines.push(
     `- DEDUPLICATION: Before creating a market, scan HISTORY_JSON. If you already created a market with the`,
   );
   lines.push(
-    `  same targetAgentA + selector combination in the last 5 entries, output noop instead. Do not create`,
+    `  same targetAgentA + kind combination in the last 5 entries, output noop instead. Do not create`,
   );
   lines.push(
-    `  near-identical markets (same subject, same rate surface, overlapping time windows).`,
+    `  near-identical markets (same subject, same kind, overlapping time windows).`,
   );
   lines.push(
     `- BEFORE proposing a lend_deposit, check self.usdc. If it's near zero, your capital is already deployed — propose lend_withdraw or noop, NOT another deposit. The platform no longer auto-refills USDC.`,
@@ -250,7 +242,7 @@ export function generateBrainMd(opts: {
     `    {"type": "perp_close",    "protocol": "jupiter-perps",              "args": {"market": "SOL-PERP"|"BTC-PERP"|"ETH-PERP"}} |`,
   );
   lines.push(
-    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "selector": <1|2|4|5>, "spreadBps": <u64>, "windowSlots": <u64>, "questionTemplate": "<string max 128 chars>", "seedAmountUsdc": <number>}}`,
+    `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "targetAgentB"?: "<vault_pubkey, kind=2 only>", "thresholdLamports"?: <u64, kind=1 only>, "drawdownBps"?: <1..10000, kind=3 only>, "windowSlots": <number>, "questionTemplate": "<string max 128 chars>", "seedAmountBusd": <1..5>}}`,
   );
   lines.push(`  ]`);
   lines.push(`}`);

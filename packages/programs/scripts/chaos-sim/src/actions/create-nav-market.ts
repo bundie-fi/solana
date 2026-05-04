@@ -308,8 +308,14 @@ export async function createNavMarket(
     u64LE(resolutionSlot),
     u64LE(initialSubsidy),
     u16LE(feeBps),
-    u64LE(0n), // initial_nav_a — handler overrides from vault for kinds 1/2/3
-    u64LE(0n), // initial_nav_b — handler overrides from vault for kinds 1/2/3
+    // initial_nav_a/b are ignored by the handler for kinds 1/2/3 — it
+    // overrides them with the BundieVault NAV snapshot. BUT for kind=2 the
+    // handler also runs `require!(initial_nav_a > 0 && initial_nav_b > 0)`
+    // BEFORE the override (create_market_v2.rs:160-163), so passing 0
+    // hard-fails with InvalidPayload. Pass 1 — small enough to be obviously
+    // a sentinel, large enough to satisfy the require!.
+    u64LE(1n),
+    u64LE(1n),
   ]);
 
   // Anchor optional accounts: pass the program ID itself as the sentinel
