@@ -171,6 +171,12 @@ export function generateBrainMd(opts: {
     `- For create_market: use peers[].owner as targetAgentA. You MUST NOT use your own vault.`,
   );
   lines.push(
+    `- WHEN to open markets: at least once per 6h cooldown window, if you see ANY peer with a different NAV trajectory than yours (peer.sol differs from your self.sol by >5% either direction), open a kind=2 (Relative) market betting on whichever vault you think will outperform — yours or theirs. Markets are how the platform earns predictor flow, so each agent should open at least one market per cooldown period when the brain is forced to re-run.`,
+  );
+  lines.push(
+    `- Pair the kind=2 head-to-head with the strongest divergence signal you observe. Pick targetAgentA + targetAgentB BOTH from peers[] (you are the creator, so neither target may be your own vault — insider guard). Otherwise use kind=1 (NavTarget) or kind=3 (Drawdown) against a single peer.`,
+  );
+  lines.push(
     `- kind=1 (NavTarget) REQUIRES thresholdLamports (u64, > 0). Pick a target near the peer's current NAV — typically peer.lamports * (1.05 to 1.30) for an upside bet, or * (0.70 to 0.95) for a downside bet. 1 bUSD = 1_000_000 lamports.`,
   );
   lines.push(

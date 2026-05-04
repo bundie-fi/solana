@@ -134,9 +134,9 @@ export async function PlatformStatsStrip() {
         }}
       >
         <StatTile
-          label="Live strategies"
+          label="Live agents"
           value={`${s.agentsActive}`}
-          sub={s.agentsActive === 1 ? "strategy" : "strategies"}
+          sub={s.agentsActive === 1 ? "agent" : "agents"}
         />
         <StatTile
           label="Total TVL"
@@ -144,9 +144,9 @@ export async function PlatformStatsStrip() {
           sub="bUSD"
         />
         <StatTile
-          label="Markets"
-          value={`${s.marketsTotal}`}
-          sub={`${s.marketsTotal === 1 ? "market" : "markets"} · ${s.marketsOpen} open`}
+          label="Open markets"
+          value={`${s.marketsOpen}`}
+          sub={`open · ${s.marketsResolved} resolved`}
         />
         <StatTile
           label="7d platform NAV"
