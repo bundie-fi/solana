@@ -14,6 +14,7 @@ import {
   QUALITY_GATE_MIN_DAYS,
   type QualityGateResult,
 } from "@/lib/quality-gate";
+import { isMobileWalletAdapter, sendTxViaMwa } from "@/lib/mwa-tx";
 
 const WalletButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then((m) => m.WalletMultiButton),
@@ -42,6 +43,7 @@ export function MarketBuyPanel({
   const { connection } = useConnection();
   const wallet = useWallet();
   const { publicKey, sendTransaction, connected } = wallet;
+  const isMwa = isMobileWalletAdapter(wallet?.wallet?.adapter?.name);
   const gateBlocked = qualityGate ? !qualityGate.passes : false;
 
   const [amount, setAmount] = useState("0.5");
@@ -129,14 +131,44 @@ export function MarketBuyPanel({
 
     try {
       const amountLamports = BigInt(Math.round(parsed * 1_000_000));
-      const tx = await buildBuySharesTx(connection, {
-        market,
-        buyer: publicKey,
-        outcome: side,
-        amount: amountLamports,
-      });
-      const sig = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(sig, "confirmed");
+      let sig: string;
+      if (isMwa) {
+        // MWA: build the buy tx with the wallet's freshly-authorized
+        // pubkey as `buyer` so the ix's signer-key meta + derived ATAs
+        // match what the mobile wallet will actually sign with. Using
+        // the cached publicKey here would re-introduce the active-
+        // account drift that produced "missing signature" errors before
+        // the launch flow was migrated to transact().
+        const result = await sendTxViaMwa({
+          connection,
+          logPrefix: "[bet]",
+          buildTx: async (signer) =>
+            buildBuySharesTx(connection, {
+              market,
+              buyer: signer,
+              outcome: side,
+              amount: amountLamports,
+            }),
+        });
+        sig = result.signature;
+        await connection.confirmTransaction(
+          {
+            signature: sig,
+            blockhash: result.blockhash,
+            lastValidBlockHeight: result.lastValidBlockHeight,
+          },
+          "confirmed",
+        );
+      } else {
+        const tx = await buildBuySharesTx(connection, {
+          market,
+          buyer: publicKey,
+          outcome: side,
+          amount: amountLamports,
+        });
+        sig = await sendTransaction(tx, connection);
+        await connection.confirmTransaction(sig, "confirmed");
+      }
       setTxSig(sig);
       setStage("success");
       toast.success(
@@ -162,12 +194,34 @@ export function MarketBuyPanel({
     // the pre-redeem value here for the success toast / "Redeemed $X" line.
     const claimedUsdSnapshot = claimableUsd;
     try {
-      const tx = await buildRedeemTx(connection, {
-        market,
-        redeemer: publicKey,
-      });
-      const sig = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(sig, "confirmed");
+      let sig: string;
+      if (isMwa) {
+        // Same MWA discipline as handleBuy — `redeemer` is baked into
+        // the ix's signer-key meta + the redeemer ATAs, so it MUST be
+        // the wallet's freshly authorized pubkey, not the cached one.
+        const result = await sendTxViaMwa({
+          connection,
+          logPrefix: "[redeem]",
+          buildTx: async (signer) =>
+            buildRedeemTx(connection, { market, redeemer: signer }),
+        });
+        sig = result.signature;
+        await connection.confirmTransaction(
+          {
+            signature: sig,
+            blockhash: result.blockhash,
+            lastValidBlockHeight: result.lastValidBlockHeight,
+          },
+          "confirmed",
+        );
+      } else {
+        const tx = await buildRedeemTx(connection, {
+          market,
+          redeemer: publicKey,
+        });
+        sig = await sendTransaction(tx, connection);
+        await connection.confirmTransaction(sig, "confirmed");
+      }
       setTxSig(sig);
       if (claimedUsdSnapshot != null) {
         setRedeemSuccessUsd(claimedUsdSnapshot);
