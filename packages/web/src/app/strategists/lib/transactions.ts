@@ -177,12 +177,29 @@ export async function buildDepositToVaultIxs(
  */
 interface MinimalWallet {
   publicKey: PublicKey;
+  /** Name of the active wallet adapter. Used to detect Mobile Wallet
+   *  Adapter wallets so we skip the signTransaction → simulate → sendRaw
+   *  path (which doesn't work reliably on MWA — see comment in the
+   *  signing block below). For MWA-detected wallets the fallback uses
+   *  `sendTransaction`, which maps to MWA's signAndSendTransactions. */
+  walletName?: string;
   signTransaction?: (tx: Transaction) => Promise<Transaction>;
   sendTransaction: (
     tx: Transaction,
     connection: Connection,
     options?: { skipPreflight?: boolean; preflightCommitment?: Commitment },
   ) => Promise<string>;
+}
+
+/** Mobile Wallet Adapter (Seeker / Android wallets reached via
+ *  @solana-mobile/wallet-standard-mobile) registers itself as exactly
+ *  "Mobile Wallet Adapter" or "Remote Mobile Wallet Adapter". Detect by
+ *  prefix match — checked against the source at
+ *  packages/wallet-standard-mobile/src/wallet.ts. */
+function isMobileWalletAdapter(name: string | undefined): boolean {
+  if (!name) return false;
+  return name.startsWith("Mobile Wallet Adapter") ||
+    name.startsWith("Remote Mobile Wallet Adapter");
 }
 
 export interface LaunchAgentArgs {
@@ -332,45 +349,49 @@ export async function launchAgent({
     // failure. Running connection.simulateTransaction here gives us the
     // raw RPC error message, including instruction logs.
     // Mobile Wallet Adapter (Seeker / Android wallets reached via
-    // `@solana-mobile/wallet-standard-mobile`) does not implement
-    // `signTransaction` reliably for legacy Transactions — some
-    // implementations either omit our signature entirely or sign with the
-    // wallet's *active* account when that differs from the publicKey the
-    // adapter cached at connect time, both of which manifest as the
-    // validator rejecting the broadcast with
+    // `@solana-mobile/wallet-standard-mobile`) — skip signTransaction
+    // entirely. Per the wallet-standard-mobile source comment:
     //
-    //   signature verification failed - missing signature for public key <feePayer>
+    //   "In MWA 1.0, signAndSend is optional and signTransaction is
+    //    mandatory. Whereas in MWA 2.0+, signAndSend is mandatory and
+    //    signTransaction is optional (and soft deprecated)."
     //
-    // The MWA spec's first-class entrypoint is `signAndSendTransactions`,
-    // which is what `wallet.sendTransaction` maps to. So: try
-    // signTransaction first (extension wallets need it for the simulation
-    // diagnostic below); if the returned tx is missing our signature,
-    // skip the diagnostic and fall through to wallet.sendTransaction.
-    let needsSendTransactionFallback = !wallet.signTransaction;
+    // The signTransaction path on MWA is unreliable in two ways:
+    //   1. The mobile wallet may sign with its currently-active account,
+    //      which can differ from the publicKey wallet-adapter cached at
+    //      connect time — leaving a presigned tx whose signature pubkey
+    //      doesn't match `tx.feePayer`. Validator rejects with "missing
+    //      signature for public key <feePayer>".
+    //   2. The mobile wallet may modify the tx (priority fees, blockhash)
+    //      and return a signature valid for the modified message but not
+    //      for our serialized broadcast bytes.
+    //
+    // signAndSendTransactions (= wallet.sendTransaction in
+    // wallet-adapter-react) lets the wallet sign AND broadcast in one
+    // round-trip, sidestepping both issues. We lose the simulation
+    // diagnostic for desktop, but that diagnostic is only useful on
+    // extension wallets which use signTransaction by design.
+    const isMwa = isMobileWalletAdapter(wallet.walletName);
+    let needsSendTransactionFallback = isMwa || !wallet.signTransaction;
     let depositSig: string | null = null;
 
-    if (wallet.signTransaction) {
+    if (!isMwa && wallet.signTransaction) {
       try {
         const presigned = await wallet.signTransaction(tx);
 
-        // MWA defensive check: confirm the wallet actually signed for the
-        // pubkey we set as feePayer. If the signature slot is empty (or
-        // the signing pubkey doesn't match), the signed tx is unusable —
-        // bail to the sendTransaction path below instead of broadcasting
-        // a tx that's guaranteed to fail validation.
+        // Defensive check (still useful for any non-MWA wallet that mis-
+        // implements signTransaction): confirm the wallet signed for the
+        // pubkey we set as feePayer. If the signature slot is empty or
+        // missing, fall through to sendTransaction.
         const userSig = presigned.signatures.find((s) =>
           s.publicKey.equals(wallet.publicKey),
         );
         if (!userSig?.signature) {
           console.warn(
-            "[deposit] signTransaction returned tx without our signature " +
-              "(MWA quirk on legacy Transaction). " +
-              "Falling back to wallet.sendTransaction (signAndSendTransactions).",
+            "[deposit] signTransaction returned tx without our signature. " +
+              "Falling back to wallet.sendTransaction.",
           );
           needsSendTransactionFallback = true;
-          // Fall through — skip the simulate + sendRaw block; the outer
-          // sendTransaction call below handles broadcast.
-          // (Use a labeled break to escape the inner try cleanly.)
           throw new Error("__MWA_FALLBACK__");
         }
 

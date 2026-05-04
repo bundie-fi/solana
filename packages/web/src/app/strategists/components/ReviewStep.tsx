@@ -31,7 +31,7 @@ interface Props {
 export function ReviewStep({ state, dispatch }: Props) {
   const { identity, strategy, allowlist, capital, launch } = state;
   const router = useRouter();
-  const { publicKey, connected, sendTransaction, signTransaction } =
+  const { publicKey, connected, sendTransaction, signTransaction, wallet } =
     useWallet();
   const { connection } = useConnection();
 
@@ -213,7 +213,12 @@ export function ReviewStep({ state, dispatch }: Props) {
 
       const result = await launchAgent({
         connection,
-        wallet: { publicKey, sendTransaction, signTransaction },
+        wallet: {
+          publicKey,
+          walletName: wallet?.adapter?.name,
+          sendTransaction,
+          signTransaction,
+        },
         nextSteps,
         onStage: (stage) => dispatch({ type: "LAUNCH/SET_STAGE", stage }),
         onDepositTx: (sig) => {
@@ -253,6 +258,7 @@ export function ReviewStep({ state, dispatch }: Props) {
     connected,
     sendTransaction,
     signTransaction,
+    wallet,
     strategy.preset,
     strategy.showCustomBrain,
     strategy.customBrainMd,
