@@ -4,6 +4,7 @@ import { fetchAgentDirectory, fetchRegisteredAgents, fetchRegisteredVaultSet } f
 import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
 import { PlatformStatsStrip } from "@/components/platform-stats-strip";
 import { SeekerBadge } from "@/components/SeekerBadge";
+import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
 import { DiscoverAgentList, type DiscoverAgentRow } from "@/components/discover-agent-list";
 import { DiscoverMarketGrid } from "@/components/discover-market-grid";
 
@@ -95,6 +96,14 @@ export default async function Home(props: {
           <PlatformStatsStrip />
           <SeekerBadge />
         </div>
+      </div>
+
+      {/* Faucet CTA — surfaces bUSD balance + claim button. Hides itself
+          when the wallet is disconnected, so it's harmless on first paint
+          for visitors who haven't connected yet. Lives on Discover so the
+          mobile bottom-nav can reach it (no /markets link in BottomNav). */}
+      <div style={{ padding: "0 16px" }}>
+        <BettorFaucetCTA />
       </div>
 
       {/* Top strategies header */}

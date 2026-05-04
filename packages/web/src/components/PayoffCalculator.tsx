@@ -146,7 +146,7 @@ export function PayoffCalculator({
 
       <p className="font-mono text-[10px] text-neutral-800 mt-4 leading-relaxed">
         cost = b · ln(exp(q_yes/b) + exp(q_no/b)) — on-chain LS-LMSR. Each
-        winning share settles to 1 USDC. Fee of {(feeBps / 100).toFixed(2)}%
+        winning share settles to 1 bUSD. Fee of {(feeBps / 100).toFixed(2)}%
         applied to stake.
       </p>
     </div>
@@ -194,7 +194,7 @@ function Side({
             onChange={(e) => onStake(e.target.value)}
             className="flex-1 bg-transparent border-b border-neutral-300 focus:border-purple-300 outline-none font-mono nums text-lg text-neutral-900 py-1"
           />
-          <span className="font-mono text-[11px] text-neutral-800">USDC</span>
+          <span className="font-mono text-[11px] text-neutral-800">bUSD</span>
         </div>
       </label>
 

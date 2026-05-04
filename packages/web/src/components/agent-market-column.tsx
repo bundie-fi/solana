@@ -129,7 +129,7 @@ function AgentMarketRow({
             {market.outcome ? ` · ${market.outcome}` : ""}
           </div>
           <div className="font-mono text-xs text-neutral-800 nums mt-0.5">
-            {(market.totalVolume / 1e6).toFixed(2)} USDC
+            {(market.totalVolume / 1e6).toFixed(2)} bUSD
           </div>
         </div>
       </Link>

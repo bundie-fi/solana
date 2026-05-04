@@ -120,7 +120,7 @@ export function MarketBuyPanel({
     if (!publicKey || !connected) return;
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) {
-      setError("Enter a valid USDC amount.");
+      setError("Enter a valid bUSD amount.");
       return;
     }
 
@@ -172,7 +172,7 @@ export function MarketBuyPanel({
       setTxSig(sig);
       setStage("success");
       toast.success(
-        `Bet placed: ${parsed} USDC on ${side.toUpperCase()}.`,
+        `Bet placed: ${parsed} bUSD on ${side.toUpperCase()}.`,
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -346,7 +346,7 @@ export function MarketBuyPanel({
               className="muted"
               style={{ fontSize: 11, lineHeight: 1.4 }}
             >
-              Winning shares burned, USDC sent to your wallet.
+              Winning shares burned, bUSD sent to your wallet.
             </div>
           </div>
         ) : winnerBalanceBase == null ? (
@@ -409,7 +409,7 @@ export function MarketBuyPanel({
                     color: "var(--predict)",
                   }}
                 >
-                  ${claimableUsd?.toFixed(2)} USDC
+                  ${claimableUsd?.toFixed(2)} bUSD
                 </span>
               </div>
             </div>
@@ -604,7 +604,7 @@ export function MarketBuyPanel({
 
         <div className="card inset" style={{ padding: 14, marginBottom: 16 }}>
           <BetRow label="Side" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}>{side.toUpperCase()}</span>} />
-          <BetRow label="Stake" value={`${amountNum.toFixed(2)} USDC`} />
+          <BetRow label="Stake" value={`${amountNum.toFixed(2)} bUSD`} />
           <BetRow label="Shares" value={`${shares.toFixed(2)} ${side.toUpperCase()}`} />
           <BetRow label="Max payout" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)", fontFamily: "var(--font-mono)" }}>◎{payout.toFixed(2)}</span>} last />
         </div>
@@ -684,7 +684,7 @@ export function MarketBuyPanel({
               WebkitAppearance: "none",
             }}
           />
-          <span className="mono muted" style={{ fontSize: 12 }}>USDC</span>
+          <span className="mono muted" style={{ fontSize: 12 }}>bUSD</span>
         </div>
         <button
           className="btn btn-ghost"
