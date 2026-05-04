@@ -331,9 +331,48 @@ export async function launchAgent({
     // impossible to distinguish a real validation bug from a routing
     // failure. Running connection.simulateTransaction here gives us the
     // raw RPC error message, including instruction logs.
+    // Mobile Wallet Adapter (Seeker / Android wallets reached via
+    // `@solana-mobile/wallet-standard-mobile`) does not implement
+    // `signTransaction` reliably for legacy Transactions — some
+    // implementations either omit our signature entirely or sign with the
+    // wallet's *active* account when that differs from the publicKey the
+    // adapter cached at connect time, both of which manifest as the
+    // validator rejecting the broadcast with
+    //
+    //   signature verification failed - missing signature for public key <feePayer>
+    //
+    // The MWA spec's first-class entrypoint is `signAndSendTransactions`,
+    // which is what `wallet.sendTransaction` maps to. So: try
+    // signTransaction first (extension wallets need it for the simulation
+    // diagnostic below); if the returned tx is missing our signature,
+    // skip the diagnostic and fall through to wallet.sendTransaction.
+    let needsSendTransactionFallback = !wallet.signTransaction;
+    let depositSig: string | null = null;
+
     if (wallet.signTransaction) {
       try {
         const presigned = await wallet.signTransaction(tx);
+
+        // MWA defensive check: confirm the wallet actually signed for the
+        // pubkey we set as feePayer. If the signature slot is empty (or
+        // the signing pubkey doesn't match), the signed tx is unusable —
+        // bail to the sendTransaction path below instead of broadcasting
+        // a tx that's guaranteed to fail validation.
+        const userSig = presigned.signatures.find((s) =>
+          s.publicKey.equals(wallet.publicKey),
+        );
+        if (!userSig?.signature) {
+          console.warn(
+            "[deposit] signTransaction returned tx without our signature " +
+              "(MWA quirk on legacy Transaction). " +
+              "Falling back to wallet.sendTransaction (signAndSendTransactions).",
+          );
+          needsSendTransactionFallback = true;
+          // Fall through — skip the simulate + sendRaw block; the outer
+          // sendTransaction call below handles broadcast.
+          // (Use a labeled break to escape the inner try cleanly.)
+          throw new Error("__MWA_FALLBACK__");
+        }
 
         // Backend's faucet mints via api.devnet.solana.com but the frontend
         // reads from rpcfast — these are independent nodes with slight
@@ -426,23 +465,29 @@ export async function launchAgent({
         // sendRawTransaction so we don't ask the wallet to sign twice.
         // skipPreflight: true is safe here because we just simulated.
         // maxRetries unset → rpcfast retries server-side every block.
-        var depositSig: string = await connection.sendRawTransaction(
+        depositSig = await connection.sendRawTransaction(
           presigned.serialize(),
           { skipPreflight: true },
         );
       } catch (err) {
-        throw err;
+        // The __MWA_FALLBACK__ sentinel is used to escape the simulate +
+        // sendRaw block when the wallet returned an unsignable tx. Don't
+        // re-throw — the sendTransaction fallback below handles it.
+        if ((err as Error)?.message !== "__MWA_FALLBACK__") {
+          throw err;
+        }
       }
-    } else {
-      try {
-        var depositSig: string = await wallet.sendTransaction(
-          tx,
-          connection,
-          { skipPreflight: false, preflightCommitment: "processed" },
-        );
-      } catch (err) {
-        throw err;
-      }
+    }
+
+    if (needsSendTransactionFallback) {
+      depositSig = await wallet.sendTransaction(
+        tx,
+        connection,
+        { skipPreflight: false, preflightCommitment: "processed" },
+      );
+    }
+    if (depositSig === null) {
+      throw new Error("launchAgent: broadcast did not return a signature");
     }
     onDepositTx?.(depositSig);
     onStage("landing");
