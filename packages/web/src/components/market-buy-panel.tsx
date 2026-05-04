@@ -140,7 +140,7 @@ export function MarketBuyPanel({
       setTxSig(sig);
       setStage("success");
       toast.success(
-        `Bet placed , ${parsed} USDC on ${side.toUpperCase()}.`,
+        `Bet placed: ${parsed} USDC on ${side.toUpperCase()}.`,
       );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -684,7 +684,7 @@ export function MarketBuyPanel({
         disabled={loading || amountNum <= 0 || gateBlocked}
         onClick={() => setStage("preview")}
       >
-        {gateBlocked ? "Bets disabled , track record building" : "Review bet"}
+        {gateBlocked ? "Bets disabled — track record building" : "Review bet"}
       </button>
       <div className="dim mono-tiny" style={{ textAlign: "center", marginTop: 10, fontSize: 9.5 }}>
         0.3% slippage · 0 fees on devnet

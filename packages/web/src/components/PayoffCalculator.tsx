@@ -145,7 +145,7 @@ export function PayoffCalculator({
       </div>
 
       <p className="font-mono text-[10px] text-neutral-800 mt-4 leading-relaxed">
-        cost = b · ln(exp(q_yes/b) + exp(q_no/b)) , on-chain LS-LMSR. Each
+        cost = b · ln(exp(q_yes/b) + exp(q_no/b)) — on-chain LS-LMSR. Each
         winning share settles to 1 USDC. Fee of {(feeBps / 100).toFixed(2)}%
         applied to stake.
       </p>

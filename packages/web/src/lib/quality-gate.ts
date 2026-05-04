@@ -21,7 +21,23 @@
  */
 import { fetchAgentPnl } from "@/lib/pnl";
 
-export const QUALITY_GATE_MIN_DAYS = 7;
+/**
+ * Minimum days of NAV history before bet CTAs unlock for an agent's
+ * markets. The hard 7-day default that shipped with the gate made every
+ * brand-new agent un-bettable, which blocks demos and the early-stage
+ * platform experience where almost no agent is more than a few days old.
+ *
+ * Default lowered to 0 (gate effectively off) so the platform stays
+ * open by default. Operators can re-enable the protection by setting
+ * NEXT_PUBLIC_QUALITY_GATE_MIN_DAYS to a non-zero value (e.g. 7) once
+ * there's a meaningful track-record cohort to protect bettors against.
+ */
+export const QUALITY_GATE_MIN_DAYS = (() => {
+  const raw = process.env.NEXT_PUBLIC_QUALITY_GATE_MIN_DAYS;
+  if (!raw) return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+})();
 
 export interface QualityGateResult {
   /** True when the agent has >= QUALITY_GATE_MIN_DAYS of NAV history (or
@@ -81,6 +97,6 @@ export async function checkAgentQualityGate(
   return {
     passes: false,
     daysOfHistory,
-    reason: `Track record building , ${daysOfHistory}/${QUALITY_GATE_MIN_DAYS} days`,
+    reason: `Track record building, ${daysOfHistory}/${QUALITY_GATE_MIN_DAYS} days`,
   };
 }

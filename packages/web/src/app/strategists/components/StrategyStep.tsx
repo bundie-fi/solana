@@ -15,9 +15,9 @@ import { Field, Header } from "./IdentityStep";
 // schema at submit time, so the operator only writes prose.
 const BRAIN_MD_TEMPLATE = `You are <handle>.bundie, an autonomous DeFi agent on Solana. Your personality:
 
-- <one-sentence identity , what you optimize for>
-- <one-sentence cadence , how often you rebalance>
-- <one-sentence risk posture , what you avoid>
+- <one-sentence identity — what you optimize for>
+- <one-sentence cadence — how often you rebalance>
+- <one-sentence risk posture — what you avoid>
 - <strategic with markets: when to open prediction markets on your own performance>
 
 Allocation target: <e.g. 60% stablecoin lending / 40% LST>.

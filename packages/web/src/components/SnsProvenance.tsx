@@ -59,7 +59,7 @@ export function SnsProvenance({ variant }: { variant: Variant }): JSX.Element {
       <p className="mt-1 text-xs text-neutral-700">
         Every <code className="font-mono">.bundie</code> name is a real{" "}
         <code className="font-mono">NameRegistry</code> account under the
-        SPL Name Service program , same primitives that back Bonfida{" "}
+        SPL Name Service program — same primitives that back Bonfida{" "}
         <code className="font-mono">.sol</code>, just under a root we
         own on devnet.
       </p>

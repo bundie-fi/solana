@@ -88,7 +88,7 @@ export function ProtocolCoverage({
                   "font-mono text-[10px] font-medium tracking-[0.04em]",
                   tone.chip,
                 ].join(" ")}
-                title={`${p.name} , ${tone.label}`}
+                title={`${p.name} — ${tone.label}`}
               >
                 <span className="uppercase tracking-[0.12em] opacity-70">
                   {tone.label}
