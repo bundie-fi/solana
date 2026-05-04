@@ -36,6 +36,7 @@ import {
   TransactionInstruction,
   type Commitment,
 } from "@solana/web3.js";
+import { Buffer } from "buffer";
 import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
@@ -202,6 +203,135 @@ function isMobileWalletAdapter(name: string | undefined): boolean {
     name.startsWith("Remote Mobile Wallet Adapter");
 }
 
+/**
+ * MWA-direct deposit path — bypasses @solana/wallet-adapter-react entirely
+ * and uses `transact()` from @solana-mobile/mobile-wallet-adapter-protocol-
+ * web3js, which is the canonical pattern from the official Solana Mobile
+ * docs (docs.solanamobile.com/llms-full.txt).
+ *
+ * Why: wallet-standard-mobile drops the `account` hint when forwarding to
+ * MWA — meaning even if our wallet adapter cached publicKey=X, the mobile
+ * wallet may sign with its CURRENTLY-active account Y (which can differ
+ * if the user changed accounts inside the wallet UI between connect and
+ * sign). The broadcast tx then has feePayer=X but signature for Y, and
+ * the validator rejects with "missing signature for public key X".
+ *
+ * The fix: read the active pubkey from `authorize()`'s result INSIDE the
+ * transact session, build the tx with that pubkey as feePayer, and sign
+ * within the same session. Atomic — the account that authorizes is the
+ * account that signs.
+ */
+async function launchAgentMwa(args: LaunchAgentArgs): Promise<{ depositSig: string }> {
+  const { connection, nextSteps, onStage, onDepositTx } = args;
+  const { transact } = await import(
+    "@solana-mobile/mobile-wallet-adapter-protocol-web3js"
+  );
+
+  const vaultPda = new PublicKey(nextSteps.vaultPda);
+  const treasuryMint = new PublicKey(nextSteps.treasuryMint);
+
+  onStage("signing-init");
+  onStage("building-tx");
+
+  const APP_IDENTITY = {
+    name: "Bundie",
+    uri: "https://app.solana.bundie.fi",
+    icon: "/icons/icon-192.png",
+  };
+
+  const MAX_ATTEMPTS = 3;
+  let lastErr: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
+      "confirmed",
+    );
+
+    onStage("signing-deposit");
+
+    let signature: string;
+    try {
+      signature = await transact(async (mobileWallet) => {
+        const auth = await mobileWallet.authorize({
+          chain: "solana:devnet",
+          identity: APP_IDENTITY,
+        });
+        // The authorized account is what the wallet WILL sign with — use
+        // it as feePayer so on-broadcast the validator finds a matching
+        // signature in the slot it expects.
+        const authPubkey = new PublicKey(
+          Buffer.from(auth.accounts[0].address, "base64"),
+        );
+
+        console.log("[deposit-mwa] transact session", {
+          attempt,
+          authorizedPubkey: authPubkey.toBase58(),
+          authorizedLabel: auth.accounts[0].label ?? "<no-label>",
+        });
+
+        // Build deposit ixs against the FRESH authorized account, not a
+        // potentially-stale wallet-adapter publicKey.
+        const ixs = await buildDepositToVaultIxs(connection, {
+          ownerWallet: authPubkey,
+          vaultPda,
+          treasuryMint,
+          amountBase: nextSteps.seedAmountBase,
+        });
+
+        const tx = new Transaction();
+        tx.feePayer = authPubkey;
+        tx.recentBlockhash = blockhash;
+        for (const ix of ixs) tx.add(ix);
+
+        const result = await mobileWallet.signAndSendTransactions({
+          transactions: [tx],
+        });
+        return result[0];
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[deposit-mwa] transact failed", { attempt, error: msg });
+      // No retry on user rejection or wallet-not-found; everything else
+      // gets a fresh attempt up to MAX_ATTEMPTS.
+      if (msg.includes("rejected") || msg.includes("USER_REJECTED")) {
+        throw new Error("You declined the wallet request. Tap Launch again to retry.");
+      }
+      if (attempt === MAX_ATTEMPTS) {
+        throw err instanceof Error ? err : new Error(msg);
+      }
+      lastErr = err instanceof Error ? err : new Error(msg);
+      continue;
+    }
+
+    onDepositTx?.(signature);
+    onStage("landing");
+
+    try {
+      const result = await connection.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        "confirmed",
+      );
+      if (result.value.err) {
+        throw new Error(`Deposit failed on-chain: ${JSON.stringify(result.value.err)}`);
+      }
+      return { depositSig: signature };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const expired =
+        msg.includes("block height exceeded") ||
+        msg.includes("TransactionExpired") ||
+        msg.includes("was not confirmed");
+      if (expired && attempt < MAX_ATTEMPTS) {
+        lastErr = err instanceof Error ? err : new Error(msg);
+        onStage("signing-init");
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr ?? new Error("launchAgentMwa: exhausted retries");
+}
+
 export interface LaunchAgentArgs {
   connection: Connection;
   wallet: MinimalWallet;
@@ -233,6 +363,13 @@ export async function launchAgent({
   onStage,
   onDepositTx,
 }: LaunchAgentArgs): Promise<{ depositSig: string }> {
+  // MWA-direct path: bypass wallet-adapter for Mobile Wallet Adapter so
+  // the authorized pubkey from authorize() === the pubkey that signs.
+  // See launchAgentMwa for the full rationale.
+  if (isMobileWalletAdapter(wallet.walletName)) {
+    return launchAgentMwa({ connection, wallet, nextSteps, onStage, onDepositTx });
+  }
+
   const vaultPda = new PublicKey(nextSteps.vaultPda);
   const treasuryMint = new PublicKey(nextSteps.treasuryMint);
 
