@@ -4,15 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * BottomNav — mobile-first 4-tab nav matching the Seeker redesign.
+ * BottomNav — mobile-first 3-tab nav matching the Seeker redesign.
  *
- * Tabs: Discover (◐) · Portfolio (▤) · Create (+) · Wallet (◇)
- * Routes: /, /portfolio, /strategists, /wallet
+ * Tabs: Discover (◐) · Portfolio (▤) · Wallet (◇)
+ * Routes: /, /portfolio, /wallet
  *
  * Discover absorbed the /agents leaderboard + the /feed activity stream
- * (both surfaced in scrolling sections on the home page now). Strategies
- * tab → Create tab, points at the launch wizard at /strategists. Wallet
- * is a new top-level surface — see packages/web/src/app/wallet/.
+ * (both surfaced in scrolling sections on the home page now). The Create
+ * tab (launch wizard at /strategists) was removed when the product
+ * pivoted to bettor-first — the wizard URL still works, just no nav link.
+ * Wallet is a new top-level surface — see packages/web/src/app/wallet/.
  */
 const NAV_ITEMS = [
   {
@@ -33,16 +34,6 @@ const NAV_ITEMS = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 10h18M9 19v2M15 19v2" />
-      </svg>
-    ),
-  },
-  {
-    href: "/strategists",
-    label: "Create",
-    activePrefix: "/agent",
-    icon: () => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 5v14M5 12h14" />
       </svg>
     ),
   },

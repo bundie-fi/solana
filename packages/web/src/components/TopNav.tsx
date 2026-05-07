@@ -14,13 +14,13 @@ const WalletButton = dynamic(
 );
 
 // Desktop primary nav mirrors the mobile BottomNav (Discover · Portfolio
-// · Create · Wallet) so labels + routes match across breakpoints. Discover
-// is the bettor surface at /; Create is the launch wizard at /strategists;
-// Wallet is the new wallet hub at /wallet.
+// · Wallet) so labels + routes match across breakpoints. Discover is the
+// bettor surface at /; Wallet is the new wallet hub at /wallet. The Create
+// entry (launch wizard at /strategists) was removed when the product
+// pivoted to bettor-first — the wizard URL still works, just no nav link.
 const LINKS: { href: string; label: string; activePrefix?: string }[] = [
   { href: "/",            label: "Discover",   activePrefix: "/markets" },
   { href: "/portfolio",   label: "Portfolio" },
-  { href: "/strategists", label: "Create",     activePrefix: "/agent" },
   { href: "/wallet",      label: "Wallet" },
 ];
 
@@ -123,8 +123,8 @@ export function TopNav() {
 
       {/* Right cluster: Devnet pill + Wallet. The "+ Launch agent" gold
           CTA used to sit here; it was removed when we repositioned the
-          app as bettor-first — the launch flow now lives one click in,
-          on the /strategists hub linked from primary nav. */}
+          app as bettor-first. The launch wizard at /strategists is no
+          longer linked from primary nav either, but the URL still works. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {/* Static cluster badge, Bundie is devnet-only for now, no switcher */}
         <span

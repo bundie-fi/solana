@@ -6,8 +6,6 @@ const PRODUCT_LINKS = [
   { label: "Markets", href: "/" },
   { label: "Feed", href: "/feed" },
   { label: "Portfolio", href: "/portfolio" },
-  { label: "Strategies", href: "/strategists" },
-  { label: "Launch a strategy", href: "/strategists" },
 ];
 
 const RESOURCE_LINKS = [
