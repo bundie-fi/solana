@@ -134,17 +134,14 @@
 <small>Build target: May 11 2026 · Tracks: DeFi (primary), Consumer Apps (secondary) · App: <a href="https://app.solana.bundie.fi">app.solana.bundie.fi</a> · Repo: <a href="https://github.com/bundie-fi/solana">github.com/bundie-fi/solana</a> · Generated 2026-05-07 (regen 2)</small>
 
 <div class="alert">
-<h3>Regen 2 changes</h3>
-<p>Submission text fully aligned with the live product as of <code>61b71b5</code>:</p>
+<h3>Regen 3 changes</h3>
+<p>Two strategic shifts on top of regen 2 alignment:</p>
 <ul>
-  <li><strong>No "indexing" or "mirroring" language anywhere.</strong> Framing is "AI trading agents executing real DeFi" throughout.</li>
-  <li><strong>Six concrete agents</strong> referenced by their actual SNS handles + display names. No placeholder names.</li>
-  <li><strong>Direct DeFi integrations</strong> instead of "Beethoven CPI" — the chaos-sim daemon ships direct Kamino / Marinade / Solend / Jito / Jupiter / Jupiter Perps SDK calls.</li>
-  <li><strong>Docs surface removed.</strong> README + the live app are the canonical docs now (no <code>solana.bundie.fi/docs</code>, no <code>packages/docs/</code>).</li>
-  <li><strong>README rewritten</strong> to match (committed <code>f046092</code>); GitHub description and homepage URL updated.</li>
-  <li><strong>Three frontend pages redesigned</strong>: Discover (<code>3887ada</code>), Agent detail + Market detail (<code>61b71b5</code>) — all on the dark editorial palette.</li>
-  <li><strong>Create flow demoted</strong> from primary nav (<code>3d242c2</code>); wizard URL still works directly.</li>
+  <li><strong>Submission is video-only.</strong> No deck. The pitch video carries the entire investor-facing story; live app + README + GitHub repo carry the technical story. Checklist (§17) updated to reflect.</li>
+  <li><strong>Video script reframed for consumer comprehension</strong> after team feedback that the value prop wasn't landing for non-Solana viewers. Specifically: opens with the bots-on-Polymarket inversion (something a Polymarket user already understands), tech highlight reframed as a user benefit ("paid in 400ms") not a feature ("LS-LMSR"), closer is a dumbed-down one-liner. See §16.</li>
+  <li><strong>Q&amp;A § now has a "what's different vs Polymarket?" answer</strong> at the front since judges will ask first.</li>
 </ul>
+<p class="meta">Carried over from regen 2: no "indexing" or "mirroring" language; 6 real agents; direct DeFi SDK integrations (no Beethoven); docs surface removed; README rewritten; three frontend pages redesigned in dark editorial; Create flow demoted from primary nav.</p>
 </div>
 
 <div class="toc">
@@ -472,52 +469,63 @@ We're three founders who left infrastructure roles (Etherscan, Nethermind, CoinG
 
 <h2 id="video-script">16 · Pitch video script (≤3 min, target 2:30)</h2>
 
-<p>Per the skill's demo-video-script reference: structure is hook → solution → demo → tech highlight → wrap. Read aloud — should land at ~2:30. Record at 1080p, clean browser profile, mic in a quiet room. Cut every load delay.</p>
+<p>Reframed from regen 2 after team feedback that the value prop wasn't clear to non-Solana viewers. New script leads with the inversion (bots-on-Polymarket → Polymarket-on-bots), translates every tech feature into a user benefit, and closes with a single dumbed-down line a Polymarket user can repeat to a friend.</p>
 
-<h3>00:00–00:20 · Hook (no "hi I'm")</h3>
+<p>Read aloud — should land at ~2:30. Record at 1080p, clean browser profile (no bookmarks bar, no Slack, no other tabs), mic in a quiet room. Cut every load delay. No "hi I'm" intro.</p>
+
+<h3>00:00–00:20 · Hook (lead with what a Polymarket user already knows)</h3>
 <div class="copy-block">
 <span class="label">script</span>
-<pre>"Trading agents on Solana are real economic actors. Polystrat ran 4,200 trades last quarter at 37% positive PnL, two to three times the human baseline. The category is real. But every agent claims to be smart. None can prove it. Capital allocates on vibes."</pre>
-<small>While narrating: show a busy chart of polystrat's trade history. End on a frame of three identical-looking 'AI agent vault' marketing pages with no proof.</small>
+<pre>"Bots already make 30 percent of Polymarket's volume. They've made millions placing bets. But here's what you can't do today — bet on whether the bots themselves are any good. We fix that."</pre>
+<small>While narrating: show the Polymarket leaderboard with bot wallets highlighted. Cut to a frame showing "but → ?" with a question mark over a bot avatar.</small>
 </div>
 
 <h3>00:20–00:45 · Solution</h3>
 <div class="copy-block">
 <span class="label">script</span>
-<pre>"Bundie hosts AI trading agents that execute real DeFi on Solana, and runs binary prediction markets on their forward NAV. Bettors place YES or NO. The chain settles every market by reading on-chain NAV. No oracle, no committee."</pre>
+<pre>"Bundie runs prediction markets on AI trading agents. The agents execute real DeFi strategies on Solana — Kamino lending, Marinade staking, Jupiter Perps. You bet YES or NO on whether their NAV beats a target. Settlement is the chain itself — no human committee, no oracle to argue with."</pre>
 <small>Show the 3-step animated diagram on the landing page: Agent trades → NAV is committed → Market settles itself.</small>
 </div>
 
-<h3>00:45–01:45 · Live demo</h3>
+<h3>00:45–01:45 · Live demo (the bet a viewer can imagine making)</h3>
 <div class="copy-block">
 <span class="label">script</span>
 <pre>[On Discover page]
-"Six AI trading agents live at devnet launch. kamino-stacker is a USDC lending bot. apy-rotator hops between Kamino and Solend. funding-shorter shorts SOL perps when funding's positive. Each one trades real Solana DeFi."
+"Six AI trading agents running on devnet right now. Kaito's a USDC lending bot. Maya rotates between Kamino and Solend for yield. Felix shorts SOL perps when funding's positive. Each one trades real Solana DeFi — every position is verifiable on-chain."
 
-[Click into kamino-stacker's agent detail page]
-"Here's the live NAV chart. Real on-chain commits. The strategy summary, protocols routed, recent trades."
+[Click into Kaito's agent detail page]
+"Here's Kaito's live NAV chart. Real on-chain commits, every 15 seconds. Strategy summary, protocols routed, recent trades."
 
 [Click an open market]
-"This market asks: will kamino-stacker beat funding-shorter by Friday? Pick YES or NO. LS-LMSR pricing — 62-cent YES, 38-cent NO. I'll bet 25 bUSD on NO."
+"This market asks: will Kaito beat Felix by Friday? YES costs 62 cents. NO costs 38. I'll bet 25 bUSD on NO."
 
 [Show the tx in Portfolio after confirmation]
-"Position recorded. Resolution slot is reachable on devnet. When that slot lands, the chain reads both NAVs and settles automatically. No oracle."</pre>
-<small>Critical: show the Solana Explorer tx for at least one action. Cut every spinner.</small>
+"Position recorded. When Friday's slot lands, the chain reads both NAVs and settles automatically. No human in the loop."</pre>
+<small>Critical: show the Solana Explorer tx after the bet. Cut every spinner. Use display names (Kaito/Maya/Felix), not technical SNS slugs (kamino-stacker), so non-crypto viewers track the personalities.</small>
 </div>
 
-<h3>01:45–02:15 · Technical highlight (one thing only)</h3>
+<h3>01:45–02:15 · The actual user benefit (NOT the tech feature)</h3>
 <div class="copy-block">
 <span class="label">script</span>
-<pre>"Under the hood: a custom Anchor program implements Logarithmic Market Scoring Rule market making over continuous on-chain NAV. The settlement instruction reads the target agent's vault PDA at the resolution slot — that's the oracle. Solana's sub-second slots make this work at intraday cadence. On Ethereum's 12-second blocks, you can't run an active market on a NAV that moves every minute."</pre>
-<small>Show an architecture diagram OR the actual Anchor program file (programs/prediction-market). Pick one. Don't switch.</small>
+<pre>"Why this matters as a bettor: on Polymarket your bet sits in a 'pending' state for hours after the event ends — humans have to vote on the outcome. Here, the resolution slot lands and you're paid in 400 milliseconds. Same bet shape. No human in the loop. No oracle dispute window."</pre>
+<small>Show a side-by-side: Polymarket "pending resolution" timestamp on the left, Solana Explorer settlement tx on the right with a "+400ms" overlay. This is the calibration moment — if a viewer doesn't get the value here, they don't get the product.</small>
 </div>
 
-<h3>02:15–02:30 · Wrap</h3>
+<h3>02:15–02:30 · Wrap (the dumbed-down line)</h3>
 <div class="copy-block">
 <span class="label">script</span>
-<pre>"Mainnet ships May 2026. Try the demo at solana.bundie.fi."</pre>
-<small>End on solana.bundie.fi URL + @BundieDefi handle. No team-photo slide.</small>
+<pre>"Pick a side. The chain pays you out. No oracle to argue with.
+
+solana.bundie.fi — try the demo."</pre>
+<small>End on solana.bundie.fi URL + @BundieDefi handle. No team-photo slide. The closing line is the one Sean asked for — a single sentence a Polymarket user can repeat to a friend without translation.</small>
 </div>
+
+<h3>Pre-recording calibration — three checks before you record</h3>
+<ol style="color: var(--de-ink-2); font-size: 14px;">
+  <li>Read the script aloud once and ask: <em>could a Polymarket user who has never used Solana understand every sentence?</em> If you stumble on a word, the audience will too.</li>
+  <li>Identify the most boring 10 seconds. That's where viewers drop off — replace with a UI moment.</li>
+  <li>Time the script. If you're under 2:00, you're rushing; under 2:45, perfect; over 3:00, cut something. The 1:45–2:15 user-benefit beat is the most important — protect that.</li>
+</ol>
 
 <!-- ======================================================== -->
 
@@ -536,9 +544,12 @@ We're three founders who left infrastructure roles (Etherscan, Nethermind, CoinG
   <li class="done"><code>packages/docs/</code> and <code>/docs</code> route removed from landing (committed <code>58135df</code>) — no stale docs surface</li>
   <li class="done">No "indexing" / "mirroring" language anywhere in the submission text or app</li>
   <li class="done">StatusPill restricted to LIVE / ACTIVE / RESOLVED / DEVNET — no INDEXED / CLONE / BENCHMARK</li>
-  <li class="pending">Demo screenshots captured against rebuilt Discover, Agent detail, and Market detail pages</li>
-  <li class="pending">Pitch video recorded per §16 script</li>
-  <li class="pending">Pitch deck PDF uploaded (use the v3.5 build)</li>
+  <li class="pending">Pitch video recorded per §16 script (video-only submission — no deck)</li>
+  <li class="pending">Video addresses the bots-on-Polymarket inversion in the first 20 seconds</li>
+  <li class="pending">Video closes with the dumbed-down line ("Pick a side. The chain pays you out. No oracle to argue with.")</li>
+  <li class="pending">Video user-benefit beat (1:45–2:15) explicitly compares to Polymarket's resolution wait</li>
+  <li class="pending">Video uploaded unlisted to YouTube; URL tested in incognito</li>
+  <li class="pending">Demo screenshots captured against rebuilt Discover, Agent detail, and Market detail pages (for the GitHub repo README, since no deck)</li>
   <li class="pending">GitHub repo set to public — currently <code>PRIVATE</code>, must flip before submission</li>
   <li class="pending">Twitter @BundieDefi pinned-tweet about submission</li>
   <li class="pending">Telegram link tested from a fresh device</li>
@@ -549,11 +560,18 @@ We're three founders who left infrastructure roles (Etherscan, Nethermind, CoinG
   <li class="pending">bundie-docs Railway service deactivated (currently running but pointing at deleted package)</li>
 </ul>
 
+<p class="meta"><strong>No-deck note for the form.</strong> If Colosseum's submission form has a "deck PDF" field, leave it empty and put a one-liner in any free-text upload-instructions field: <em>"Pitch is delivered as a 2:30 video. Live app, README, and GitHub serve as the technical artifact."</em></p>
+
 <!-- ======================================================== -->
 
 <h2 id="qa-prep">18 · Q&amp;A prep — what judges will probe</h2>
 
-<p>Calibrated to the current product (no Beethoven, no mirror-agent framing).</p>
+<p>Calibrated to the current product (no Beethoven, no mirror-agent framing). The first question (Polymarket / Jupiter Prediction differentiation) is the one judges almost always lead with — answer is at the top.</p>
+
+<h3>"What's different from Polymarket / Jupiter Prediction?" (the one they'll ask first)</h3>
+<p><strong>Three-line version:</strong> Polymarket lets you bet on events — humans resolve them. Bundie lets you bet on AI agents — the chain resolves them by reading the agent's NAV. Same betting shape, but no human committee, no oracle dispute window, settlement in 400 milliseconds instead of hours.</p>
+<p><strong>The inversion line:</strong> Bots already make 30% of Polymarket's volume placing bets. We're the only place where bots <em>are</em> the bet.</p>
+<p><strong>If they push on Jupiter Prediction specifically:</strong> Jupiter Prediction is generic event markets — same architecture as Polymarket, just on Solana. To extend to agent-performance markets, they'd need per-protocol NAV decoders for every venue an agent touches (Kamino, Marinade, Solend, Jupiter Perps...). We have those on day one. Jupiter would have to choose to build that, and they have bigger fish.</p>
 
 <h3>"How do you compete with Polymarket's MOOV2?"</h3>
 <p>Polymarket's MOOV2 is a managed-human-resolution architecture. It works for general events at the per-market scale Polymarket already operates. It does <em>not</em> scale to thousands of agent strategies updating hourly because every market needs a human attestation step. Our resolution is deterministic chain-state read — zero marginal cost per market. That's a structural advantage at agent-economy scale.</p>
