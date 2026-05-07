@@ -755,7 +755,7 @@ function HeroPill({
       <div
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10.5,
           fontWeight: 500,
           textTransform: "uppercase",
           letterSpacing: "0.18em",

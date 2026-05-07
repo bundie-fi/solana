@@ -188,7 +188,7 @@ export async function AgentPerformanceBlock({
           <div className="bd-eyebrow" style={{ fontSize: 9 }}>
             Equity curve · {range.toUpperCase()}
           </div>
-          <div className="dim mono-tiny" style={{ fontSize: 9.5 }}>
+          <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
             {pnl.snapshots.length} snapshot{pnl.snapshots.length === 1 ? "" : "s"}
           </div>
         </div>

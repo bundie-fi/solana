@@ -408,7 +408,7 @@ export default async function AgentProfilePage(props: {
                       title={BOOTSTRAP_BADGE_TOOLTIP}
                       style={{
                         fontFamily: "var(--font-mono)",
-                        fontSize: 9.5,
+                        fontSize: 10.5,
                         fontWeight: 600,
                         textTransform: "uppercase",
                         letterSpacing: "0.16em",
@@ -1038,7 +1038,7 @@ function MetaCell({
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10.5,
           color: "var(--de-ink-3)",
           letterSpacing: "0.20em",
           textTransform: "uppercase",
@@ -1068,7 +1068,7 @@ function PolicyCell({ label, value }: { label: string; value: string }) {
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10.5,
           color: "var(--de-ink-3)",
           letterSpacing: "0.20em",
           textTransform: "uppercase",

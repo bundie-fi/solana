@@ -740,7 +740,7 @@ export function MarketBuyPanel({
       >
         {gateBlocked ? "Bets disabled — track record building" : "Review bet"}
       </button>
-      <div className="dim mono-tiny" style={{ textAlign: "center", marginTop: 10, fontSize: 9.5 }}>
+      <div className="dim mono-tiny" style={{ textAlign: "center", marginTop: 10, fontSize: 10.5 }}>
         0.3% slippage · 0 fees on devnet
       </div>
 
