@@ -1330,63 +1330,95 @@ footer .row-2 {
 .market-preview-agent {
   color: #a899f5;
 }
-/* Side-by-side outcome tiles */
-.market-preview-tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.market-preview-tile {
+/* Stacked outcome rows — Polymarket-style asymmetric layout */
+.market-preview-outcomes {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.mpo-row {
+  padding: 11px 14px 12px;
+  border-radius: 8px;
+}
+.mpo-row.yes {
+  background: rgba(168,230,207,0.07);
+  border: 1px solid rgba(168,230,207,0.16);
+}
+.mpo-row.no {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.mpo-head {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 16px 12px 14px;
-  border-radius: 10px;
-  gap: 2px;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
-.market-preview-tile.yes {
-  background: rgba(168,230,207,0.10);
-  border: 1px solid rgba(168,230,207,0.22);
+.mpo-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
-.market-preview-tile.no {
-  background: rgba(232,165,165,0.08);
-  border: 1px solid rgba(232,165,165,0.18);
-}
-.mpt-label {
+.mpo-badge {
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
-.market-preview-tile.yes .mpt-label { color: rgba(168,230,207,0.6); }
-.market-preview-tile.no  .mpt-label { color: rgba(232,165,165,0.6); }
-.mpt-odds {
+.mpo-badge.yes {
+  background: rgba(168,230,207,0.15);
+  color: #a8e6cf;
+}
+.mpo-badge.no {
+  background: rgba(255,255,255,0.07);
+  color: rgba(246,243,238,0.45);
+}
+.mpo-name {
   font-family: var(--font-sans);
-  font-size: 32px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(246,243,238,0.50);
+  letter-spacing: 0.01em;
+}
+.mpo-pct {
+  font-family: var(--font-sans);
+  font-size: 22px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   line-height: 1;
-  margin-top: 4px;
 }
-.market-preview-tile.yes .mpt-odds { color: #a8e6cf; }
-.market-preview-tile.no  .mpt-odds { color: #e8a5a5; }
-.mpt-sub {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 400;
-  margin-top: 2px;
-  color: rgba(246,243,238,0.22);
-  letter-spacing: 0.02em;
+.mpo-pct.yes { color: #a8e6cf; }
+.mpo-pct.no  { color: rgba(246,243,238,0.40); }
+.mpo-track {
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 999px;
+  overflow: hidden;
 }
+.mpo-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.mpo-fill.yes { background: #a8e6cf; }
+.mpo-fill.no  { background: rgba(246,243,238,0.20); }
+
 .market-preview-footer {
-  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-sans);
-  font-size: 11px;
-  color: rgba(246,243,238,0.28);
+  font-size: 10.5px;
+  color: rgba(246,243,238,0.26);
   letter-spacing: 0.02em;
+}
+.mpf-dot {
+  opacity: 0.4;
 }
 .btn-amber-lg {
   padding: 14px 28px;

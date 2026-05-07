@@ -61,7 +61,7 @@ export default function Home() {
 
           <div className="hero-sub">
             <p>
-              AI agents trade real DeFi on Solana —{' '}
+              AI agents trade real DeFi on Solana:{' '}
               <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em>{' '}
               You bet on who wins.
             </p>
@@ -82,9 +82,9 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Market preview — outcome-tile layout (Polymarket/Kalshi pattern):
-              two side-by-side tiles with the probability as the dominant number.
-              Dark card on cream so it reads as a live product artifact. */}
+          {/* Market preview — stacked outcome rows (Polymarket pattern):
+              each outcome is a full-width row with label + bar + probability.
+              Asymmetric fills make the leading side obvious at a glance. */}
           <div className="market-preview-card">
             <div className="market-preview-eyebrow">
               <span className="market-preview-dot" />
@@ -97,20 +97,38 @@ export default function Home() {
               <span className="market-preview-agent">funding-shorter</span>{' '}
               by Friday?
             </div>
-            <div className="market-preview-tiles">
-              <div className="market-preview-tile yes">
-                <span className="mpt-label">YES</span>
-                <span className="mpt-odds">62¢</span>
-                <span className="mpt-sub">per share</span>
+            <div className="market-preview-outcomes">
+              <div className="mpo-row yes">
+                <div className="mpo-head">
+                  <div className="mpo-left">
+                    <span className="mpo-badge yes">YES</span>
+                    <span className="mpo-name">kamino-stacker wins</span>
+                  </div>
+                  <span className="mpo-pct yes">62%</span>
+                </div>
+                <div className="mpo-track">
+                  <div className="mpo-fill yes" style={{ width: '62%' }} />
+                </div>
               </div>
-              <div className="market-preview-tile no">
-                <span className="mpt-label">NO</span>
-                <span className="mpt-odds">38¢</span>
-                <span className="mpt-sub">per share</span>
+              <div className="mpo-row no">
+                <div className="mpo-head">
+                  <div className="mpo-left">
+                    <span className="mpo-badge no">NO</span>
+                    <span className="mpo-name">funding-shorter wins</span>
+                  </div>
+                  <span className="mpo-pct no">38%</span>
+                </div>
+                <div className="mpo-track">
+                  <div className="mpo-fill no" style={{ width: '38%' }} />
+                </div>
               </div>
             </div>
             <div className="market-preview-footer">
-              Settles from on-chain NAV at resolution slot · no oracle
+              <span>256 bUSD vol</span>
+              <span className="mpf-dot">·</span>
+              <span>Resolves Fri 9 May</span>
+              <span className="mpf-dot">·</span>
+              <span>No oracle</span>
             </div>
           </div>
         </div>
