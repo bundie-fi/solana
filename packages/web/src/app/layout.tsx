@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Figtree, Instrument_Serif } from "next/font/google";
 import { Toaster } from "sonner";
 import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
@@ -9,23 +9,23 @@ import { OnboardingTour } from "@/components/OnboardingTour";
 import { PostConnectRedirect } from "@/components/PostConnectRedirect";
 import "./globals.css";
 
-const inter = Inter({
+// Two-font system, matching the marketing site exactly. Figtree handles
+// every structural surface (body, labels, numbers, CTAs) and Instrument
+// Serif is reserved for display-size headlines and a single italic accent
+// per section. JetBrains Mono was removed in the 2026-05 redesign — see
+// packages/web/DESIGN.md for the rationale.
+const figtree = Figtree({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const playfairDisplay = Playfair_Display({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-display",
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -66,7 +66,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfairDisplay.variable} ${jetbrains.variable}`}
+      className={`${figtree.variable} ${instrumentSerif.variable}`}
     >
       <body className="antialiased min-h-screen" style={{ background: "var(--de-bg)", color: "var(--de-ink)", fontFamily: "var(--font-sans)" }}>
         <ClientProviders>

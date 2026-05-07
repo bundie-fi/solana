@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
 import { getDevnetConnection } from "@/lib/rpc";
 import { fetchAllMarkets, type MarketView } from "@/lib/markets";
 import {
@@ -9,10 +10,8 @@ import {
 import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
 import {
   AgentCardCompact,
-  ConvictionBar,
   DeMarketCard,
   DeSparkline,
-  StatusPill,
   hashSeed,
 } from "@/components/de";
 import { TrendingFilters, type TrendingFilterId } from "@/components/de/TrendingFilters";
@@ -22,20 +21,22 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * Discover (/) — dark editorial home, redesigned per the XO-Market-inspired
- * IA. Replaces the warm-paper top-strategies + trending-markets stack with:
+ * Discover (/) , precision-editorial home.
  *
- *   1. Platform stats strip (4 metric cards, monospace caps + serif numbers)
- *   2. Featured agent hero (top 30d performer, large NAV chart) +
- *      sidebar with featured market + editorial promo card
- *   3. Top strategies leaderboard (5–10 rows, sparkline + return)
- *   4. Trending markets section (filter pills + 3-col card grid)
- *   5. "List your agent" CTA strip (links /strategists)
+ * Type system: Instrument Serif for display headlines (36px+) and a
+ * single italic accent per section. Figtree handles every structural
+ * surface (labels, numbers, CTAs, body). Numbers always sit in
+ * Figtree 700 with tabular-nums so figures feel anchored. The serif
+ * italic is a colour, not a default.
  *
- * Data fetching mirrors the legacy page exactly — server-side parallel fan-out
- * for registry / markets / per-agent PnL, with a per-agent fail-open. The
- * platform-stats strip is fetched inline here because the dark editorial
- * layout differs from the legacy `<PlatformStatsStrip>` paper-card row.
+ * Layout in five bands:
+ *   1. Editorial header , eyebrow + serif headline + four-up stat strip
+ *   2. Featured strategy , magazine-style hero + slim sidebar
+ *   3. The index , clean leaderboard table with hairline rules
+ *   4. Markets , filter pills + grid of DeMarketCards
+ *   5. Strategist invite , full-width band with serif italic question
+ *
+ * See packages/web/DESIGN.md for the full philosophy.
  */
 export default async function Home(props: {
   searchParams?: Promise<{ filter?: string | string[] }>;
@@ -60,10 +61,8 @@ export default async function Home(props: {
       fetchPlatformStats(),
     ]);
 
-  // Re-filter markets here so registry + markets fan out fully in parallel above.
   const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy));
 
-  // Per-agent PnL — parallel fan-out, fail-open
   const pnls = await Promise.all(
     agents.map((a) => fetchAgentPnl(a.sns, "30d")),
   );
@@ -99,7 +98,6 @@ export default async function Home(props: {
     })
     .sort((a, b) => (b.return30dPct ?? -Infinity) - (a.return30dPct ?? -Infinity));
 
-  // Backfill market counts: both market.createdBy and (for kind=2) targetAgent.
   for (const m of liveMarkets) {
     const aSns = agentDir[m.createdBy]?.sns;
     const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined;
@@ -109,14 +107,11 @@ export default async function Home(props: {
     }
   }
 
-  // Featured = top performer with a populated NAV series.
   const featured =
     agentRows.find((r) => r.series.length >= 2 && (r.return30dPct ?? 0) > 0) ??
     agentRows[0] ??
     null;
 
-  // Featured market = highest-volume open market created by the featured agent
-  // (fall back to the highest-volume open market overall).
   const featuredMarket: MarketView | null = (() => {
     const open = liveMarkets.filter((m) => m.status === "active");
     if (open.length === 0) return null;
@@ -129,77 +124,57 @@ export default async function Home(props: {
     return [...open].sort((a, b) => b.totalVolume - a.totalVolume)[0];
   })();
 
-  // Trending grid = open markets matching active filter, sorted by volume.
   const trending = filterTrending(liveMarkets, filter);
   const liveAgentCount = agentRows.filter((r) => r.marketCount > 0).length;
 
   return (
-    <main
-      style={{
-        background: "var(--de-bg)",
-        minHeight: "100vh",
-        paddingBottom: 96,
-        color: "var(--de-ink)",
-      }}
-    >
-      {/* Lavender ambient glow at the top of the page — sets the editorial tone. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 480,
-          background:
-            "radial-gradient(50% 35% at 20% 0%, rgba(168,153,245,0.14), transparent)",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
+    <main className="discover-page">
+      {/* Subtle ambient. Off-centre so the page does not feel templated. */}
+      <div aria-hidden="true" className="discover-ambient" />
 
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "0 24px",
-        }}
-      >
-        {/* Section 1: platform stats strip */}
-        <section style={{ paddingTop: 32 }}>
-          <PlatformStatsRow
+      <div className="discover-container">
+        {/* ────────────────────────────────────────────────────────────────
+            1. Editorial header band
+            ──────────────────────────────────────────────────────────── */}
+        <header className="discover-header">
+          <div className="discover-eyebrow">
+            <span>The Bundie Index</span>
+            <span className="discover-eyebrow-sep">·</span>
+            <span>Devnet</span>
+          </div>
+          <h1 className="discover-headline">
+            Strategies, ranked by <em>what they do on-chain</em>.
+          </h1>
+          <p className="discover-lede">
+            Live AI agents trade real Solana DeFi. Their NAV is committed to
+            the chain every few ticks, and every market on the platform reads
+            that NAV directly. No oracle, no committee, no soft answers.
+          </p>
+
+          <PlatformStatsStrip
             agentsActive={platformStats.agentsActive}
             totalTvlLamports={platformStats.totalTvlLamports}
             marketsOpen={platformStats.marketsOpen}
             marketsResolved={platformStats.marketsResolved}
             totalNavGrowth7dBps={platformStats.totalNavGrowth7dBps}
           />
-        </section>
+        </header>
 
-        {/* Faucet CTA — keeps wallet bUSD claim accessible from the home page. */}
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 24 }}>
           <BettorFaucetCTA />
         </div>
 
-        {/* Section 2: featured hero + sidebar */}
-        <section
-          className="de-hero-grid"
-          style={{
-            marginTop: 32,
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 16,
-          }}
-        >
+        {/* ────────────────────────────────────────────────────────────────
+            2. Featured strategy , magazine layout
+            ──────────────────────────────────────────────────────────── */}
+        <section className="discover-featured">
           {featured ? (
             <FeaturedAgentHero row={featured} />
           ) : (
             <FeaturedAgentEmpty />
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <aside className="discover-aside">
             {featuredMarket ? (
               <DeMarketCard
                 market={featuredMarket}
@@ -208,46 +183,40 @@ export default async function Home(props: {
               />
             ) : null}
             <EditorialPromoCard />
-          </div>
+          </aside>
         </section>
 
-        {/* Section 3: leaderboard */}
-        <section style={{ marginTop: 64 }}>
+        {/* ────────────────────────────────────────────────────────────────
+            3. The Index , leaderboard
+            ──────────────────────────────────────────────────────────── */}
+        <section className="discover-section">
           <SectionHeader
-            eyebrow="TOP STRATEGIES"
-            title="by 30d return"
-            subtitle={null}
+            eyebrow="The Index"
+            title="Top strategies"
+            italicAccent="by 30-day return"
+            count={agentRows.length}
           />
           <Leaderboard rows={agentRows} />
         </section>
 
-        {/* Section 4: trending markets */}
-        <section style={{ marginTop: 64 }}>
+        {/* ────────────────────────────────────────────────────────────────
+            4. Open markets
+            ──────────────────────────────────────────────────────────── */}
+        <section className="discover-section">
           <SectionHeader
-            eyebrow="TRENDING MARKETS"
-            title={`live across ${liveAgentCount} ${liveAgentCount === 1 ? "agent" : "agents"}`}
-            subtitle={null}
+            eyebrow="Markets"
+            title={`Open across ${liveAgentCount} ${liveAgentCount === 1 ? "agent" : "agents"}`}
+            italicAccent={null}
           />
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 20 }}>
             <TrendingFilters active={filter} />
           </div>
           {trending.length === 0 ? (
-            <div
-              style={{
-                marginTop: 24,
-                padding: "48px 16px",
-                textAlign: "center",
-                color: "var(--de-ink-3)",
-                fontSize: 13,
-                background: "var(--de-bg-raised)",
-                border: "1px solid var(--de-line)",
-                borderRadius: 12,
-              }}
-            >
-              No markets in this category yet. Try All.
+            <div className="discover-empty">
+              No open markets in this category yet.
             </div>
           ) : (
-            <div className="de-market-grid" style={{ marginTop: 20 }}>
+            <div className="discover-market-grid" style={{ marginTop: 24 }}>
               {trending.map((m) => (
                 <DeMarketCard key={m.address} market={m} dir={agentDir} />
               ))}
@@ -255,79 +224,634 @@ export default async function Home(props: {
           )}
         </section>
 
-        {/* Section 5: list-your-agent CTA */}
-        <section
-          style={{
-            marginTop: 80,
-            padding: "24px 28px",
-            border: "1px solid var(--de-line)",
-            borderRadius: 12,
-            background: "var(--de-bg-raised)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 18,
-              color: "var(--de-ink)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            Are you running a trading agent on Solana?
-          </div>
-          <Link
-            href="/strategists"
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: 14,
-              fontWeight: 600,
-              color: "var(--de-lavender)",
-              textDecoration: "none",
-              letterSpacing: "0.01em",
-              padding: "10px 18px",
-              borderRadius: 8,
-              border: "1px solid rgba(168,153,245,0.42)",
-              background: "var(--de-lavender-tint)",
-              transition: "background 160ms ease, border-color 160ms ease",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            List your agent →
-          </Link>
-        </section>
+        {/* ────────────────────────────────────────────────────────────────
+            5. Strategist invite band
+            ──────────────────────────────────────────────────────────── */}
+        <ListYourAgentBand />
       </div>
 
-      {/* Responsive grid rules — the hero swaps to side-by-side on desktop;
-          the market grid expands from 1→2→3 columns at the standard
-          breakpoints. Keeping these inline so the page bundle ships its
-          own layout rules without depending on globals.css edits. */}
+      {/* Layout rules (responsive) ship inline so this page bundles its
+          own grid logic. Discover-specific class names are namespaced so
+          they cannot leak into other routes. */}
       <style>{`
-        @media (min-width: 1024px) {
-          .de-hero-grid {
-            grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) !important;
+        .discover-page {
+          background: var(--de-bg);
+          min-height: 100vh;
+          padding-bottom: 96px;
+          color: var(--de-ink);
+          position: relative;
+          overflow-x: hidden;
+        }
+        .discover-ambient {
+          position: absolute;
+          top: 0;
+          left: -10%;
+          width: 70%;
+          height: 520px;
+          background:
+            radial-gradient(50% 35% at 30% 0%, rgba(168,153,245,0.10), transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .discover-container {
+          position: relative;
+          z-index: 1;
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 24px;
+        }
+
+        /* ── Section 1 ─────────────────────────────────────────────────── */
+        .discover-header {
+          padding-top: 56px;
+        }
+        .discover-eyebrow {
+          font-family: var(--font-sans);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: var(--de-ink-3);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .discover-eyebrow-sep {
+          color: var(--de-ink-5);
+          font-weight: 400;
+        }
+        .discover-headline {
+          margin: 18px 0 0;
+          font-family: var(--font-display);
+          font-weight: 400;
+          font-size: clamp(40px, 6vw, 64px);
+          letter-spacing: -0.02em;
+          line-height: 1.05;
+          color: var(--de-ink);
+          max-width: 880px;
+        }
+        .discover-headline em {
+          font-style: italic;
+          color: var(--de-lavender-2);
+          font-weight: 400;
+        }
+        .discover-lede {
+          margin: 22px 0 0;
+          font-family: var(--font-sans);
+          font-size: 15px;
+          font-weight: 400;
+          line-height: 1.6;
+          color: var(--de-ink-2);
+          max-width: 620px;
+        }
+
+        /* ── Stats strip ───────────────────────────────────────────────── */
+        .stats-strip {
+          margin-top: 40px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          border-top: 1px solid var(--de-line-2);
+          border-bottom: 1px solid var(--de-line-2);
+        }
+        @media (min-width: 768px) {
+          .stats-strip {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
-        .de-market-grid {
+        .stats-strip-item {
+          padding: 22px 24px;
+          border-right: 1px solid var(--de-line);
+          border-bottom: 1px solid var(--de-line);
+          min-width: 0;
+        }
+        @media (min-width: 768px) {
+          .stats-strip-item {
+            border-bottom: none;
+          }
+        }
+        .stats-strip-item:nth-child(2n),
+        .stats-strip-item:last-child {
+          border-right: none;
+        }
+        @media (min-width: 768px) {
+          .stats-strip-item:nth-child(2n) {
+            border-right: 1px solid var(--de-line);
+          }
+          .stats-strip-item:last-child {
+            border-right: none;
+          }
+        }
+        .stats-strip-label {
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--de-ink-4);
+        }
+        .stats-strip-value {
+          margin-top: 12px;
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          min-width: 0;
+        }
+        .stats-strip-num {
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 30px;
+          letter-spacing: -0.025em;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: 'tnum';
+          color: var(--de-ink);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .stats-strip-num.pos { color: var(--de-mint); }
+        .stats-strip-num.neg { color: var(--de-rose); }
+        .stats-strip-sub {
+          font-family: var(--font-sans);
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--de-ink-4);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        /* ── Section 2: featured ──────────────────────────────────────── */
+        .discover-featured {
+          margin-top: 56px;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        @media (min-width: 1024px) {
+          .discover-featured {
+            grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+            gap: 24px;
+          }
+        }
+        .discover-aside {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .featured-hero {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+          padding: 36px;
+          background: var(--de-bg-raised);
+          border: 1px solid var(--de-line-2);
+          border-radius: 14px;
+          text-decoration: none;
+          color: var(--de-ink);
+          overflow: hidden;
+          min-height: 480px;
+          transition: border-color 240ms ease, transform 240ms ease;
+        }
+        .featured-hero:hover {
+          border-color: rgba(168,153,245,0.42);
+          transform: translateY(-1px);
+        }
+        .featured-hero-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(80% 40% at 0% 0%, rgba(168,153,245,0.10), transparent 60%),
+            radial-gradient(40% 40% at 100% 100%, rgba(168,230,207,0.05), transparent 60%);
+          pointer-events: none;
+        }
+        .featured-hero-status {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .featured-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+        .featured-pill-live {
+          background: var(--de-mint-tint);
+          color: var(--de-mint);
+        }
+        .featured-pill-net {
+          background: rgba(244,239,224,0.06);
+          color: var(--de-ink-3);
+          border: 1px solid var(--de-line);
+        }
+        .featured-live-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: var(--de-mint);
+          box-shadow: 0 0 6px rgba(168,230,207,0.6);
+        }
+        .featured-tickmark {
+          margin-left: auto;
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--de-ink-4);
+          font-variant-numeric: tabular-nums;
+        }
+
+        .featured-headline {
+          position: relative;
+          margin: 0;
+          font-family: var(--font-display);
+          font-weight: 400;
+          font-size: clamp(40px, 5vw, 56px);
+          font-style: italic;
+          letter-spacing: -0.02em;
+          line-height: 1;
+          color: var(--de-ink);
+        }
+        .featured-handle {
+          position: relative;
+          margin-top: 8px;
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--de-lavender);
+        }
+
+        .featured-chart {
+          position: relative;
+          flex: 1;
+          min-height: 180px;
+          display: flex;
+          align-items: center;
+        }
+
+        .featured-stats {
+          position: relative;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 20px;
+          padding-top: 22px;
+          border-top: 1px solid var(--de-line);
+        }
+        @media (min-width: 640px) {
+          .featured-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .featured-stat-label {
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--de-ink-4);
+        }
+        .featured-stat-value {
+          margin-top: 8px;
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 24px;
+          letter-spacing: -0.02em;
+          line-height: 1.1;
+          font-variant-numeric: tabular-nums;
+          color: var(--de-ink);
+        }
+        .featured-stat-value.pos { color: var(--de-mint); }
+        .featured-stat-value.neg { color: var(--de-rose); }
+
+        .featured-cta {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 18px;
+          border-radius: 8px;
+          background: var(--de-lavender-tint);
+          border: 1px solid rgba(168,153,245,0.42);
+          color: var(--de-lavender);
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          align-self: flex-start;
+          transition: background 160ms ease, border-color 160ms ease;
+        }
+        .featured-cta:hover {
+          background: rgba(168,153,245,0.20);
+          border-color: rgba(168,153,245,0.60);
+        }
+
+        /* ── Featured empty ───────────────────────────────────────────── */
+        .featured-empty {
+          padding: 36px;
+          background: var(--de-bg-raised);
+          border: 1px solid var(--de-line-2);
+          border-radius: 14px;
+          min-height: 360px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          gap: 14px;
+        }
+        .featured-empty-headline {
+          font-family: var(--font-display);
+          font-weight: 400;
+          font-style: italic;
+          font-size: 28px;
+          color: var(--de-ink-2);
+          letter-spacing: -0.01em;
+          max-width: 480px;
+          line-height: 1.2;
+        }
+        .featured-empty-body {
+          font-family: var(--font-sans);
+          font-size: 13px;
+          color: var(--de-ink-3);
+          max-width: 420px;
+          line-height: 1.5;
+        }
+
+        /* ── Promo card ───────────────────────────────────────────────── */
+        .promo-card {
+          padding: 24px;
+          background: var(--de-bg-raised);
+          border: 1px solid var(--de-line);
+          border-radius: 12px;
+          position: relative;
+          overflow: hidden;
+        }
+        .promo-card-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(60% 60% at 100% 0%, rgba(168,153,245,0.08), transparent 70%);
+          pointer-events: none;
+        }
+        .promo-eyebrow {
+          position: relative;
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: var(--de-ink-4);
+          margin-bottom: 12px;
+        }
+        .promo-headline {
+          position: relative;
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 400;
+          font-size: 22px;
+          line-height: 1.25;
+          letter-spacing: -0.01em;
+          color: var(--de-ink);
+          margin-bottom: 14px;
+        }
+        .promo-body {
+          position: relative;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          color: var(--de-ink-2);
+          line-height: 1.55;
+        }
+
+        /* ── Section header ───────────────────────────────────────────── */
+        .discover-section {
+          margin-top: 80px;
+        }
+        .section-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          padding-bottom: 18px;
+          border-bottom: 1px solid var(--de-line-2);
+        }
+        .section-head-eyebrow {
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.20em;
+          text-transform: uppercase;
+          color: var(--de-ink-3);
+          margin-bottom: 10px;
+        }
+        .section-head-title {
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 28px;
+          letter-spacing: -0.025em;
+          line-height: 1.05;
+          color: var(--de-ink);
+        }
+        .section-head-italic {
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 400;
+          color: var(--de-ink-3);
+          letter-spacing: -0.015em;
+          font-size: 28px;
+          margin-left: 6px;
+        }
+        .section-head-count {
+          font-family: var(--font-sans);
+          font-size: 11.5px;
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--de-ink-4);
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Leaderboard ──────────────────────────────────────────────── */
+        .leaderboard {
+          margin-top: 8px;
+        }
+        .leaderboard-row {
+          display: grid;
+          grid-template-columns: 32px minmax(0, 1.6fr) minmax(0, 1fr) 140px 96px;
+          align-items: center;
+          gap: 20px;
+          padding: 18px 4px;
+          border-bottom: 1px solid var(--de-line);
+          text-decoration: none;
+          color: var(--de-ink);
+          transition: background 160ms ease, padding 160ms ease;
+        }
+        .leaderboard-row:hover {
+          background: rgba(244,239,224,0.025);
+        }
+        .leaderboard-rank {
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          color: var(--de-ink-4);
+          font-variant-numeric: tabular-nums;
+        }
+        .leaderboard-meta {
+          font-family: var(--font-sans);
+          font-size: 12px;
+          font-weight: 400;
+          color: var(--de-ink-3);
+          font-variant-numeric: tabular-nums;
+          letter-spacing: 0.02em;
+          display: flex;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .leaderboard-meta-k {
+          font-weight: 700;
+          color: var(--de-ink-4);
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          margin-right: 6px;
+          font-size: 10.5px;
+        }
+        .leaderboard-meta-v {
+          color: var(--de-ink-2);
+          font-weight: 700;
+        }
+        .leaderboard-spark {
+          height: 32px;
+          display: flex;
+          align-items: center;
+        }
+        .leaderboard-return {
+          text-align: right;
+          font-family: var(--font-sans);
+          font-weight: 700;
+          font-size: 18px;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -0.015em;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          justify-content: flex-end;
+        }
+        .leaderboard-return.pos { color: var(--de-mint); }
+        .leaderboard-return.neg { color: var(--de-rose); }
+        .leaderboard-return.flat { color: var(--de-ink-3); }
+
+        @media (max-width: 767px) {
+          .leaderboard-row {
+            grid-template-columns: minmax(0, 1.6fr) 88px;
+          }
+          .leaderboard-row > :nth-child(1),
+          .leaderboard-row > :nth-child(3),
+          .leaderboard-row > :nth-child(4) {
+            display: none;
+          }
+        }
+
+        /* ── Markets grid ─────────────────────────────────────────────── */
+        .discover-market-grid {
           display: grid;
           grid-template-columns: 1fr;
           gap: 16px;
         }
         @media (min-width: 768px) {
-          .de-market-grid {
+          .discover-market-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (min-width: 1280px) {
-          .de-market-grid {
+          .discover-market-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
+        }
+        .discover-empty {
+          margin-top: 24px;
+          padding: 56px 16px;
+          text-align: center;
+          color: var(--de-ink-3);
+          font-family: var(--font-sans);
+          font-size: 13px;
+          background: var(--de-bg-raised);
+          border: 1px dashed var(--de-line-2);
+          border-radius: 12px;
+        }
+
+        /* ── List your agent CTA band ─────────────────────────────────── */
+        .invite-band {
+          margin-top: 96px;
+          padding: 36px 36px 38px;
+          border: 1px solid var(--de-line-2);
+          border-radius: 14px;
+          background: var(--de-bg-raised);
+          position: relative;
+          overflow: hidden;
+        }
+        .invite-band-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(60% 60% at 100% 0%, rgba(168,153,245,0.10), transparent 70%);
+          pointer-events: none;
+        }
+        .invite-eyebrow {
+          position: relative;
+          font-family: var(--font-sans);
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.20em;
+          text-transform: uppercase;
+          color: var(--de-ink-3);
+          margin-bottom: 14px;
+        }
+        .invite-question {
+          position: relative;
+          font-family: var(--font-display);
+          font-weight: 400;
+          font-size: clamp(28px, 4vw, 40px);
+          letter-spacing: -0.02em;
+          line-height: 1.1;
+          color: var(--de-ink);
+          max-width: 720px;
+          margin: 0 0 22px;
+        }
+        .invite-question em {
+          font-style: italic;
+          color: var(--de-lavender-2);
+        }
+        .invite-cta {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 22px;
+          border-radius: 8px;
+          background: var(--de-lavender);
+          color: #0B0F1C;
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          text-decoration: none;
+          transition: background 160ms ease, transform 160ms ease;
+        }
+        .invite-cta:hover {
+          background: var(--de-lavender-2);
+          transform: translateY(-1px);
         }
       `}</style>
     </main>
@@ -339,65 +863,33 @@ export default async function Home(props: {
 function SectionHeader({
   eyebrow,
   title,
-  subtitle,
+  italicAccent,
+  count,
 }: {
   eyebrow: string;
   title: string;
-  subtitle: string | null;
+  italicAccent: string | null;
+  count?: number;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        gap: 16,
-        flexWrap: "wrap",
-      }}
-    >
+    <div className="section-head">
       <div>
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10.5,
-            fontWeight: 500,
-            textTransform: "uppercase",
-            letterSpacing: "0.20em",
-            color: "var(--de-ink-3)",
-            marginBottom: 8,
-          }}
-        >
-          {eyebrow}
-        </div>
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 28,
-            fontStyle: "italic",
-            letterSpacing: "-0.02em",
-            color: "var(--de-ink)",
-            lineHeight: 1.1,
-          }}
-        >
+        <div className="section-head-eyebrow">{eyebrow}</div>
+        <div className="section-head-title">
           {title}
+          {italicAccent && (
+            <span className="section-head-italic"> {italicAccent}</span>
+          )}
         </div>
       </div>
-      {subtitle && (
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--de-ink-3)",
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          {subtitle}
-        </div>
+      {typeof count === "number" && (
+        <div className="section-head-count">{String(count).padStart(2, "0")} live</div>
       )}
     </div>
   );
 }
 
-function PlatformStatsRow({
+function PlatformStatsStrip({
   agentsActive,
   totalTvlLamports,
   marketsOpen,
@@ -411,9 +903,7 @@ function PlatformStatsRow({
   totalNavGrowth7dBps: number | null;
 }) {
   const growthLabel =
-    totalNavGrowth7dBps == null
-      ? "—"
-      : fmtSignedPct(totalNavGrowth7dBps / 100);
+    totalNavGrowth7dBps == null ? "··" : fmtSignedPct(totalNavGrowth7dBps / 100);
   const growthTone: "pos" | "neg" | "neutral" =
     totalNavGrowth7dBps == null
       ? "neutral"
@@ -422,34 +912,24 @@ function PlatformStatsRow({
       : "neg";
 
   return (
-    <div
-      className="de-stats-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-        gap: 12,
-      }}
-    >
-      <StatTile label="Live agents" value={String(agentsActive)} />
-      <StatTile label="Total TVL" value={fmtTvlUsd(totalTvlLamports)} sub="bUSD" />
-      <StatTile
+    <div className="stats-strip">
+      <StatCell label="Live agents" value={String(agentsActive)} />
+      <StatCell
+        label="Total TVL"
+        value={fmtTvlUsd(totalTvlLamports)}
+        sub="bUSD"
+      />
+      <StatCell
         label="Open markets"
         value={String(marketsOpen)}
         sub={`${marketsResolved} resolved`}
       />
-      <StatTile label="7d platform NAV" value={growthLabel} tone={growthTone} />
-      <style>{`
-        @media (min-width: 768px) {
-          .de-stats-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-          }
-        }
-      `}</style>
+      <StatCell label="7-day NAV" value={growthLabel} tone={growthTone} />
     </div>
   );
 }
 
-function StatTile({
+function StatCell({
   label,
   value,
   sub,
@@ -460,71 +940,14 @@ function StatTile({
   sub?: string;
   tone?: "pos" | "neg" | "neutral";
 }) {
-  const valueColor =
-    tone === "pos"
-      ? "var(--de-mint)"
-      : tone === "neg"
-      ? "var(--de-rose)"
-      : "var(--de-ink)";
   return (
-    <div
-      style={{
-        padding: "20px 22px",
-        background: "var(--de-bg-raised)",
-        border: "1px solid var(--de-line)",
-        borderRadius: 12,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          fontWeight: 500,
-          textTransform: "uppercase",
-          letterSpacing: "0.18em",
-          color: "var(--de-ink-3)",
-          marginBottom: 10,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 8,
-          minWidth: 0,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 32,
-            color: valueColor,
-            fontVariantNumeric: "tabular-nums",
-            letterSpacing: "-0.02em",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            lineHeight: 1.05,
-          }}
-        >
+    <div className="stats-strip-item">
+      <div className="stats-strip-label">{label}</div>
+      <div className="stats-strip-value">
+        <span className={`stats-strip-num ${tone === "pos" ? "pos" : tone === "neg" ? "neg" : ""}`}>
           {value}
         </span>
-        {sub && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10.5,
-              color: "var(--de-ink-3)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}
-          >
-            {sub}
-          </span>
-        )}
+        {sub && <span className="stats-strip-sub">{sub}</span>}
       </div>
     </div>
   );
@@ -555,81 +978,27 @@ function FeaturedAgentHero({
   return (
     <Link
       href={`/agent/${encodeURIComponent(row.sns)}`}
-      className="de-hero"
-      style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
-        padding: 32,
-        background: "var(--de-bg-raised)",
-        border: "1px solid var(--de-line-2)",
-        borderRadius: 16,
-        textDecoration: "none",
-        color: "var(--de-ink)",
-        overflow: "hidden",
-        minHeight: 480,
-        transition: "border-color 200ms ease, transform 200ms ease",
-      }}
+      className="featured-hero"
     >
-      {/* Soft gradient backdrop tied to the agent identity. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(80% 50% at 0% 0%, rgba(168,153,245,0.10), transparent), radial-gradient(40% 40% at 100% 100%, rgba(168,230,207,0.06), transparent)",
-          pointerEvents: "none",
-        }}
-      />
+      <div className="featured-hero-bg" aria-hidden="true" />
 
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <StatusPill variant="LIVE">LIVE</StatusPill>
-        <StatusPill variant="DEVNET">DEVNET</StatusPill>
-        <span
-          style={{
-            marginLeft: "auto",
-            fontFamily: "var(--font-mono)",
-            fontSize: 10.5,
-            color: "var(--de-ink-3)",
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-          }}
-        >
-          NAV {row.series.length} ticks
+      <div className="featured-hero-status">
+        <span className="featured-pill featured-pill-live">
+          <span className="featured-live-dot" />
+          Live
+        </span>
+        <span className="featured-pill featured-pill-net">Devnet</span>
+        <span className="featured-tickmark">
+          NAV {String(row.series.length).padStart(3, "0")} ticks
         </span>
       </div>
 
-      <div style={{ position: "relative" }}>
-        <AgentCardCompact
-          sns={row.sns}
-          displayName={row.displayName}
-          avatarSeed={row.avatarSeed}
-          snsVerified={row.snsVerified}
-          mode="row"
-          avatarSize={48}
-        />
+      <div>
+        <h2 className="featured-headline">{row.displayName}</h2>
+        <div className="featured-handle">@{row.sns}</div>
       </div>
 
-      {/* Large NAV chart — the hero visual. */}
-      <div
-        style={{
-          position: "relative",
-          flex: 1,
-          minHeight: 160,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
+      <div className="featured-chart">
         <DeSparkline
           series={row.series}
           variant="large"
@@ -641,101 +1010,35 @@ function FeaturedAgentHero({
         />
       </div>
 
-      <div style={{ position: "relative" }}>
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 36,
-            letterSpacing: "-0.025em",
-            color: "var(--de-ink)",
-            lineHeight: 1.05,
-          }}
-        >
-          {row.displayName}
-        </div>
-        <div
-          style={{
-            marginTop: 8,
-            fontSize: 14,
-            color: "var(--de-ink-2)",
-            maxWidth: 520,
-            lineHeight: 1.5,
-          }}
-        >
-          The top-performing strategy on the platform over the last 30 days.
-          NAV updates on every commit. Markets self-resolve from the chart you
-          see above.
-        </div>
+      <div className="featured-stats">
+        <FeaturedStat
+          label="30D Return"
+          value={fmtSignedPct(row.return30dPct)}
+          tone={tone}
+        />
+        <FeaturedStat
+          label="Live TVL"
+          value={tvl != null ? fmtUsd(tvl) : "··"}
+        />
+        <FeaturedStat
+          label="Open Markets"
+          value={String(row.marketCount)}
+        />
+        <FeaturedStat
+          label="NAV Ticks"
+          value={String(row.series.length)}
+        />
       </div>
 
-      {/* Metadata pills row */}
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          gap: 24,
-          flexWrap: "wrap",
-        }}
-      >
-        <HeroPill label="30D RETURN" value={fmtSignedPct(row.return30dPct)} tone={tone} />
-        <HeroPill label="TVL" value={tvl != null ? fmtUsd(tvl) : "—"} />
-        <HeroPill label="OPEN MARKETS" value={String(row.marketCount)} />
-        <HeroPill label="NAV TICKS" value={String(row.series.length)} />
-      </div>
-
-      <div style={{ position: "relative", display: "flex" }}>
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "12px 18px",
-            borderRadius: 8,
-            background: "var(--de-lavender-tint)",
-            border: "1px solid rgba(168,153,245,0.42)",
-            color: "var(--de-lavender)",
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-          }}
-        >
-          View agent →
-        </span>
-      </div>
-
-      <style>{`
-        .de-hero:hover {
-          border-color: rgba(168,153,245,0.42);
-          transform: translateY(-1px);
-        }
-      `}</style>
+      <span className="featured-cta">
+        View strategy
+        <ArrowUpRight size={16} strokeWidth={2.25} />
+      </span>
     </Link>
   );
 }
 
-function FeaturedAgentEmpty() {
-  return (
-    <div
-      style={{
-        padding: 32,
-        background: "var(--de-bg-raised)",
-        border: "1px solid var(--de-line-2)",
-        borderRadius: 16,
-        minHeight: 360,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--de-ink-3)",
-        fontSize: 14,
-        textAlign: "center",
-      }}
-    >
-      Live strategies will appear here once agents begin trading on devnet.
-    </div>
-  );
-}
-
-function HeroPill({
+function FeaturedStat({
   label,
   value,
   tone = "neutral",
@@ -744,36 +1047,13 @@ function HeroPill({
   value: string;
   tone?: "pos" | "neg" | "neutral";
 }) {
-  const valueColor =
-    tone === "pos"
-      ? "var(--de-mint)"
-      : tone === "neg"
-      ? "var(--de-rose)"
-      : "var(--de-ink)";
   return (
-    <div style={{ minWidth: 0 }}>
+    <div>
+      <div className="featured-stat-label">{label}</div>
       <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10.5,
-          fontWeight: 500,
-          textTransform: "uppercase",
-          letterSpacing: "0.18em",
-          color: "var(--de-ink-3)",
-          marginBottom: 4,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: 22,
-          color: valueColor,
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: "-0.015em",
-          lineHeight: 1.1,
-        }}
+        className={`featured-stat-value ${
+          tone === "pos" ? "pos" : tone === "neg" ? "neg" : ""
+        }`}
       >
         {value}
       </div>
@@ -781,68 +1061,34 @@ function HeroPill({
   );
 }
 
+function FeaturedAgentEmpty() {
+  return (
+    <div className="featured-empty">
+      <div className="featured-empty-headline">
+        <em>The index is loading.</em>
+      </div>
+      <div className="featured-empty-body">
+        Live strategies will appear here once agents begin trading on devnet.
+        Each tick they execute writes a new NAV commit, and that commit is the
+        scoreboard.
+      </div>
+    </div>
+  );
+}
+
 function EditorialPromoCard() {
   return (
-    <div
-      style={{
-        padding: 24,
-        background: "var(--de-bg-raised)",
-        border: "1px solid var(--de-line)",
-        borderRadius: 12,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(60% 60% at 100% 0%, rgba(168,153,245,0.10), transparent)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          fontWeight: 500,
-          textTransform: "uppercase",
-          letterSpacing: "0.20em",
-          color: "var(--de-ink-3)",
-          marginBottom: 12,
-        }}
-      >
-        How it works
-      </div>
-      <div
-        style={{
-          position: "relative",
-          fontFamily: "var(--font-display)",
-          fontStyle: "italic",
-          fontSize: 18,
-          lineHeight: 1.4,
-          letterSpacing: "-0.01em",
-          color: "var(--de-ink)",
-          marginBottom: 14,
-        }}
-      >
+    <div className="promo-card">
+      <div className="promo-card-bg" aria-hidden="true" />
+      <div className="promo-eyebrow">How it works</div>
+      <div className="promo-headline">
         Markets read the NAV chart, not an oracle.
       </div>
-      <div
-        style={{
-          position: "relative",
-          fontSize: 13,
-          color: "var(--de-ink-2)",
-          lineHeight: 1.5,
-        }}
-      >
+      <p className="promo-body">
         Every Bundie market settles by reading the strategy&apos;s on-chain NAV
-        snapshot at resolution slot. No external oracle, no manual operator.
-        The chart you see decides the outcome.
-      </div>
+        snapshot at the resolution slot. No external oracle. No manual
+        operator. The chart you see decides the outcome.
+      </p>
     </div>
   );
 }
@@ -863,34 +1109,15 @@ function Leaderboard({
 }) {
   if (rows.length === 0) {
     return (
-      <div
-        style={{
-          marginTop: 24,
-          padding: "32px 16px",
-          textAlign: "center",
-          color: "var(--de-ink-3)",
-          fontSize: 13,
-          background: "var(--de-bg-raised)",
-          border: "1px solid var(--de-line)",
-          borderRadius: 12,
-        }}
-      >
+      <div className="discover-empty">
         Live strategies will appear here once agents begin trading on devnet.
       </div>
     );
   }
   return (
-    <div
-      style={{
-        marginTop: 20,
-        background: "var(--de-bg-raised)",
-        border: "1px solid var(--de-line)",
-        borderRadius: 8,
-        overflow: "hidden",
-      }}
-    >
+    <div className="leaderboard">
       {rows.slice(0, 10).map((r, i) => (
-        <LeaderboardRow key={r.sns} row={r} index={i + 1} isLast={i === Math.min(rows.length, 10) - 1} />
+        <LeaderboardRow key={r.sns} row={r} index={i + 1} />
       ))}
     </div>
   );
@@ -899,7 +1126,6 @@ function Leaderboard({
 function LeaderboardRow({
   row,
   index,
-  isLast,
 }: {
   row: {
     sns: string;
@@ -912,47 +1138,26 @@ function LeaderboardRow({
     snsVerified: boolean;
   };
   index: number;
-  isLast: boolean;
 }) {
   const tvl = row.currentNavMicros ? row.currentNavMicros / 1_000_000 : null;
-  const tone: "pos" | "neg" | "neutral" =
+  const tone: "pos" | "neg" | "flat" =
     row.return30dPct == null
-      ? "neutral"
-      : row.return30dPct >= 0
+      ? "flat"
+      : row.return30dPct > 0
       ? "pos"
-      : "neg";
-  const returnColor =
-    tone === "pos"
-      ? "var(--de-mint)"
-      : tone === "neg"
-      ? "var(--de-rose)"
-      : "var(--de-ink-3)";
+      : row.return30dPct < 0
+      ? "neg"
+      : "flat";
+
+  const TrendIcon =
+    tone === "pos" ? TrendingUp : tone === "neg" ? TrendingDown : null;
 
   return (
     <Link
       href={`/agent/${encodeURIComponent(row.sns)}`}
-      className="de-leaderboard-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "32px minmax(0, 1.4fr) minmax(0, 1fr) 140px 80px",
-        alignItems: "center",
-        gap: 16,
-        padding: "16px 24px",
-        borderBottom: isLast ? "none" : "1px solid var(--de-line)",
-        textDecoration: "none",
-        color: "var(--de-ink)",
-        transition: "background 160ms ease",
-      }}
+      className="leaderboard-row"
     >
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--de-ink-4)",
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: "0.06em",
-        }}
-      >
+      <div className="leaderboard-rank">
         {String(index).padStart(2, "0")}
       </div>
       <AgentCardCompact
@@ -963,67 +1168,48 @@ function LeaderboardRow({
         mode="row"
         avatarSize={32}
       />
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--de-ink-3)",
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: "0.04em",
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="leaderboard-meta">
         <span>
-          <span style={{ color: "var(--de-ink-4)" }}>TVL </span>
-          <span style={{ color: "var(--de-ink-2)" }}>
-            {tvl != null ? fmtUsd(tvl) : "—"}
+          <span className="leaderboard-meta-k">TVL</span>
+          <span className="leaderboard-meta-v">
+            {tvl != null ? fmtUsd(tvl) : "··"}
           </span>
         </span>
-        <span style={{ color: "var(--de-ink-5)" }}>·</span>
         <span>
-          <span style={{ color: "var(--de-ink-4)" }}>MKTS </span>
-          <span style={{ color: "var(--de-ink-2)" }}>{row.marketCount}</span>
+          <span className="leaderboard-meta-k">Markets</span>
+          <span className="leaderboard-meta-v">{row.marketCount}</span>
         </span>
       </div>
-      <div style={{ height: 32, display: "flex", alignItems: "center" }}>
+      <div className="leaderboard-spark">
         <DeSparkline
           series={row.series}
           variant="small"
           width={140}
           height={32}
-          tone={tone}
+          tone={tone === "flat" ? "neutral" : tone}
         />
       </div>
-      <div
-        style={{
-          textAlign: "right",
-          fontFamily: "var(--font-display)",
-          fontSize: 18,
-          fontVariantNumeric: "tabular-nums",
-          color: returnColor,
-          letterSpacing: "-0.01em",
-        }}
-      >
+      <div className={`leaderboard-return ${tone}`}>
+        {TrendIcon && <TrendIcon size={14} strokeWidth={2.25} />}
         {fmtSignedPct(row.return30dPct)}
       </div>
-      <style>{`
-        .de-leaderboard-row:hover {
-          background: var(--de-bg-2);
-        }
-        @media (max-width: 767px) {
-          .de-leaderboard-row {
-            grid-template-columns: minmax(0, 1.6fr) 80px !important;
-          }
-          .de-leaderboard-row > :nth-child(1),
-          .de-leaderboard-row > :nth-child(3),
-          .de-leaderboard-row > :nth-child(4) {
-            display: none !important;
-          }
-        }
-      `}</style>
     </Link>
+  );
+}
+
+function ListYourAgentBand() {
+  return (
+    <section className="invite-band">
+      <div className="invite-band-bg" aria-hidden="true" />
+      <div className="invite-eyebrow">For strategists</div>
+      <h2 className="invite-question">
+        Running a trading agent on Solana? <em>List it on the index.</em>
+      </h2>
+      <Link href="/strategists" className="invite-cta">
+        List your agent
+        <ArrowRight size={16} strokeWidth={2.5} />
+      </Link>
+    </section>
   );
 }
 
@@ -1048,7 +1234,7 @@ function filterTrending(
 }
 
 function fmtSignedPct(pct: number | null): string {
-  if (pct == null || !Number.isFinite(pct)) return "—";
+  if (pct == null || !Number.isFinite(pct)) return "··";
   const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(2)}%`;
 }
@@ -1067,13 +1253,11 @@ function fmtTvlUsd(lamports: string): string {
     const usd = Number(whole) + Number(remainder) / 1_000_000;
     return fmtUsd(usd);
   } catch {
-    return "—";
+    return "··";
   }
 }
 
-// ─── Platform stats fetcher (dark editorial layout takes precedence over the
-//     legacy <PlatformStatsStrip> paper-card row, so we duplicate the fetch
-//     here instead of importing from the legacy component) ─────────────────
+// ─── Platform stats fetcher ─────────────────────────────────────────────────
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";

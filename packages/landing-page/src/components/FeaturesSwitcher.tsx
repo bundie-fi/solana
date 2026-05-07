@@ -94,8 +94,9 @@ function FeaturesSwitcher() {
         })}
       </div>
 
-      {/* Middle, title + body. */}
-      <div className="features-copy">
+      {/* Middle, title + body. Keyed on activeId so the cross-fade
+          keyframe restarts on every tab change. */}
+      <div className="features-copy features-fade" key={`copy-${activeId}`}>
         <h3 className="features-title">
           {active.title[0]}
           <span className="features-title-2">{active.title[1]}</span>
@@ -103,8 +104,8 @@ function FeaturesSwitcher() {
         <p className="features-body">{active.body}</p>
       </div>
 
-      {/* Right, the active feature's visual. */}
-      <div className="features-visual">
+      {/* Right, the active feature's visual. Same keyed cross-fade. */}
+      <div className="features-visual features-fade" key={`vis-${activeId}`}>
         <Visual />
       </div>
     </div>
