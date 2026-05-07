@@ -1,3 +1,16 @@
+/**
+ * Market detail page — dark editorial rebuild.
+ *
+ * Two-column layout (XO Market style):
+ *   - Left  (~65%): header strip, big NAV chart with resolution threshold,
+ *     rules & resolution panel, agent insight, discussion thread.
+ *   - Right (~35%): sticky trading panel that owns the buy flow end-to-end.
+ *
+ * All visual chrome is driven by `--de-*` tokens via the components in
+ * `components/de/`. Server component; the on-chain bet flow stays inside
+ * the legacy `<MarketBuyPanel>`, wrapped by `<TradingPanel>` so the tx
+ * submission path is unchanged.
+ */
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -14,9 +27,18 @@ import {
   truncatePubkey,
   HERO_AGENTS,
 } from "@/lib/sns-resolver";
-import { MarketBuyPanel } from "@/components/market-buy-panel";
+import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
 import { AgentInsight } from "@/components/agent-insight";
 import { checkAgentQualityGate } from "@/lib/quality-gate";
+import {
+  AgentCardCompact,
+  DiscussionThread,
+  NavChartWithThreshold,
+  RulesAndResolution,
+  StatusPill,
+  TradingPanel,
+  hashSeed,
+} from "@/components/de";
 
 interface AgentLabel {
   name: string;
@@ -46,8 +68,7 @@ function labelFor(
 }
 
 /** Convert a slot delta into a friendly "in ~5h" / "in ~2d" string,
- *  using Solana's ~400ms slot time. Handles negative deltas (resolution
- *  in the past = "ready to resolve"). */
+ *  using Solana's ~400ms slot time. Negative deltas → "ready to resolve". */
 function relativeSlotLabel(deltaSlots: number): string {
   if (deltaSlots <= 0) return "ready to resolve";
   const seconds = deltaSlots * 0.4;
@@ -59,21 +80,26 @@ function relativeSlotLabel(deltaSlots: number): string {
   return `in ~${(hours / 24).toFixed(1)}d`;
 }
 
+function fmtVolumeBusd(raw: number): string {
+  const usd = raw / 1_000_000;
+  if (usd >= 1_000_000) return `${(usd / 1_000_000).toFixed(2)}M`;
+  if (usd >= 1_000) return `${(usd / 1_000).toFixed(1)}k`;
+  return usd.toFixed(2);
+}
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function MarketDetailPage(
   props: {
     params: Promise<{ id: string }>;
-  }
+  },
 ) {
   const params = await props.params;
   const connection = getDevnetConnection();
-  // Critical-path reads only — everything the page needs to render the
-  // header, hero, and bet panel. `fetchAllMarkets` (= getProgramAccounts,
-  // ~2-3s on devnet) is deliberately NOT in here; it now powers a
-  // Suspense-streamed creator-accuracy line further down so the page
-  // doesn't block on a single decorative stat.
+  // Critical-path reads — header, hero, and bet panel. `fetchAllMarkets`
+  // (= getProgramAccounts, ~2-3s on devnet) is deliberately deferred to a
+  // <Suspense> below so the rest of the page can render in ~1 RPC hop.
   const [market, agentDir, currentSlot] = await Promise.all([
     fetchMarketByAddress(connection, params.id),
     fetchAgentDirectory({ cache: "no-store" }),
@@ -83,12 +109,7 @@ export default async function MarketDetailPage(
   if (!market) notFound();
 
   const creator = labelFor(market.createdBy, agentDir);
-  // Track-record quality gate. Resolved server-side so the buy panel
-  // ships with the disabled state pre-baked , no client fetch flicker.
-  // Fails open when the creator has no SNS (legacy hero vaults, etc.).
   const qualityGate = await checkAgentQualityGate(creator.sns);
-  // For kinds 1 and 3 the predicted vault sits on Market.strategy.
-  // Kind 2 (head-to-head) uses both: strategy = agent A, targetAgent = B.
   const targetA = market.strategy
     ? labelFor(market.strategy, agentDir)
     : null;
@@ -99,20 +120,15 @@ export default async function MarketDetailPage(
   const totalShares = market.yesShares + market.noShares;
   const yesProbability =
     totalShares > 0 ? market.yesShares / totalShares : 0.5;
-  const yesPct = Math.round(yesProbability * 100);
-  const noPct = 100 - yesPct;
-  const yesPrice = yesProbability;
-  const noPrice = 1 - yesProbability;
 
-  // Live bettor signal: pull the predicted vault's CURRENT NAV so the
-  // user can see how close the target is to the threshold without
-  // having to leave the page. For kind=2 we also fetch B so we can
-  // show both NAVs side-by-side.
+  // Live target NAV(s).
   const [vaultA, vaultB] = await Promise.all([
     market.strategy
-      ? fetchBundieVault(connection, PROGRAM_IDS.predictionMarket, market.strategy).catch(
-          () => null,
-        )
+      ? fetchBundieVault(
+          connection,
+          PROGRAM_IDS.predictionMarket,
+          market.strategy,
+        ).catch(() => null)
       : Promise.resolve(null),
     market.kind === 2 && market.targetAgent
       ? fetchBundieVault(
@@ -124,33 +140,36 @@ export default async function MarketDetailPage(
   ]);
 
   const navA = vaultA ? Number(vaultA.navLamports) / 1_000_000 : null;
-  const navB = vaultB ? Number(vaultB.navLamports) / 1_000_000 : null;
   const initialNavA = Number(market.initialNavA) / 1_000_000;
-  const initialNavB = Number(market.initialNavB) / 1_000_000;
-  const navAChangePct =
-    navA != null && initialNavA > 0
-      ? ((navA - initialNavA) / initialNavA) * 100
-      : null;
-  const navBChangePct =
-    navB != null && initialNavB > 0
-      ? ((navB - initialNavB) / initialNavB) * 100
-      : null;
+
+  // NAV history for the big chart — same backend route the agent insight
+  // panel uses. The 30-day series is more than enough resolution to draw
+  // a meaningful trajectory; the chart auto-scales.
+  const navPnl = targetA?.sns
+    ? await fetchAgentPnl(targetA.sns, "30d")
+    : null;
+  const navSeries: number[] =
+    navPnl?.snapshots
+      .map((s) => microsToUsd(s.navLamports))
+      .filter((v): v is number => v != null) ?? [];
+  const navTimestamps: string[] =
+    navPnl?.snapshots.map((s) => s.ts) ?? [];
 
   const slotsToResolution =
     currentSlot > 0 ? market.resolutionSlot - currentSlot : 0;
   const resolutionTimeLabel = relativeSlotLabel(slotsToResolution);
 
-  // Phase B+ NAV-aware resolution copy. The target is whichever agent's
-  // NAV is being measured (Market.strategy for kinds 1/3, both for 2).
-  let resolutionProse: string;
+  // Resolution prose — kind-specific.
   const slotLabel = market.resolutionSlot.toLocaleString();
   const targetAName = targetA?.name ?? "the agent";
   const targetBName = targetB?.name ?? "the other agent";
+  let resolutionProse: string;
+  let thresholdBusd: number | null = null;
   if (market.kind === 1) {
-    const targetBusd = (market.targetNavLamports ?? 0) / 1_000_000;
+    thresholdBusd = (market.targetNavLamports ?? 0) / 1_000_000;
     resolutionProse =
       `Resolves YES if ${targetAName}'s vault NAV reaches ` +
-      `${targetBusd.toLocaleString(undefined, { maximumFractionDigits: 2 })} bUSD ` +
+      `${thresholdBusd.toLocaleString(undefined, { maximumFractionDigits: 2 })} bUSD ` +
       `by slot ${slotLabel}.`;
   } else if (market.kind === 2) {
     resolutionProse =
@@ -158,6 +177,10 @@ export default async function MarketDetailPage(
       `${targetBName}'s by slot ${slotLabel}.`;
   } else if (market.kind === 3) {
     const pct = ((market.drawdownBps ?? 0) / 100).toFixed(2);
+    // For drawdown markets the threshold is initialNav * (1 - drawdown).
+    if (initialNavA > 0 && market.drawdownBps != null) {
+      thresholdBusd = initialNavA * (1 - market.drawdownBps / 10_000);
+    }
     resolutionProse =
       `Resolves YES if ${targetAName}'s NAV drops by ${pct}% or more ` +
       `by slot ${slotLabel}.`;
@@ -166,35 +189,37 @@ export default async function MarketDetailPage(
       market.question || "Resolves via program-native NAV reads.";
   }
 
-  const totalVolumeBusd = (market.totalVolume / 1e6).toFixed(2);
+  const totalVolumeBusd = fmtVolumeBusd(market.totalVolume);
+  const feeLabel = `${(market.feeBps / 100).toFixed(2)}%`;
+
+  // Caption underneath the chart — surfaces the live NAV vs threshold.
+  const caption =
+    navA != null && thresholdBusd != null
+      ? `NAV ${fmtBusd(navA)} bUSD · threshold ${fmtBusd(thresholdBusd)} bUSD`
+      : navA != null
+        ? `NAV ${fmtBusd(navA)} bUSD · benchmark mode`
+        : "Live NAV unavailable";
+
+  const yesPctRound = Math.round(yesProbability * 100);
 
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
-      {/* Mobile header with back button */}
-      <div className="sm:hidden top-header" style={{ paddingLeft: 8 }}>
-        <Link
-          href="/markets"
-          className="btn btn-ghost"
-          style={{ padding: "7px 10px", fontSize: 11, gap: 6, textDecoration: "none" }}
-        >
-          <span style={{ fontSize: 14, lineHeight: 1 }}>‹</span> Markets
-        </Link>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span className="pulse-dot" />
-          <span className="mono-tiny" style={{ color: "var(--green-2)" }}>LIVE</span>
-        </span>
-      </div>
-
-      {/* Desktop back link */}
-      <div className="hidden sm:block" style={{ padding: "12px 20px 0" }}>
+    <main
+      style={{
+        background: "var(--de-bg)",
+        minHeight: "100vh",
+        color: "var(--de-ink)",
+      }}
+    >
+      {/* Mobile back strip */}
+      <div className="md:hidden" style={{ padding: "14px 16px 0" }}>
         <Link
           href="/markets"
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 11,
+            fontSize: 10.5,
             textTransform: "uppercase",
             letterSpacing: "0.18em",
-            color: "var(--purple)",
+            color: "var(--de-lavender)",
             textDecoration: "none",
           }}
         >
@@ -202,240 +227,445 @@ export default async function MarketDetailPage(
         </Link>
       </div>
 
-      <div className="scroll-area" style={{ overflowY: "auto" }}>
-        {/* Question section */}
-        <div style={{ padding: "18px 16px 14px" }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            <span className="pill pill-gold">Strategy market</span>
-            <span
-              className={`pill ${market.status === "active" ? "pill-green" : "pill-muted"}`}
-              style={{ fontSize: 9 }}
-            >
-              {market.status}
-              {market.outcome ? ` · ${market.outcome.toUpperCase()}` : ""}
-            </span>
-          </div>
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 22,
-              lineHeight: 1.2,
-              letterSpacing: "-0.02em",
-              color: "var(--fg-0)",
-              margin: 0,
-            }}
-          >
-            {market.question || "-"}
-          </h1>
-        </div>
-
-        {/* Creator / Target row — clickable into the agent profile so a
-            bettor can dive into the agent's recent trades + NAV history
-            before placing a bet. */}
-        <div style={{ padding: "0 16px 16px" }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <AgentBadge
-              eyebrow="Created by"
-              label={creator.name}
-              emoji={creator.emoji}
-              href={creator.sns ? `/agent/${creator.sns}` : undefined}
-              accent="gold"
-            />
-            {targetA && (
-              <AgentBadge
-                eyebrow={market.kind === 2 ? "Side A" : "Predicting"}
-                label={targetA.name}
-                emoji={targetA.emoji}
-                href={targetA.sns ? `/agent/${targetA.sns}` : undefined}
-                accent="purple"
-              />
-            )}
-            {targetB && (
-              <AgentBadge
-                eyebrow="Side B"
-                label={targetB.name}
-                emoji={targetB.emoji}
-                href={targetB.sns ? `/agent/${targetB.sns}` : undefined}
-                accent="purple"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Probability gauge */}
-        <div style={{ padding: "0 16px 18px" }}>
-          <ProbabilityGauge
-            yesPct={yesPct}
-            noPct={noPct}
-            yesPrice={yesPrice}
-            noPrice={noPrice}
-            volume={totalVolumeBusd}
-            windowEndSlot={market.windowEndSlot}
-            resolutionTimeLabel={resolutionTimeLabel}
-          />
-        </div>
-
-        {/* Where the target is RIGHT NOW — the most actionable signal
-            for a bettor. Shows current NAV vs initial + threshold, plus
-            growth %. For kind=2 shows both A and B side-by-side. */}
-        {(navA != null || navB != null) && (
-          <div style={{ padding: "0 16px 18px" }}>
-            <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-              Where they are now
-            </div>
-            <div className="card" style={{ padding: 14 }}>
-              <NavRow
-                label={targetA?.name ?? "Target"}
-                emoji={targetA?.emoji ?? "🤖"}
-                currentBusd={navA}
-                initialBusd={initialNavA}
-                changePct={navAChangePct}
-                thresholdBusd={
-                  market.kind === 1 && market.targetNavLamports != null
-                    ? market.targetNavLamports / 1_000_000
-                    : null
-                }
-              />
-              {targetB && (
-                <>
-                  <div style={{ height: 1, background: "var(--line-1)", margin: "10px 0" }} />
-                  <NavRow
-                    label={targetB.name}
-                    emoji={targetB.emoji}
-                    currentBusd={navB}
-                    initialBusd={initialNavB}
-                    changePct={navBChangePct}
-                    thresholdBusd={null}
-                  />
-                </>
-              )}
-            </div>
-            <p
-              className="muted"
-              style={{ fontSize: 11, marginTop: 8, lineHeight: 1.4 }}
-            >
-              NAV is committed on-chain by the agent every tick. Resolution
-              reads the same number the program saw at the resolution slot.
-            </p>
-          </div>
-        )}
-
-        {/* Resolution method */}
-        <div style={{ padding: "0 16px 18px" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-            <span className="pill pill-green" style={{ fontSize: 9 }}>
-              <span style={{ fontSize: 11, lineHeight: 1 }}>✓</span> NAV-resolved
-            </span>
-            <span className="pill pill-muted" style={{ fontSize: 9 }}>
-              Resolves {resolutionTimeLabel}
-            </span>
-          </div>
-          <p
+      {/* Page container */}
+      <div
+        style={{
+          maxWidth: 1320,
+          margin: "0 auto",
+          padding: "32px 24px 96px",
+        }}
+      >
+        {/* Desktop crumb */}
+        <div className="hidden md:block" style={{ marginBottom: 20 }}>
+          <Link
+            href="/markets"
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              lineHeight: 1.5,
-              color: "var(--fg-1)",
-              margin: "0 0 8px 0",
+              fontSize: 10.5,
+              textTransform: "uppercase",
+              letterSpacing: "0.20em",
+              color: "var(--de-ink-3)",
+              textDecoration: "none",
             }}
           >
-            {resolutionProse}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
-            <span className="green" style={{ fontSize: 11 }}>✓</span>
-            <span className="muted" style={{ lineHeight: 1.4 }}>
-              Insider-trading protection: the on-chain program rejects any
-              market a creator tries to open against their own vault.
-            </span>
-          </div>
-          <Suspense fallback={null}>
-            <CreatorAccuracyLine
-              createdBy={market.createdBy}
-              creatorName={creator.name}
-            />
-          </Suspense>
+            ← All markets
+          </Link>
         </div>
 
-        {/* Bet panel */}
-        <div style={{ padding: "0 16px 18px" }}>
-          <MarketBuyPanel
-            market={market}
-            yesProbability={yesProbability}
-            qualityGate={qualityGate}
-          />
-        </div>
-
-        {/* Agent insight — NAV chart + recent decisions + vault
-            composition. Streamed via Suspense so the page above the
-            fold renders immediately while the insight panel hydrates.
-            Two panels for kind=2 (head-to-head); one for kinds 1/3. */}
-        <div style={{ padding: "0 16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <Suspense
-            fallback={<InsightSkeleton label={targetA?.name ?? "Target"} />}
+        <div className="market-grid">
+          {/* ─── Left column ────────────────────────────────────────── */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 32,
+              minWidth: 0,
+            }}
           >
-            <AgentInsight
-              sns={targetA?.sns ?? null}
-              vaultPda={market.strategy ?? null}
-              connection={connection}
-              displayName={targetA?.name}
-            />
-          </Suspense>
-          {market.kind === 2 && market.targetAgent && (
-            <Suspense
-              fallback={<InsightSkeleton label={targetB?.name ?? "Target B"} />}
+            {/* Header strip */}
+            <header
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 18,
+              }}
             >
-              <AgentInsight
-                sns={targetB?.sns ?? null}
-                vaultPda={market.targetAgent}
-                connection={connection}
-                displayName={targetB?.name}
-              />
-            </Suspense>
-          )}
-        </div>
-
-        {/* Resolution data */}
-        <div style={{ padding: "0 16px 18px" }}>
-          <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Resolution data</div>
-          <div className="card inset" style={{ padding: 14 }}>
-            <DataRow
-              label="Resolves"
-              value={`${resolutionTimeLabel} (slot ${market.resolutionSlot.toLocaleString()})`}
-            />
-            {market.windowEndSlot != null && (
-              <DataRow label="Window end" value={market.windowEndSlot.toLocaleString()} />
-            )}
-            <DataRow label="Fee" value={`${(market.feeBps / 100).toFixed(2)}%`} />
-            <DataRow label="Volume" value={`${totalVolumeBusd} bUSD`} />
-            <DataRow
-              label="Market PDA"
-              value={
-                <a
-                  href={`https://orbmarkets.io/address/${market.address}?cluster=devnet`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: "var(--gold)", textDecoration: "underline", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                }}
+              >
+                {creator.sns ? (
+                  <AgentCardCompact
+                    sns={creator.sns}
+                    displayName={creator.name}
+                    avatarSeed={hashSeed(creator.sns)}
+                    href={`/agent/${creator.sns}`}
+                    mode="row"
+                    avatarSize={36}
+                    meta={
+                      <>
+                        <span style={{ color: "var(--de-ink-4)" }}>Created by</span>
+                        <span style={{ color: "var(--de-lavender)" }}>•</span>
+                        <span>NAV-resolved market</span>
+                      </>
+                    }
+                  />
+                ) : (
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      color: "var(--de-ink-3)",
+                    }}
+                  >
+                    {creator.name}
+                  </div>
+                )}
+                <div
+                  style={{ display: "flex", gap: 8, alignItems: "center" }}
                 >
-                  {market.address.slice(0, 12)}…{market.address.slice(-8)}
-                </a>
-              }
-              last
-            />
-          </div>
-        </div>
+                  {market.status === "active" ? (
+                    <StatusPill variant="ACTIVE">LIVE</StatusPill>
+                  ) : (
+                    <StatusPill variant="RESOLVED" />
+                  )}
+                  <StatusPill variant="DEVNET" />
+                </div>
+              </div>
 
-        {/* Footer breadcrumb */}
-        <div style={{ padding: "0 16px 32px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="pill pill-blue" style={{ padding: "2px 7px", fontSize: 9 }}>devnet</span>
-            <span className="dim mono-tiny">·</span>
-            <span className="dim mono-tiny" style={{ fontSize: 9 }}>
-              market {market.address.slice(0, 6)}…
-            </span>
+              {/* Question */}
+              <h1
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "clamp(28px, 4vw, 44px)",
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.02em",
+                  color: "var(--de-ink)",
+                  margin: 0,
+                  fontWeight: 400,
+                }}
+              >
+                {market.question || "—"}
+              </h1>
+
+              {/* Metadata row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 32,
+                  flexWrap: "wrap",
+                  paddingTop: 8,
+                  borderTop: "1px solid var(--de-line)",
+                }}
+              >
+                <MetaCell
+                  label="Volume"
+                  value={`${totalVolumeBusd} bUSD`}
+                />
+                <MetaCell label="Time left" value={resolutionTimeLabel} />
+                <MetaCell label="Fee" value={feeLabel} />
+                <MetaCell
+                  label="Eligible"
+                  value={qualityGate.passes ? "Open" : "Track-record gate"}
+                  tone={qualityGate.passes ? "default" : "amber"}
+                />
+              </div>
+            </header>
+
+            {/* NAV chart with threshold */}
+            <section
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.20em",
+                    color: "var(--de-ink-3)",
+                  }}
+                >
+                  NAV trajectory · {targetA?.name ?? "Target"}
+                </div>
+                <RangeTabs />
+              </div>
+              <NavChartWithThreshold
+                series={navSeries}
+                timestamps={navTimestamps}
+                thresholdBusd={thresholdBusd}
+                caption={caption}
+                height={320}
+              />
+            </section>
+
+            {/* Rules & Resolution */}
+            <RulesAndResolution
+              kind={market.kind}
+              resolutionProse={resolutionProse}
+              resolutionSlot={market.resolutionSlot}
+              resolutionTimeLabel={resolutionTimeLabel}
+              trailing={
+                <Suspense fallback={null}>
+                  <CreatorAccuracyLine
+                    createdBy={market.createdBy}
+                    creatorName={creator.name}
+                  />
+                </Suspense>
+              }
+            />
+
+            {/* Creator notes — collapsed by default */}
+            <details
+              style={{
+                padding: "20px 24px",
+                border: "1px solid var(--de-line-2)",
+                borderRadius: 12,
+                background: "var(--de-bg-raised)",
+                color: "var(--de-ink-2)",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.20em",
+                  textTransform: "uppercase",
+                  color: "var(--de-ink-3)",
+                  listStyle: "none",
+                }}
+              >
+                Creator notes ▾
+              </summary>
+              <p
+                style={{
+                  marginTop: 12,
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  color: "var(--de-ink-2)",
+                }}
+              >
+                {creator.name} created this market on devnet. Insider-trading
+                protection is enforced by the on-chain program: a creator
+                cannot open a market against their own vault.
+              </p>
+            </details>
+
+            {/* Agent insight (legacy component, retained inside the dark
+                editorial canvas — its body still uses legacy tokens but
+                renders cleanly on the dark page). */}
+            <section
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.20em",
+                  color: "var(--de-ink-3)",
+                }}
+              >
+                Agent signal
+              </div>
+              <Suspense
+                fallback={<InsightSkeleton label={targetA?.name ?? "Target"} />}
+              >
+                <AgentInsight
+                  sns={targetA?.sns ?? null}
+                  vaultPda={market.strategy ?? null}
+                  connection={connection}
+                  displayName={targetA?.name}
+                />
+              </Suspense>
+              {market.kind === 2 && market.targetAgent && (
+                <Suspense
+                  fallback={
+                    <InsightSkeleton label={targetB?.name ?? "Target B"} />
+                  }
+                >
+                  <AgentInsight
+                    sns={targetB?.sns ?? null}
+                    vaultPda={market.targetAgent}
+                    connection={connection}
+                    displayName={targetB?.name}
+                  />
+                </Suspense>
+              )}
+            </section>
+
+            {/* Discussion */}
+            <DiscussionThread agentSns={creator.sns ?? undefined} />
+
+            {/* Footer breadcrumb */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                color: "var(--de-ink-4)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10.5,
+                letterSpacing: "0.14em",
+              }}
+            >
+              <span>MARKET</span>
+              <span>·</span>
+              <a
+                href={`https://orbmarkets.io/address/${market.address}?cluster=devnet`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: "var(--de-lavender)",
+                  textDecoration: "none",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {market.address.slice(0, 12)}…{market.address.slice(-8)}
+              </a>
+            </div>
           </div>
+
+          {/* ─── Right column (sticky trading panel) ────────────────── */}
+          <aside className="market-aside">
+            <div className="market-sticky">
+              <TradingPanel
+                market={market}
+                yesProbability={yesProbability}
+                qualityGate={qualityGate}
+                resolutionTimeLabel={resolutionTimeLabel}
+                outcomeALabel={
+                  market.kind === 2
+                    ? `${targetA?.name ?? "Side A"} wins · ${yesPctRound}%`
+                    : "YES"
+                }
+                outcomeBLabel={
+                  market.kind === 2
+                    ? `${targetB?.name ?? "Side B"} wins · ${100 - yesPctRound}%`
+                    : "NO"
+                }
+              />
+            </div>
+          </aside>
         </div>
       </div>
+
+      <style>{`
+        .market-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+          gap: 40px;
+        }
+        .market-sticky {
+          position: sticky;
+          top: 80px;
+        }
+        @media (max-width: 1279px) {
+          .market-grid {
+            grid-template-columns: minmax(0, 60fr) minmax(0, 40fr);
+            gap: 28px;
+          }
+        }
+        @media (max-width: 768px) {
+          .market-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          .market-sticky {
+            position: static;
+            top: auto;
+          }
+        }
+      `}</style>
     </main>
+  );
+}
+
+function MetaCell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "amber";
+}) {
+  const valueColor =
+    tone === "amber" ? "var(--de-amber)" : "var(--de-ink)";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.20em",
+          color: "var(--de-ink-4)",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 14,
+          fontWeight: 500,
+          color: valueColor,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "0.02em",
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function RangeTabs() {
+  const ranges = ["1H", "3H", "24H", "7D", "ALL"];
+  // Visual-only tabs — the chart series the page fetched is a 30-day NAV
+  // window. Range filtering would require a client-side fetch + state and
+  // is out of scope for this rebuild pass.
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 4,
+        padding: 4,
+        background: "var(--de-bg-3)",
+        border: "1px solid var(--de-line-2)",
+        borderRadius: 8,
+      }}
+    >
+      {ranges.map((r) => {
+        const active = r === "ALL";
+        return (
+          <span
+            key={r}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              fontWeight: 600,
+              letterSpacing: "0.14em",
+              padding: "5px 10px",
+              borderRadius: 5,
+              background: active ? "var(--de-bg-raised)" : "transparent",
+              color: active ? "var(--de-ink)" : "var(--de-ink-4)",
+              border: active ? "1px solid var(--de-line-3)" : "1px solid transparent",
+              cursor: active ? "default" : "not-allowed",
+            }}
+          >
+            {r}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -443,285 +673,40 @@ function InsightSkeleton({ label }: { label: string }) {
   return (
     <section
       style={{
-        padding: 16,
-        border: "1px solid var(--line-1)",
+        padding: 20,
+        border: "1px solid var(--de-line-2)",
         borderRadius: 12,
-        background: "var(--bg-1)",
+        background: "var(--de-bg-raised)",
         minHeight: 220,
       }}
     >
-      <div className="bd-eyebrow" style={{ marginBottom: 6 }}>
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.20em",
+          color: "var(--de-ink-3)",
+          marginBottom: 8,
+        }}
+      >
         Target · {label}
       </div>
-      <div style={{ fontSize: 11, color: "var(--fg-3)" }}>
+      <div style={{ fontSize: 12, color: "var(--de-ink-4)" }}>
         Loading agent insight…
       </div>
     </section>
   );
 }
 
-function AgentBadge({
-  eyebrow,
-  label,
-  emoji,
-  href,
-  accent,
-}: {
-  eyebrow: string;
-  label: string;
-  emoji: string;
-  href?: string;
-  accent: "gold" | "purple";
-}) {
-  const inner = (
-    <div
-      className="card hairline"
-      style={{
-        padding: "8px 12px",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        flex: 1,
-        minWidth: 0,
-        textDecoration: "none",
-      }}
-    >
-      <div
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: "50%",
-          background: "var(--bg-3)",
-          border: "1px solid var(--line-2)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 14,
-          flexShrink: 0,
-        }}
-      >
-        {emoji}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 0 }}>
-        <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>{eyebrow}</span>
-        <span
-          className={`mono ${accent}`}
-          style={{ fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-        >
-          {label}
-        </span>
-      </div>
-    </div>
-  );
-  if (href) {
-    return (
-      <Link href={href} style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>
-        {inner}
-      </Link>
-    );
-  }
-  return inner;
+function fmtBusd(v: number): string {
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(2)}k`;
+  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function NavRow({
-  label,
-  emoji,
-  currentBusd,
-  initialBusd,
-  changePct,
-  thresholdBusd,
-}: {
-  label: string;
-  emoji: string;
-  currentBusd: number | null;
-  initialBusd: number;
-  changePct: number | null;
-  thresholdBusd: number | null;
-}) {
-  const fmt = (n: number) =>
-    `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  const distanceToThreshold =
-    thresholdBusd != null && currentBusd != null
-      ? thresholdBusd - currentBusd
-      : null;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 16 }}>{emoji}</span>
-        <span className="mono" style={{ fontSize: 12, color: "var(--fg-0)", fontWeight: 600 }}>
-          {label}
-        </span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>Current NAV</span>
-          <span className="mono" style={{ fontSize: 18, color: "var(--fg-0)", fontWeight: 600 }}>
-            {currentBusd != null ? fmt(currentBusd) : "—"} bUSD
-          </span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
-          <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>Since market open</span>
-          <span
-            className="mono"
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color:
-                changePct == null
-                  ? "var(--fg-2)"
-                  : changePct >= 0
-                    ? "var(--green-2)"
-                    : "var(--red-2)",
-            }}
-          >
-            {changePct == null
-              ? "—"
-              : `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`}
-          </span>
-        </div>
-      </div>
-      {thresholdBusd != null && (
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--fg-2)",
-            background: "var(--bg-2)",
-            padding: "6px 10px",
-            borderRadius: 6,
-          }}
-        >
-          Threshold: {fmt(thresholdBusd)} bUSD
-          {distanceToThreshold != null && (
-            <span style={{ color: distanceToThreshold <= 0 ? "var(--green-2)" : "var(--fg-1)", marginLeft: 6 }}>
-              ({distanceToThreshold <= 0
-                ? `already past by ${fmt(Math.abs(distanceToThreshold))}`
-                : `${fmt(distanceToThreshold)} to go`})
-            </span>
-          )}
-        </div>
-      )}
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }}>
-        <span className="muted">Opened at</span>
-        <span className="mono dim">{fmt(initialBusd)} bUSD</span>
-      </div>
-    </div>
-  );
-}
-
-function ProbabilityGauge({
-  yesPct,
-  noPct,
-  yesPrice,
-  noPrice,
-  volume,
-  windowEndSlot,
-  resolutionTimeLabel,
-}: {
-  yesPct: number;
-  noPct: number;
-  yesPrice: number;
-  noPrice: number;
-  volume: string;
-  windowEndSlot?: number | null;
-  resolutionTimeLabel?: string;
-}) {
-  return (
-    <div className="card" style={{ padding: 18 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 14,
-          alignItems: "baseline",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span className="bd-eyebrow" style={{ fontSize: 9 }}>YES</span>
-          <span className="mono" style={{ fontSize: 28, fontWeight: 600, color: "var(--green-2)" }}>
-            {yesPct}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
-          </span>
-          <span className="mono-tiny dim">◎ {yesPrice.toFixed(2)} / share</span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
-          <span className="bd-eyebrow" style={{ fontSize: 9 }}>NO</span>
-          <span className="mono" style={{ fontSize: 28, fontWeight: 600, color: "var(--red-2)" }}>
-            {noPct}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
-          </span>
-          <span className="mono-tiny dim">◎ {noPrice.toFixed(2)} / share</span>
-        </div>
-      </div>
-
-      {/* Inline prob bar */}
-      <div className="probbar" style={{ height: 10 }}>
-        <div className="yes" style={{ width: `${yesPct}%` }} />
-        <div className="hairline" />
-        <div className="no" style={{ width: `${noPct}%` }} />
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: 14,
-          fontSize: 11.5,
-        }}
-      >
-        <div style={{ display: "flex", gap: 8 }}>
-          <span className="muted mono-tiny">Volume</span>
-          <span className="hl mono" style={{ fontSize: 11 }}>{volume} bUSD</span>
-        </div>
-        {resolutionTimeLabel ? (
-          <div style={{ display: "flex", gap: 8 }}>
-            <span className="muted mono-tiny">Resolves</span>
-            <span className="hl mono" style={{ fontSize: 11 }}>
-              {resolutionTimeLabel}
-            </span>
-          </div>
-        ) : windowEndSlot != null ? (
-          <div style={{ display: "flex", gap: 8 }}>
-            <span className="muted mono-tiny">Window end</span>
-            <span className="hl mono" style={{ fontSize: 11 }}>
-              slot {windowEndSlot.toLocaleString()}
-            </span>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function DataRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value: React.ReactNode;
-  last?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "7px 0",
-        borderBottom: last ? "none" : "1px solid var(--line-1)",
-      }}
-    >
-      <span className="muted" style={{ fontSize: 11 }}>{label}</span>
-      <span className="mono hl" style={{ fontSize: 12, fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-// Streamed via <Suspense> from the page render. Keeping this server-side
-// avoids exposing the full markets list to the client; keeping it OUT of
-// the parent's Promise.all means the page header / hero / bet panel render
-// in ~1 RPC roundtrip instead of waiting on a getProgramAccounts scan.
+// Streamed via <Suspense> so the page header / hero / bet panel render in
+// ~1 RPC roundtrip instead of waiting on a getProgramAccounts scan.
 async function CreatorAccuracyLine({
   createdBy,
   creatorName,
@@ -736,13 +721,25 @@ async function CreatorAccuracyLine({
   );
   if (resolved.length === 0) return null;
   const accuracy = Math.round(
-    (resolved.filter((m) => m.outcome === "no").length / resolved.length) * 100,
+    (resolved.filter((m) => m.outcome === "no").length / resolved.length) *
+      100,
   );
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, marginTop: 6 }}>
-      <span className="muted" style={{ lineHeight: 1.4 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 12,
+        marginTop: 6,
+        color: "var(--de-ink-3)",
+        lineHeight: 1.5,
+      }}
+    >
+      <span>
         {creatorName} has resolved {resolved.length} markets with NO winning{" "}
-        {accuracy}% of the time.
+        <span style={{ color: "var(--de-lavender)" }}>{accuracy}%</span> of the
+        time.
       </span>
     </div>
   );

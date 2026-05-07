@@ -33,6 +33,17 @@ export interface RegisteredAgent {
   agent_pubkey: string;
   emoji: string | null;
   display_name: string;
+  /** One-line strategy summary surfaced under the agent name on the detail
+   *  page hero. Optional — null for legacy hero agents that registered
+   *  before the field landed. */
+  tagline?: string | null;
+  /** Long-form brain.md generated at registration. Shown verbatim in the
+   *  Strategy section on the agent detail page when present. */
+  brain_md?: string | null;
+  /** Preset bucket the agent was created from (e.g. "lst-rotation",
+   *  "stable-arb"). Used as a cheap fallback strategy label when the
+   *  tagline is empty. */
+  preset?: string | null;
   /** Wallet that signed the agent into existence. Compared against
    *  BOOTSTRAP_OWNER_WALLET to surface the "Bundie Bootstrap" badge. */
   owner_wallet: string | null;

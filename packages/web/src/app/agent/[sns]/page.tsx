@@ -6,111 +6,145 @@ import { fetchAllMarkets, fetchBundieVault } from "@/lib/markets";
 import {
   fetchRegisteredAgents,
   fetchRegisteredVaultSet,
+  fetchAgentDirectory,
 } from "@/lib/registry";
 import { PROGRAM_IDS } from "@/lib/constants";
 import {
   resolveSns,
   resolveVaultFromSns,
   truncatePubkey,
-  HERO_AGENTS,
 } from "@/lib/sns-resolver";
 import {
   isBootstrapAgent,
   BOOTSTRAP_BADGE_TOOLTIP,
 } from "@/lib/bootstrap-owner";
-import { SnsVerifiedBadge } from "@/components/sns-verified-badge";
-import { PortfolioCompositionBar } from "@/components/portfolio-composition-bar";
-import { AgentMarketColumn } from "@/components/agent-market-column";
-import { AgentPerformanceBlock } from "@/components/agent-performance-block";
-import type { PnlRange } from "@/lib/pnl";
 import {
-  SurfpoolActivityPanel,
-  type SurfpoolAction,
-} from "@/components/surfpool-activity-panel";
-import { AgentClaimableBanner } from "@/components/agent-claimable-banner";
+  fetchAgentPnl,
+  microsToUsd,
+  fmtReturnBps,
+  fmtUsd,
+} from "@/lib/pnl";
+import {
+  DeAvatar,
+  DeMarketCard,
+  NavChartLarge,
+  RecentTradesCard,
+  DiscussionThread,
+  StatusPill,
+  hashSeed,
+  type NavChartRange,
+} from "@/components/de";
+import type { SurfpoolAction } from "@/components/surfpool-activity-panel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ARCHETYPES: Record<string, string> = {
-  "alice.bundie":   "LST Rotation",
-  "bob.bundie":     "Basis Trade",
-  "charlie.bundie": "60/40 Conservative",
+// Strategy-flavour blurb, used when the registered agent has no tagline
+// stored. Keyed by `preset` first, falling back to a generic line.
+const PRESET_TAGLINES: Record<string, string> = {
+  "lst-rotation":
+    "Rotates SOL across liquid-staking tokens, chasing the highest validator yield.",
+  "kamino-stacker":
+    "Stacks lending positions on Kamino, harvesting variable rate spreads.",
+  "stable-arb":
+    "Arbs USDC across stable lending desks, parking idle balance at the best rate.",
+  "stable-arber":
+    "Arbs USDC across stable lending desks, parking idle balance at the best rate.",
+  "apy-rotator":
+    "Hunts the highest variable APY across Solana lending markets and rotates.",
+  "funding-shorter":
+    "Shorts perp funding when the rate flips, paid to fade the crowd.",
+  barbell:
+    "Barbell allocation: bUSD on one side, leveraged perps on the other.",
+  "lst-shopper":
+    "Shops liquid-staking tokens for the best discount-to-NAV.",
+  "60-40":
+    "Classic 60% staking, 40% lending — quiet compounding.",
+  basis: "Basis trade: long spot, short perp, harvest funding.",
 };
 
-const AGENT_CLASSES: Record<string, string> = {
-  "alice.bundie":   "agent-alice",
-  "bob.bundie":     "agent-bob",
-  "charlie.bundie": "agent-cha",
+const PROTOCOL_LOGOS: Record<string, { name: string; src: string }> = {
+  kamino: { name: "Kamino", src: "/protocols/kamino.png" },
+  marinade: { name: "Marinade", src: "/protocols/marinade.png" },
+  jito: { name: "Jito", src: "/protocols/jito.png" },
+  solend: { name: "Solend", src: "/protocols/solend.png" },
+  jupiter: { name: "Jupiter", src: "/protocols/jupiter.png" },
+  "jupiter-perps": { name: "Jupiter Perps", src: "/protocols/jupiter-perps.png" },
+  marginfi: { name: "MarginFi", src: "/protocols/marginfi.png" },
 };
 
-export default async function AgentProfilePage(
-  props: {
-    params: Promise<{ sns: string }>;
-    searchParams?: Promise<{ range?: string }>;
+// Map the `?range=` query param onto the typed values used by both the
+// PnL fetch (lower-case) and the NavChartLarge tabs (upper-case).
+function normaliseRange(raw: string | undefined): {
+  pnl: "7d" | "30d" | "all";
+  chart: NavChartRange;
+} {
+  switch ((raw ?? "30d").toLowerCase()) {
+    case "1h":
+      // PnL endpoint doesn't expose 1H, fall through to 7D for the data
+      // fetch but keep the chart tab highlighted on 1H so the URL is honest.
+      return { pnl: "7d", chart: "1H" };
+    case "24h":
+      return { pnl: "7d", chart: "24H" };
+    case "7d":
+      return { pnl: "7d", chart: "7D" };
+    case "all":
+      return { pnl: "all", chart: "ALL" };
+    case "30d":
+    default:
+      return { pnl: "30d", chart: "30D" };
   }
-) {
+}
+
+export default async function AgentProfilePage(props: {
+  params: Promise<{ sns: string }>;
+  searchParams?: Promise<{ range?: string }>;
+}) {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const decoded = decodeURIComponent(params.sns);
-  // Range is read from `?range=`; default 30d. The Performance block's
-  // pill toggle just updates this searchParam, so the entire SSR pass
-  // re-runs with the new window.
-  const rawRange = searchParams?.range ?? "30d";
-  const pnlRange: PnlRange =
-    rawRange === "7d" || rawRange === "all" ? rawRange : "30d";
+  const { pnl: pnlRange, chart: chartRange } = normaliseRange(
+    searchParams?.range,
+  );
 
-  // Vault resolution has three sources, in order:
-  //   (1) hardcoded HERO_AGENTS map (alice/bob/charlie hand-rolled SNS)
-  //   (2) Supabase agent registry by SNS , wizard-created agents land here
-  //   (3) raw decoded , if the URL is already a vault pubkey
-  // The registry round-trip lets newly-launched agents work on first load
-  // without waiting for an SNS-resolver redeploy.
+  // Vault resolution: hardcoded HERO_AGENTS map → registry SNS lookup → raw
+  // pubkey. Mirrors the pre-redesign behaviour exactly so wizard-created
+  // agents keep working on first load.
   let vaultFromName = resolveVaultFromSns(decoded);
-  // The chaos-sim signs create_market_v2 with the agent's KEYPAIR, so
-  // Market.created_by stores agent_pubkey, not vault_pda. The "markets
-  // I created" filter below needs both pubkeys to match.
   let agentPubkey: string | null = null;
-  // Tracked alongside the registry match so we can render the
-  // "Bundie Bootstrap" badge for platform-seeded agents.
   let ownerWallet: string | null = null;
-  // True iff the backend verified `<sns>.bundie.sol` resolves on mainnet
-  // to ownerWallet at registration time (see backend/src/lib/sns-verify.ts).
-  // Falsy → no badge — registration succeeds either way, only a positive
-  // match earns the on-chain checkmark.
   let snsVerified = false;
-  // Registry lookup runs unconditionally. Earlier this was gated on
-  // `decoded.includes(".bundie")` to short-circuit when the URL is
-  // already a vault pubkey, but bootstrap agents (kamino-stacker,
-  // apy-rotator, etc.) have plain-text SNS strings without the
-  // `.bundie.sol` suffix — they fell through the gate and 404'd
-  // because their vault_pda never made it into vaultFromName.
-  // The fetch is cheap (in-process Next.js dedup + service-side cache)
-  // so we just always do it.
-  if (!vaultFromName) {
-    const registry = await fetchRegisteredAgents({ cache: "no-store" });
-    const match = registry.find(
-      (a) =>
-        a.sns === decoded ||
-        a.sns === `${decoded}.sol` ||
-        a.sns === `${decoded}.bundie.sol`,
-    );
-    if (match) {
-      if (match.vault_pda) vaultFromName = match.vault_pda;
-      if (match.agent_pubkey) agentPubkey = match.agent_pubkey;
-      ownerWallet = match.owner_wallet ?? null;
-      snsVerified = match.sns_verified === true;
+  let registeredTagline: string | null = null;
+  let registeredBrainMd: string | null = null;
+  let registeredPreset: string | null = null;
+  let registeredDisplayName: string | null = null;
+
+  const registry = await fetchRegisteredAgents({ cache: "no-store" });
+  const registryMatch = registry.find(
+    (a) =>
+      a.sns === decoded ||
+      a.sns === `${decoded}.sol` ||
+      a.sns === `${decoded}.bundie.sol` ||
+      a.vault_pda === decoded ||
+      a.agent_pubkey === decoded,
+  );
+  if (registryMatch) {
+    if (!vaultFromName && registryMatch.vault_pda) {
+      vaultFromName = registryMatch.vault_pda;
     }
+    if (registryMatch.agent_pubkey) agentPubkey = registryMatch.agent_pubkey;
+    ownerWallet = registryMatch.owner_wallet ?? null;
+    snsVerified = registryMatch.sns_verified === true;
+    registeredTagline = registryMatch.tagline ?? null;
+    registeredBrainMd = registryMatch.brain_md ?? null;
+    registeredPreset = registryMatch.preset ?? null;
+    registeredDisplayName = registryMatch.display_name ?? null;
   }
+
   const vault = vaultFromName ?? decoded;
   const sns = resolveSns(vault);
 
-  // Authoritative agent set is the Supabase registry. If the resolved
-  // vault isn't in it, this is an unknown / zombie agent , surface 404
-  // rather than rendering chain data for a creator the protocol no
-  // longer recognises. Registry unreachable → empty set → 404 (we
-  // deliberately don't fall through to HERO_AGENTS so old chaos-sim
-  // pubkeys can't keep their profile pages alive).
+  // 404 unknown vaults — registry is authoritative.
   const allowedCreators = await fetchRegisteredVaultSet({
     cache: "no-store",
   });
@@ -119,47 +153,38 @@ export default async function AgentProfilePage(
   }
 
   const connection = getDevnetConnection();
-  // Pass the registry through so "markets on me" doesn't surface bets
-  // opened by unregistered creators against this vault either.
-  const allMarkets = await fetchAllMarkets(connection, { allowedCreators });
-  // "Markets I created": the on-chain Market.created_by field stores
-  // whichever pubkey signed create_market_v2 — that's vault_pda for the
-  // legacy hero agents, agent_pubkey for chaos-sim / wizard agents.
-  // Build a self-set so both flavors hit.
+  const [allMarkets, agentDir, bundieVault] = await Promise.all([
+    fetchAllMarkets(connection, { allowedCreators }),
+    fetchAgentDirectory({ cache: "no-store" }),
+    fetchBundieVault(connection, PROGRAM_IDS.predictionMarket, vault),
+  ]);
+
   const myKeys = new Set<string>([vault]);
   if (agentPubkey) myKeys.add(agentPubkey);
   const createdByMe = allMarkets.filter((m) => myKeys.has(m.createdBy));
-  // "Markets opened against me": the brain's create_market action
-  // populates Market.strategy with the predicted vault PDA (kind=1/3),
-  // and additionally sets Market.targetAgent for kind=2's B side.
-  // Match both fields against this agent's vault.
   const onMe = allMarkets.filter(
     (m) => m.strategy === vault || m.targetAgent === vault,
   );
 
-  // Phase B+ NAV history for this agent , null until the agent has called
-  // commit_nav at least once. Server-fetched alongside markets/balances so
-  // the page stays SSR.
-  const bundieVault = await fetchBundieVault(
-    connection,
-    PROGRAM_IDS.predictionMarket,
-    vault,
-  );
+  // PnL series for the hero NAV chart + headline metadata.
+  const rawSns = sns?.devnetName ?? decoded;
+  const surfpoolSns = rawSns.endsWith(".sol") ? rawSns : `${rawSns}.sol`;
+  const pnl = await fetchAgentPnl(rawSns, pnlRange);
+  const navSeries = pnl.snapshots
+    .map((s) => {
+      const nav = microsToUsd(s.navLamports);
+      const ts = new Date(s.ts).getTime();
+      if (nav == null || !Number.isFinite(ts)) return null;
+      return { ts, nav };
+    })
+    .filter((p): p is { ts: number; nav: number } => p !== null);
 
-  // Known devnet token mints → protocol label + selector for rate context.
-  // mSOL devnet is the Marinade mSOL mint deployed on devnet.
-  const KNOWN_MINTS: Record<string, { label: string; protocol: string; selector: number; unit: string }> = {
-    // Marinade mSOL (devnet) , when an agent stakes SOL via the Marinade CPI
-    "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": { label: "Marinade mSOL", protocol: "marinade", selector: 2, unit: "mSOL" },
-    // Kamino kUSDC (devnet main-market reserve)
-    "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy": { label: "Kamino kUSDC", protocol: "kamino", selector: 1, unit: "kUSDC" },
-  };
-
+  // Vault inspection — surface SOL balance + token positions for the
+  // strategy section. Best-effort; failure renders an empty composition.
   let solLamports = 0;
   let tokenAccounts: Array<{ mint: string; uiAmount: number }> = [];
   try {
     const [sol, parsed] = await Promise.all([
-      // No string commitment , rpcfast strict-mode rejects it.
       connection.getBalance(new PublicKey(vault)),
       connection.getParsedTokenAccountsByOwner(new PublicKey(vault), {
         programId: new PublicKey(
@@ -172,380 +197,925 @@ export default async function AgentProfilePage(
       .map((ta) => {
         const info = ta.account.data.parsed?.info;
         const uiAmount: number = info?.tokenAmount?.uiAmount ?? 0;
-        return {
-          mint: (info?.mint as string) ?? "",
-          uiAmount,
-        };
+        return { mint: (info?.mint as string) ?? "", uiAmount };
       })
       .filter((t) => t.uiAmount > 0 && t.mint);
   } catch {
-    // swallow
+    // swallow — agent page should not 500 on RPC blip
   }
 
-  // Strategy positions = token accounts that map to a known protocol.
-  const strategyPositions = tokenAccounts
-    .map((t) => ({ ...t, meta: KNOWN_MINTS[t.mint] }))
-    .filter((t) => t.meta != null);
-
-  // Surfpool activity feed , chaos-sim daemon writes each landed mainnet-fork
-  // tx to the Postgres `agent_action_log` table; backend route serves them
-  // keyed by the full SNS (alice.bundie.sol). resolveSns() returns
-  // `devnetName: "alice.bundie"` (no .sol) for the on-chain devnet record,
-  // but the agent registry stores the full form , so append `.sol` if
-  // missing to make the lookup match. Failure here must NOT break the page
-  // render , empty array is fine.
-  const rawSns = sns?.devnetName ?? decoded;
-  const surfpoolSns = rawSns.endsWith(".sol") ? rawSns : `${rawSns}.sol`;
+  // Surfpool / agent-action-log feed for the recent-trades sidebar card.
   const backendBase =
     process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
   let surfpoolActions: SurfpoolAction[] = [];
   try {
     const res = await fetch(
       `${backendBase}/api/agent/${encodeURIComponent(surfpoolSns)}/surfpool-activity?limit=20`,
+      { cache: "no-store" },
     );
     if (res.ok) {
       const body = (await res.json()) as { actions?: SurfpoolAction[] };
       surfpoolActions = body.actions ?? [];
     }
   } catch {
-    // backend down or unreachable , render empty panel rather than 500
+    // backend down → empty list, page still renders
   }
 
+  // Derived stats
   const resolvedMarkets = createdByMe.filter((m) => m.status === "resolved");
   const activeMarkets = createdByMe.filter((m) => m.status === "active");
-  const yesWins = resolvedMarkets.filter((m) => m.outcome === "yes").length;
+  const onMeActive = onMe.filter((m) => m.status === "active");
   const noWins = resolvedMarkets.filter((m) => m.outcome === "no").length;
   const accuracy =
     resolvedMarkets.length === 0
       ? null
       : Math.round((noWins / resolvedMarkets.length) * 100);
 
-  const displayName = sns?.devnetName ?? truncatePubkey(vault);
+  const displayName =
+    registeredDisplayName ?? sns?.devnetName ?? truncatePubkey(vault);
+  const handle = sns?.devnetName ?? registryMatch?.sns ?? null;
   const mainnetName = sns?.mainnetName ?? null;
-  const heroEmoji =
-    HERO_AGENTS.find((a) => a.vault === vault)?.emoji ?? "🤖";
   const solBalance = solLamports / LAMPORTS_PER_SOL;
-  const archetype = ARCHETYPES[displayName] ?? "Strategy";
-  const agentClass = AGENT_CLASSES[displayName] ?? "";
+  const tagline =
+    registeredTagline?.trim() ||
+    PRESET_TAGLINES[(registeredPreset ?? "").toLowerCase()] ||
+    PRESET_TAGLINES[displayName.toLowerCase()] ||
+    "On-chain agent operating live strategies on Solana devnet.";
+
+  const tvlUsd = microsToUsd(pnl.stats.currentNavLamports);
+  const return30d = pnl.stats.return30dBps;
+  const winRatePct = pnl.stats.winRatePct ?? null;
+
+  // Inspect the recent trade log to derive the protocol set this agent
+  // actually touches. Falls back to the full preset palette when there's
+  // nothing to learn from yet.
+  const usedProtocols = new Set<string>();
+  for (const a of surfpoolActions) {
+    if (a.protocol) usedProtocols.add(a.protocol);
+  }
+  for (const t of tokenAccounts) {
+    // mSOL → marinade; kUSDC → kamino; covers the two known devnet
+    // execution routes recognised on the legacy page.
+    if (t.mint === "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So")
+      usedProtocols.add("marinade");
+    if (t.mint === "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy")
+      usedProtocols.add("kamino");
+  }
+  const protocolBadges = Array.from(usedProtocols)
+    .map((p) => ({ id: p, ...PROTOCOL_LOGOS[p] }))
+    .filter((p): p is { id: string; name: string; src: string } => !!p.name);
+
+  // NAV chart resolution thresholds — pull target_nav from any open kind=1
+  // markets pointing at this vault. Caps to 3 lines so the chart stays clean.
+  const thresholds = onMeActive
+    .filter((m) => m.kind === 1 && m.targetNavLamports != null)
+    .slice(0, 3)
+    .map((m) => ({
+      value: Number(m.targetNavLamports ?? 0n) / 1_000_000,
+      label: `target ${(Number(m.targetNavLamports ?? 0n) / 1_000_000).toFixed(2)}`,
+      tone: "mint" as const,
+    }));
+
+  const heroBadgeTone =
+    return30d != null && return30d > 0
+      ? "mint"
+      : return30d != null && return30d < 0
+      ? "rose"
+      : "neutral";
+
+  const basePath = `/agent/${encodeURIComponent(params.sns)}`;
 
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
-      {/* Mobile header with back */}
-      <div className="sm:hidden top-header" style={{ paddingLeft: 8 }}>
+    <main
+      style={{
+        background: "var(--de-bg)",
+        color: "var(--de-ink)",
+        minHeight: "100vh",
+      }}
+    >
+      {/* Top breadcrumb */}
+      <div
+        style={{
+          padding: "20px clamp(20px, 4vw, 40px) 0",
+          maxWidth: 1440,
+          margin: "0 auto",
+        }}
+      >
         <Link
-          href="/agents"
-          className="btn btn-ghost"
-          style={{ padding: "7px 10px", fontSize: 11, gap: 6, textDecoration: "none" }}
-        >
-          <span style={{ fontSize: 14, lineHeight: 1 }}>‹</span> Strategies
-        </Link>
-        <span className="pill pill-gold" style={{ fontSize: 9 }}>{archetype}</span>
-      </div>
-
-      {/* Desktop back */}
-      <div className="hidden sm:block" style={{ padding: "12px 20px 0" }}>
-        <Link
-          href="/agents"
+          href="/"
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.18em",
-            color: "var(--purple)",
+            color: "var(--de-ink-3)",
             textDecoration: "none",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
           }}
         >
-          ← All strategies
+          ← Discover
         </Link>
       </div>
 
-      <div className="scroll-area" style={{ overflowY: "auto" }}>
-        {/* Hero section */}
-        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--line-1)" }}>
-          <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
-            {/* Avatar with gradient ring */}
-            <span
-              className={`agent-avatar ${agentClass}`}
-              style={{ width: 64, height: 64 } as React.CSSProperties}
-            >
-              <span className="ring" />
-              <span className="face" style={{ fontSize: 28 }}>{heroEmoji}</span>
-              <span className="heartbeat" />
-            </span>
+      {/* Page body — two-column layout */}
+      <div
+        className="agent-detail-grid"
+        style={{
+          maxWidth: 1440,
+          margin: "0 auto",
+          padding: "32px clamp(20px, 4vw, 40px) 64px",
+        }}
+      >
+        <style>{`
+          .agent-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 32px;
+          }
+          .agent-detail-side {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+          @media (min-width: 768px) {
+            .agent-detail-grid {
+              grid-template-columns: 6fr 4fr;
+              gap: 36px;
+            }
+          }
+          @media (min-width: 1280px) {
+            .agent-detail-grid {
+              grid-template-columns: 65fr 35fr;
+              gap: 48px;
+            }
+            .agent-detail-side {
+              position: sticky;
+              top: 80px;
+              align-self: start;
+              max-height: calc(100vh - 96px);
+              overflow-y: auto;
+            }
+          }
+          .agent-detail-side::-webkit-scrollbar { width: 6px; }
+          .agent-detail-side::-webkit-scrollbar-thumb {
+            background: var(--de-line-2);
+            border-radius: 3px;
+          }
+        `}</style>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 4,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div className="bd-eyebrow">Bundie strategy</div>
-                {isBootstrapAgent(ownerWallet) && (
+        {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
+          {/* Header strip */}
+          <header
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 24,
+                flexWrap: "wrap",
+              }}
+            >
+              <DeAvatar seed={hashSeed(handle ?? vault)} size={80} />
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginBottom: 6,
+                  }}
+                >
                   <span
-                    className="pill pill-gold"
-                    title={BOOTSTRAP_BADGE_TOOLTIP}
                     style={{
-                      fontSize: 9,
-                      padding: "2px 7px",
-                      letterSpacing: "0.16em",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10.5,
+                      color: "var(--de-ink-3)",
+                      letterSpacing: "0.20em",
+                      textTransform: "uppercase",
                     }}
                   >
-                    Bundie Bootstrap
+                    Bundie agent
                   </span>
-                )}
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: 24,
-                  color: "var(--fg-0)",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.1,
-                  wordBreak: "break-all",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  flexWrap: "wrap",
-                }}
-              >
-                <span>{displayName}</span>
-                <SnsVerifiedBadge verified={snsVerified} size={18} />
-              </div>
-              {mainnetName && (
-                <div className="muted" style={{ fontSize: 11, marginTop: 4, fontFamily: "var(--font-mono)" }}>
-                  mainnet: <span style={{ color: "var(--gold)" }}>{mainnetName}</span>
+                  <StatusPill variant="LIVE">LIVE</StatusPill>
+                  {isBootstrapAgent(ownerWallet) && (
+                    <span
+                      title={BOOTSTRAP_BADGE_TOOLTIP}
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 9.5,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.16em",
+                        padding: "3px 8px",
+                        borderRadius: 999,
+                        background: "var(--de-amber-tint)",
+                        color: "var(--de-amber)",
+                        border: "1px solid rgba(232,197,138,0.32)",
+                      }}
+                    >
+                      Bootstrap
+                    </span>
+                  )}
                 </div>
-              )}
+
+                <h1
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(36px, 5vw, 52px)",
+                    letterSpacing: "-0.025em",
+                    lineHeight: 1.05,
+                    color: "var(--de-ink)",
+                    margin: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span>{displayName}</span>
+                  {snsVerified && (
+                    <span
+                      aria-label="SNS verified"
+                      style={{
+                        fontSize: 22,
+                        color: "var(--de-lavender)",
+                      }}
+                    >
+                      ✓
+                    </span>
+                  )}
+                </h1>
+
+                {handle && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 13,
+                      color: "var(--de-ink-3)",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {handle}
+                    {mainnetName && (
+                      <span
+                        style={{ color: "var(--de-ink-4)", marginLeft: 8 }}
+                      >
+                        · mainnet:{" "}
+                        <span style={{ color: "var(--de-lavender)" }}>
+                          {mainnetName}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Tagline (italic display) */}
+                <p
+                  style={{
+                    marginTop: 16,
+                    fontFamily: "var(--font-display)",
+                    fontStyle: "italic",
+                    fontSize: 18,
+                    lineHeight: 1.4,
+                    color: "var(--de-ink-2)",
+                    maxWidth: 620,
+                  }}
+                >
+                  {tagline}
+                </p>
+              </div>
             </div>
+
+            {/* Metadata row — TVL · 30D RETURN · MARKETS RESOLVED · WIN RATE */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: 1,
+                background: "var(--de-line)",
+                border: "1px solid var(--de-line-2)",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <MetaCell label="TVL" value={tvlUsd != null ? `$${fmtUsd(tvlUsd)}` : "—"} />
+              <MetaCell
+                label="30D Return"
+                value={fmtReturnBps(return30d)}
+                tone={heroBadgeTone}
+              />
+              <MetaCell
+                label="Markets resolved"
+                value={resolvedMarkets.length.toString()}
+              />
+              <MetaCell
+                label="Win rate"
+                value={
+                  winRatePct != null
+                    ? `${winRatePct.toFixed(0)}%`
+                    : accuracy != null
+                    ? `${accuracy}%`
+                    : "—"
+                }
+              />
+            </div>
+          </header>
+
+          {/* Large NAV chart with range tabs */}
+          <NavChartLarge
+            series={navSeries}
+            range={chartRange}
+            basePath={basePath}
+            thresholds={thresholds}
+            eyebrow="Live NAV"
+            height={400}
+          />
+
+          {/* On-chain anchor strip — slot/epoch provenance */}
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              color: "var(--de-ink-4)",
+              letterSpacing: "0.04em",
+              display: "flex",
+              gap: 14,
+              flexWrap: "wrap",
+              padding: "10px 14px",
+              border: "1px solid var(--de-line)",
+              borderRadius: 8,
+              background: "var(--de-bg-3)",
+            }}
+          >
+            <span>
+              Anchor slot{" "}
+              <span style={{ color: "var(--de-ink-2)" }}>
+                {bundieVault?.navSlot?.toString() ?? "—"}
+              </span>
+            </span>
+            <span aria-hidden style={{ color: "var(--de-ink-5)" }}>
+              ·
+            </span>
+            <span>
+              Epoch{" "}
+              <span style={{ color: "var(--de-ink-2)" }}>
+                {bundieVault?.navEpoch?.toString() ?? "0"}
+              </span>
+            </span>
+            <span aria-hidden style={{ color: "var(--de-ink-5)" }}>
+              ·
+            </span>
+            <span>
+              On-chain NAV{" "}
+              <span style={{ color: "var(--de-lavender)" }}>
+                {(Number(bundieVault?.navLamports ?? 0n) / 1_000_000).toFixed(2)} bUSD
+              </span>
+            </span>
           </div>
 
-          {/* Vault strip */}
-          <div
-            className="card inset"
-            style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}
+          {/* Strategy section */}
+          <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 28,
+                letterSpacing: "-0.02em",
+                margin: 0,
+                color: "var(--de-ink)",
+              }}
+            >
+              Strategy
+            </h2>
+            <p
+              style={{
+                fontSize: 15,
+                lineHeight: 1.65,
+                color: "var(--de-ink-2)",
+                margin: 0,
+                maxWidth: 720,
+              }}
+            >
+              {registeredBrainMd
+                ? extractBrainSummary(registeredBrainMd)
+                : strategyProseFor(registeredPreset, displayName, tagline)}
+            </p>
+
+            {/* Protocols used */}
+            {protocolBadges.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10.5,
+                    color: "var(--de-ink-3)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Protocols
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                  }}
+                >
+                  {protocolBadges.map((p) => (
+                    <span
+                      key={p.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 12px 6px 6px",
+                        background: "var(--de-bg-raised)",
+                        border: "1px solid var(--de-line-2)",
+                        borderRadius: 999,
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        color: "var(--de-ink-2)",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.src}
+                        alt={p.name}
+                        width={20}
+                        height={20}
+                        style={{
+                          borderRadius: 4,
+                          objectFit: "cover",
+                        }}
+                      />
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risk policy block */}
+            <div
+              style={{
+                marginTop: 6,
+                padding: "20px 22px",
+                background: "var(--de-bg-raised)",
+                border: "1px solid var(--de-line-2)",
+                borderRadius: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10.5,
+                  color: "var(--de-ink-3)",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Risk policy
+              </span>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                <PolicyCell
+                  label="Per-protocol cap"
+                  value={protocolBadges.length > 0 ? `≤ 60% NAV` : "—"}
+                />
+                <PolicyCell
+                  label="Drawdown trigger"
+                  value={
+                    pnl.stats.maxDrawdownBps
+                      ? `${(pnl.stats.maxDrawdownBps / 100).toFixed(2)}% observed`
+                      : "—"
+                  }
+                />
+                <PolicyCell
+                  label="Vault SOL"
+                  value={`${solBalance.toFixed(4)} SOL`}
+                />
+                <PolicyCell
+                  label="Action log"
+                  value={`${surfpoolActions.length} on record`}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Vault address strip */}
+          <section
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 18px",
+              background: "var(--de-bg-3)",
+              border: "1px solid var(--de-line-2)",
+              borderRadius: 10,
+              flexWrap: "wrap",
+            }}
           >
-            <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>Vault</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--de-ink-3)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
+              Vault PDA
+            </span>
             <a
               href={`https://orbmarkets.io/address/${vault}?cluster=devnet`}
               target="_blank"
               rel="noreferrer"
-              className="mono"
-              style={{ fontSize: 10, color: "var(--gold)", wordBreak: "break-all", flex: 1, textDecoration: "none" }}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11.5,
+                color: "var(--de-lavender)",
+                wordBreak: "break-all",
+                flex: 1,
+                textDecoration: "none",
+                minWidth: 0,
+              }}
             >
               {vault}
             </a>
-          </div>
+            <StatusPill variant="DEVNET">DEVNET</StatusPill>
+          </section>
         </div>
 
-        {/* Stat cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 8,
-            padding: "14px 16px",
-            borderBottom: "1px solid var(--line-1)",
-          }}
-        >
-          <StatCard label="SOL balance" value={`${solBalance.toFixed(4)} SOL`} />
-          <StatCard label="Accuracy" value={accuracy === null ? "-" : `${accuracy}%`} accent="green" />
-          <StatCard label="Markets created" value={createdByMe.length.toString()} />
-          <StatCard label="Markets on me" value={onMe.length.toString()} accent="purple" />
-        </div>
-
-        {/* Performance — P&L stats + equity curve + protocol exposure.
-            Pulls /api/agents/:sns/pnl?range=...; range pill toggle drives
-            the `?range=` searchParam to re-render the section SSR.
-            Subsumes the older "NAV history" thumbnail card. */}
-        <AgentPerformanceBlock sns={decoded} range={pnlRange} />
-
-        {/* Last on-chain commit_nav snapshot — keeps the slot/epoch
-            provenance visible alongside the API-sourced equity curve so
-            the user can verify the chart's most recent point against
-            the BundieVault PDA. */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line-1)" }}>
-          <div className="dim mono-tiny">
-            On-chain anchor · slot {bundieVault?.navSlot?.toString() ?? "-"} (epoch {bundieVault?.navEpoch?.toString() ?? "0"}) ·{" "}
-            <span className="mono">
-              {(Number(bundieVault?.navLamports ?? 0n) / 1_000_000).toFixed(2)} bUSD
-            </span>
-          </div>
-        </div>
-
-        {/* Claimable winnings banner — wallet-aware client component.
-            Renders only when the connected bettor has unredeemed shares
-            on a resolved market created by this agent. Hidden by default
-            so SSR-rendered profiles look identical for non-bettors. */}
-        <AgentClaimableBanner
-          resolvedMarkets={resolvedMarkets.map((m) => ({
-            address: m.address,
-            outcome: m.outcome,
-          }))}
-        />
-
-        {/* Resolved Y/N strip */}
-        {resolvedMarkets.length > 0 && (
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--line-1)" }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-              <span className="bd-eyebrow" style={{ fontSize: 9 }}>
-                Resolved
+        {/* ── RIGHT COLUMN (sticky on desktop) ────────────────────────── */}
+        <aside className="agent-detail-side">
+          {/* Open markets card */}
+          <section
+            style={{
+              background: "var(--de-bg-raised)",
+              border: "1px solid var(--de-line-2)",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "var(--de-ink-3)",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Open markets
               </span>
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  color: "var(--fg-2)",
+                  fontSize: 10,
+                  color: "var(--de-ink-4)",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
                 }}
               >
-                <span style={{ color: "var(--green-2)", fontWeight: 600 }}>YES {yesWins}</span>
-                {" / "}
-                <span style={{ color: "var(--red-2)", fontWeight: 600 }}>NO {noWins}</span>
-              </span>
-              <span className="dim mono-tiny">
-                {activeMarkets.length} active
+                {onMeActive.length} live
               </span>
             </div>
-          </div>
-        )}
 
-        {/* Portfolio composition */}
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
-          <div className="bd-eyebrow" style={{ marginBottom: 10 }}>Portfolio composition</div>
-          <PortfolioCompositionBar
-            solLamports={solLamports}
-            tokenAccounts={tokenAccounts}
-          />
-        </div>
-
-        {/* Strategy positions , live devnet positions from direct-CPI execution */}
-        {strategyPositions.length > 0 && (
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
-            <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-              Strategy positions
-              <span className="muted mono" style={{ fontSize: 9, marginLeft: 8 }}>devnet execution · mainnet rate context</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {strategyPositions.map((pos) => (
-                <div
-                  key={pos.mint}
-                  className="card inset"
+            {onMeActive.length === 0 ? (
+              <div
+                style={{
+                  padding: "28px 16px",
+                  textAlign: "center",
+                  border: "1px dashed var(--de-line-2)",
+                  borderRadius: 10,
+                  background: "var(--de-bg-3)",
+                }}
+              >
+                <p
                   style={{
-                    padding: "10px 14px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
+                    fontFamily: "var(--font-display)",
+                    fontStyle: "italic",
+                    fontSize: 14,
+                    color: "var(--de-ink-2)",
+                    margin: 0,
+                    lineHeight: 1.4,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span
-                      className="pill pill-gold"
-                      style={{ fontSize: 9, padding: "2px 6px" }}
-                    >
-                      {pos.meta!.protocol.toUpperCase()}
-                    </span>
-                    <div>
-                      <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-0)" }}>
-                        {pos.uiAmount.toFixed(6)} {pos.meta!.unit}
-                      </div>
-                      <div className="muted" style={{ fontSize: 10, marginTop: 1 }}>
-                        {pos.meta!.label} · selector={pos.meta!.selector}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--gold)" }}>
-                      rate market ready
-                    </div>
-                    <div className="muted" style={{ fontSize: 9, marginTop: 2 }}>
-                      resolution via on-chain reader
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Live surfpool activity , mainnet-fork strategy txs */}
-        <SurfpoolActivityPanel actions={surfpoolActions} />
-
-        {/* Two-column markets */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(1, 1fr)",
-            gap: 16,
-            padding: "16px 16px 0",
-          }}
-          className="md-grid-2"
-        >
-          <AgentMarketColumn
-            title="Markets I created"
-            subtitle="Agent-vs-benchmark markets on peers"
-            emptyLabel="This agent hasn't opened a market yet."
-            markets={createdByMe}
-            showTarget
-            selfVault={vault}
-          />
-          <AgentMarketColumn
-            title="Markets on me"
-            subtitle="Other agents betting on this vault's performance"
-            emptyLabel="No markets target this agent yet."
-            markets={onMe}
-            showCreator
-            selfVault={vault}
-          />
-        </div>
-
-        {/* SNS record strip */}
-        {sns && (
-          <div style={{ padding: "16px 16px 32px" }}>
-            <div className="card" style={{ padding: 16 }}>
-              <div className="bd-eyebrow" style={{ marginBottom: 8 }}>SNS record</div>
-              <p style={{ fontSize: 12.5, color: "var(--fg-2)", lineHeight: 1.5, marginBottom: 10 }}>
-                <span className="mono gold">{sns.devnetName}</span>{" "}
-                lives on devnet under the{" "}
-                <span className="mono">.bundie</span> root owned by the Bundie protocol authority.
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span className="bd-eyebrow" style={{ fontSize: 8.5 }}>NameRegistry PDA</span>
-                <a
-                  href={`https://orbmarkets.io/address/${sns.devnetSnsPda}?cluster=devnet`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--gold)", wordBreak: "break-all", textDecoration: "none" }}
+                  No markets target this agent yet.
+                </p>
+                <p
+                  style={{
+                    marginTop: 6,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--de-ink-4)",
+                  }}
                 >
-                  {sns.devnetSnsPda.slice(0, 8)}…{sns.devnetSnsPda.slice(-8)}
-                </a>
+                  Be the first to open one
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {onMeActive.slice(0, 4).map((m) => (
+                  <DeMarketCard
+                    key={m.address}
+                    market={m}
+                    dir={agentDir}
+                    size="compact"
+                  />
+                ))}
+                {onMeActive.length > 4 && (
+                  <Link
+                    href="/markets"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--de-lavender)",
+                      textDecoration: "none",
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      padding: "10px 0",
+                      textAlign: "center",
+                    }}
+                  >
+                    View all {onMeActive.length} →
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* Markets created by this agent (compact pill list) */}
+            {createdByMe.length > 0 && (
+              <div
+                style={{
+                  marginTop: 4,
+                  paddingTop: 14,
+                  borderTop: "1px solid var(--de-line)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    color: "var(--de-ink-3)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Created by agent · {createdByMe.length}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--de-ink-2)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {activeMarkets.length} active · {resolvedMarkets.length} resolved
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* Recent trades card */}
+          <RecentTradesCard actions={surfpoolActions} limit={6} />
+
+          {/* Operator info card */}
+          <section
+            style={{
+              background: "var(--de-bg-raised)",
+              border: "1px solid var(--de-line-2)",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--de-ink-3)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
+              Operator
+            </span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <DeAvatar seed={hashSeed(ownerWallet ?? vault)} size={36} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "var(--de-ink)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {isBootstrapAgent(ownerWallet)
+                    ? "Bundie Bootstrap"
+                    : "Independent operator"}
+                </div>
+                <div
+                  style={{
+                    marginTop: 2,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10.5,
+                    color: "var(--de-ink-4)",
+                    letterSpacing: "0.04em",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={ownerWallet ?? undefined}
+                >
+                  {ownerWallet ? truncatePubkey(ownerWallet, 6, 6) : "—"}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+            {ownerWallet && (
+              <a
+                href={`https://orbmarkets.io/address/${ownerWallet}?cluster=devnet`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10.5,
+                  color: "var(--de-lavender)",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  textDecoration: "none",
+                  alignSelf: "flex-start",
+                }}
+              >
+                View wallet ↗
+              </a>
+            )}
+          </section>
+        </aside>
+      </div>
+
+      {/* ── Discussion / activity (full width) ───────────────────────── */}
+      <div
+        style={{
+          maxWidth: 1440,
+          margin: "0 auto",
+          padding: "0 clamp(20px, 4vw, 40px) 80px",
+        }}
+      >
+        <DiscussionThread agentSns={handle ?? undefined} />
       </div>
     </main>
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  let valueColor = "var(--fg-0)";
-  if (accent === "green") valueColor = "var(--green-2)";
-  if (accent === "purple") valueColor = "var(--purple)";
-
+/** Tiny eyebrow + value cell for the metadata strip. */
+function MetaCell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "mint" | "rose" | "neutral";
+}) {
+  const valueColor =
+    tone === "mint"
+      ? "var(--de-mint)"
+      : tone === "rose"
+      ? "var(--de-rose)"
+      : "var(--de-ink)";
   return (
-    <div className="card" style={{ padding: "10px 14px" }}>
-      <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>{label}</div>
-      <div
-        className="mono"
-        style={{ fontSize: 18, fontWeight: 600, color: valueColor }}
+    <div
+      style={{
+        background: "var(--de-bg-raised)",
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          color: "var(--de-ink-3)",
+          letterSpacing: "0.20em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 20,
+          fontWeight: 600,
+          color: valueColor,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.005em",
+        }}
       >
         {value}
-      </div>
+      </span>
     </div>
+  );
+}
+
+function PolicyCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          color: "var(--de-ink-3)",
+          letterSpacing: "0.20em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 14,
+          color: "var(--de-ink)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Pull the first non-empty paragraph from a brain.md blob. */
+function extractBrainSummary(md: string): string {
+  const lines = md
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#") && !l.startsWith("---"));
+  if (lines.length === 0) return "";
+  // Take up to the first 3 short paragraphs joined by a space.
+  return lines.slice(0, 3).join(" ").slice(0, 600);
+}
+
+/** Editorial fallback prose when no brain.md is available. */
+function strategyProseFor(
+  preset: string | null,
+  displayName: string,
+  tagline: string,
+): string {
+  const presetCopy: Record<string, string> = {
+    "lst-rotation":
+      `${displayName} watches the validator stake market, swapping between liquid-staking tokens whenever a fresh APY edge opens up. Idle SOL parks at the highest yielding LST until the next rotation.`,
+    "kamino-stacker":
+      `${displayName} runs a layered Kamino lending strategy. The agent supplies stables and SOL, monitors utilisation, and tops up positions whenever the variable rate crosses a profitable threshold.`,
+    "stable-arb":
+      `${displayName} hunts for spread between stable lending desks. Capital sits in whichever pool offers the highest variable rate, and rotates the moment a competing desk pulls ahead.`,
+  };
+  return (
+    presetCopy[(preset ?? "").toLowerCase()] ??
+    `${tagline} The agent commits NAV on every action, so on-chain history fully describes its P&L. Markets resolve directly off that NAV record — there is no oracle, only the chart.`
   );
 }
