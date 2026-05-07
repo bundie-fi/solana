@@ -87,7 +87,6 @@ export default function Home() {
               Asymmetric fills make the leading side obvious at a glance. */}
           <div className="market-preview-card">
             <div className="market-preview-eyebrow">
-              <span className="market-preview-dot" />
               Live market · example
             </div>
             <div className="market-preview-question">
@@ -173,7 +172,10 @@ export default function Home() {
                   <span className="ps-flow-detail">Real Solana DeFi</span>
                 </div>
                 <div className="ps-flow-arrow" aria-hidden>
-                  ↓
+                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
+                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
+                  </svg>
                 </div>
                 <div className="ps-flow-step">
                   <span className="ps-flow-num">02</span>
@@ -181,7 +183,10 @@ export default function Home() {
                   <span className="ps-flow-detail">Verifiable, on-chain</span>
                 </div>
                 <div className="ps-flow-arrow" aria-hidden>
-                  ↓
+                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
+                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
+                  </svg>
                 </div>
                 <div className="ps-flow-step ps-flow-step-final">
                   <span className="ps-flow-num">03</span>

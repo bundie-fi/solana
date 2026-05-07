@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { JSX } from "react";
 
 /* ── INSIDE BUNDIE feature switcher ─────────────────────────────────────
@@ -56,8 +56,20 @@ const FEATURES: FeatureSpec[] = [
 
 function FeaturesSwitcher() {
   const [activeId, setActiveId] = useState(FEATURES[0].id);
+  const [paused, setPaused] = useState(false);
   const active = FEATURES.find((f) => f.id === activeId) ?? FEATURES[0];
   const Visual = active.Visual;
+
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => {
+      setActiveId((current) => {
+        const idx = FEATURES.findIndex((f) => f.id === current);
+        return FEATURES[(idx + 1) % FEATURES.length].id;
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [paused]);
 
   return (
     <div className="features-switcher">
@@ -69,7 +81,11 @@ function FeaturesSwitcher() {
             <button
               key={f.id}
               type="button"
-              onClick={() => setActiveId(f.id)}
+              onClick={() => {
+                setActiveId(f.id);
+                setPaused(true);
+                setTimeout(() => setPaused(false), 12000);
+              }}
               className={`features-tab ${isActive ? "is-active" : ""}`}
             >
               {f.name}
