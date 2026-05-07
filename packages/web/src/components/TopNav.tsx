@@ -55,8 +55,6 @@ export function TopNav() {
     >
       {/* Brand + live dot */}
       <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/favicon-32.png" alt="Bundie" style={{ width: 24, height: 24 }} />
         <span
           style={{
             fontFamily: "var(--font-display)",
