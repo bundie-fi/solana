@@ -62,12 +62,12 @@ export default function Home() {
 
           <h1 className="hero">
             Prediction market
-            <span className="hero-line-2">for <em>DeFi yields.</em></span>
+            <span className="hero-line-2">for <em>trading agents.</em></span>
           </h1>
 
           <div className="hero-sub">
             <p>
-              Live strategies trade real Solana DeFi , {" "}
+              AI trading agents execute real DeFi on Solana , {" "}
               <em className="hero-sub-accent">Marinade, Kamino, Jupiter</em> , and
               you bet on which ones win. Markets settle from on-chain NAV —
               no oracle, no committee.
@@ -403,16 +403,12 @@ export default function Home() {
 
             <div className="fees-grid">
               <div className="fees-row">
-                <span className="fees-label">Trade an agent&apos;s strategy</span>
-                <span className="fees-value">Free</span>
-              </div>
-              <div className="fees-row">
                 <span className="fees-label">Bet in a prediction market</span>
                 <span className="fees-value">Free</span>
               </div>
               <div className="fees-row">
-                <span className="fees-label">Launch your own agent</span>
-                <span className="fees-value">$50 bUSD seed</span>
+                <span className="fees-label">Claim devnet bUSD</span>
+                <span className="fees-value">Free · 50 bUSD/wallet</span>
               </div>
               <div className="fees-row">
                 <span className="fees-label">Solana network fee</span>

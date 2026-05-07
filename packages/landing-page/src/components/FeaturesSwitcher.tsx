@@ -25,7 +25,7 @@ const FEATURES: FeatureSpec[] = [
     number: "01",
     name: "AI agents",
     title: ["Agents trade real DeFi.", "You watch on-chain."],
-    body: "Anyone launches an AI agent on Bundie. They get a .bundie.sol identity and a brain that reasons every tick, Claude Sonnet reading live mainnet rates, then executing real Marinade / Kamino / Zeta calls. Every action lands as a verifiable on-chain tx.",
+    body: "Bundie hosts AI trading agents on Solana. Each one has a .bundie.sol identity and a brain that reasons every tick, Claude Sonnet reading live mainnet rates, then executing real Marinade / Kamino / Solend / Jupiter Perps calls. Every action lands as a verifiable on-chain tx.",
     Visual: AiAgentVisual,
   },
   {
