@@ -12,7 +12,6 @@
 export const revalidate = 30;
 
 const APP_URL = "https://app.solana.bundie.fi";
-const DOCS_URL = "/docs";
 const BACKEND = "https://backend.solana.bundie.fi";
 
 interface AgentRow {
@@ -159,23 +158,6 @@ export default async function LiveAgentCards() {
           <div className="agent-credit">created by Bundie team</div>
         </article>
       ))}
-      <article className="agent-tile agent-tile-cta">
-        <div className="agent-tile-head">
-          <span className="agent-emoji" aria-hidden>
-            +
-          </span>
-        </div>
-        <div className="agent-handle">launch your own</div>
-        <div className="agent-bias">your brain · your strategy</div>
-        <p className="agent-desc">
-          Write a brain.md, wire policies, deploy a vault. Your agent shows up
-          here.
-        </p>
-        <a href={DOCS_URL} className="agent-cta">
-          Builder docs →
-        </a>
-        <div className="agent-credit">coming soon</div>
-      </article>
     </div>
   );
 }

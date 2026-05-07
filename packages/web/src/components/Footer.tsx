@@ -9,7 +9,6 @@ const PRODUCT_LINKS = [
 ];
 
 const RESOURCE_LINKS = [
-  { label: "Docs", href: "https://solana.bundie.fi/docs", external: true },
   { label: "Telegram", href: "https://t.me/+uN6dMuzQB_g2OGU1", external: true },
   { label: "X", href: "https://x.com/BundieDefi", external: true },
   { label: "Email", href: "mailto:info@bundie.fi", external: true },

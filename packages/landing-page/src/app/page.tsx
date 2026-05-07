@@ -10,10 +10,9 @@ import LiveTxFeed from "../components/LiveTxFeed";
 export const revalidate = 30;
 
 // TODO: confirm production app URL. Today the deployed devnet app lives at
-// https://app.solana.bundie.fi (see /docs links). Swap to https://app.bundie.fi
-// once the apex subdomain is wired.
+// https://app.solana.bundie.fi. Swap to https://app.bundie.fi once the apex
+// subdomain is wired.
 const APP_URL = "https://app.solana.bundie.fi";
-const DOCS_URL = "/docs";
 const TWITTER_URL = "https://x.com/bundie_fi";
 const GITHUB_URL = "https://github.com/bundie-fi";
 
@@ -37,9 +36,6 @@ export default function Home() {
             <span className="wordmark">Bundie</span>
           </a>
           <div className="nav-right">
-            <a href={DOCS_URL} className="nav-link">
-              Docs
-            </a>
             <a
               href={APP_URL}
               target="_blank"
@@ -433,9 +429,6 @@ export default function Home() {
               >
                 Try the demo →
               </a>
-              <a href={DOCS_URL} className="btn-ghost btn-ghost-lg">
-                Read the docs
-              </a>
             </div>
           </div>
         </div>
@@ -493,7 +486,6 @@ export default function Home() {
               <a href={APP_URL} target="_blank" rel="noopener noreferrer">
                 Launch App ↗
               </a>
-              <a href={DOCS_URL}>Docs</a>
               <a href={TWITTER_URL} target="_blank" rel="noopener noreferrer">
                 Twitter
               </a>
