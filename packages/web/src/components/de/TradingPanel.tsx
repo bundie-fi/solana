@@ -97,23 +97,6 @@ export function TradingPanel({
         </span>
       </div>
 
-      {/* Buy / Sell tabs — Sell intentionally disabled */}
-      {!isResolved && (
-        <div
-          style={{
-            display: "flex",
-            gap: 0,
-            background: "var(--de-bg-3)",
-            borderRadius: 8,
-            padding: 4,
-            border: "1px solid var(--de-line-2)",
-          }}
-        >
-          <SegmentTab label="Buy" active />
-          <SegmentTab label="Sell" disabled hint="Coming soon" />
-        </div>
-      )}
-
       {/* Outcome readout cards (visual mirror of the toggle inside the
           buy panel below). Read-only summary so users can see the current
           probabilities at a glance even before clicking into the picker. */}
@@ -172,44 +155,3 @@ export function TradingPanel({
   );
 }
 
-function SegmentTab({
-  label,
-  active,
-  disabled,
-  hint,
-}: {
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
-  hint?: string;
-}) {
-  return (
-    <div
-      title={hint}
-      style={{
-        flex: 1,
-        textAlign: "center",
-        padding: "8px 12px",
-        borderRadius: 6,
-        fontFamily: "var(--font-mono)",
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
-        color: active
-          ? "var(--de-ink)"
-          : disabled
-            ? "var(--de-ink-4)"
-            : "var(--de-ink-2)",
-        background: active ? "var(--de-bg-raised)" : "transparent",
-        border: active
-          ? "1px solid var(--de-line-3)"
-          : "1px solid transparent",
-        cursor: disabled ? "not-allowed" : active ? "default" : "pointer",
-        opacity: disabled ? 0.55 : 1,
-      }}
-    >
-      {label}
-    </div>
-  );
-}
