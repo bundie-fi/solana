@@ -51,7 +51,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#F4F1EA",
+  themeColor: "#0A0E1F",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -68,7 +68,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${playfairDisplay.variable} ${jetbrains.variable}`}
     >
-      <body className="antialiased min-h-screen" style={{ background: "var(--bg-0)", color: "var(--fg-1)", fontFamily: "var(--font-sans)" }}>
+      <body className="antialiased min-h-screen" style={{ background: "var(--de-bg)", color: "var(--de-ink)", fontFamily: "var(--font-sans)" }}>
         <ClientProviders>
           {/* Desktop top nav, hidden on mobile where BottomNav takes over */}
           <div className="hidden sm:block">
@@ -91,9 +91,9 @@ export default function RootLayout({
           theme="light"
           toastOptions={{
             style: {
-              background: "var(--bg-1)",
-              color: "var(--fg-1)",
-              border: "1px solid var(--line-1)",
+              background: "var(--de-bg-raised)",
+              color: "var(--de-ink)",
+              border: "1px solid var(--de-line-2)",
             },
           }}
         />
