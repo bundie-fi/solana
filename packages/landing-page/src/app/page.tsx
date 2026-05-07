@@ -25,14 +25,6 @@ export default function Home() {
       <nav className="top">
         <div className="inner">
           <a href="#" className="brand" aria-label="Bundie">
-            <Image
-              src="/assets/favicon-32.png"
-              alt=""
-              width={32}
-              height={32}
-              priority
-              unoptimized
-            />
             <span className="wordmark">Bundie</span>
           </a>
           <div className="nav-right">

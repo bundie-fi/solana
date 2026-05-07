@@ -80,7 +80,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .ambient::before {
   content: "";
   position: absolute;
-  top: -10%; left: 50%;
+  top: -10%; left: 30%;
   transform: translateX(-50%);
   width: 1200px; height: 1200px;
   background: radial-gradient(ellipse at center,
