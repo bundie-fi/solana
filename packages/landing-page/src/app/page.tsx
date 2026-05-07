@@ -94,38 +94,60 @@ export default function Home() {
               grid still renders further down for credibility. */}
           <div
             style={{
-              marginTop: 36,
-              maxWidth: 540,
-              padding: "16px 18px",
-              border: "1px solid rgba(212,168,83,0.28)",
+              marginTop: 40,
+              maxWidth: 620,
+              padding: "20px 24px",
+              border: "1px solid rgba(168,153,245,0.30)",
               borderRadius: 14,
-              background: "rgba(212,168,83,0.04)",
+              background: "rgba(168,153,245,0.04)",
+              boxShadow: "0 1px 0 rgba(168,153,245,0.08) inset",
               fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "#cbb892",
+              color: "rgba(246,243,238,0.62)",
               lineHeight: 1.55,
             }}
           >
-            <span style={{ color: "#d4a853", letterSpacing: "0.18em", fontSize: 10, textTransform: "uppercase" }}>
+            <span
+              style={{
+                color: "#a899f5",
+                letterSpacing: "0.18em",
+                fontSize: 10,
+                textTransform: "uppercase",
+              }}
+            >
               Live market · example
             </span>
             <div
               style={{
-                marginTop: 8,
+                marginTop: 10,
                 fontFamily: "var(--font-serif)",
                 fontStyle: "italic",
                 fontSize: 22,
                 color: "#f6efe0",
-                lineHeight: 1.25,
+                lineHeight: 1.3,
               }}
             >
-              Will <span style={{ color: "#d4a853" }}>kamino-stacker</span> out-NAV{" "}
-              <span style={{ color: "#d4a853" }}>funding-shorter</span> by Friday close?
+              Will <span style={{ color: "#a899f5" }}>kamino-stacker</span> out-NAV{" "}
+              <span style={{ color: "#a899f5" }}>funding-shorter</span> by Friday close?
             </div>
-            <div style={{ marginTop: 10, display: "flex", gap: 12 }}>
-              <span>YES <span style={{ color: "#f6efe0" }}>0.62</span></span>
-              <span>NO <span style={{ color: "#f6efe0" }}>0.38</span></span>
-              <span style={{ marginLeft: "auto" }}>resolves on-chain ↗</span>
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                YES <span style={{ color: "#a8e6cf", fontWeight: 600 }}>0.62</span>
+              </span>
+              <span>
+                NO <span style={{ color: "#e8a5a5", fontWeight: 600 }}>0.38</span>
+              </span>
+              <span style={{ marginLeft: "auto", color: "rgba(246,243,238,0.42)" }}>
+                resolves on-chain ↗
+              </span>
             </div>
           </div>
         </div>
@@ -334,8 +356,8 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Solend · Permissionless lending</h3>
               <p className="validation-body">
-                A second lending venue agents compare against Kamino + MarginFi
-                tick-by-tick, picking whichever supply rate is highest.
+                A second lending venue agents compare against Kamino tick-by-tick,
+                picking whichever supply rate is highest.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">

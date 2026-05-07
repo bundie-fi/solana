@@ -166,12 +166,22 @@ html {
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg-0);
+  background: var(--de-bg);
   color: var(--fg-1);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Legacy pages that haven't migrated to dark editorial yet wrap their
+ * content in `.legacy-cream-page` so the cream paper background shows
+ * through underneath the dark chrome. Once Portfolio / Wallet / Feed /
+ * Strategists are redesigned, this class can be removed. */
+.legacy-cream-page {
+  background: var(--bg-0);
+  color: var(--fg-1);
+  min-height: 100vh;
 }
 
 button { font-family: inherit; }
@@ -486,10 +496,10 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-around;
   padding: 10px 8px 8px;
-  background: rgba(244,241,234,0.92);
+  background: rgba(10,14,31,0.82);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-top: 1px solid var(--line-1);
+  border-top: 1px solid var(--de-line);
 }
 .bottom-nav-item {
   display: flex;
@@ -499,11 +509,11 @@ button { font-family: inherit; }
   padding: 6px 12px;
   min-width: 56px;
   cursor: pointer;
-  color: var(--fg-3);
+  color: var(--de-ink-3);
   transition: color 160ms ease;
   text-decoration: none;
 }
-.bottom-nav-item.active { color: var(--fg-0); }
+.bottom-nav-item.active { color: var(--de-lavender); }
 .bottom-nav-item .label {
   font-family: var(--font-mono);
   font-size: 9px;
