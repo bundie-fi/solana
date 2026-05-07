@@ -152,7 +152,7 @@ export default async function Home(props: {
           right: 0,
           height: 480,
           background:
-            "radial-gradient(60% 40% at 50% 0%, var(--de-lavender-glow), transparent)",
+            "radial-gradient(50% 35% at 20% 0%, rgba(168,153,245,0.14), transparent)",
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -730,7 +730,7 @@ function FeaturedAgentEmpty() {
         textAlign: "center",
       }}
     >
-      Live strategies will appear here once the chaos-sim ticks devnet.
+      Live strategies will appear here once agents begin trading on devnet.
     </div>
   );
 }
@@ -875,7 +875,7 @@ function Leaderboard({
           borderRadius: 12,
         }}
       >
-        Live strategies will appear here once the chaos-sim ticks devnet.
+        Live strategies will appear here once agents begin trading on devnet.
       </div>
     );
   }
@@ -885,7 +885,7 @@ function Leaderboard({
         marginTop: 20,
         background: "var(--de-bg-raised)",
         border: "1px solid var(--de-line)",
-        borderRadius: 12,
+        borderRadius: 8,
         overflow: "hidden",
       }}
     >
