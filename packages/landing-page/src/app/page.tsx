@@ -1,20 +1,20 @@
-import Image from "next/image";
-import { MotionSection } from "../components/motion-section";
-import { StaggerChildren, StaggerItem } from "../components/stagger-children";
-import { FeaturesSwitcher } from "../components/FeaturesSwitcher";
-import LiveAgentCards from "../components/LiveAgentCards";
-import LiveTxFeed from "../components/LiveTxFeed";
+import Image from 'next/image'
+import { MotionSection } from '../components/motion-section'
+import { StaggerChildren, StaggerItem } from '../components/stagger-children'
+import { FeaturesSwitcher } from '../components/FeaturesSwitcher'
+import LiveAgentCards from '../components/LiveAgentCards'
+import LiveTxFeed from '../components/LiveTxFeed'
 
 // Re-export the segment cache window so live data refreshes every 30s
 // in production. Matches the prior landing page's cadence.
-export const revalidate = 30;
+export const revalidate = 30
 
 // TODO: confirm production app URL. Today the deployed devnet app lives at
 // https://app.solana.bundie.fi. Swap to https://app.bundie.fi once the apex
 // subdomain is wired.
-const APP_URL = "https://app.solana.bundie.fi";
-const TWITTER_URL = "https://x.com/bundie_fi";
-const GITHUB_URL = "https://github.com/bundie-fi";
+const APP_URL = 'https://app.solana.bundie.fi'
+const TWITTER_URL = 'https://x.com/bundie_fi'
+const GITHUB_URL = 'https://github.com/bundie-fi'
 
 export default function Home() {
   return (
@@ -54,16 +54,18 @@ export default function Home() {
 
           <h1 className="hero">
             Prediction market
-            <span className="hero-line-2">for <em>trading agents.</em></span>
+            <span className="hero-line-2">
+              for <em>trading agents.</em>
+            </span>
           </h1>
 
           <div className="hero-sub">
             <p>
-              AI trading agents execute real DeFi on Solana , {" "}
-              <em className="hero-sub-accent">Marinade, Kamino, Jupiter</em> , and
-              you bet on which ones win. Markets settle from on-chain NAV —
-              no oracle, no committee.
+              AI agents trade real DeFi on Solana —{' '}
+              <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em>{' '}
+              You bet on who wins.
             </p>
+            <p>Settled on-chain. No oracle. No committee.</p>
           </div>
 
           <div className="hero-ctas">
@@ -80,42 +82,35 @@ export default function Home() {
             </a>
           </div>
 
-          {/* One-market preview teaser — dark card on cream: contrast
-              reversal makes it read as a "real thing" rather than a sketch. */}
+          {/* Market preview — outcome-tile layout (Polymarket/Kalshi pattern):
+              two side-by-side tiles with the probability as the dominant number.
+              Dark card on cream so it reads as a live product artifact. */}
           <div className="market-preview-card">
             <div className="market-preview-eyebrow">
               <span className="market-preview-dot" />
               Live market · example
             </div>
             <div className="market-preview-question">
-              Will{" "}
-              <span className="market-preview-agent">kamino-stacker</span>{" "}
-              out-NAV{" "}
-              <span className="market-preview-agent">funding-shorter</span>{" "}
-              by Friday close?
+              Will{' '}
+              <span className="market-preview-agent">kamino-stacker</span>{' '}
+              outperform{' '}
+              <span className="market-preview-agent">funding-shorter</span>{' '}
+              by Friday?
             </div>
-            <div className="market-preview-bars">
-              <div className="market-preview-side">
-                <div className="market-preview-side-head">
-                  <span className="market-preview-outcome yes">YES</span>
-                  <span className="market-preview-pct yes">62%</span>
-                </div>
-                <div className="market-preview-bar-track">
-                  <div className="market-preview-bar-fill yes" style={{ width: "62%" }} />
-                </div>
+            <div className="market-preview-tiles">
+              <div className="market-preview-tile yes">
+                <span className="mpt-label">YES</span>
+                <span className="mpt-odds">62¢</span>
+                <span className="mpt-sub">per share</span>
               </div>
-              <div className="market-preview-side">
-                <div className="market-preview-side-head">
-                  <span className="market-preview-outcome no">NO</span>
-                  <span className="market-preview-pct no">38%</span>
-                </div>
-                <div className="market-preview-bar-track">
-                  <div className="market-preview-bar-fill no" style={{ width: "38%" }} />
-                </div>
+              <div className="market-preview-tile no">
+                <span className="mpt-label">NO</span>
+                <span className="mpt-odds">38¢</span>
+                <span className="mpt-sub">per share</span>
               </div>
             </div>
             <div className="market-preview-footer">
-              Settles from on-chain NAV · no oracle
+              Settles from on-chain NAV at resolution slot · no oracle
             </div>
           </div>
         </div>
@@ -128,7 +123,7 @@ export default function Home() {
       {/* === PROBLEM × SOLUTION === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">The problem × The solution</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Prediction markets without
@@ -144,9 +139,8 @@ export default function Home() {
                 Markets resolve on <span className="ps-dim">opinion.</span>
               </h3>
               <p className="ps-body">
-                Oracles get gamed. Committees argue. By the time a market
-                settles, the trade everyone wanted has already happened
-                somewhere else.
+                Oracles get gamed. Committees argue. By the time a market settles, the trade
+                everyone wanted has already happened somewhere else.
               </p>
             </div>
 
@@ -186,9 +180,8 @@ export default function Home() {
                 Markets resolve on <em>performance.</em>
               </h3>
               <p className="ps-body">
-                Bundie agents trade on Solana. Their NAV is on-chain. The
-                LS-LMSR market reads the NAV and pays out , automatically, at
-                the resolution slot.
+                Bundie agents trade on Solana. Their NAV is on-chain. The LS-LMSR market reads the
+                NAV and pays out , automatically, at the resolution slot.
               </p>
             </div>
           </div>
@@ -234,7 +227,7 @@ export default function Home() {
               hard-coded seed copy on backend failure. === */}
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">Live agents</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Real agents shipping <em>right now.</em>
@@ -250,16 +243,15 @@ export default function Home() {
       {/* === TRUSTED BY THE ECOSYSTEM === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">Trusted by the ecosystem</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Built on protocols that
               <em> already secure billions.</em>
             </h2>
-            <p className="section-sub" style={{ margin: "20px 0 0" }}>
-              Bundie agents don&apos;t reinvent yield. They route through the
-              Solana protocols you already trust , and we&apos;re onboarding
-              the rest.
+            <p className="section-sub" style={{ margin: '20px 0 0' }}>
+              Bundie agents don&apos;t reinvent yield. They route through the Solana protocols you
+              already trust , and we&apos;re onboarding the rest.
             </p>
           </div>
 
@@ -276,8 +268,8 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Marinade · Liquid staking</h3>
               <p className="validation-body">
-                Agents stake idle SOL into mSOL for baseline yield without
-                giving up exit liquidity. Live on devnet today.
+                Agents stake idle SOL into mSOL for baseline yield without giving up exit liquidity.
+                Live on devnet today.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
@@ -292,24 +284,18 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Kamino · Lending</h3>
               <p className="validation-body">
-                Lending desks for USDC and SOL. Agents read live utilization
-                and rebalance into the higher-APY supply side.
+                Lending desks for USDC and SOL. Agents read live utilization and rebalance into the
+                higher-APY supply side.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
-                  src="/protocols/jito.png"
-                  alt="Jito"
-                  width={28}
-                  height={28}
-                  unoptimized
-                />
+                <Image src="/protocols/jito.png" alt="Jito" width={28} height={28} unoptimized />
               </div>
               <h3 className="validation-title">Jito · MEV-aware staking</h3>
               <p className="validation-body">
-                JitoSOL gives agents an upgraded LST with built-in MEV
-                rebates , same exit profile as mSOL, more juice on top.
+                JitoSOL gives agents an upgraded LST with built-in MEV rebates , same exit profile
+                as mSOL, more juice on top.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
@@ -324,8 +310,8 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Solend · Permissionless lending</h3>
               <p className="validation-body">
-                A second lending venue agents compare against Kamino tick-by-tick,
-                picking whichever supply rate is highest.
+                A second lending venue agents compare against Kamino tick-by-tick, picking whichever
+                supply rate is highest.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
@@ -340,9 +326,8 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Jupiter · Aggregated swaps</h3>
               <p className="validation-body">
-                Best-execution swap routing across Solana DEXs. Agents use it
-                to enter / rebalance positions when one leg of a strategy
-                needs a different asset.
+                Best-execution swap routing across Solana DEXs. Agents use it to enter / rebalance
+                positions when one leg of a strategy needs a different asset.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
@@ -357,8 +342,8 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Jupiter Perpetuals · Leverage</h3>
               <p className="validation-body">
-                Long / short SOL, ETH, BTC up to 100x. Used when a strategy
-                needs directional exposure or a hedge against the spot leg.
+                Long / short SOL, ETH, BTC up to 100x. Used when a strategy needs directional
+                exposure or a hedge against the spot leg.
               </p>
             </StaggerItem>
           </StaggerChildren>
@@ -386,9 +371,9 @@ export default function Home() {
             </h2>
 
             <p className="fees-sub">
-              Bundie doesn&apos;t take a cut of NAV, market spreads, or agent
-              earnings. The only on-chain cost on devnet is Solana
-              transaction fees , under a tenth of a cent per action.
+              Bundie doesn&apos;t take a cut of NAV, market spreads, or agent earnings. The only
+              on-chain cost on devnet is Solana transaction fees , under a tenth of a cent per
+              action.
             </p>
 
             <div className="fees-grid">
@@ -434,17 +419,12 @@ export default function Home() {
           </h2>
 
           <p className="final-cta-sub">
-            Live on devnet. Free during the demo. Connect a Solana wallet,
-            claim 50 bUSD from the faucet, and you&apos;re in.
+            Live on devnet. Free during the demo. Connect a Solana wallet, claim 50 bUSD from the
+            faucet, and you&apos;re in.
           </p>
 
-          <div className="hero-ctas" style={{ justifyContent: "center" }}>
-            <a
-              href={APP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="final-cta-btn"
-            >
+          <div className="hero-ctas" style={{ justifyContent: 'center' }}>
+            <a href={APP_URL} target="_blank" rel="noopener noreferrer" className="final-cta-btn">
               Try the demo →
             </a>
           </div>
@@ -484,6 +464,5 @@ export default function Home() {
         </div>
       </footer>
     </>
-  );
+  )
 }
-

@@ -238,14 +238,14 @@ section.hero .wrap { position: relative; z-index: 2; }
 }
 
 .hero-sub {
-  max-width: 580px;
-  margin: 24px auto 0;
-  font-size: 18px;
-  line-height: 1.55;
+  max-width: 520px;
+  margin: 20px auto 0;
+  font-size: 17px;
+  line-height: 1.5;
   color: var(--ink-2);
 }
 .hero-sub p { margin: 0; }
-.hero-sub p + p { margin-top: 8px; }
+.hero-sub p + p { margin-top: 6px; }
 
 /* ---------- Waitlist pill form ---------------------------------------- */
 .hero-form {
@@ -1321,60 +1321,68 @@ footer .row-2 {
 .market-preview-question {
   font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
   font-style: italic;
-  font-size: 20px;
+  font-size: 19px;
   color: #f2ede0;
-  line-height: 1.35;
+  line-height: 1.38;
   letter-spacing: -0.01em;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 .market-preview-agent {
   color: #a899f5;
-  font-style: italic;
 }
-.market-preview-bars {
-  display: flex;
-  flex-direction: column;
+/* Side-by-side outcome tiles */
+.market-preview-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
-.market-preview-side {}
-.market-preview-side-head {
+.market-preview-tile {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 5px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px 14px;
+  border-radius: 10px;
+  gap: 2px;
 }
-.market-preview-outcome {
+.market-preview-tile.yes {
+  background: rgba(168,230,207,0.10);
+  border: 1px solid rgba(168,230,207,0.22);
+}
+.market-preview-tile.no {
+  background: rgba(232,165,165,0.08);
+  border: 1px solid rgba(232,165,165,0.18);
+}
+.mpt-label {
   font-family: var(--font-sans);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
-.market-preview-outcome.yes { color: #a8e6cf; }
-.market-preview-outcome.no  { color: #e8a5a5; }
-.market-preview-pct {
+.market-preview-tile.yes .mpt-label { color: rgba(168,230,207,0.6); }
+.market-preview-tile.no  .mpt-label { color: rgba(232,165,165,0.6); }
+.mpt-odds {
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-top: 4px;
 }
-.market-preview-pct.yes { color: #a8e6cf; }
-.market-preview-pct.no  { color: #e8a5a5; }
-.market-preview-bar-track {
-  height: 4px;
-  background: rgba(255,255,255,0.07);
-  border-radius: 999px;
-  overflow: hidden;
+.market-preview-tile.yes .mpt-odds { color: #a8e6cf; }
+.market-preview-tile.no  .mpt-odds { color: #e8a5a5; }
+.mpt-sub {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 2px;
+  color: rgba(246,243,238,0.22);
+  letter-spacing: 0.02em;
 }
-.market-preview-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.market-preview-bar-fill.yes { background: #a8e6cf; }
-.market-preview-bar-fill.no  { background: #e8a5a5; }
 .market-preview-footer {
-  margin-top: 16px;
+  margin-top: 14px;
   font-family: var(--font-sans);
   font-size: 11px;
   color: rgba(246,243,238,0.28);
