@@ -100,6 +100,60 @@
   --ease: cubic-bezier(0.25, 0.4, 0.25, 1);
   --dur-fast: 140ms;
   --dur: 260ms;
+
+  /* === Dark editorial palette (new — additive) =============================
+     Introduced 2026-05. Replaces the warm-paper Bundie surface with a dark
+     editorial product look: deep navy ground, cream ink, lavender accent,
+     mint / rose for outcome A / B (YES / NO, Beat / Miss). Lives alongside
+     the legacy --bg-0 / --fg-0 / --gold tokens above. Components migrate
+     incrementally; new work should reference --de-* tokens. See
+     packages/web/brand.md for the full table + voice notes.
+     ----------------------------------------------------------------------- */
+
+  /* Surfaces , deep navy ground */
+  --de-bg:         #0A0E1F;       /* page, deep blue-black */
+  --de-bg-raised:  #11162B;       /* cards, panels */
+  --de-bg-2:       #161C36;       /* hover, secondary surface */
+  --de-bg-3:       #1D2440;       /* inset wells, inputs */
+  --de-bg-sunken:  #070A17;       /* recessed regions, scrim base */
+
+  /* Borders , cream-tinted hairlines on dark ground */
+  --de-line:       rgba(242,237,224,0.08);
+  --de-line-2:     rgba(242,237,224,0.14);
+  --de-line-3:     rgba(242,237,224,0.22);
+
+  /* Text , cream off-white ink, layered alphas */
+  --de-ink:        #F2EDE0;
+  --de-ink-2:      rgba(242,237,224,0.74);
+  --de-ink-3:      rgba(242,237,224,0.54);
+  --de-ink-4:      rgba(242,237,224,0.36);
+  --de-ink-5:      rgba(242,237,224,0.20);
+
+  /* Primary accent , lavender (replaces legacy --gold for the dark surface) */
+  --de-lavender:        #A899F5;
+  --de-lavender-2:      #BDB1F8;
+  --de-lavender-3:      #8675E8;
+  --de-lavender-tint:   rgba(168,153,245,0.14);
+  --de-lavender-glow:   rgba(168,153,245,0.28);
+
+  /* Outcome A , soft mint (YES / Beat / above target) */
+  --de-mint:       #A8E6CF;
+  --de-mint-2:     #C2EFDB;
+  --de-mint-tint:  rgba(168,230,207,0.14);
+  --de-mint-glow:  rgba(168,230,207,0.26);
+
+  /* Outcome B , muted rose (NO / Miss / below target) */
+  --de-rose:       #E8A5A5;
+  --de-rose-2:     #F1BFBF;
+  --de-rose-tint:  rgba(232,165,165,0.14);
+  --de-rose-glow:  rgba(232,165,165,0.26);
+
+  /* Auxiliary signals , kept dim so accents stay readable on dark navy */
+  --de-amber:      #E8C58A;
+  --de-amber-tint: rgba(232,197,138,0.14);
+  --de-blue:       #8AB6F0;
+  --de-blue-tint:  rgba(138,182,240,0.14);
+  /* === end dark editorial palette ======================================== */
 }
 
 * { box-sizing: border-box; }
