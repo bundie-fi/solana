@@ -1,3 +1,5 @@
+// Last redeploy trigger: 2026-05-07T19:18:37Z
+
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { Toaster } from "sonner";
