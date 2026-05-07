@@ -101,59 +101,58 @@
   --dur-fast: 140ms;
   --dur: 260ms;
 
-  /* === Dark editorial palette (new — additive) =============================
-     Introduced 2026-05. Replaces the warm-paper Bundie surface with a dark
-     editorial product look: deep navy ground, cream ink, lavender accent,
-     mint / rose for outcome A / B (YES / NO, Beat / Miss). Lives alongside
-     the legacy --bg-0 / --fg-0 / --gold tokens above. Components migrate
-     incrementally; new work should reference --de-* tokens. See
-     packages/web/brand.md for the full table + voice notes.
+  /* === --de-* tokens (aliased back to legacy cream/gold palette) ============
+     The dark navy editorial direction was rolled back. New components in
+     packages/web/src/components/de/ still reference --de-* tokens, but
+     each one now resolves to the canonical warm-paper Bundie value so
+     the redesigned pages match the rest of the app. Don't change these
+     mappings without sweeping every consumer.
      ----------------------------------------------------------------------- */
 
-  /* Surfaces , deep navy ground */
-  --de-bg:         #0A0E1F;       /* page, deep blue-black */
-  --de-bg-raised:  #11162B;       /* cards, panels */
-  --de-bg-2:       #161C36;       /* hover, secondary surface */
-  --de-bg-3:       #1D2440;       /* inset wells, inputs */
-  --de-bg-sunken:  #070A17;       /* recessed regions, scrim base */
+  /* Surfaces → warm paper */
+  --de-bg:         var(--bg-0);
+  --de-bg-raised:  var(--bg-1);
+  --de-bg-2:       var(--bg-3);
+  --de-bg-3:       var(--bg-4);
+  --de-bg-sunken:  var(--bg-3);
 
-  /* Borders , cream-tinted hairlines on dark ground */
-  --de-line:       rgba(242,237,224,0.08);
-  --de-line-2:     rgba(242,237,224,0.14);
-  --de-line-3:     rgba(242,237,224,0.22);
+  /* Borders → warm sand */
+  --de-line:       var(--line-1);
+  --de-line-2:     var(--line-2);
+  --de-line-3:     var(--line-3);
 
-  /* Text , cream off-white ink, layered alphas */
-  --de-ink:        #F2EDE0;
-  --de-ink-2:      rgba(242,237,224,0.74);
-  --de-ink-3:      rgba(242,237,224,0.54);
-  --de-ink-4:      rgba(242,237,224,0.36);
-  --de-ink-5:      rgba(242,237,224,0.20);
+  /* Text → warm ink, layered */
+  --de-ink:        var(--fg-0);
+  --de-ink-2:      var(--fg-2);
+  --de-ink-3:      var(--fg-3);
+  --de-ink-4:      var(--fg-4);
+  --de-ink-5:      var(--fg-5);
 
-  /* Primary accent , lavender (replaces legacy --gold for the dark surface) */
-  --de-lavender:        #A899F5;
-  --de-lavender-2:      #BDB1F8;
-  --de-lavender-3:      #8675E8;
-  --de-lavender-tint:   rgba(168,153,245,0.14);
-  --de-lavender-glow:   rgba(168,153,245,0.28);
+  /* Primary accent → predict (purple) — same accent as --gold via legacy alias */
+  --de-lavender:        var(--predict);
+  --de-lavender-2:      var(--predict-2);
+  --de-lavender-3:      var(--predict);
+  --de-lavender-tint:   var(--predict-tint);
+  --de-lavender-glow:   var(--predict-glow);
 
-  /* Outcome A , soft mint (YES / Beat / above target) */
-  --de-mint:       #A8E6CF;
-  --de-mint-2:     #C2EFDB;
-  --de-mint-tint:  rgba(168,230,207,0.14);
-  --de-mint-glow:  rgba(168,230,207,0.26);
+  /* Outcome A (YES) → green */
+  --de-mint:       var(--green);
+  --de-mint-2:     var(--green-2);
+  --de-mint-tint:  var(--green-tint);
+  --de-mint-glow:  var(--green-tint);
 
-  /* Outcome B , muted rose (NO / Miss / below target) */
-  --de-rose:       #E8A5A5;
-  --de-rose-2:     #F1BFBF;
-  --de-rose-tint:  rgba(232,165,165,0.14);
-  --de-rose-glow:  rgba(232,165,165,0.26);
+  /* Outcome B (NO) → red */
+  --de-rose:       var(--red);
+  --de-rose-2:     var(--red-2);
+  --de-rose-tint:  var(--red-tint);
+  --de-rose-glow:  var(--red-tint);
 
-  /* Auxiliary signals , kept dim so accents stay readable on dark navy */
-  --de-amber:      #E8C58A;
-  --de-amber-tint: rgba(232,197,138,0.14);
-  --de-blue:       #8AB6F0;
-  --de-blue-tint:  rgba(138,182,240,0.14);
-  /* === end dark editorial palette ======================================== */
+  /* Auxiliary signals → existing tokens */
+  --de-amber:      var(--amber);
+  --de-amber-tint: var(--amber-tint);
+  --de-blue:       var(--blue);
+  --de-blue-tint:  rgba(91,141,239,0.14);
+  /* === end --de-* alias block =========================================== */
 }
 
 * { box-sizing: border-box; }
@@ -166,22 +165,12 @@ html {
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--de-bg);
+  background: var(--bg-0);
   color: var(--fg-1);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Legacy pages that haven't migrated to dark editorial yet wrap their
- * content in `.legacy-cream-page` so the cream paper background shows
- * through underneath the dark chrome. Once Portfolio / Wallet / Feed /
- * Strategists are redesigned, this class can be removed. */
-.legacy-cream-page {
-  background: var(--bg-0);
-  color: var(--fg-1);
-  min-height: 100vh;
 }
 
 button { font-family: inherit; }
@@ -496,10 +485,10 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-around;
   padding: 10px 8px 8px;
-  background: rgba(10,14,31,0.82);
+  background: rgba(244,241,234,0.92);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-top: 1px solid var(--de-line);
+  border-top: 1px solid var(--line-1);
 }
 .bottom-nav-item {
   display: flex;
@@ -509,11 +498,11 @@ button { font-family: inherit; }
   padding: 6px 12px;
   min-width: 56px;
   cursor: pointer;
-  color: var(--de-ink-3);
+  color: var(--fg-3);
   transition: color 160ms ease;
   text-decoration: none;
 }
-.bottom-nav-item.active { color: var(--de-lavender); }
+.bottom-nav-item.active { color: var(--fg-0); }
 .bottom-nav-item .label {
   font-family: var(--font-mono);
   font-size: 9px;

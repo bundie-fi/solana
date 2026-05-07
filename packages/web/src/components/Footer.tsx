@@ -24,8 +24,8 @@ export function Footer() {
       style={{
         marginTop: 64,
         padding: "32px 24px 40px",
-        borderTop: "1px solid var(--de-line)",
-        background: "var(--de-bg-raised)",
+        borderTop: "1px solid var(--line-1)",
+        background: "var(--bg-1)",
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
@@ -35,7 +35,7 @@ export function Footer() {
             gridTemplateColumns: "2fr 1fr 1fr",
             gap: 48,
             paddingBottom: 28,
-            borderBottom: "1px solid var(--de-line)",
+            borderBottom: "1px solid var(--line-1)",
           }}
         >
           {/* Brand + tagline */}
@@ -59,7 +59,7 @@ export function Footer() {
                 style={{
                   fontFamily: "var(--font-display)",
                   fontSize: 22,
-                  color: "var(--de-ink)",
+                  color: "var(--fg-0)",
                   letterSpacing: "-0.03em",
                 }}
               >
@@ -68,7 +68,7 @@ export function Footer() {
                   style={{
                     fontStyle: "italic",
                     fontWeight: 300,
-                    color: "var(--de-lavender)",
+                    color: "var(--gold)",
                   }}
                 >
                   ie
@@ -79,7 +79,7 @@ export function Footer() {
               style={{
                 marginTop: 12,
                 maxWidth: 380,
-                color: "var(--de-ink-3)",
+                color: "var(--fg-3)",
                 fontSize: 13,
                 lineHeight: 1.55,
               }}
@@ -100,7 +100,7 @@ export function Footer() {
                 fontWeight: 600,
                 letterSpacing: "0.18em",
                 textTransform: "uppercase",
-                color: "var(--de-ink-4)",
+                color: "var(--fg-4)",
               }}
             >
               Product
@@ -120,7 +120,7 @@ export function Footer() {
                   <Link
                     href={l.href}
                     style={{
-                      color: "var(--de-ink-2)",
+                      color: "var(--fg-2)",
                       fontSize: 13,
                       textDecoration: "none",
                     }}
@@ -142,7 +142,7 @@ export function Footer() {
                 fontWeight: 600,
                 letterSpacing: "0.18em",
                 textTransform: "uppercase",
-                color: "var(--de-ink-4)",
+                color: "var(--fg-4)",
               }}
             >
               Resources
@@ -165,7 +165,7 @@ export function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        color: "var(--de-ink-2)",
+                        color: "var(--fg-2)",
                         fontSize: 13,
                         textDecoration: "none",
                       }}
@@ -178,7 +178,7 @@ export function Footer() {
                     <Link
                       href={l.href}
                       style={{
-                        color: "var(--de-ink-2)",
+                        color: "var(--fg-2)",
                         fontSize: 13,
                         textDecoration: "none",
                       }}
@@ -198,7 +198,7 @@ export function Footer() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            color: "var(--de-ink-4)",
+            color: "var(--fg-4)",
             fontFamily: "var(--font-mono)",
             fontSize: 11,
             letterSpacing: "0.08em",
