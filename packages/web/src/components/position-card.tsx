@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { buildRedeemTx } from "@/lib/tx-builders";
+import { isMobileWalletAdapter, sendTxViaMwa } from "@/lib/mwa-tx";
 import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import type { MarketView } from "@/lib/markets";
 
@@ -23,13 +24,22 @@ export interface Position {
  */
 export function PositionCard({ position: p }: { position: Position }) {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, wallet } = useWallet();
   const [redeeming, setRedeeming] = useState(false);
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
 
   const creatorSns = resolveSns(p.market.createdBy);
   const creatorLabel =
     creatorSns?.devnetName ?? truncatePubkey(p.market.createdBy);
+
+  // On mobile (Mobile Wallet Adapter), the wallet-adapter-react cached
+  // publicKey can drift from the wallet's actively-authorized signing key
+  // — same gotcha market-buy-panel.tsx already handles. If we feed the
+  // cached key into the redeem ix as `redeemer`, the runtime rejects the
+  // submitted tx with `signature verification failed` because the signer
+  // slot's pubkey doesn't match the signature's. Build via the MWA helper
+  // so the ix is constructed with the FRESHLY authorised pubkey.
+  const isMwa = isMobileWalletAdapter(wallet?.adapter?.name);
 
   const canRedeem =
     p.state === "resolved" &&
@@ -41,12 +51,31 @@ export function PositionCard({ position: p }: { position: Position }) {
     setRedeeming(true);
     setRedeemMsg(null);
     try {
-      const tx = await buildRedeemTx(connection, {
-        market: p.market,
-        redeemer: publicKey,
-      });
-      const sig = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(sig, "confirmed");
+      let sig: string;
+      if (isMwa) {
+        const result = await sendTxViaMwa({
+          connection,
+          logPrefix: "[redeem]",
+          buildTx: async (signer) =>
+            buildRedeemTx(connection, { market: p.market, redeemer: signer }),
+        });
+        sig = result.signature;
+        await connection.confirmTransaction(
+          {
+            signature: sig,
+            blockhash: result.blockhash,
+            lastValidBlockHeight: result.lastValidBlockHeight,
+          },
+          "confirmed",
+        );
+      } else {
+        const tx = await buildRedeemTx(connection, {
+          market: p.market,
+          redeemer: publicKey,
+        });
+        sig = await sendTransaction(tx, connection);
+        await connection.confirmTransaction(sig, "confirmed");
+      }
       setRedeemMsg(`confirmed · ${sig.slice(0, 12)}…`);
     } catch (e) {
       setRedeemMsg(e instanceof Error ? e.message.slice(0, 100) : "failed");
