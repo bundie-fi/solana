@@ -89,8 +89,84 @@ function repairMaybeJson(raw: string): string {
   if (firstBrace > 0 && lastBrace > firstBrace) {
     s = s.slice(firstBrace, lastBrace + 1);
   }
+  // Qwen sometimes emits JS-style arithmetic in numeric fields, e.g.
+  //   "thresholdLamports": 4959176560 * 1.05
+  // Strict JSON.parse rejects that. Constant-fold simple `<num> <op> <num>`
+  // expressions (one operator deep) so the daemon doesn't lose otherwise
+  // valid decisions. Multi-operator chains are rare enough we just fail
+  // those and fall back to Redpill.
+  s = s.replace(
+    /:\s*(-?\d+(?:\.\d+)?)\s*([*/+\-])\s*(-?\d+(?:\.\d+)?)\s*([,}\n])/g,
+    (_match, a, op, b, tail) => {
+      const x = Number(a);
+      const y = Number(b);
+      let v: number;
+      switch (op) {
+        case "*": v = x * y; break;
+        case "/": v = x / y; break;
+        case "+": v = x + y; break;
+        case "-": v = x - y; break;
+        default: return _match;
+      }
+      if (!Number.isFinite(v)) return _match;
+      return `: ${v}${tail}`;
+    },
+  );
   return s;
 }
+
+// ─── Request scheduler ───────────────────────────────────────────────────
+// 0G provider's published limits: 10 requests/min and 2 concurrent. With
+// 6 agents bursting on the same supervisor tick we trivially exceed both.
+// Throttle to <= 2 in flight, with a min 7s gap between dispatches —
+// yields ~8.5 req/min steady-state, well under the cap, while allowing
+// some parallelism on bursts.
+const ZG_MIN_INTERVAL_MS = 7_000;
+const ZG_MAX_CONCURRENT = 2;
+
+let zgInFlight = 0;
+let zgLastDispatch = 0;
+const zgWaiters: Array<() => void> = [];
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+async function acquireZeroGSlot(): Promise<void> {
+  while (true) {
+    const now = Date.now();
+    const sinceLast = now - zgLastDispatch;
+    const gapWait = Math.max(0, ZG_MIN_INTERVAL_MS - sinceLast);
+    if (zgInFlight < ZG_MAX_CONCURRENT && gapWait === 0) {
+      zgInFlight += 1;
+      zgLastDispatch = Date.now();
+      return;
+    }
+    if (gapWait > 0) {
+      await sleep(gapWait);
+      continue;
+    }
+    // Wait for a slot to free up.
+    await new Promise<void>((resolve) => zgWaiters.push(resolve));
+  }
+}
+
+function releaseZeroGSlot(): void {
+  zgInFlight = Math.max(0, zgInFlight - 1);
+  const next = zgWaiters.shift();
+  if (next) next();
+}
+
+/**
+ * System prompt prepended to every 0G call. Constraints the model output
+ * shape so Qwen doesn't emit JS-style arithmetic in numeric fields (we've
+ * observed `"thresholdLamports": 4959176560 * 1.05`, which strict
+ * JSON.parse rejects). Also forbids prose / commentary.
+ */
+const ZG_SYSTEM_PROMPT =
+  "You are an autonomous DeFi agent. Output ONLY a single JSON object " +
+  "matching the schema described in the user message. No prose, no " +
+  "commentary, no code fences. Numeric fields MUST be literal numbers — " +
+  "never arithmetic expressions like `100 * 1.05`; compute the value " +
+  "yourself and emit the result.";
 
 export async function reasonViaZeroG(args: ReasonArgs): Promise<BrainDecision> {
   const broker = await getBroker();
@@ -98,73 +174,97 @@ export async function reasonViaZeroG(args: ReasonArgs): Promise<BrainDecision> {
   const providerAddr = process.env.ZG_COMPUTE_PROVIDER_ADDRESS!;
   const prompt = buildPrompt(args);
 
-  // Headers must be derived from the EXACT content we'll POST — the
-  // provider verifies the signature against the request body.
-  const headers = await broker.inference.getRequestHeaders(providerAddr, prompt);
-
-  const url = endpoint.endsWith("/chat/completions")
-    ? endpoint
-    : `${endpoint.replace(/\/$/, "")}/chat/completions`;
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      ...(headers as Record<string, string>),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: args.temperature ?? 0.3,
-      max_tokens: 512,
-    }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text().catch(() => "<no body>");
-    throw new Error(`0G ${resp.status} ${resp.statusText}: ${body.slice(0, 500)}`);
-  }
-
-  const json = (await resp.json()) as {
-    id?: string;
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = json.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || content.length === 0) {
-    throw new Error("0G returned no content");
-  }
-
-  // Best-effort billing settlement. Failure here doesn't break the
-  // current call — at worst the provider reverts to retry-on-next-call.
-  const chatId = resp.headers.get("ZG-Res-Key") ?? json.id;
-  if (chatId) {
-    broker.inference
-      .processResponse(providerAddr, chatId, content)
-      .catch((err: unknown) => {
-        console.warn(
-          `[brain 0G] processResponse failed (non-fatal): ${(err as Error).message}`,
-        );
-      });
-  }
-
-  const repaired = repairMaybeJson(content);
+  await acquireZeroGSlot();
   try {
-    const parsed = JSON.parse(repaired) as BrainDecision;
-    if (!parsed || typeof parsed !== "object") {
-      throw new Error("parsed body is not an object");
-    }
-    if (!Array.isArray(parsed.actions)) {
-      throw new Error("actions[] missing");
-    }
-    if (typeof parsed.reasoning !== "string") {
-      parsed.reasoning = "(no reasoning field provided)";
-    }
-    return parsed;
-  } catch (err) {
-    const hint = content.slice(0, 500).replace(/\n/g, " ");
-    throw new Error(
-      `0G returned non-JSON (${(err as Error).message}): ${hint}`,
+    // Headers must be derived from the EXACT content we'll POST — the
+    // provider verifies the signature against the request body. The
+    // system prompt is part of the body so include it in the signing
+    // material to keep the signature valid.
+    const signedContent = `${ZG_SYSTEM_PROMPT}\n\n${prompt}`;
+    const headers = await broker.inference.getRequestHeaders(
+      providerAddr,
+      signedContent,
     );
+
+    const url = endpoint.endsWith("/chat/completions")
+      ? endpoint
+      : `${endpoint.replace(/\/$/, "")}/chat/completions`;
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...(headers as Record<string, string>),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: ZG_SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+        temperature: args.temperature ?? 0.3,
+        max_tokens: 512,
+      }),
+    });
+
+    if (resp.status === 429) {
+      // Don't retry — let the caller fall back to Redpill (or just
+      // return noop on this tick). Logging the body helps tune the
+      // throttle if the provider tightens limits.
+      const body = await resp.text().catch(() => "<no body>");
+      throw new Error(`0G 429 Too Many Requests: ${body.slice(0, 300)}`);
+    }
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "<no body>");
+      throw new Error(
+        `0G ${resp.status} ${resp.statusText}: ${body.slice(0, 500)}`,
+      );
+    }
+
+    const json = (await resp.json()) as {
+      id?: string;
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = json.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || content.length === 0) {
+      throw new Error("0G returned no content");
+    }
+
+    // Best-effort billing settlement. Failure here doesn't break the
+    // current call — at worst the provider reverts to retry-on-next-call.
+    const chatId = resp.headers.get("ZG-Res-Key") ?? json.id;
+    if (chatId) {
+      broker.inference
+        .processResponse(providerAddr, chatId, content)
+        .catch((err: unknown) => {
+          console.warn(
+            `[brain 0G] processResponse failed (non-fatal): ${(err as Error).message}`,
+          );
+        });
+    }
+
+    const repaired = repairMaybeJson(content);
+    try {
+      const parsed = JSON.parse(repaired) as BrainDecision;
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("parsed body is not an object");
+      }
+      if (!Array.isArray(parsed.actions)) {
+        throw new Error("actions[] missing");
+      }
+      if (typeof parsed.reasoning !== "string") {
+        parsed.reasoning = "(no reasoning field provided)";
+      }
+      return parsed;
+    } catch (err) {
+      const hint = content.slice(0, 500).replace(/\n/g, " ");
+      throw new Error(
+        `0G returned non-JSON (${(err as Error).message}): ${hint}`,
+      );
+    }
+  } finally {
+    releaseZeroGSlot();
   }
 }
 
