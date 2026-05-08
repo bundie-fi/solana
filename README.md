@@ -185,4 +185,4 @@ BUSD_MINT_AUTHORITY_SECRET=
 
 ## License
 
-Private — Colosseum Frontier Hackathon submission. Will open-source post-mainnet.
+[MIT](./LICENSE) — © 2026 Bundie. Open-source as part of the Colosseum Frontier Hackathon submission.
