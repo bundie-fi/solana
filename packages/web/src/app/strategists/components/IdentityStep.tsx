@@ -14,11 +14,17 @@ interface Props {
   dispatch: (action: WizardAction) => void;
 }
 
-const EMOJI_OPTIONS = ["🤖", "🧠", "📈", "🦾", "🌊", "🛰️", "🔮", "🐺"];
+// Editorial press-marks. Every glyph below is part of Instrument Serif's
+// real character set, so they render with consistent weight and metrics —
+// unlike unicode ornaments (❖ ❦ ⁂ etc.) which silently fall back to the
+// system font and arrive as off-size icon shapes.
+const MARK_OPTIONS = ["&", "§", "¶", "†", "‡", "*", "·", "—"];
 
 export function IdentityStep({ state, dispatch }: Props) {
   const { identity } = state;
-  const prefixErr = snsPrefixError(identity.snsPrefix);
+  // Don't surface the "pick a name" error until the user touches the field.
+  // Empty-state red copy is hostile and clashes with the editorial tone.
+  const prefixErr = identity.snsPrefix ? snsPrefixError(identity.snsPrefix) : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced uniqueness check whenever the prefix is valid.
@@ -73,6 +79,7 @@ export function IdentityStep({ state, dispatch }: Props) {
       >
         <div style={{ display: "flex", alignItems: "stretch" }}>
           <input
+            className="de-input"
             value={identity.snsPrefix}
             onChange={(e) =>
               dispatch({
@@ -83,7 +90,6 @@ export function IdentityStep({ state, dispatch }: Props) {
             placeholder="alice"
             spellCheck={false}
             autoComplete="off"
-            style={inputStyle({ rounded: "left" })}
           />
           <span style={suffixStyle}>.bundie.sol</span>
         </div>
@@ -103,6 +109,7 @@ export function IdentityStep({ state, dispatch }: Props) {
       {/* Display name */}
       <Field label="Display name">
         <input
+          className="de-input"
           value={identity.displayName}
           onChange={(e) =>
             dispatch({
@@ -112,13 +119,13 @@ export function IdentityStep({ state, dispatch }: Props) {
           }
           placeholder="Alice the Allocator"
           maxLength={48}
-          style={inputStyle({})}
         />
       </Field>
 
       {/* Tagline */}
       <Field label="Tagline (optional)" hint="One line. Shown on the home feed.">
         <input
+          className="de-input"
           value={identity.tagline}
           onChange={(e) =>
             dispatch({
@@ -128,35 +135,45 @@ export function IdentityStep({ state, dispatch }: Props) {
           }
           placeholder="Hunts the freshest Kamino reserves."
           maxLength={120}
-          style={inputStyle({})}
         />
       </Field>
 
-      {/* Emoji */}
-      <Field label="Avatar emoji">
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {EMOJI_OPTIONS.map((e) => {
-            const active = identity.emoji === e;
+      {/* Press-mark */}
+      <Field label="Mark" hint="A press-mark stands in for an avatar — set in italic serif.">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {MARK_OPTIONS.map((mark) => {
+            const active = identity.emoji === mark;
             return (
               <button
-                key={e}
+                key={mark}
                 type="button"
+                aria-label={`Mark ${mark}`}
+                aria-pressed={active}
                 onClick={() =>
-                  dispatch({ type: "IDENTITY/SET_EMOJI", value: e })
+                  dispatch({ type: "IDENTITY/SET_EMOJI", value: mark })
                 }
                 style={{
-                  width: 44,
-                  height: 44,
+                  width: 52,
+                  height: 52,
                   border: "1px solid",
-                  borderColor: active ? "var(--gold)" : "var(--line-1)",
-                  background: active ? "var(--gold-tint)" : "var(--bg-1)",
-                  borderRadius: 10,
-                  fontSize: 22,
+                  borderColor: active ? "var(--de-lavender)" : "var(--de-line-2)",
+                  background: active ? "var(--de-lavender-tint)" : "transparent",
+                  borderRadius: 0,
+                  fontFamily: "var(--font-display)",
+                  fontStyle: "italic",
+                  fontSize: 28,
+                  lineHeight: 1,
+                  color: active ? "var(--de-ink)" : "var(--de-ink-2)",
                   cursor: "pointer",
-                  transition: "border-color 160ms ease, background 160ms ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingBottom: 4,
+                  transition:
+                    "border-color 160ms ease, background 160ms ease, color 160ms ease",
                 }}
               >
-                {e}
+                {mark}
               </button>
             );
           })}
@@ -179,16 +196,38 @@ export function Header({
 }) {
   return (
     <div>
-      <div className="bd-eyebrow" style={{ marginBottom: 6 }}>
+      <div
+        style={{
+          marginBottom: 8,
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.16em",
+          color: "var(--de-ink-3)",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
         {eyebrow}
       </div>
       <div
-        className="section-title"
-        style={{ fontSize: 24, marginBottom: 6 }}
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 36,
+          lineHeight: 1.05,
+          color: "var(--de-ink)",
+          marginBottom: 10,
+          letterSpacing: "-0.01em",
+        }}
       >
         {title}
       </div>
-      <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+      <div
+        style={{
+          fontSize: 14,
+          lineHeight: 1.55,
+          color: "var(--de-ink-3)",
+          maxWidth: 560,
+        }}
+      >
         {sub}
       </div>
     </div>
@@ -205,21 +244,27 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <label
-        className="mono"
         style={{
-          fontSize: 11,
+          fontSize: 10.5,
           textTransform: "uppercase",
-          letterSpacing: "0.16em",
-          color: "var(--fg-3)",
+          letterSpacing: "0.18em",
+          color: "var(--de-ink-3)",
+          fontFamily: "var(--font-sans)",
         }}
       >
         {label}
       </label>
       {children}
       {hint && (
-        <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
+        <div
+          style={{
+            fontSize: 11.5,
+            color: "var(--de-ink-4)",
+            fontFamily: "var(--font-sans)",
+          }}
+        >
           {hint}
         </div>
       )}
@@ -227,44 +272,23 @@ export function Field({
   );
 }
 
-function inputStyle({
-  rounded,
-}: {
-  rounded?: "left" | "right";
-}): React.CSSProperties {
-  return {
-    flex: 1,
-    width: "100%",
-    height: 42,
-    padding: "0 12px",
-    borderRadius:
-      rounded === "left"
-        ? "8px 0 0 8px"
-        : rounded === "right"
-          ? "0 8px 8px 0"
-          : 8,
-    border: "1px solid var(--line-1)",
-    borderRight: rounded === "left" ? "none" : "1px solid var(--line-1)",
-    background: "var(--bg-1)",
-    fontFamily: "var(--font-mono)",
-    fontSize: 13,
-    color: "var(--fg-0)",
-    outline: "none",
-  };
-}
-
 const suffixStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "0 12px",
-  height: 42,
-  borderRadius: "0 8px 8px 0",
-  border: "1px solid var(--line-1)",
-  background: "var(--bg-3)",
-  color: "var(--fg-3)",
-  fontFamily: "var(--font-mono)",
-  fontSize: 12,
-  letterSpacing: "0.04em",
+  // Match `.de-input` exactly so the two underlines read as one continuous
+  // hairline. Same height, same border, same padding scale.
+  height: 48,
+  paddingLeft: 6,
+  borderRadius: 0,
+  border: "none",
+  borderBottom: "1px solid var(--de-line-3)",
+  background: "transparent",
+  color: "var(--de-ink-2)",
+  fontFamily: "var(--font-display)",
+  fontSize: 19,
+  fontStyle: "italic",
+  letterSpacing: "0.01em",
+  whiteSpace: "nowrap",
 };
 
 function ValidationLine({
@@ -276,32 +300,19 @@ function ValidationLine({
   ok: string | null;
   checking: boolean;
 }) {
+  const base: React.CSSProperties = {
+    fontSize: 11.5,
+    fontFamily: "var(--font-sans)",
+    letterSpacing: "0.02em",
+  };
   if (checking) {
-    return (
-      <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
-        Checking availability…
-      </div>
-    );
+    return <div style={{ ...base, color: "var(--de-ink-4)" }}>Checking availability…</div>;
   }
   if (error) {
-    return (
-      <div
-        className="mono-tiny"
-        style={{ color: "var(--red-2)", fontSize: 10.5 }}
-      >
-        {error}
-      </div>
-    );
+    return <div style={{ ...base, color: "var(--de-rose)" }}>{error}</div>;
   }
   if (ok) {
-    return (
-      <div
-        className="mono-tiny"
-        style={{ color: "var(--green-2)", fontSize: 10.5 }}
-      >
-        {ok}
-      </div>
-    );
+    return <div style={{ ...base, color: "var(--de-mint)" }}>{ok}</div>;
   }
   return null;
 }
