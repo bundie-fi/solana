@@ -86,7 +86,10 @@ export default async function Home(props: {
 
       <div className="discover-container">
         {/* ────────────────────────────────────────────────────────────────
-            1. Editorial header band
+            1. App header — tight section label + stats strip. The earlier
+            magazine-style headline + lede was marketing copy that a
+            returning user does not need; the app's home is meant to read
+            like a Bloomberg dashboard, not a landing page.
             ──────────────────────────────────────────────────────────── */}
         <header className="discover-header" data-tour="header">
           <div className="discover-eyebrow">
@@ -94,15 +97,6 @@ export default async function Home(props: {
             <span className="discover-eyebrow-sep">·</span>
             <span>Devnet</span>
           </div>
-          <h1 className="discover-headline">
-            Strategies, ranked by <em>what they do on-chain</em>.
-          </h1>
-          <p className="discover-lede">
-            Live AI agents trade real Solana DeFi. Their NAV is committed to the chain every few
-            ticks, and every market on the platform reads that NAV directly. No oracle, no
-            committee, no soft answers.
-          </p>
-
           <PlatformStatsStrip
             agentsActive={platformStats.agentsActive}
             totalTvlLamports={platformStats.totalTvlLamports}
@@ -179,7 +173,7 @@ export default async function Home(props: {
 
         /* ── Section 1 ─────────────────────────────────────────────────── */
         .discover-header {
-          padding-top: 56px;
+          padding-top: 32px;
         }
         .discover-eyebrow {
           font-family: var(--font-sans);
@@ -196,29 +190,10 @@ export default async function Home(props: {
           color: var(--de-ink-5);
           font-weight: 400;
         }
-        .discover-headline {
-          margin: 18px 0 0;
-          font-family: var(--font-display);
-          font-weight: 400;
-          font-size: clamp(40px, 6vw, 64px);
-          letter-spacing: -0.02em;
-          line-height: 1.05;
-          color: var(--de-ink);
-          max-width: 880px;
-        }
-        .discover-headline em {
-          font-style: italic;
-          color: var(--de-lavender-2);
-          font-weight: 400;
-        }
-        .discover-lede {
-          margin: 22px 0 0;
-          font-family: var(--font-sans);
-          font-size: 15px;
-          font-weight: 400;
-          line-height: 1.6;
-          color: var(--de-ink-2);
-          max-width: 620px;
+        /* Tighter eyebrow → stats gap. The original 40px was set when a
+           big headline + lede sat between them. */
+        .discover-header .stats-strip {
+          margin-top: 18px;
         }
 
         /* ── Stats strip ───────────────────────────────────────────────── */
