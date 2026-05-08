@@ -41,10 +41,11 @@ export function TopNav() {
 
   return (
     <header
+      className="topnav-root"
       style={{
         display: "flex",
-        alignItems: "center",
         justifyContent: "space-between",
+        alignItems: "center",
         padding: "12px 20px 10px",
         background: "rgba(10,14,31,0.82)",
         backdropFilter: "blur(16px)",
@@ -55,8 +56,7 @@ export function TopNav() {
         zIndex: 30,
       }}
     >
-      {/* Brand + live dot */}
-      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+      <Link href="/" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
         <span
           style={{
             fontFamily: "var(--font-display)",
@@ -67,15 +67,6 @@ export function TopNav() {
         >
           Bund<span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--de-lavender)" }}>ie</span>
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span className="pulse-dot" />
-          <span
-            className="mono-tiny"
-            style={{ color: "var(--de-mint)", letterSpacing: "0.16em", fontSize: 10 }}
-          >
-            LIVE
-          </span>
-        </span>
       </Link>
 
       {/* Nav links — editorial pattern. No pills, no rounded backgrounds.
@@ -85,7 +76,7 @@ export function TopNav() {
           counter ("01 / 02 / 03") gives the row a magazine table-of-
           contents feel and makes the active item visually anchored
           without chrome. */}
-      <nav className="topnav-links">
+      <nav className="topnav-links" aria-label="Primary">
         {LINKS.map((l, i) => {
           // The Markets tab points at `/` but should also light up on
           // `/markets`, so treat an explicit `activePrefix` as "also
@@ -115,15 +106,24 @@ export function TopNav() {
       </nav>
 
       <style>{`
+        @media (max-width: 639px) {
+          .topnav-root { display: none !important; }
+        }
         .topnav-links {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
           display: flex;
           align-items: center;
           gap: 28px;
+          pointer-events: auto;
         }
         .topnav-link {
           position: relative;
           display: inline-flex;
-          align-items: baseline;
+          align-items: center;
+          justify-content: center;
           gap: 10px;
           height: 36px;
           padding: 0 2px;
