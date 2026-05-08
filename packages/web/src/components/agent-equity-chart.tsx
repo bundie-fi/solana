@@ -387,7 +387,7 @@ export function AgentEquityChart({
         >
           <div
             className="dim mono-tiny"
-            style={{ fontSize: 9.5, marginBottom: 4 }}
+            style={{ fontSize: 10.5, marginBottom: 4 }}
           >
             {new Date(hover.ts).toLocaleString("en-US", {
               month: "short",

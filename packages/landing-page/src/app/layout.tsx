@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Figtree, JetBrains_Mono } from "next/font/google";
+import { Instrument_Serif, Figtree } from "next/font/google";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -17,12 +17,6 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Bundie · Prediction market for DeFi yields",
@@ -49,7 +43,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${figtree.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${figtree.variable} ${instrumentSerif.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -93,9 +93,10 @@ const EMPTY: PnlResponse = {
  * failure (404, network, parse error) we return an EMPTY response so
  * the UI can still render placeholder slots.
  *
- * Server-only: we always pass `cache: "no-store"` because NAV updates
- * every commit_nav slot and stale data here defeats the whole point of
- * the chart.
+ * Cached for 30s with a per-agent tag so a backend write can revalidate
+ * just the agents that changed (`revalidateTag("pnl:<sns>")`). 30s is a
+ * sane default for index views; agent detail screens can pass a smaller
+ * `revalidate` via the second arg if they need fresher data.
  */
 export async function fetchAgentPnl(
   sns: string,
@@ -105,7 +106,9 @@ export async function fetchAgentPnl(
     const url = `${BACKEND_URL}/api/agents/${encodeURIComponent(
       sns,
     )}/pnl?range=${range}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, {
+      next: { revalidate: 30, tags: ["pnl", `pnl:${sns}`] },
+    });
     if (!res.ok) return { ...EMPTY, range };
     const body = (await res.json()) as PnlResponse;
     // Defensive: backend might omit fields if it changes shape.

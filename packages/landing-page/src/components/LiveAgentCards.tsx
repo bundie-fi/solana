@@ -9,6 +9,8 @@
  * starts surfacing those fields , no further code change needed.
  */
 
+import { AgentMonogram } from "./AgentMonogram";
+
 export const revalidate = 30;
 
 const APP_URL = "https://app.solana.bundie.fi";
@@ -19,7 +21,6 @@ interface AgentRow {
   sns: string;
   display_name?: string | null;
   tagline?: string | null;
-  emoji?: string | null;
   status?: string | null;
   navLamports?: number | string | null;
   nav_lamports?: number | string | null;
@@ -29,7 +30,6 @@ interface AgentRow {
 
 interface AgentCard {
   handle: string;
-  emoji: string;
   bias: string;
   description: string;
   status: "active" | "paused" | "unknown";
@@ -87,7 +87,6 @@ async function loadAgents(): Promise<AgentCard[]> {
         const slot = toNumber(a.lastCommitSlot ?? a.last_commit_slot);
         return {
           handle: a.sns,
-          emoji: a.emoji || "🤖",
           bias: biasFromTagline(a.tagline),
           description: a.tagline || "Autonomous DeFi agent.",
           status: normalizeStatus(a.status),
@@ -113,9 +112,8 @@ export default async function LiveAgentCards() {
       {agents.map((a) => (
         <article key={a.handle} className="agent-tile">
           <div className="agent-tile-head">
-            <span className="agent-emoji" aria-hidden>
-              {a.emoji}
-            </span>
+            <AgentMonogram handle={a.handle} size={32} />
+
             <span
               className={`pill-status ${
                 a.status === "active" ? "pill-live" : "pill-soon"

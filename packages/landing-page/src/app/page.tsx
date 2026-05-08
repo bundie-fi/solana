@@ -1,20 +1,20 @@
-import Image from "next/image";
-import { MotionSection } from "../components/motion-section";
-import { StaggerChildren, StaggerItem } from "../components/stagger-children";
-import { FeaturesSwitcher } from "../components/FeaturesSwitcher";
-import LiveAgentCards from "../components/LiveAgentCards";
-import LiveTxFeed from "../components/LiveTxFeed";
+import Image from 'next/image'
+import { MotionSection } from '../components/motion-section'
+import { StaggerChildren, StaggerItem } from '../components/stagger-children'
+import { FeaturesSwitcher } from '../components/FeaturesSwitcher'
+import LiveAgentCards from '../components/LiveAgentCards'
+import LiveTxFeed from '../components/LiveTxFeed'
 
 // Re-export the segment cache window so live data refreshes every 30s
 // in production. Matches the prior landing page's cadence.
-export const revalidate = 30;
+export const revalidate = 30
 
 // TODO: confirm production app URL. Today the deployed devnet app lives at
 // https://app.solana.bundie.fi. Swap to https://app.bundie.fi once the apex
 // subdomain is wired.
-const APP_URL = "https://app.solana.bundie.fi";
-const TWITTER_URL = "https://x.com/bundie_fi";
-const GITHUB_URL = "https://github.com/bundie-fi";
+const APP_URL = 'https://app.solana.bundie.fi'
+const TWITTER_URL = 'https://x.com/bundie_fi'
+const GITHUB_URL = 'https://github.com/bundie-fi'
 
 export default function Home() {
   return (
@@ -25,14 +25,6 @@ export default function Home() {
       <nav className="top">
         <div className="inner">
           <a href="#" className="brand" aria-label="Bundie">
-            <Image
-              src="/assets/favicon-32.png"
-              alt=""
-              width={32}
-              height={32}
-              priority
-              unoptimized
-            />
             <span className="wordmark">Bundie</span>
           </a>
           <div className="nav-right">
@@ -51,27 +43,130 @@ export default function Home() {
       {/* === HERO === */}
       <section className="hero">
         <div className="ambient" />
+
+        {/* Ghost equity curve. Single hand-tuned bezier path running
+            across the hero behind the headline, ~6% opacity in the
+            brand teal. Visually argues the headline copy: agents
+            trade, this is the trace of one trading. Static, no
+            animation — confidence over motion. The fade-at-edges
+            gradient makes it read as continuing offscreen rather than
+            as a finished chart. */}
+        <svg
+          className="hero-equity-ghost"
+          aria-hidden="true"
+          viewBox="0 0 1600 500"
+          preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="he-fade" x1="0%" x2="100%" y1="0%" y2="0%">
+              <stop offset="0%" stopColor="rgb(18,68,58)" stopOpacity="0" />
+              <stop offset="14%" stopColor="rgb(18,68,58)" stopOpacity="1" />
+              <stop offset="86%" stopColor="rgb(18,68,58)" stopOpacity="1" />
+              <stop offset="100%" stopColor="rgb(18,68,58)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            className="hero-equity-line"
+            pathLength={1}
+            d="M 0 440 C 200 430 360 410 520 380 C 660 354 780 320 900 270 C 1020 220 1120 160 1220 120 C 1270 102 1310 102 1360 124 C 1440 156 1520 200 1600 220"
+            fill="none"
+            stroke="url(#he-fade)"
+            strokeOpacity="0.22"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Protocol waypoints. Each is a small dot on the curve plus
+              a label above it, naming the protocol an agent routes
+              through at that point. Turns the ghost line into a trade
+              path: this is the trace of capital moving through Solana
+              DeFi. Y-values are computed exactly on the cubic above
+              via getPointAtLength — eyeballed values drift by 5–10
+              units near the peak and end of the path. */}
+          {[
+            { x: 240, y: 421.4, name: "Marinade" },
+            { x: 540, y: 376.2, name: "Kamino" },
+            { x: 880, y: 278.2, name: "Jito" },
+            { x: 1140, y: 155.5, name: "Solend" },
+            { x: 1500, y: 185.1, name: "Jupiter" },
+          ].map((pt) => (
+            <g
+              key={pt.name}
+              transform={`translate(${pt.x}, ${pt.y})`}
+              className="hero-equity-waypoint"
+              style={{ animationDelay: `${0.45 + (pt.x / 1600) * 2.0}s` }}
+            >
+              <circle cx="0" cy="0" r="3" fill="rgb(18,68,58)" fillOpacity="0.55" />
+              <text
+                x="0"
+                y="-12"
+                textAnchor="middle"
+                fontFamily="var(--font-serif), 'Instrument Serif', Georgia, serif"
+                fontSize="13"
+                fontStyle="italic"
+                fill="rgb(18,68,58)"
+                fillOpacity="0.6"
+              >
+                {pt.name}
+              </text>
+            </g>
+          ))}
+          {/* Peak tick — same point as the second waypoint from the
+              right (Solend). Kept separate so the HTML annotation
+              label sits on top of it. */}
+          <g
+            transform="translate(1260, 105)"
+            className="hero-equity-waypoint hero-equity-peak"
+            style={{ animationDelay: `${0.45 + (1260 / 1600) * 2.0}s` }}
+          >
+            <line
+              x1="0"
+              y1="-14"
+              x2="0"
+              y2="0"
+              stroke="rgb(18,68,58)"
+              strokeOpacity="0.55"
+              strokeWidth="1"
+            />
+            <circle cx="0" cy="0" r="2.5" fill="rgb(18,68,58)" fillOpacity="0.7" />
+          </g>
+        </svg>
+
+        {/* Margin note, sits just above the peak tick. Rendered as HTML
+            instead of SVG text so the brand sans renders on the pixel
+            grid. Tiny, like a trader's pencil annotation. */}
+        <span
+          className="hero-equity-note hero-equity-note-animate"
+          aria-hidden="true"
+        >
+          <span className="hero-equity-note-num">+$1,247</span>
+          <span className="hero-equity-note-meta">7d · kamino-stacker</span>
+        </span>
+
         <div className="wrap">
           {/* Status pill , matches Aqua0 cadence: tiny pill above the
               huge headline, signals "this is live right now" before the
               visitor even reads the words. */}
           <span className="hero-badge" style={{ marginBottom: 28 }}>
             <span className="dot" />
-            Live · Devnet
+            Live on Devnet
           </span>
 
           <h1 className="hero">
             Prediction market
-            <span className="hero-line-2">for <em>trading agents.</em></span>
+            <span className="hero-line-2">
+              for <em>trading agents.</em>
+            </span>
           </h1>
 
           <div className="hero-sub">
             <p>
-              AI trading agents execute real DeFi on Solana , {" "}
-              <em className="hero-sub-accent">Marinade, Kamino, Jupiter</em> , and
-              you bet on which ones win. Markets settle from on-chain NAV —
-              no oracle, no committee.
+              AI agents trade real DeFi on Solana:{' '}
+              <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em>{' '}
+              You bet on who wins.
             </p>
+            <p>Settled on-chain. No oracle. No committee.</p>
           </div>
 
           <div className="hero-ctas">
@@ -88,68 +183,11 @@ export default function Home() {
             </a>
           </div>
 
-          {/* One-market preview teaser — the bettor's first impression
-              should be a real market they can imagine clicking, not a
-              grid of agent cards. Static here; the full LiveAgentCards
-              grid still renders further down for credibility. */}
-          <div
-            style={{
-              marginTop: 40,
-              maxWidth: 620,
-              padding: "20px 24px",
-              border: "1px solid rgba(168,153,245,0.30)",
-              borderRadius: 14,
-              background: "rgba(168,153,245,0.04)",
-              boxShadow: "0 1px 0 rgba(168,153,245,0.08) inset",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "rgba(246,243,238,0.62)",
-              lineHeight: 1.55,
-            }}
-          >
-            <span
-              style={{
-                color: "#a899f5",
-                letterSpacing: "0.18em",
-                fontSize: 10,
-                textTransform: "uppercase",
-              }}
-            >
-              Live market · example
-            </span>
-            <div
-              style={{
-                marginTop: 10,
-                fontFamily: "var(--font-serif)",
-                fontStyle: "italic",
-                fontSize: 22,
-                color: "#f6efe0",
-                lineHeight: 1.3,
-              }}
-            >
-              Will <span style={{ color: "#a899f5" }}>kamino-stacker</span> out-NAV{" "}
-              <span style={{ color: "#a899f5" }}>funding-shorter</span> by Friday close?
-            </div>
-            <div
-              style={{
-                marginTop: 14,
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                flexWrap: "wrap",
-              }}
-            >
-              <span>
-                YES <span style={{ color: "#a8e6cf", fontWeight: 600 }}>0.62</span>
-              </span>
-              <span>
-                NO <span style={{ color: "#e8a5a5", fontWeight: 600 }}>0.38</span>
-              </span>
-              <span style={{ marginLeft: "auto", color: "rgba(246,243,238,0.42)" }}>
-                resolves on-chain ↗
-              </span>
-            </div>
-          </div>
+          {/* Market preview — newspaper-leaderboard layout with a
+              blurred + faded "recent activity" tail underneath. The
+              tail signals "there's more in the app" without ever
+              looking like a screenshot. */}
+          <MarketPreview />
         </div>
       </section>
 
@@ -160,7 +198,7 @@ export default function Home() {
       {/* === PROBLEM × SOLUTION === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">The problem × The solution</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Prediction markets without
@@ -176,9 +214,8 @@ export default function Home() {
                 Markets resolve on <span className="ps-dim">opinion.</span>
               </h3>
               <p className="ps-body">
-                Oracles get gamed. Committees argue. By the time a market
-                settles, the trade everyone wanted has already happened
-                somewhere else.
+                Oracles get gamed. Committees argue. By the time a market settles, the trade
+                everyone wanted has already happened somewhere else.
               </p>
             </div>
 
@@ -193,7 +230,10 @@ export default function Home() {
                   <span className="ps-flow-detail">Real Solana DeFi</span>
                 </div>
                 <div className="ps-flow-arrow" aria-hidden>
-                  ↓
+                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
+                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
+                  </svg>
                 </div>
                 <div className="ps-flow-step">
                   <span className="ps-flow-num">02</span>
@@ -201,7 +241,10 @@ export default function Home() {
                   <span className="ps-flow-detail">Verifiable, on-chain</span>
                 </div>
                 <div className="ps-flow-arrow" aria-hidden>
-                  ↓
+                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
+                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
+                  </svg>
                 </div>
                 <div className="ps-flow-step ps-flow-step-final">
                   <span className="ps-flow-num">03</span>
@@ -218,9 +261,8 @@ export default function Home() {
                 Markets resolve on <em>performance.</em>
               </h3>
               <p className="ps-body">
-                Bundie agents trade on Solana. Their NAV is on-chain. The
-                LS-LMSR market reads the NAV and pays out , automatically, at
-                the resolution slot.
+                Bundie agents trade on Solana. Their NAV is on-chain. The LS-LMSR market reads the
+                NAV and pays out , automatically, at the resolution slot.
               </p>
             </div>
           </div>
@@ -250,15 +292,26 @@ export default function Home() {
       {/* === INSIDE BUNDIE (tabbed features) === */}
       <MotionSection id="inside-bundie" className="content">
         <div className="wrap">
-          <div className="section-head" style={{ marginBottom: 40 }}>
-            <span className="eyebrow">Inside Bundie</span>
-            <h2 className="section" style={{ marginTop: 16 }}>
-              Two primitives.
-              <em> One closed loop.</em>
-            </h2>
-          </div>
+          {/* Eyebrow + headline cascade up sequentially when the section
+              scrolls into view, on top of the wrapper section's own
+              fade-up. The user specifically called out the "Two
+              primitives. One closed loop." headline — staggering the
+              two spans makes the rise readable rather than monolithic. */}
+          <StaggerChildren className="section-head">
+            <StaggerItem>
+              <span className="eyebrow">Inside Bundie</span>
+            </StaggerItem>
+            <StaggerItem>
+              <h2 className="section" style={{ marginTop: 16 }}>
+                Two primitives.
+                <em> One closed loop.</em>
+              </h2>
+            </StaggerItem>
+          </StaggerChildren>
 
-          <FeaturesSwitcher />
+          <div style={{ marginTop: 40 }}>
+            <FeaturesSwitcher />
+          </div>
         </div>
       </MotionSection>
 
@@ -266,7 +319,7 @@ export default function Home() {
               hard-coded seed copy on backend failure. === */}
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">Live agents</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Real agents shipping <em>right now.</em>
@@ -282,115 +335,112 @@ export default function Home() {
       {/* === TRUSTED BY THE ECOSYSTEM === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: "left" }}>
+          <div className="section-head" style={{ textAlign: 'left' }}>
             <span className="eyebrow">Trusted by the ecosystem</span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Built on protocols that
               <em> already secure billions.</em>
             </h2>
-            <p className="section-sub" style={{ margin: "20px 0 0" }}>
-              Bundie agents don&apos;t reinvent yield. They route through the
-              Solana protocols you already trust , and we&apos;re onboarding
-              the rest.
+            <p className="section-sub" style={{ margin: '20px 0 0' }}>
+              Bundie agents don&apos;t reinvent yield. They route through the Solana protocols you
+              already trust , and we&apos;re onboarding the rest.
             </p>
           </div>
 
           <StaggerChildren className="validation-grid">
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/marinade.png"
                   alt="Marinade"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Marinade · Liquid staking</h3>
               <p className="validation-body">
-                Agents stake idle SOL into mSOL for baseline yield without
-                giving up exit liquidity. Live on devnet today.
+                Agents stake idle SOL into mSOL for baseline yield without giving up exit liquidity.
+                Live on devnet today.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/kamino.png"
                   alt="Kamino"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Kamino · Lending</h3>
               <p className="validation-body">
-                Lending desks for USDC and SOL. Agents read live utilization
-                and rebalance into the higher-APY supply side.
+                Lending desks for USDC and SOL. Agents read live utilization and rebalance into the
+                higher-APY supply side.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
-                  src="/protocols/jito.png"
-                  alt="Jito"
-                  width={28}
-                  height={28}
-                  unoptimized
-                />
+                <img src="/protocols/jito.png" alt="Jito" width={28} height={28} loading="eager" decoding="async" />
               </div>
               <h3 className="validation-title">Jito · MEV-aware staking</h3>
               <p className="validation-body">
-                JitoSOL gives agents an upgraded LST with built-in MEV
-                rebates , same exit profile as mSOL, more juice on top.
+                JitoSOL gives agents an upgraded LST with built-in MEV rebates , same exit profile
+                as mSOL, more juice on top.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/solend.png"
                   alt="Solend"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Solend · Permissionless lending</h3>
               <p className="validation-body">
-                A second lending venue agents compare against Kamino tick-by-tick,
-                picking whichever supply rate is highest.
+                A second lending venue agents compare against Kamino tick-by-tick, picking whichever
+                supply rate is highest.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/jupiter.png"
                   alt="Jupiter"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Jupiter · Aggregated swaps</h3>
               <p className="validation-body">
-                Best-execution swap routing across Solana DEXs. Agents use it
-                to enter / rebalance positions when one leg of a strategy
-                needs a different asset.
+                Best-execution swap routing across Solana DEXs. Agents use it to enter / rebalance
+                positions when one leg of a strategy needs a different asset.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/jupiter-perps.png"
                   alt="Jupiter Perps"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Jupiter Perpetuals · Leverage</h3>
               <p className="validation-body">
-                Long / short SOL, ETH, BTC up to 100x. Used when a strategy
-                needs directional exposure or a hedge against the spot leg.
+                Long / short SOL, ETH, BTC up to 100x. Used when a strategy needs directional
+                exposure or a hedge against the spot leg.
               </p>
             </StaggerItem>
           </StaggerChildren>
@@ -418,9 +468,9 @@ export default function Home() {
             </h2>
 
             <p className="fees-sub">
-              Bundie doesn&apos;t take a cut of NAV, market spreads, or agent
-              earnings. The only on-chain cost on devnet is Solana
-              transaction fees , under a tenth of a cent per action.
+              Bundie doesn&apos;t take a cut of NAV, market spreads, or agent earnings. The only
+              on-chain cost on devnet is Solana transaction fees , under a tenth of a cent per
+              action.
             </p>
 
             <div className="fees-grid">
@@ -466,17 +516,12 @@ export default function Home() {
           </h2>
 
           <p className="final-cta-sub">
-            Live on devnet. Free during the demo. Connect a Solana wallet,
-            claim 50 bUSD from the faucet, and you&apos;re in.
+            Live on devnet. Free during the demo. Connect a Solana wallet, claim 50 bUSD from the
+            faucet, and you&apos;re in.
           </p>
 
-          <div className="hero-ctas" style={{ justifyContent: "center" }}>
-            <a
-              href={APP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="final-cta-btn"
-            >
+          <div className="hero-ctas" style={{ justifyContent: 'center' }}>
+            <a href={APP_URL} target="_blank" rel="noopener noreferrer" className="final-cta-btn">
               Try the demo →
             </a>
           </div>
@@ -516,6 +561,72 @@ export default function Home() {
         </div>
       </footer>
     </>
-  );
+  )
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+   Market preview (newspaper leaderboard, with a blurred-fade tail)
+   ────────────────────────────────────────────────────────────────────── */
+
+const RECENT_TRADES = [
+  { side: 'BUY', size: '50 YES', price: '0.62 → 0.63', when: '2m ago' },
+  { side: 'SELL', size: '30 YES', price: '0.62 → 0.61', when: '4m ago' },
+]
+
+function MarketPreview() {
+  return (
+    <article className="mkt-a">
+      <div className="mkt-a-eyebrow">Live market · example</div>
+      <h3 className="mkt-a-question">
+        Will <em>kamino-stacker</em> outperform <em>funding-shorter</em> by
+        Friday?
+      </h3>
+      <div className="mkt-a-table">
+        <div className="mkt-a-row">
+          <span className="mkt-a-side mkt-a-side-yes">YES</span>
+          <span className="mkt-a-name">kamino-stacker wins</span>
+          <span className="mkt-a-pct">62%</span>
+        </div>
+        <div className="mkt-a-row">
+          <span className="mkt-a-side mkt-a-side-no">NO</span>
+          <span className="mkt-a-name">funding-shorter wins</span>
+          <span className="mkt-a-pct mkt-a-pct-dim">38%</span>
+        </div>
+      </div>
+      <div className="mkt-a-footer">
+        <span>256 bUSD vol</span>
+        <span className="mkt-dot">·</span>
+        <span>Resolves Fri 9 May</span>
+        <span className="mkt-dot">·</span>
+        <span>No oracle</span>
+      </div>
+
+      {/* Tail — recent activity peek. Visually blurs and fades to
+          transparent at the bottom of the card so it reads as
+          "there's more in the app, here is a glimpse". The content
+          itself is real-shaped (trade ledger rows) so even the
+          out-of-focus version reads as something believable. */}
+      <div className="mkt-a-tail" aria-hidden="true">
+        <div className="mkt-a-tail-eyebrow">Recent activity</div>
+        <div className="mkt-a-tail-rows">
+          {RECENT_TRADES.map((t, i) => (
+            <div key={i} className="mkt-a-tail-row">
+              <span
+                className={`mkt-a-tail-side ${
+                  t.side === 'BUY'
+                    ? 'mkt-a-tail-side-buy'
+                    : 'mkt-a-tail-side-sell'
+                }`}
+              >
+                {t.side}
+              </span>
+              <span className="mkt-a-tail-size">{t.size}</span>
+              <span className="mkt-a-tail-price">{t.price}</span>
+              <span className="mkt-a-tail-when">{t.when}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  )
+}

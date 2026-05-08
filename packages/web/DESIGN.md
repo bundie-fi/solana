@@ -1,244 +1,280 @@
-# Bundie — Design System
+# Bundie Web · Design Philosophy
 
-> A mobile-first design system for a DeFi strategy-backing + prediction-market app.
-> Audience: human end-users on mobile (Seeker TWA), tablet, desktop. Not power users.
-> Tone target: as approachable as Robinhood / Cash App, as polished as Linear / Cal / Framer.
+> **Direction: Precision Editorial** — A Bloomberg Terminal had a baby with a literary magazine. Numbers feel precise and trustworthy. Headlines feel authored, not generated. The texture is confident and tight, not cozy, not aggressive.
 
----
-
-## 0. References we are borrowing from
-
-(The `awesome-design-md` source files point to external URLs, so this section cites the
-well-known patterns each product is known for, which this spec is built on.)
-
-| Source | What we take |
-|---|---|
-| **Linear** | Dense top navigation, tight type rhythm, mono numerics for IDs/addresses, keyboard-first hints, minimal chrome. Shell layout (sticky top bar → main canvas → right drawer for detail). |
-| **Cal.com** | Generous whitespace in forms and onboarding, calm colour palette on neutral grounds, no emoji — plain-English microcopy. Friendly-but-adult tone. |
-| **Coinbase / Kraken** | Tabular-lining mono for prices/percents, big hero numbers on detail pages, green-up / red-down semantics, subtle sparkline under the primary stat, signed +/− prefixes. |
-| **Framer** | Spring motion for object-scale transitions (drawer, sheet, cards lifting), short easing for micro-interactions, `will-change` transforms, never animate `top/left`. |
-| **Intercom** | Stacked message bubbles with subtle bounce-in for prediction-market chatter, read/unread dot indicator, persistent bottom composer on mobile. |
-
-Explicitly **not** referenced: Ferrari, Lamborghini, BMW — wrong tone for a utility app.
+This document is the source of truth for the Bundie web app's visual language. The redesign that landed in 2026-05 collapsed the type system to two faces, retired the warm-paper surface, and committed to the dark-editorial palette across the discover surface. New work should follow this guide; old surfaces are migrating incrementally.
 
 ---
 
-## 1. Typography
+## 1. Type System
 
-### Font stack
-- **Primary sans** — **Inter** (variable). Covers body, UI, headings.
-- **Mono** — **JetBrains Mono** (variable). Used only for addresses, tx hashes, numeric tables, code.
+The web app uses **two faces** and only two:
 
-Both loaded via `next/font/google` and exposed as CSS variables so Tailwind can read them:
+| Face | Role | Token | Where |
+|------|------|-------|-------|
+| **Instrument Serif** | Display, italic accents | `var(--font-display)` | Headlines 36px+, the single italic phrase per section |
+| **Figtree** | Everything structural | `var(--font-sans)` | Body, labels, numbers, CTAs, navigation |
 
-```ts
-// layout.tsx
-import { Inter, JetBrains_Mono } from 'next/font/google'
-const inter = Inter({ subsets:['latin'], variable:'--font-sans', display:'swap' })
-const mono  = JetBrains_Mono({ subsets:['latin'], variable:'--font-mono', display:'swap' })
-// <html className={`${inter.variable} ${mono.variable} dark`}>
+`var(--font-mono)` is **aliased** to `var(--font-sans)`. JetBrains Mono was retired. Components that ask for monospace render in Figtree, paired with `font-variant-numeric: tabular-nums` so figures still feel anchored.
+
+### How the serif behaves
+
+Instrument Serif earns its place at **36px and above**. Below 28px it loses personality. Its italic is the real asset; treat it as a **colour accent**, not a default.
+
+- One italic phrase per section. Two starts to feel like a quirk.
+- Section headlines pair sans 700 with a single italic serif accent: "Top strategies *by 30-day return*".
+- The Featured agent name is the rare case where the entire headline is italic serif — it's allowed because the agent's name *is* the editorial content.
+- Never use serif for body, labels, captions, or anything under 22px.
+
+### How the sans behaves
+
+Figtree does the structural work. It swings hard between two weights:
+
+- **400** — body, lede paragraphs (15–17px, line-height 1.55–1.6)
+- **700** — labels, section titles, CTAs, all numbers
+
+The middle weights (500, 600) are reserved. They blur the contrast that makes the system legible. If a moment doesn't earn 700, it should drop to 400.
+
+For numbers, always pair Figtree 700 with `font-variant-numeric: tabular-nums` and `font-feature-settings: 'tnum'`. Numbers belong to the sans, never the serif. Putting a return percentage in Playfair was the single biggest typographic mistake of the previous design — it made figures look like *quotes*, not data.
+
+### Hierarchy reference
+
+```
+Eyebrow / label    Figtree 700, 10.5–11px, all-caps, 0.16–0.20em tracking
+Section title      Figtree 700, 28px, −0.025em tracking
+Section accent     Instrument Serif italic, 28px, inline beside the title
+Page headline      Instrument Serif, 40–64px (clamp), one italic phrase
+Body               Figtree 400, 15–17px, 1.55–1.6 line-height
+Lede               Figtree 400, 15px, slightly muted ink
+Numbers (data)     Figtree 700, tabular-nums, −0.02em tracking
+Caption            Figtree 400, 12–13px, 0.54α ink
 ```
 
-```ts
-// tailwind.config.ts
-fontFamily: {
-  sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-  mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
-}
+### What to guard against
+
+- **Three weights in close proximity.** If you find 400/500/600 together, pick a lane. Either reading (400) or label (700).
+- **Italic serif everywhere.** It's an accent, not a default. Use it once per section.
+- **Serif at small sizes.** Below 22px Instrument Serif starts to look ornamental.
+- **Numbers in display.** Figures belong to Figtree 700. The serif is for words.
+
+---
+
+## 2. Colour
+
+Single dark surface. Single accent.
+
+```
+Surfaces
+  --de-bg          #0B0F1C     page (warmer than pure navy by design)
+  --de-bg-raised   #11162A     cards, panels
+  --de-bg-2        #161C36     hover, secondary surface
+  --de-bg-3        #1D2440     inset wells, inputs
+  --de-bg-sunken   #070A17     scrim base, recessed regions
+
+Borders (cream-tinted hairlines)
+  --de-line        rgba(242,237,224,0.07)
+  --de-line-2      rgba(242,237,224,0.13)
+  --de-line-3      rgba(242,237,224,0.20)
+
+Ink (cream off-white, layered alphas)
+  --de-ink         #F4EFE0
+  --de-ink-2       0.74α     body
+  --de-ink-3       0.54α     captions
+  --de-ink-4       0.36α     labels
+  --de-ink-5       0.20α     dividers, hairline accents
+
+Accent (interactive / brand)
+  --de-lavender    #A899F5
+
+Outcomes (only ever signal binary state)
+  --de-mint        #A8E6CF     YES, beat, above target
+  --de-rose        #E8A5A5     NO, miss, below target
+
+Reserved
+  --de-amber                   Earn mode, lights up when share-buying ships
+  --de-blue                    aux signals, never default decoration
 ```
 
-### Type scale (mobile → desktop via `clamp`)
+### Why this palette suits Instrument Serif + Figtree
 
-| Token | Size | Weight | Line | Use |
-|---|---|---|---|---|
-| `text-display` | clamp(2rem, 6vw, 3.25rem) | 600 | 1.05 | Hero numbers, page titles on detail pages |
-| `text-h1` | clamp(1.75rem, 5vw, 2.25rem) | 600 | 1.15 | Page title (Discover, Markets) |
-| `text-h2` | 1.5rem / 24px | 600 | 1.2 | Section header |
-| `text-h3` | 1.125rem / 18px | 600 | 1.3 | Card title |
-| `text-body` | 0.9375rem / 15px | 400 | 1.5 | Paragraphs |
-| `text-sm` | 0.8125rem / 13px | 400 | 1.45 | Secondary, meta |
-| `text-xs` | 0.75rem / 12px | 500 | 1.4 | Labels, badges |
-| `text-stat` | clamp(1.5rem, 4.5vw, 2rem) | 700 | 1 | Stat value, mono, tabular-nums |
+The serif has a literary undertone that benefits from a touch of warmth. A pure off-white (`#FFFFFF`) on pure navy (`#0A0E20`) reads as cold and corporate; the page tokens here shift the ink toward cream (`#F4EFE0`) and the ground toward an ink-blue with a slight green undertone (`#0B0F1C`). The result feels *printed*, not screen-glowing.
 
-### Numeric rule
-All money / percent / APY / price values use **mono + `tabular-nums` + `font-feature-settings: 'tnum'`** so columns align and digits don't jitter on update (Coinbase/Kraken pattern).
+Lavender is the only colour that signals "interactive". Mint and rose are reserved for binary outcomes (YES/NO, Beat/Miss). Amber is reserved for Earn mode. Everything else is ink at varying alphas — the contrast comes from typography, not from a rainbow palette.
+
+### Single-accent rule
+
+**One brand colour does the work.** If you find yourself reaching for blue + green + purple + amber on the same screen, you have lost the single-accent rule. Mint and rose are not "secondary brand colours" — they are state signals. Every interactive element on the page should resolve to lavender.
 
 ---
 
-## 2. Colour system
+## 3. Iconography
 
-### Brand primaries (unchanged from CLAUDE.md)
-- **Earn Gold** `#d4a853` — everything tied to backing strategies.
-- **Predict Purple** `#a78bfa` — everything tied to prediction markets.
+The web app uses **`lucide-react`** for all iconography. The Feather-style geometric stroke icons pair cleanly with Figtree and avoid the AI-generated emoji aesthetic.
 
-Each primary has an 11-step scale (50 → 950) so we can use it on backgrounds,
-borders, hover states, and focus rings without bespoke hex in components.
+### Conventions
 
-| Step | Gold | Purple |
-|---|---|---|
-| 50  | #fdf9ed | #f3efff |
-| 100 | #faf0cc | #e7ddff |
-| 200 | #f4dd98 | #d0beff |
-| 300 | #ecc66a | #b69aff |
-| 400 | #e0b25c | #a78bfa |  ← brand |
-| 500 | **#d4a853** | #8a6dee |  ← brand / hover |
-| 600 | #b8893e | #7554d1 |
-| 700 | #926a2f | #5e40a8 |
-| 800 | #6c4d23 | #452f7c |
-| 900 | #4a341a | #2e2054 |
-| 950 | #2a1d10 | #1a1233 |
+- Default size: `16px`
+- Default stroke: `2.25` for inline icons, `2.5` for CTAs
+- Inline icons sit beside Figtree 700 labels with a `gap: 6–8px`
+- Icons inherit `currentColor` — let typography drive the colour
 
-### Neutral ramp (10 steps, dark-mode canonical)
+### Icon vocabulary
 
-| Step | Hex | Use |
-|---|---|---|
-| `neutral-0`   | #0a0a0f | Page background (dark) |
-| `neutral-50`  | #101018 | Hover row |
-| `neutral-100` | #141420 | Surface (cards) |
-| `neutral-200` | #1a1a28 | Surface-raised (drawer, sheet) |
-| `neutral-300` | #1e1e2e | Border default |
-| `neutral-400` | #2a2a3d | Border hover |
-| `neutral-500` | #51516b | Disabled text / divider on light surfaces |
-| `neutral-600` | #8888a3 | Tertiary text |
-| `neutral-700` | #b0b0c4 | Secondary text |
-| `neutral-800` | #e6e6f0 | Primary text |
-| `neutral-900` | #ffffff | Max emphasis text |
+| Use | Lucide |
+|-----|--------|
+| Navigate to detail | `ArrowUpRight` |
+| Primary CTA | `ArrowRight` |
+| Trend up | `TrendingUp` |
+| Trend down | `TrendingDown` |
+| Verified badge | `BadgeCheck` |
+| Live indicator | filled circle (CSS) or `Circle` |
+| Activity / status | `Activity` |
+| Sparkle / new | `Sparkles` |
 
-Light-mode ramp (TODO — spec only, not implemented this pass): invert 0↔900, shift
-surfaces to warm-white (#fafaf7) with warm-black text (#0b0b0f) — Cal aesthetic.
+### What is banned
 
-### Semantic
+- **Emoji.** Anywhere. Even in copy. They flatten the editorial tone instantly.
+- **Em dashes (—).** Replaced with a colon, period, or middle dot (·). The em dash signals a pause; we prefer to commit to a stop or a connector.
+- **Font Awesome / Material Icons / Heroicons.** Pick one library, stick to it; the differences in stroke weight between libraries make a UI feel patchworked.
 
-| Token | Hex | Meaning |
-|---|---|---|
-| `success-400` | #34d399 | Price up, YES side, confirm |
-| `success-500` | #10b981 | Up hover |
-| `danger-400`  | #f87171 | Price down, NO side, destructive |
-| `danger-500`  | #ef4444 | Destructive hover |
-| `warning-400` | #fbbf24 | Paused strategy, pending tx |
-| `info-400`    | #60a5fa | Informational |
+### Replacing em dashes
 
-Legacy aliases (`earn-gold`, `predict-purple`, `background`, `surface`, `border`) are
-**preserved** in `tailwind.config.ts` because `/markets`, `/portfolio`, `/strategy/[address]`
-already use them. Don't migrate those in this pass.
+| Old | New |
+|-----|-----|
+| `Live — devnet` | `Live · Devnet` |
+| `30D Return — +12.4%` | `30D Return: +12.4%` |
+| `—` (missing data) | `··` (two dots) |
+
+The `··` glyph is just two middle dots. It reads as "absent" without the typographic weight of an em dash, and it composes cleanly with tabular-nums layouts.
 
 ---
 
-## 3. Space, radius, shadow
+## 4. Layout & Spacing
 
-### Spacing scale
-Tailwind default (4px base). House rule: section vertical rhythm is `py-6` (24px) on
-mobile, `py-10` (40px) on ≥ md. Card internal padding `p-5` (20px). Stack cards with `gap-3`.
+### Grid
 
-### Radius tiers
-- `rounded-md` 6px — inputs, chips
-- `rounded-lg` 10px — buttons
-- `rounded-xl` 14px — cards, stat tiles
-- `rounded-2xl` 20px — sheets, modals, hero surfaces
-- `rounded-full` — avatars, dot indicators, pill badges
+- Container: `max-width: 1280px`, `padding: 0 24px`
+- Section gap: `80–96px` between major bands, `32–40px` between sub-sections
+- Inside a card: `24–36px` padding scales with importance
+- Featured hero: `36px` padding, `min-height: 480px`
 
-### Shadow tiers (dark-mode-tuned)
-- `shadow-none` — default
-- `shadow-soft` `0 1px 2px rgba(0,0,0,.35)` — cards at rest
-- `shadow-pop`  `0 8px 24px -8px rgba(0,0,0,.55)` — hover state for cards
-- `shadow-sheet` `0 -16px 48px -8px rgba(0,0,0,.6)` — bottom sheet on mobile
+### Borders
 
-Shadows are subtle because the background is already near-black; prefer
-**border-colour shift + slight translate-y** for lift cues.
+- Card border-radius: `12px` (default), `14px` (hero), `8px` (CTAs)
+- Hairlines: prefer 1px borders in `--de-line` (subtle) or `--de-line-2` (visible)
+- Inset wells: 1px `--de-line-2` on `--de-bg-3`
+
+### Density
+
+The discover page uses **comfortable** density. Stat strip rows breathe at 22–24px vertical padding. Leaderboard rows at 18px. Tighter than that starts to feel like a financial terminal; looser starts to feel like a marketing site.
 
 ---
 
-## 4. Motion
+## 5. Discover Page Architecture
 
-- **Durations** — `90ms` micro (colour, border), `180ms` default (hover), `260ms` content
-  (drawer open/close, tab slide), `420ms` page transition max.
-- **Easings**:
-  - `ease-out-quick` `cubic-bezier(.2,.8,.2,1)` — default for exits and reveals.
-  - `spring` via `cubic-bezier(.34,1.56,.64,1)` — used for drawer/sheet entrance,
-    card press-down → release (Framer-style overshoot, light).
-- **Rules**
-  - Transform + opacity only. Never animate `width/height/top/left`.
-  - `prefers-reduced-motion: reduce` → collapse to opacity-only 120ms.
-  - Page transitions = none (Next.js default). Do not animate route changes.
-  - Number updates: no count-up animation. Swap in place. Financial users distrust roulette digits.
+The discover page is composed of five bands, in order:
 
----
+```
+1. Editorial header band
+   ├── Eyebrow:  "The Bundie Index · Devnet"
+   ├── Headline: serif, 40–64px, one italic phrase
+   ├── Lede:     sans 400, 15px, ~620px max
+   └── Stat strip: four cells with hairlines, sans 700 numbers
 
-## 5. Component hierarchy
+2. Featured strategy
+   ├── Hero card (1.65fr): magazine layout, large NAV chart, 4 stats
+   └── Aside (1fr): featured market card + editorial promo card
 
-### Implemented this pass (Discover)
-- **`Card`** — `rounded-xl border border-neutral-300 bg-neutral-100 p-5`. Hover = border → `earn-gold/40` + `translate-y-[-1px]` + `shadow-pop`. 180ms.
-- **`Button`** — variants:
-  - `primary` → solid Earn Gold (`bg-earn-gold text-neutral-0`)
-  - `predict` → solid Predict Purple (`bg-predict-purple text-white`)
-  - `ghost`   → transparent, border `neutral-300`, text `neutral-700`
-  - `destructive` → solid `danger-500`, white text
-  - Shared: `rounded-lg px-4 h-10 text-sm font-semibold` on desktop, `h-11` on mobile (Apple HIG 44px tap target).
-- **`Stat`** — vertical tile: label (text-xs, `neutral-600`, uppercase, tracking-wider) over value (text-stat, mono, tabular-nums). Optional trailing delta in success/danger.
-- **`Sparkline`** — 60×20 SVG path, 1.5px stroke, currentColor, no axes. Source data: synthesized from `performance.{day,week,month,all}` until snapshot history lands — noted below.
-- **`Sheet`** — bottom drawer on mobile (`< md`), right drawer on `≥ md` desktop. Backdrop `bg-black/60 backdrop-blur-sm`. Spring entrance. Escape to close, tap backdrop to close. Hand-rolled, no Radix.
+3. The Index
+   ├── SectionHeader: "Top strategies by 30-day return", live count
+   └── Leaderboard: 10 rows, hairline-separated
 
-### Specified, to be built later
-- **`Table`** — zebra off; row hover = `neutral-50`; mono numerics right-aligned; header `text-xs uppercase tracking-wider` in `neutral-600`.
-- **`Tabs`** — underline-style (Linear), 180ms sliding indicator using `translateX`.
-- **`Toast`** — stacked bottom-right on desktop, top on mobile, auto-dismiss 5s, one-line body + optional action, Intercom bounce-in.
+4. Markets
+   ├── SectionHeader
+   ├── TrendingFilters (filter pills)
+   └── DeMarketCard grid (1 → 2 → 3 columns)
 
-### Known data gap (called out so we don't mislead)
-`StrategyDisplay.performance` only exposes `{day, week, month, all}` scalars — no time
-series. The sparkline for this pass **synthesizes** a 12-point series from those deltas.
-Once `PositionSnapshots` PDA data flows into `lib/chain.ts`, swap the input.
+5. Strategist invite band
+   └── Serif headline + lavender CTA button
+```
+
+### Why this order
+
+The user lands and sees, in sequence: **what this is** (editorial header) → **the best example of it** (featured strategy) → **the full index** (leaderboard) → **places to play** (markets) → **a way to participate** (strategist invite).
+
+The old layout led with stat tiles before establishing context, so the page felt like a dashboard before the visitor knew what they were looking at. The new editorial header band tells you *what the index is* before it shows you *the numbers*.
 
 ---
 
-## 6. Responsive
+## 6. Voice
 
-Mobile-first. Every component is designed at 360×800 first, then scales up.
+### Headlines
 
-| Breakpoint | Width | Layout change |
-|---|---|---|
-| base     | 0–639  | Single column. Drawer = bottom sheet. Header collapses to compact row + hamburger. |
-| `sm`     | 640+   | Still single column for cards on Discover; tighter gutters. |
-| `md`     | 768+   | Two-column card grid. Drawer = right-side sheet (440px wide). |
-| `lg`     | 1024+  | Three-column card grid. Filters become a left rail. |
-| `xl`     | 1280+  | Max content width 1200px, centered. Right rail for detail sheet sticks. |
-| `2xl`    | 1536+  | No further layout change — just more breathing room. |
+- Active. Present tense. Strategies *do*, not *are*.
+- Short. Headlines should fit in two rows, even at the largest breakpoint.
+- The italic phrase carries the emotional punch. The non-italic part carries the noun.
 
-Seeker TWA runs at phone viewport. Phone is the reference; desktop is the scale-up.
+Good: "Strategies, ranked by *what they do on-chain*."  
+Bad: "Discover the best strategies on the Bundie platform."
 
----
+### Body
 
-## 7. Empty states + skeletons
+- Sentences over paragraphs. A four-sentence section is plenty.
+- Avoid "we" / "our" / "you" unless absolutely necessary.
+- Specific numbers > vague claims. "256 bUSD volume" beats "high volume."
 
-**Philosophy**: A blank screen is a bug. A skeleton is a promise. A written empty state is a conversation.
+### What is banned
 
-- **Loading** — shimmer skeletons matching the real card shape. Cap shimmer cycle to 1.2s,
-  opacity 0.35 ↔ 0.55. Don't pulse colours.
-- **Empty**   — short sentence in `neutral-700`, one primary CTA. Plain English.
-  *Example*: "No strategies yet. Be the first to launch one." + button "Launch strategy".
-- **Error**   — `danger-400` icon + body, plus "Try again" (ghost) and "Report" (ghost).
-  Never show a raw stack trace to a user.
+- **Emoji.** Even in error messages.
+- **Em dashes.** Use periods, colons, or `·`.
+- **Hype language.** "Revolutionary", "next-gen", "game-changing".
+- **Marketing fluff.** "Powerful", "robust", "seamless".
 
 ---
 
-## 8. Voice & tone
+## 7. Motion
 
-- Plain English. No jargon unless it names a concrete thing ("NAV", "APY", "YES share").
-- No emoji in product UI — ever. (Emoji fine in marketing copy on the landing page.)
-- Numbers are facts; verbs are invitations. "Back this strategy" over "Execute trade".
-- Money is always preceded by its currency ("$45,200" not "45200") and percentages are
-  always signed if representing change (`+2.3%`, `−1.1%`).
-- Addresses are always truncated as `abcd1234…WXYZ` in mono, never shown full inline.
-- Microcopy skeleton: **Verb. Object. Consequence.**
-  Good: "Buy YES — you'll earn if the strategy beats the threshold."
-  Bad: "Purchase position in prediction market outcome."
+- **Hover transitions:** 160ms ease for colour, background, border
+- **Lift on hover:** `transform: translateY(-1px)` for cards
+- **Page-level entry:** never. The page is a document, not a slideshow.
+- **Auto-advance carousels:** cross-fade, 280–320ms ease-out, never slide
+- **State changes:** entry takes longer than exit (e.g. enter 240ms, exit 160ms)
+
+The dark editorial direction calls for **restraint**. A motion-heavy interface starts to feel like a SaaS landing page. We want a magazine that happens to live on a screen.
 
 ---
 
-## 9. Accessibility bar
+## 8. Components Migrated to This System
 
-- WCAG AA contrast on every text/background pairing in the dark theme.
-  Gold-on-neutral-0 is brand-critical — we bold it and reserve it for primary accents.
-- 44×44 CSS px minimum tap target on mobile.
-- Every interactive element gets a visible focus ring: `ring-2 ring-earn-gold/60 ring-offset-2 ring-offset-neutral-0` (or purple on predict surfaces).
-- `prefers-reduced-motion` respected (see Motion section).
-- Semantic HTML first — `<button>` for actions, `<a>` for navigation, never a `<div onClick>`.
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `app/page.tsx` (discover) | ✅ migrated | Reference implementation |
+| `app/layout.tsx` | ✅ migrated | Two-font system, dark editorial body |
+| `components/de/*` | ✅ partial | Already using `--de-*` tokens |
+| `app/agent/[sns]/page.tsx` | ✅ migrated | Dark editorial agent detail |
+| `app/market/[id]/page.tsx` | ✅ migrated | Trading panel + market shell |
+| `app/portfolio/*` | ⏳ legacy paper | Wrapped in `.legacy-cream-page` |
+| `app/wallet/*` | ⏳ legacy paper | Wrapped in `.legacy-cream-page` |
+| `app/feed/*` | ⏳ legacy paper | Wrapped in `.legacy-cream-page` |
+| `app/strategists/*` | ⏳ legacy paper | Wrapped in `.legacy-cream-page` |
+
+Legacy surfaces are kept readable by `.legacy-cream-page` which restores the warm-paper background. They migrate as we revisit them.
+
+---
+
+## 9. Quick Checklist for New Work
+
+Before merging a UI change, run through this list:
+
+- [ ] Two fonts only — Instrument Serif + Figtree
+- [ ] Numbers in Figtree 700, tabular-nums, never in serif
+- [ ] One italic serif phrase per section, max
+- [ ] Single accent colour — lavender for interactive, mint/rose only for outcomes
+- [ ] No emoji, anywhere
+- [ ] No em dashes — use `·`, `:`, or `.`
+- [ ] Icons from `lucide-react`, 16px, stroke 2.25
+- [ ] Hover transitions on interactive elements (160ms)
+- [ ] Hairline borders prefer `--de-line` or `--de-line-2`
+- [ ] Card border-radius 12–14px, CTAs 8px
+
+If any item fails, fix it before merging.

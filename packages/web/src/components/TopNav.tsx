@@ -30,8 +30,10 @@ function truncateAddress(address: string): string {
 
 /**
  * Top navigation, desktop only (hidden on mobile where BottomNav is used).
- * Active-link styling uses the gold accent + bottom border, mirroring Aqua0's
- * pattern but adapted to the Bundie paper theme.
+ * Active-link styling is editorial: a leading counter ("01") in lavender,
+ * the label in full cream ink, and a hairline lavender rule that
+ * animates in beneath the label. No pill backgrounds, no rounded chrome.
+ * See packages/web/DESIGN.md § Iconography / Voice for the rationale.
  */
 export function TopNav() {
   const pathname = usePathname();
@@ -39,10 +41,11 @@ export function TopNav() {
 
   return (
     <header
+      className="topnav-root"
       style={{
         display: "flex",
-        alignItems: "center",
         justifyContent: "space-between",
+        alignItems: "center",
         padding: "12px 20px 10px",
         background: "rgba(244,241,234,0.92)",
         backdropFilter: "blur(16px)",
@@ -53,10 +56,7 @@ export function TopNav() {
         zIndex: 30,
       }}
     >
-      {/* Brand + live dot */}
-      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/favicon-32.png" alt="Bundie" style={{ width: 24, height: 24 }} />
+      <Link href="/" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
         <span
           style={{
             fontFamily: "var(--font-display)",
@@ -67,23 +67,20 @@ export function TopNav() {
         >
           Bund<span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>ie</span>
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span className="pulse-dot" />
-          <span
-            className="mono-tiny"
-            style={{ color: "var(--green-2)", letterSpacing: "0.16em", fontSize: 10 }}
-          >
-            LIVE
-          </span>
-        </span>
       </Link>
 
-      {/* Nav links */}
-      <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {LINKS.map((l) => {
+      {/* Nav links — editorial pattern. No pills, no rounded backgrounds.
+          Contrast comes from typography (active = full cream, inactive =
+          dim cream) and a single lavender hairline beneath the active
+          label, sized to the text width, not to the padding. The leading
+          counter ("01 / 02 / 03") gives the row a magazine table-of-
+          contents feel and makes the active item visually anchored
+          without chrome. */}
+      <nav className="topnav-links" aria-label="Primary">
+        {LINKS.map((l, i) => {
           // The Markets tab points at `/` but should also light up on
           // `/markets`, so treat an explicit `activePrefix` as "also
-          // match this path family" — independent of href === "/".
+          // match this path family" , independent of href === "/".
           const active =
             pathname === l.href ||
             (l.activePrefix
@@ -94,32 +91,85 @@ export function TopNav() {
               key={l.href}
               href={l.href}
               aria-current={active ? "page" : undefined}
-              style={{
-                position: "relative",
-                display: "inline-flex",
-                alignItems: "center",
-                height: 36,
-                padding: "0 14px",
-                borderRadius: 6,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 500,
-                textTransform: "uppercase",
-                letterSpacing: "0.18em",
-                textDecoration: "none",
-                color: active ? "var(--gold)" : "var(--fg-3)",
-                background: active ? "var(--gold-tint)" : "transparent",
-                borderBottom: active
-                  ? "2px solid var(--gold)"
-                  : "2px solid transparent",
-                transition: "color 160ms ease, background 160ms ease, border-color 160ms ease",
-              }}
+              className={`topnav-link ${active ? "is-active" : ""}`}
             >
-              {l.label}
+              <span className="topnav-link-num">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="topnav-link-label">
+                {l.label}
+                <span className="topnav-link-rule" aria-hidden="true" />
+              </span>
             </Link>
           );
         })}
       </nav>
+
+      <style>{`
+        @media (max-width: 639px) {
+          .topnav-root { display: none !important; }
+        }
+        .topnav-links {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          align-items: center;
+          gap: 28px;
+          pointer-events: auto;
+        }
+        .topnav-link {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          height: 36px;
+          padding: 0 2px;
+          font-family: var(--font-sans);
+          font-size: 11.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.18em;
+          text-decoration: none;
+          color: var(--de-ink-4);
+          transition: color 160ms ease;
+        }
+        .topnav-link:hover { color: var(--de-ink-2); }
+
+        .topnav-link-num {
+          font-family: var(--font-sans);
+          font-size: 9.5px;
+          font-weight: 700;
+          letter-spacing: 0.10em;
+          color: var(--de-ink-5);
+          font-variant-numeric: tabular-nums;
+          transition: color 160ms ease;
+        }
+        .topnav-link:hover .topnav-link-num { color: var(--de-ink-3); }
+
+        .topnav-link-label {
+          position: relative;
+          display: inline-block;
+          padding: 18px 0;
+        }
+        .topnav-link-rule {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 14px;
+          height: 1.5px;
+          background: var(--de-lavender);
+          transform: scaleX(0);
+          transform-origin: left center;
+          transition: transform 200ms cubic-bezier(0.25, 0.4, 0.25, 1);
+        }
+
+        .topnav-link.is-active { color: var(--de-ink); }
+        .topnav-link.is-active .topnav-link-num { color: var(--de-lavender); }
+        .topnav-link.is-active .topnav-link-rule { transform: scaleX(1); }
+      `}</style>
 
       {/* Right cluster: Devnet pill + Wallet. The "+ Launch agent" gold
           CTA used to sit here; it was removed when we repositioned the

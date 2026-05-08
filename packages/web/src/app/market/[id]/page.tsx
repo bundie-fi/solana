@@ -314,7 +314,6 @@ export default async function MarketDetailPage(
                   ) : (
                     <StatusPill variant="RESOLVED" />
                   )}
-                  <StatusPill variant="DEVNET" />
                 </div>
               </div>
 
@@ -386,7 +385,6 @@ export default async function MarketDetailPage(
                 >
                   NAV trajectory · {targetA?.name ?? "Target"}
                 </div>
-                <RangeTabs />
               </div>
               <NavChartWithThreshold
                 series={navSeries}
@@ -415,6 +413,7 @@ export default async function MarketDetailPage(
 
             {/* Creator notes — collapsed by default */}
             <details
+              className="creator-notes"
               style={{
                 padding: "20px 24px",
                 border: "1px solid var(--de-line-2)",
@@ -432,10 +431,13 @@ export default async function MarketDetailPage(
                   letterSpacing: "0.20em",
                   textTransform: "uppercase",
                   color: "var(--de-ink-3)",
-                  listStyle: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
-                Creator notes ▾
+                <span>Creator notes</span>
+                <span className="creator-notes-chevron" aria-hidden="true">▾</span>
               </summary>
               <p
                 style={{
@@ -556,6 +558,10 @@ export default async function MarketDetailPage(
       </div>
 
       <style>{`
+        .creator-notes > summary { list-style: none; }
+        .creator-notes > summary::-webkit-details-marker { display: none; }
+        .creator-notes > summary::marker { display: none; }
+        details[open] .creator-notes-chevron { transform: rotate(180deg); }
         .market-grid {
           display: grid;
           grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
@@ -602,7 +608,7 @@ function MetaCell({
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10.5,
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: "0.20em",
@@ -627,47 +633,6 @@ function MetaCell({
   );
 }
 
-function RangeTabs() {
-  const ranges = ["1H", "3H", "24H", "7D", "ALL"];
-  // Visual-only tabs — the chart series the page fetched is a 30-day NAV
-  // window. Range filtering would require a client-side fetch + state and
-  // is out of scope for this rebuild pass.
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 4,
-        padding: 4,
-        background: "var(--de-bg-3)",
-        border: "1px solid var(--de-line-2)",
-        borderRadius: 8,
-      }}
-    >
-      {ranges.map((r) => {
-        const active = r === "ALL";
-        return (
-          <span
-            key={r}
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10.5,
-              fontWeight: 600,
-              letterSpacing: "0.14em",
-              padding: "5px 10px",
-              borderRadius: 5,
-              background: active ? "var(--de-bg-raised)" : "transparent",
-              color: active ? "var(--de-ink)" : "var(--de-ink-4)",
-              border: active ? "1px solid var(--de-line-3)" : "1px solid transparent",
-              cursor: active ? "default" : "not-allowed",
-            }}
-          >
-            {r}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 function InsightSkeleton({ label }: { label: string }) {
   return (
@@ -737,9 +702,9 @@ async function CreatorAccuracyLine({
       }}
     >
       <span>
-        {creatorName} has resolved {resolved.length} markets with NO winning{" "}
-        <span style={{ color: "var(--de-lavender)" }}>{accuracy}%</span> of the
-        time.
+        {creatorName} has created{" "}
+        <span style={{ color: "var(--de-lavender)" }}>{resolved.length}</span>{" "}
+        resolved {resolved.length === 1 ? "market" : "markets"} on devnet.
       </span>
     </div>
   );

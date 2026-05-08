@@ -9,13 +9,14 @@
  * cadence as LiveAgentCards / LiveActivityBar.
  */
 
+import { AgentMonogram } from "./AgentMonogram";
+
 const BACKEND = "https://backend.solana.bundie.fi";
 
 export const revalidate = 30;
 
 interface ActivityItem {
   agentSns: string;
-  agentEmoji: string | null;
   actionType: string;
   reasoning: string | null;
   tickAt: string;
@@ -91,9 +92,8 @@ export default async function LiveTxFeed() {
         <ul className="tx-feed" aria-label="Recent agent activity">
           {activity.map((item, idx) => (
             <li key={`${item.agentSns}-${item.tickAt}-${idx}`} className="tx-feed-row">
-              <span className="tx-feed-emoji" aria-hidden>
-                {item.agentEmoji || "🤖"}
-              </span>
+              <AgentMonogram handle={item.agentSns} size={24} />
+
               <span className="tx-feed-text">{describe(item)}</span>
               <span className="tx-feed-time">{relativeTime(item.tickAt)}</span>
             </li>

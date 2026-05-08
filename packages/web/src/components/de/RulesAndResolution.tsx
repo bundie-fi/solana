@@ -126,7 +126,7 @@ export function RulesAndResolution({
       <div
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10.5,
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: "0.18em",
@@ -146,7 +146,7 @@ export function RulesAndResolution({
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 9.5,
+            fontSize: 10.5,
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.20em",
@@ -193,7 +193,7 @@ export function RulesAndResolution({
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 9.5,
+            fontSize: 10.5,
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: "0.20em",

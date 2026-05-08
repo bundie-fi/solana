@@ -34,6 +34,9 @@
   --violet:        #3D6796;
   --violet-tint:   rgba(61, 103, 150, 0.12);
 
+  /* --font-mono aliased to sans — JetBrains removed, two-font system only */
+  --font-mono:     var(--font-sans);
+
   --ease:          cubic-bezier(0.25, 0.4, 0.25, 1);
   --dur-fast:      140ms;
   --dur:           260ms;
@@ -80,7 +83,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .ambient::before {
   content: "";
   position: absolute;
-  top: -10%; left: 50%;
+  top: -10%; left: 30%;
   transform: translateX(-50%);
   width: 1200px; height: 1200px;
   background: radial-gradient(ellipse at center,
@@ -145,7 +148,7 @@ nav.top .inner {
   border-radius: 999px;
   border: 1px solid var(--line-2);
   background: rgba(22, 22, 24, 0.04);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -167,10 +170,10 @@ nav.top .inner {
 
 /* ---------- Type ------------------------------------------------------- */
 .serif { font-family: var(--font-serif), 'Instrument Serif', Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
-.mono  { font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace; }
+.mono  { font-family: var(--font-sans); }
 
 .eyebrow {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   font-weight: 500;
   text-transform: uppercase;
@@ -212,6 +215,117 @@ section.hero {
 }
 section.hero .wrap { position: relative; z-index: 2; }
 
+/* Ghost equity curve. Lives in a fixed-height band at the top of the
+   hero, like a faint "ticker strip" of trading activity above the
+   headline. Anchoring to a fixed pixel height (not a percentage of
+   the hero) keeps the curve and its peak annotation in clear space
+   regardless of how much copy or content sits below in the hero.
+   The parent SVG no longer carries a blanket `opacity` so the
+   protocol waypoint labels can render at a readable contrast; the
+   curve's faintness comes from `stroke-opacity` on the path itself. */
+.hero-equity-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 320px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Curve draws on once at page load. pathLength="1" on the <path> means
+   we can express the full length as `1` regardless of the cubic's real
+   arclength, so the dasharray/offset stay readable. The fade comes from
+   the existing he-fade gradient so the line never has hard endpoints. */
+.hero-equity-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hero-equity-draw 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) 0.2s forwards;
+}
+@keyframes hero-equity-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Each waypoint fades in as the drawn line "passes" it. The delay is
+   set inline per-waypoint based on its x-position so the dots appear
+   left-to-right in time with the stroke. */
+.hero-equity-waypoint {
+  opacity: 0;
+  animation: hero-equity-waypoint-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+@keyframes hero-equity-waypoint-in {
+  from { opacity: 0; transform-box: fill-box; }
+  to   { opacity: 1; }
+}
+
+.hero-equity-note-animate {
+  opacity: 0;
+  animation: hero-equity-note-in 700ms ease-out 2.0s forwards;
+}
+@keyframes hero-equity-note-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-equity-line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .hero-equity-waypoint,
+  .hero-equity-note-animate {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Peak annotation. Tiny label sitting just above the curve's high
+   point. The peak lives in the upper-right corner of the hero so the
+   annotation reads as a margin note in clear space — out of the body
+   subline's path. The percentages here must match the SVG's tick at
+   translate(1260, 105) on a 1600×500 viewBox; both stretch in lockstep
+   with `preserveAspectRatio="none"`. */
+.hero-equity-note {
+  position: absolute;
+  /* 105/500 of the 320px ticker band, minus 38px so the label sits
+     above the peak tick. That lands the annotation near the top of
+     the hero, in the empty area between the nav and the headline. */
+  top: calc(105 / 500 * 320px - 38px);
+  left: calc(1260 / 1600 * 100%);
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  transform: translateX(-50%);
+  font-family: var(--font-sans);
+  text-align: left;
+  white-space: nowrap;
+}
+.hero-equity-note-num {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--amber-3);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+.hero-equity-note-meta {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  opacity: 0.55;
+}
+@media (max-width: 720px) {
+  /* On narrow screens the curve compresses and the annotation sits on
+     top of body copy; hide it. The curve itself stays. */
+  .hero-equity-note { display: none; }
+  .hero-equity-ghost { opacity: 0.05; }
+}
+
 .hero-badge {
   display: inline-flex;
   align-items: center;
@@ -220,7 +334,7 @@ section.hero .wrap { position: relative; z-index: 2; }
   border-radius: 999px;
   border: 1px solid var(--amber-ring);
   background: var(--amber-tint);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -235,14 +349,14 @@ section.hero .wrap { position: relative; z-index: 2; }
 }
 
 .hero-sub {
-  max-width: 580px;
-  margin: 24px auto 0;
-  font-size: 18px;
-  line-height: 1.55;
+  max-width: 520px;
+  margin: 20px auto 0;
+  font-size: 17px;
+  line-height: 1.5;
   color: var(--ink-2);
 }
 .hero-sub p { margin: 0; }
-.hero-sub p + p { margin-top: 8px; }
+.hero-sub p + p { margin-top: 6px; }
 
 /* ---------- Waitlist pill form ---------------------------------------- */
 .hero-form {
@@ -305,7 +419,7 @@ section.hero .wrap { position: relative; z-index: 2; }
   color: var(--ink-4);
 }
 .joined {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: #7de0a4;
   margin-top: 14px;
@@ -348,7 +462,7 @@ section.content {
   align-items: center;
   padding: 4px 10px;
   border-radius: 6px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -392,7 +506,7 @@ section.content {
 }
 .step:last-child { border-bottom: 1px solid var(--line); }
 .step-num {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--ink-4);
   letter-spacing: 0.04em;
@@ -416,7 +530,7 @@ section.content {
   line-height: 1.6;
   max-width: 62ch;
 }
-.step p .mono-inline { font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace; color: var(--ink-2); }
+.step p .mono-inline { font-family: var(--font-sans); color: var(--ink-2); }
 
 /* ---------- Difference grid ------------------------------------------- */
 .diff-wrap { position: relative; }
@@ -428,7 +542,7 @@ section.content {
 .diff .card h3 { font-size: 24px; margin-top: 0; }
 .diff .card .card-eyebrow {
   display: block;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.18em;
@@ -473,7 +587,7 @@ section.content {
   margin: 0 auto;
   max-width: 360px;
   text-align: center;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--ink-3);
   background: rgba(22, 22, 24, 0.05);
@@ -504,7 +618,7 @@ section.content {
   white-space: nowrap;
 }
 .discover-head .meta {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   color: var(--ink-4);
   letter-spacing: 0.08em;
@@ -537,7 +651,7 @@ section.content {
 }
 .strategy .row1 {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -548,7 +662,7 @@ section.content {
 }
 .strategy .handle {
   margin-left: auto;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-4);
   text-transform: none;
@@ -578,7 +692,7 @@ section.content {
   align-items: flex-end;
 }
 .stat-label {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   color: var(--ink-4);
   letter-spacing: 0.08em;
@@ -587,7 +701,7 @@ section.content {
   margin-bottom: 4px;
 }
 .stat-value {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 500;
   color: var(--ink);
@@ -664,7 +778,7 @@ section.content {
   background: var(--bg-deep);
 }
 .aw-term-title {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--ink-2);
   flex: 1;
@@ -674,7 +788,7 @@ section.content {
   white-space: nowrap;
 }
 .aw-chip {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -688,7 +802,7 @@ section.content {
 .aw-term-body {
   flex: 1;
   padding: 14px 16px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.55;
   color: var(--ink-2);
@@ -739,7 +853,7 @@ section.content {
   padding: 10px 16px;
   border-top: 1px solid var(--line);
   background: var(--bg-deep);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-4);
 }
@@ -786,7 +900,7 @@ section.content {
   font-weight: 600;
   z-index: 2;
   padding: 0 14px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
 }
 .aw-phone-screen {
   position: absolute;
@@ -847,7 +961,7 @@ section.content {
   margin: 0;
 }
 .aw-scr-meta {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--ink-4);
   letter-spacing: 0.1em;
@@ -867,7 +981,7 @@ section.content {
 }
 .aw-scr-row-meta {
   display: flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -893,7 +1007,7 @@ section.content {
 .aw-spark-sm path { stroke-width: 1.5; fill: none; }
 .aw-scr-stats {
   display: flex; justify-content: space-between;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
 }
 .aw-scr-stat-lbl { color: var(--ink-4); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 2px; }
@@ -959,7 +1073,7 @@ section.content {
   border-radius: 8px;
   border: 1px solid var(--line-2);
   text-align: center;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-2);
   transition: all var(--dur-fast) var(--ease);
@@ -970,7 +1084,7 @@ section.content {
   border-color: var(--amber-ring);
 }
 .aw-sheet-preview {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-3);
   padding: 8px 10px;
@@ -1011,26 +1125,26 @@ section.content {
   margin-bottom: 2px;
 }
 .aw-port-item-sub {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--ink-4);
   letter-spacing: 0.04em;
 }
 .aw-port-item-val {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: var(--ink);
   text-align: right;
 }
 .aw-port-item-pnl {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: #7de0a4;
   margin-top: 2px;
 }
 .aw-badge-settled {
   display: inline-block;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1057,7 +1171,7 @@ section.content {
   flex-wrap: wrap;
 }
 .aw-flow-label {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1069,7 +1183,7 @@ section.content {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
 }
 .aw-flow-step {
@@ -1120,7 +1234,7 @@ section.content {
 }
 .activity-stat:last-child { border-right: 0; }
 .activity-num {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 600;
   color: var(--ink);
@@ -1132,7 +1246,7 @@ section.content {
   font-weight: 600;
 }
 .activity-label {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   color: var(--ink-4);
   letter-spacing: 0.1em;
@@ -1149,7 +1263,7 @@ section.content {
   border-radius: 999px;
   border: 1px solid var(--amber-ring);
   background: var(--amber-tint);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -1177,7 +1291,7 @@ section.content {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
 }
 .agent-meta-label {
@@ -1237,7 +1351,7 @@ footer .row-1 {
 footer .links {
   display: inline-flex;
   gap: 28px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--ink-3);
 }
@@ -1248,7 +1362,7 @@ footer .row-2 {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--line);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   color: var(--ink-4);
   letter-spacing: 0.02em;
@@ -1261,7 +1375,7 @@ footer .row-2 {
   gap: 18px;
 }
 .nav-link {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--ink-3);
   transition: color var(--dur-fast) var(--ease);
@@ -1280,6 +1394,317 @@ footer .row-2 {
   margin-top: 32px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+/* ---------- Market preview · newspaper leaderboard -------------------- */
+/* All paper, no slab. Hairline rules between rows, big serif percent on
+   the right. A blurred-and-faded "Recent activity" tail underneath says
+   "this is a peek, the app has more" without ever showing a screenshot. */
+.mkt-a {
+  position: relative;
+  margin: 56px auto 0;
+  max-width: 720px;
+  padding: 24px 28px 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: left;
+  overflow: hidden;
+}
+.mkt-a-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.mkt-a-question {
+  margin: 12px 0 18px;
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.mkt-a-question em {
+  font-style: italic;
+  color: var(--amber-3);
+}
+.mkt-a-table {
+  border-top: 1px solid var(--line-2);
+}
+.mkt-a-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+.mkt-a-side {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+.mkt-a-side-yes {
+  color: var(--amber-3);
+  background: var(--amber-tint);
+  border: 1px solid var(--amber-ring);
+}
+.mkt-a-side-no {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+}
+.mkt-a-name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.mkt-a-pct {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mkt-a-pct-dim {
+  color: var(--ink-3);
+}
+.mkt-a-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.mkt-dot {
+  color: var(--ink-5);
+}
+
+/* ── Recent-activity tail ─────────────────────────────────────────────── */
+/* A peek-of-more-content underneath the leaderboard. Real-shaped trade
+   ledger rows that progressively blur and fade to transparent at the
+   bottom edge — implies "this is one slice; the app has the full
+   ledger" without ever pasting in a screenshot. Compressed to two
+   rows + a tight bottom fade so the whole tail occupies < ~80px. */
+.mkt-a-tail {
+  position: relative;
+  margin-top: 14px;
+  padding: 12px 0 28px;
+  border-top: 1px solid var(--line-2);
+  /* Static blur on the whole region. Combined with the mask-image
+     fade below, this reads as out-of-focus background content. */
+  filter: blur(1.4px);
+  /* Fade aggressively — the tail's job is to suggest more content,
+     not to take real estate from the leaderboard above. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.2) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.2) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  user-select: none;
+}
+.mkt-a-tail-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+}
+.mkt-a-tail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.mkt-a-tail-row {
+  display: grid;
+  grid-template-columns: 56px 80px 1fr auto;
+  align-items: center;
+  gap: 14px;
+}
+.mkt-a-tail-side {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-align: center;
+}
+.mkt-a-tail-side-buy {
+  color: var(--amber-3);
+  background: var(--amber-tint);
+  border: 1px solid var(--amber-ring);
+}
+.mkt-a-tail-side-sell {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+}
+.mkt-a-tail-when {
+  color: var(--ink-4);
+  font-size: 11.5px;
+}
+
+/* ---------- Market preview card --------------------------------------- */
+.market-preview-card {
+  margin: 40px auto 0;
+  max-width: 540px;
+  padding: 22px 24px 18px;
+  border-radius: 14px;
+  background: #0f0e0c;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 2px 16px rgba(0,0,0,0.18),
+    0 0 0 1px rgba(0,0,0,0.06);
+  text-align: left;
+}
+.market-preview-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(246,243,238,0.42);
+  margin-bottom: 14px;
+}
+.market-preview-dot {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: #38d17a;
+  box-shadow: 0 0 8px rgba(56,209,122,0.5);
+  animation: pulse 2.4s var(--ease) infinite;
+  flex-shrink: 0;
+}
+.market-preview-question {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: 19px;
+  color: #f2ede0;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  margin-bottom: 18px;
+}
+.market-preview-agent {
+  color: #a899f5;
+}
+/* Stacked outcome rows — Polymarket-style asymmetric layout */
+.market-preview-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.mpo-row {
+  padding: 11px 14px 12px;
+  border-radius: 8px;
+}
+.mpo-row.yes {
+  background: rgba(168,230,207,0.07);
+  border: 1px solid rgba(168,230,207,0.16);
+}
+.mpo-row.no {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.mpo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mpo-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.mpo-badge {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.mpo-badge.yes {
+  background: rgba(168,230,207,0.15);
+  color: #a8e6cf;
+}
+.mpo-badge.no {
+  background: rgba(255,255,255,0.07);
+  color: rgba(246,243,238,0.45);
+}
+.mpo-name {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(246,243,238,0.50);
+  letter-spacing: 0.01em;
+}
+.mpo-pct {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.mpo-pct.yes { color: #a8e6cf; }
+.mpo-pct.no  { color: rgba(246,243,238,0.40); }
+.mpo-track {
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mpo-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.mpo-fill.yes { background: #a8e6cf; }
+.mpo-fill.no  { background: rgba(246,243,238,0.20); }
+
+.market-preview-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: rgba(246,243,238,0.26);
+  letter-spacing: 0.02em;
+}
+.mpf-dot {
+  opacity: 0.4;
 }
 .btn-amber-lg {
   padding: 14px 28px;
@@ -1354,7 +1779,7 @@ footer .row-2 {
 .audience-cta {
   margin-top: auto;
   padding-top: 6px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1370,7 +1795,7 @@ footer .row-2 {
   align-items: center;
   padding: 3px 9px;
   border-radius: 999px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1385,7 +1810,7 @@ footer .row-2 {
   align-items: center;
   padding: 3px 9px;
   border-radius: 999px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1407,7 +1832,7 @@ footer .row-2 {
   align-items: center;
   padding: 3px 9px;
   border-radius: 999px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1478,7 +1903,7 @@ footer .row-2 {
   background: transparent;
   border: 1px dashed var(--line-2);
   border-radius: 999px;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 24px;
   line-height: 1;
 }
@@ -1490,7 +1915,7 @@ footer .row-2 {
   margin-bottom: 2px;
 }
 .protocol-role {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1538,19 +1963,17 @@ footer .row-2 {
   gap: 8px;
   margin-bottom: 6px;
 }
-.agent-emoji {
-  font-size: 22px;
-  line-height: 1;
-}
+/* `.agent-emoji` was the emoji avatar on agent cards. Replaced by the
+   editorial `AgentMonogram` component, which renders inline styles. */
 .agent-handle {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--amber-3);
   letter-spacing: 0;
   word-break: break-all;
 }
 .agent-bias {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1565,7 +1988,7 @@ footer .row-2 {
   flex: 1;
 }
 .agent-cta {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1578,7 +2001,7 @@ footer .row-2 {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1663,17 +2086,14 @@ footer .row-2 {
   gap: 14px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink-2);
 }
 .tx-feed-row:last-child { border-bottom: 0; }
-.tx-feed-emoji {
-  font-size: 18px;
-  line-height: 1;
-  text-align: center;
-}
+/* `.tx-feed-emoji` was the emoji avatar on activity rows. Replaced by
+   the editorial `AgentMonogram` component, which renders inline styles. */
 .tx-feed-text {
   color: var(--ink);
   word-break: break-word;
@@ -1735,7 +2155,7 @@ h1.hero .hero-line-2 {
 .ps-col { color: var(--ink-2); }
 .ps-col-right { text-align: right; }
 .ps-eyebrow {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
@@ -1788,15 +2208,63 @@ h1.hero .hero-line-2 {
   align-items: baseline;
 }
 .ps-flow-step-final {
+  position: relative;
+  overflow: hidden;
   border-color: var(--amber-ring);
   background:
     radial-gradient(circle at 100% 0%, rgba(18, 68, 58, 0.06), transparent 55%),
     var(--bg-raised);
+  /* Breathing teal halo — telegraphs that step 3 is the resolution
+     moment without crossing into "AI-pulse" territory. 4.2s loop, low
+     opacity, paired with the slow shine sweep below. */
+  animation: ps-flow-breathe 4.2s ease-in-out infinite;
+}
+/* Shine sweep. Travels left→right every 5.4s, then pauses for the rest
+   of the loop so the card doesn't feel like a marquee. Behind the
+   content (z-index 0) and pointer-events:none so it never interferes
+   with copy or hit-testing. */
+.ps-flow-step-final::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(18, 68, 58, 0.10) 50%,
+    transparent 65%
+  );
+  transform: translateX(-110%);
+  pointer-events: none;
+  z-index: 0;
+  animation: ps-flow-sweep 5.4s ease-in-out infinite;
+}
+.ps-flow-step-final > * { position: relative; z-index: 1; }
+
+@keyframes ps-flow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(18, 68, 58, 0.00),
+      0 0 0 0 rgba(18, 68, 58, 0.00);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(18, 68, 58, 0.08),
+      0 0 28px rgba(18, 68, 58, 0.12);
+  }
+}
+@keyframes ps-flow-sweep {
+  0%   { transform: translateX(-110%); }
+  55%  { transform: translateX(110%); }
+  100% { transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-flow-step-final { animation: none; }
+  .ps-flow-step-final::after { display: none; }
 }
 .ps-flow-num {
   grid-row: 1 / span 2;
   align-self: center;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--ink-4);
@@ -1809,15 +2277,17 @@ h1.hero .hero-line-2 {
 }
 .ps-flow-step-final .ps-flow-label { color: var(--amber-3); }
 .ps-flow-detail {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.04em;
 }
 .ps-flow-arrow {
   color: var(--ink-4);
-  font-size: 18px;
-  line-height: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 32px;
 }
 
 .ps-stats {
@@ -1846,7 +2316,7 @@ h1.hero .hero-line-2 {
   line-height: 1;
 }
 .ps-stat-lbl {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.28em;
@@ -1909,6 +2379,35 @@ h1.hero .hero-line-2 {
 
 /* Feature visuals , shared card chrome */
 .features-visual { width: 100%; }
+
+/* Tab change → fade up. The component keys both columns on activeId so
+   React unmounts/remounts them on tab change, which retriggers the
+   keyframe. The visual lags the copy by 80ms so they don't land in
+   lockstep — copy reads first, then the data card resolves underneath
+   it. Easing is the standard "ease-out-expo" cousin: fast start, slow
+   tail, content settles deliberately rather than bouncing. */
+.features-fade {
+  animation: features-rise 460ms cubic-bezier(0.16, 0.84, 0.32, 1) both;
+}
+.features-visual.features-fade {
+  animation-delay: 80ms;
+}
+@keyframes features-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .features-fade,
+  .features-visual.features-fade {
+    animation: none;
+  }
+}
 .vis-card {
   border: 1px solid var(--line);
   background: var(--bg-raised);
@@ -1920,7 +2419,7 @@ h1.hero .hero-line-2 {
 }
 .vis-card-mono { gap: 8px; }
 .vis-eyebrow {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -1953,14 +2452,14 @@ h1.hero .hero-line-2 {
 }
 .vis-row-2 > div { display: flex; flex-direction: column; gap: 4px; }
 .vis-label {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--ink-4);
 }
 .vis-val {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 14px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1996,20 +2495,20 @@ h1.hero .hero-line-2 {
   background: rgba(22, 22, 24, 0.04);
 }
 .vis-yn-side {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.18em;
 }
 .vis-yn-px {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .vis-foot {
   margin: 0;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-4);
   letter-spacing: 0.04em;
@@ -2018,7 +2517,7 @@ h1.hero .hero-line-2 {
 .vis-mono-row {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 12px;
   padding: 6px 0;
   border-bottom: 1px dashed var(--line);
@@ -2030,7 +2529,7 @@ h1.hero .hero-line-2 {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: 0.04em;
@@ -2150,7 +2649,7 @@ h1.hero .hero-line-2 {
   text-align: left;
 }
 .fees-value {
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   color: var(--amber-3);
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -2180,7 +2679,7 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   padding: 6px 14px 6px 12px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.30);
-  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   letter-spacing: 0.3em;
   text-transform: uppercase;

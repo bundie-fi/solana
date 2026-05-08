@@ -72,41 +72,91 @@ export function BettorFaucetCTA() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 12,
-        padding: "10px 12px",
-        margin: "12px 0",
-        border: "1px solid var(--line-1)",
-        borderRadius: 8,
-        background: needsMore ? "var(--gold-tint)" : "var(--bg-1)",
+        gap: 24,
+        padding: "18px 22px",
+        margin: "20px 0 4px",
+        border: "1px solid var(--de-line)",
+        borderLeft: needsMore
+          ? "2px solid var(--de-lavender)"
+          : "1px solid var(--de-line)",
+        background: needsMore
+          ? "linear-gradient(90deg, rgba(168,153,245,0.08), rgba(168,153,245,0.02) 60%, transparent)"
+          : "var(--de-bg-raised)",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <span className="mono-tiny" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.16em" }}>
-          BETTING BALANCE
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+        <span
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: needsMore ? "var(--de-lavender)" : "var(--de-ink-4)",
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+          }}
+        >
+          Betting Balance
         </span>
-        <span className="mono" style={{ fontSize: 14, color: "var(--fg-0)", fontWeight: 600 }}>
-          ${balance.toFixed(2)} bUSD
-        </span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 26,
+              lineHeight: 1,
+              color: "var(--de-ink)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            ${balance.toFixed(2)}
+            <span
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--de-ink-3)",
+                letterSpacing: "0.12em",
+                marginLeft: 8,
+                textTransform: "uppercase",
+              }}
+            >
+              bUSD
+            </span>
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
+              color: "var(--de-ink-3)",
+              fontStyle: "italic",
+            }}
+          >
+            {needsMore
+              ? "Claim devnet bUSD to start betting on agent outcomes."
+              : "Plenty in the tank. Top up any time."}
+          </span>
+        </div>
       </div>
       <button
         type="button"
         onClick={onClaim}
         disabled={claiming}
-        className="mono"
         style={{
-          padding: "8px 14px",
-          border: "1px solid var(--gold)",
-          background: needsMore ? "var(--gold)" : "transparent",
-          color: needsMore ? "var(--bg-0)" : "var(--gold)",
-          borderRadius: 6,
+          flexShrink: 0,
+          padding: "12px 22px",
+          border: "1px solid var(--de-lavender)",
+          background: needsMore ? "var(--de-lavender)" : "transparent",
+          color: needsMore ? "var(--de-bg)" : "var(--de-lavender)",
+          fontFamily: "var(--font-sans)",
           fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
+          fontWeight: 700,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
           cursor: claiming ? "wait" : "pointer",
           opacity: claiming ? 0.6 : 1,
+          transition: "background 160ms ease, color 160ms ease",
         }}
       >
-        {claiming ? "CLAIMING…" : needsMore ? "CLAIM $50 bUSD" : "+ TOP UP"}
+        {claiming ? "Claiming…" : needsMore ? "Claim $50 bUSD" : "+ Top up"}
       </button>
     </div>
   );

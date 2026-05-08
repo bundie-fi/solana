@@ -75,10 +75,14 @@
   --blue: #5B8DEF;
   --blue-tint: rgba(91,141,239,0.12);
 
-  /* --- Type --- */
-  --font-display: 'Playfair Display', 'GT Super Display', Georgia, serif;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* --- Type ---
+     Two-font system: Instrument Serif (display + italic accents) and
+     Figtree (everything else). --font-mono is aliased to --font-sans so
+     legacy components that ask for monospace still render in Figtree
+     with tabular-nums, keeping the type system to two faces. */
+  --font-display: 'Instrument Serif', 'GT Super Display', Georgia, serif;
+  --font-sans: 'Figtree', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-sans);
 
   --r-1: 4px;
   --r-2: 6px;
@@ -101,58 +105,63 @@
   --dur-fast: 140ms;
   --dur: 260ms;
 
-  /* === --de-* tokens (aliased back to legacy cream/gold palette) ============
-     The dark navy editorial direction was rolled back. New components in
-     packages/web/src/components/de/ still reference --de-* tokens, but
-     each one now resolves to the canonical warm-paper Bundie value so
-     the redesigned pages match the rest of the app. Don't change these
-     mappings without sweeping every consumer.
+  /* === Dark editorial palette ============================================
+     Tuned for the Instrument Serif + Figtree pairing. Deep ink ground,
+     warm cream type, single muted lavender accent. Mint and rose are
+     reserved for binary outcomes (YES/NO, Beat/Miss) and never used as
+     decoration. See packages/web/DESIGN.md for the full philosophy.
      ----------------------------------------------------------------------- */
 
-  /* Surfaces → warm paper */
-  --de-bg:         var(--bg-0);
-  --de-bg-raised:  var(--bg-1);
-  --de-bg-2:       var(--bg-3);
-  --de-bg-3:       var(--bg-4);
-  --de-bg-sunken:  var(--bg-3);
+  /* Surfaces — ink-on-paper inversion. Pure navy was too cold against
+     a serif headline; we shift toward a near-black ink with a slight
+     blue undertone so the cream type sits warm on a still-cool ground. */
+  --de-bg:         #0B0F1C;
+  --de-bg-raised:  #11162A;
+  --de-bg-2:       #161C36;
+  --de-bg-3:       #1D2440;
+  --de-bg-sunken:  #070A17;
 
-  /* Borders → warm sand */
-  --de-line:       var(--line-1);
-  --de-line-2:     var(--line-2);
-  --de-line-3:     var(--line-3);
+  /* Borders — cream-tinted hairlines, kept faint so type carries the page */
+  --de-line:       rgba(242,237,224,0.07);
+  --de-line-2:     rgba(242,237,224,0.13);
+  --de-line-3:     rgba(242,237,224,0.20);
 
-  /* Text → warm ink, layered */
-  --de-ink:        var(--fg-0);
-  --de-ink-2:      var(--fg-2);
-  --de-ink-3:      var(--fg-3);
-  --de-ink-4:      var(--fg-4);
-  --de-ink-5:      var(--fg-5);
+  /* Ink — warm cream, layered alphas. The base color shifts a hair warmer
+     than pure off-white because Instrument Serif has a literary undertone
+     that benefits from a touch of paper warmth. */
+  --de-ink:        #F4EFE0;
+  --de-ink-2:      rgba(244,239,224,0.74);
+  --de-ink-3:      rgba(244,239,224,0.54);
+  --de-ink-4:      rgba(244,239,224,0.36);
+  --de-ink-5:      rgba(244,239,224,0.20);
 
-  /* Primary accent → predict (purple) — same accent as --gold via legacy alias */
-  --de-lavender:        var(--predict);
-  --de-lavender-2:      var(--predict-2);
-  --de-lavender-3:      var(--predict);
-  --de-lavender-tint:   var(--predict-tint);
-  --de-lavender-glow:   var(--predict-glow);
+  /* Primary accent — lavender. Single accent rule: this is the only
+     color that signals "interactive / brand". Mint and rose are outcomes,
+     amber is reserved for Earn mode, everything else is ink at varied alpha. */
+  --de-lavender:        #A899F5;
+  --de-lavender-2:      #BDB1F8;
+  --de-lavender-3:      #8675E8;
+  --de-lavender-tint:   rgba(168,153,245,0.12);
+  --de-lavender-glow:   rgba(168,153,245,0.24);
 
-  /* Outcome A (YES) → green */
-  --de-mint:       var(--green);
-  --de-mint-2:     var(--green-2);
-  --de-mint-tint:  var(--green-tint);
-  --de-mint-glow:  var(--green-tint);
+  /* Outcome A — soft mint (YES / Beat / above target) */
+  --de-mint:       #A8E6CF;
+  --de-mint-2:     #C2EFDB;
+  --de-mint-tint:  rgba(168,230,207,0.12);
+  --de-mint-glow:  rgba(168,230,207,0.24);
 
-  /* Outcome B (NO) → red */
-  --de-rose:       var(--red);
-  --de-rose-2:     var(--red-2);
-  --de-rose-tint:  var(--red-tint);
-  --de-rose-glow:  var(--red-tint);
+  /* Outcome B — muted rose (NO / Miss / below target) */
+  --de-rose:       #E8A5A5;
+  --de-rose-2:     #F1BFBF;
+  --de-rose-tint:  rgba(232,165,165,0.12);
+  --de-rose-glow:  rgba(232,165,165,0.24);
 
-  /* Auxiliary signals → existing tokens */
-  --de-amber:      var(--amber);
-  --de-amber-tint: var(--amber-tint);
-  --de-blue:       var(--blue);
-  --de-blue-tint:  rgba(91,141,239,0.14);
-  /* === end --de-* alias block =========================================== */
+  /* Auxiliary — dim signals that should not compete with the lavender */
+  --de-amber:      #E8C58A;
+  --de-amber-tint: rgba(232,197,138,0.12);
+  --de-blue:       #8AB6F0;
+  --de-blue-tint:  rgba(138,182,240,0.12);
+  /* === end dark editorial palette ======================================== */
 }
 
 * { box-sizing: border-box; }
@@ -165,12 +174,22 @@ html {
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg-0);
+  background: var(--de-bg);
   color: var(--fg-1);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Legacy pages that haven't migrated to dark editorial yet wrap their
+ * content in `.legacy-cream-page` so the cream paper background shows
+ * through underneath the dark chrome. Once Portfolio / Wallet / Feed /
+ * Strategists are redesigned, this class can be removed. */
+.legacy-cream-page {
+  background: var(--bg-0);
+  color: var(--fg-1);
+  min-height: 100vh;
 }
 
 button { font-family: inherit; }
@@ -485,10 +504,10 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-around;
   padding: 10px 8px 8px;
-  background: rgba(244,241,234,0.92);
+  background: rgba(10,14,31,0.82);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border-top: 1px solid var(--line-1);
+  border-top: 1px solid var(--de-line);
 }
 .bottom-nav-item {
   display: flex;
@@ -498,11 +517,11 @@ button { font-family: inherit; }
   padding: 6px 12px;
   min-width: 56px;
   cursor: pointer;
-  color: var(--fg-3);
+  color: var(--de-ink-3);
   transition: color 160ms ease;
   text-decoration: none;
 }
-.bottom-nav-item.active { color: var(--fg-0); }
+.bottom-nav-item.active { color: var(--de-lavender); }
 .bottom-nav-item .label {
   font-family: var(--font-mono);
   font-size: 9px;

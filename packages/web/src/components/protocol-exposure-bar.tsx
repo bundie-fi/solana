@@ -128,7 +128,7 @@ export function ProtocolExposureBar({
                   color: "var(--fg-2)",
                   textTransform: "uppercase",
                   letterSpacing: "0.12em",
-                  fontSize: 9.5,
+                  fontSize: 10.5,
                 }}
               >
                 {s.label}

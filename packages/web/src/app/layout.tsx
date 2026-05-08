@@ -1,33 +1,46 @@
 // Last redeploy trigger: 2026-05-07T19:18:37Z
 
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
-import { Toaster } from "sonner";
+import { Figtree, Instrument_Serif } from "next/font/google";
 import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
-import { OnboardingTour } from "@/components/OnboardingTour";
 import { PostConnectRedirect } from "@/components/PostConnectRedirect";
+import {
+  DeferredOnboardingTour,
+  DeferredToaster,
+} from "@/components/DeferredClientMounts";
 import "./globals.css";
 
-const inter = Inter({
+// Network priming. preconnect opens TCP + TLS to backend / RPC before the
+// page makes its first request, dns-prefetch resolves the hostnames in
+// parallel for browsers without preconnect. Both are no-ops if the URL is
+// already same-origin, so it's safe to set even when backend is local.
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+const RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC ??
+  process.env.NEXT_PUBLIC_RPC_URL ??
+  "https://api.devnet.solana.com";
+
+// Two-font system, matching the marketing site exactly. Figtree handles
+// every structural surface (body, labels, numbers, CTAs) and Instrument
+// Serif is reserved for display-size headlines and a single italic accent
+// per section. JetBrains Mono was removed in the 2026-05 redesign — see
+// packages/web/DESIGN.md for the rationale.
+const figtree = Figtree({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const playfairDisplay = Playfair_Display({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-display",
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -53,7 +66,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#F4F1EA",
+  themeColor: "#0A0E1F",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -68,14 +81,24 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfairDisplay.variable} ${jetbrains.variable}`}
+      className={`${figtree.variable} ${instrumentSerif.variable}`}
     >
-      <body className="antialiased min-h-screen" style={{ background: "var(--bg-0)", color: "var(--fg-1)", fontFamily: "var(--font-sans)" }}>
+      <head>
+        {/* Open TCP + TLS to backend and RPC before the first request so
+            the data-fetch fan-out lands ~100–300ms sooner on cold loads. */}
+        <link rel="preconnect" href={BACKEND_URL} crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={BACKEND_URL} />
+        <link rel="preconnect" href={RPC_URL} crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={RPC_URL} />
+      </head>
+      <body className="antialiased min-h-screen" style={{ background: "var(--de-bg)", color: "var(--de-ink)", fontFamily: "var(--font-sans)" }}>
         <ClientProviders>
-          {/* Desktop top nav, hidden on mobile where BottomNav takes over */}
-          <div className="hidden sm:block">
-            <TopNav />
-          </div>
+          {/* Desktop top nav, hidden on mobile where BottomNav takes over.
+              The responsive hide lives inside the component so the sticky
+              header's containing block is <body> (full document height) —
+              wrapping it in a div that's only as tall as the header would
+              prevent position: sticky from sticking past the first scroll. */}
+          <TopNav />
           {/* Mobile top header is rendered per-page via the design's top-header pattern */}
           {children}
           {/* Desktop-only footer */}
@@ -85,20 +108,9 @@ export default function RootLayout({
           {/* First-run UX surfaces, must sit inside ClientProviders so
               they can read wallet state via useWallet(). */}
           <PostConnectRedirect />
-          <OnboardingTour />
+          <DeferredOnboardingTour />
         </ClientProviders>
-        <Toaster
-          position="top-right"
-          richColors
-          theme="light"
-          toastOptions={{
-            style: {
-              background: "var(--bg-1)",
-              color: "var(--fg-1)",
-              border: "1px solid var(--line-1)",
-            },
-          }}
-        />
+        <DeferredToaster />
       </body>
     </html>
   );

@@ -257,7 +257,7 @@ export function HomeFeed({
             <span
               className="mono-tiny"
               style={{
-                fontSize: 9.5,
+                fontSize: 10.5,
                 background: "rgba(255,255,255,0.18)",
                 padding: "2px 6px",
                 borderRadius: 999,
@@ -306,7 +306,7 @@ export function HomeFeed({
                 ) : (
                   <span style={{ fontSize: 24 }}>{a.emoji ?? "🤖"}</span>
                 )}
-                <span className="mono-tiny gold" style={{ fontSize: 9.5 }}>
+                <span className="mono-tiny gold" style={{ fontSize: 10.5 }}>
                   {a.sns.split(".")[0]}
                 </span>
               </Link>
