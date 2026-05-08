@@ -81,7 +81,7 @@ export default async function AgentsPage() {
         </div>
       </div>
 
-      <div style={{ padding: "0 16px 24px" }}>
+      <div style={{ padding: "0 16px calc(env(safe-area-inset-bottom) + 96px)" }}>
         <AgentLeaderboard pnlSparklines={pnlSparklines} />
       </div>
 

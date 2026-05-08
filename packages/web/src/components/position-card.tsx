@@ -124,7 +124,7 @@ export function PositionCard({ position: p }: { position: Position }) {
                 type="button"
                 onClick={handleRedeem}
                 disabled={redeeming}
-                className="h-10 rounded-lg bg-success-400/20 border border-success-400/40 text-success-400 font-mono text-[11px] uppercase tracking-[0.14em] px-4 hover:bg-success-400/30 transition disabled:opacity-50"
+                className="min-h-[44px] py-2 rounded-lg bg-success-400/20 border border-success-400/40 text-success-400 font-mono text-[11px] uppercase tracking-[0.14em] px-4 hover:bg-success-400/30 transition disabled:opacity-50"
               >
                 {redeeming ? "redeeming…" : "redeem"}
               </button>

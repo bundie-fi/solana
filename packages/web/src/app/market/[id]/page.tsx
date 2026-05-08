@@ -563,7 +563,10 @@ export default async function MarketDetailPage(
         }
         .market-sticky {
           position: sticky;
-          top: 80px;
+          /* Respect notched / dynamic-island devices — without this the
+             panel slides under the system UI on iPhone Pro / Android
+             punch-hole screens during scroll. */
+          top: calc(env(safe-area-inset-top, 0px) + 80px);
         }
         @media (max-width: 1279px) {
           .market-grid {

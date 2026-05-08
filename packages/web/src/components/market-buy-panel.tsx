@@ -640,14 +640,14 @@ export function MarketBuyPanel({
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <button
           className={`btn btn-yes flex-1${side === "yes" ? " solid" : ""}`}
-          style={{ padding: "12px", fontSize: 13, fontWeight: 600 }}
+          style={{ padding: "14px 12px", fontSize: 13, fontWeight: 600, minHeight: 48 }}
           onClick={() => setSide("yes")}
         >
           YES · {Math.round(yesPrice * 100)}%
         </button>
         <button
           className={`btn btn-no flex-1${side === "no" ? " solid" : ""}`}
-          style={{ padding: "12px", fontSize: 13, fontWeight: 600 }}
+          style={{ padding: "14px 12px", fontSize: 13, fontWeight: 600, minHeight: 48 }}
           onClick={() => setSide("no")}
         >
           NO · {Math.round(noPrice * 100)}%
@@ -688,7 +688,7 @@ export function MarketBuyPanel({
         </div>
         <button
           className="btn btn-ghost"
-          style={{ padding: "10px 14px", fontSize: 11 }}
+          style={{ padding: "12px 16px", fontSize: 12, minHeight: 44 }}
           onClick={() => setAmount("10")}
         >
           MAX
@@ -701,7 +701,7 @@ export function MarketBuyPanel({
           <button
             key={v}
             className="btn btn-ghost flex-1"
-            style={{ padding: "8px", fontSize: 11, fontFamily: "var(--font-mono)" }}
+            style={{ padding: "12px 8px", fontSize: 12, minHeight: 44, fontFamily: "var(--font-mono)" }}
             onClick={() => setAmount(v.toString())}
           >
             ◎{v.toFixed(1)}

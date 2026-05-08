@@ -171,7 +171,7 @@ export function BuySharesPanel({
       <button
         onClick={handleBuy}
         disabled={loading || !amount || parseFloat(amount) <= 0}
-        className="w-full rounded-lg bg-amber-600 text-neutral-0 font-semibold py-2.5 text-sm hover:bg-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full rounded-lg bg-amber-600 text-neutral-0 font-semibold py-3 text-sm min-h-[44px] hover:bg-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
