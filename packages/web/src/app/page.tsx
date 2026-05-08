@@ -136,7 +136,7 @@ export default async function Home(props: {
         {/* ────────────────────────────────────────────────────────────────
             1. Editorial header band
             ──────────────────────────────────────────────────────────── */}
-        <header className="discover-header">
+        <header className="discover-header" data-tour="header">
           <div className="discover-eyebrow">
             <span>The Bundie Index</span>
             <span className="discover-eyebrow-sep">·</span>
@@ -167,7 +167,7 @@ export default async function Home(props: {
         {/* ────────────────────────────────────────────────────────────────
             2. Featured strategy , magazine layout
             ──────────────────────────────────────────────────────────── */}
-        <section className="discover-featured">
+        <section className="discover-featured" data-tour="featured">
           {featured ? (
             <FeaturedAgentHero row={featured} />
           ) : (
@@ -202,7 +202,7 @@ export default async function Home(props: {
         {/* ────────────────────────────────────────────────────────────────
             4. Open markets
             ──────────────────────────────────────────────────────────── */}
-        <section className="discover-section">
+        <section className="discover-section" data-tour="markets">
           <SectionHeader
             eyebrow="Markets"
             title={`Open across ${liveAgentCount} ${liveAgentCount === 1 ? "agent" : "agents"}`}
