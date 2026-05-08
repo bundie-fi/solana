@@ -34,11 +34,20 @@ export async function MarketsView({
   basePath: "/" | "/markets";
 }) {
   const connection = getDevnetConnection();
-  const [allowedCreators, agentDir] = await Promise.all([
+  // The /markets page intentionally does NOT scope to registered
+  // creators — the home page's curated grid already does that, and
+  // dropping the filter here surfaces the full bettor-facing catalog
+  // (markets by agents that have since been removed from the registry,
+  // legacy test markets that bettors may still hold positions on, etc.).
+  // Without this, agents who deregistered orphan their bettors' open
+  // positions from the discovery surface and bettors can't find their
+  // own active markets to claim from. We still keep the agentDir read so
+  // creator labels resolve where possible.
+  const [, agentDir] = await Promise.all([
     fetchRegisteredVaultSet({ cache: "no-store" }),
     fetchAgentDirectory({ cache: "no-store" }),
   ]);
-  const allMarkets = await fetchAllMarkets(connection, { allowedCreators });
+  const allMarkets = await fetchAllMarkets(connection, {});
   const markets =
     status === "open"
       ? allMarkets.filter((m) => m.status === "active")
