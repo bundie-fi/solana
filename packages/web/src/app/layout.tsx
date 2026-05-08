@@ -18,7 +18,7 @@ import "./globals.css";
 // parallel for browsers without preconnect. Both are no-ops if the URL is
 // already same-origin, so it's safe to set even when backend is local.
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
 const RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC ??
   process.env.NEXT_PUBLIC_RPC_URL ??

@@ -26,7 +26,7 @@ const REGISTRY_FETCH_OPTS: RequestInit = {
   next: { revalidate: 30, tags: ['registry'] },
 } as RequestInit
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3000'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://backend.solana.bundie.fi'
 
 /**
  * Discover (/) , precision-editorial home.

@@ -20,7 +20,7 @@
  */
 
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
 
 /**
  * Minimal shape returned by `GET /api/agents`. Only the fields the UI
