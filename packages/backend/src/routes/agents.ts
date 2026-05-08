@@ -847,6 +847,13 @@ const ACTIVITY_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   "lst_unstake",
   "create_market",
   "swap",
+  // Jupiter Perps actions — were silently filtered out of the feed
+  // even though funding-shorter routes through perp_open every few
+  // ticks. Without these, the UI undercounted real on-chain activity
+  // and the bettor-facing live feed felt sparser than the agents
+  // actually were.
+  "perp_open",
+  "perp_close",
 ]);
 
 // Periodic system actions like commit_nav are dropped from BOTH the
