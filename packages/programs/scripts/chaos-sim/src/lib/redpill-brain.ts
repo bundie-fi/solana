@@ -151,7 +151,7 @@ const REDPILL_URL = "https://api.redpill.ai/v1/chat/completions";
  * (not imported) so the chaos-sim doesn't need to depend on the
  * backend package.
  */
-const LIVE_INPUTS_SENTINEL =
+export const LIVE_INPUTS_SENTINEL =
   "===LIVE_INPUTS_BELOW (recomputed each tick — uncached)===";
 
 /** Cache TTL: 1h ("1h" type) covers the BRAIN_FORCE_EVERY=10 cadence
@@ -181,10 +181,28 @@ function repairMaybeJson(raw: string): string {
 }
 
 export async function reason(args: ReasonArgs): Promise<BrainDecision> {
+  // 0G first when configured. Redpill credits run out; 0G testnet is
+  // faucet-funded so it stays alive across multi-day daemon runs. Falls
+  // through to Redpill on any 0G error so a single misbehaving provider
+  // doesn't take the daemon down.
+  if (
+    process.env.ZG_WALLET_PRIVATE_KEY &&
+    process.env.ZG_COMPUTE_PROVIDER_ADDRESS
+  ) {
+    try {
+      const { reasonViaZeroG } = await import("./zg-brain.js");
+      return await reasonViaZeroG(args);
+    } catch (err) {
+      console.warn(
+        `[brain] 0G failed, falling back to Redpill: ${(err as Error).message}`,
+      );
+    }
+  }
+
   const apiKey = process.env.REDPILL_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "REDPILL_API_KEY is not set. Add it to packages/programs/scripts/chaos-sim/.env",
+      "Neither ZG_WALLET_PRIVATE_KEY+ZG_COMPUTE_PROVIDER_ADDRESS nor REDPILL_API_KEY is set. Configure at least one inference provider.",
     );
   }
 
