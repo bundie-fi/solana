@@ -68,8 +68,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No `version:` here — pnpm/action-setup reads it from
-      # package.json's `packageManager` field, avoiding the dual-pin error.
+      # No `version:` here on purpose — action-setup@v4 reads the pnpm
+      # version from `packageManager` in the root package.json. Keeping
+      # a single source of truth avoids the "multiple versions specified"
+      # error you'd hit if both this block and packageManager set one.
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -104,8 +106,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No `version:` here — pnpm/action-setup reads it from
-      # package.json's `packageManager` field, avoiding the dual-pin error.
+      # No `version:` here on purpose — action-setup@v4 reads the pnpm
+      # version from `packageManager` in the root package.json. Keeping
+      # a single source of truth avoids the "multiple versions specified"
+      # error you'd hit if both this block and packageManager set one.
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
