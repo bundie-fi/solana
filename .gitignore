@@ -73,3 +73,9 @@ HANDOFF-*.md
 docs/superpowers/
 .zerion-bundie-state.json
 .worktrees/
+
+# Local-only working dirs — DB migrations live in their own project,
+# submission artifacts and developer docs aren't tracked here either.
+docs/
+submission/
+supabase/
