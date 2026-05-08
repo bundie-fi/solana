@@ -7,16 +7,21 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "dev": "pnpm --filter './packages/*' dev",
+    "dev": "concurrently --kill-others-on-fail --names backend,web,landing --prefix-colors blue,green,magenta \"pnpm --filter @bundie/backend dev\" \"wait-on -t 60000 http-get://localhost:3001/health && pnpm --filter @bundie/web dev\" \"pnpm --filter @bundie/landing-page dev\"",
+    "dev:backend": "pnpm --filter @bundie/backend dev",
+    "dev:web": "concurrently --kill-others-on-fail --names backend,web --prefix-colors blue,green \"pnpm --filter @bundie/backend dev\" \"wait-on -t 60000 http-get://localhost:3001/health && pnpm --filter @bundie/web dev\"",
+    "dev:landing": "pnpm --filter @bundie/landing-page dev",
     "build": "pnpm --filter './packages/*' build",
     "lint": "pnpm --filter './packages/*' lint",
     "clean": "pnpm --filter './packages/*' clean"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "prettier": "^3",
-    "typescript": "^5.5"
+    "typescript": "^5.5",
+    "wait-on": "^9.0.5"
   },
   "pnpm": {
     "overrides": {
