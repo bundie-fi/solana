@@ -91,28 +91,51 @@ function repairMaybeJson(raw: string): string {
   }
   // Qwen sometimes emits JS-style arithmetic in numeric fields, e.g.
   //   "thresholdLamports": 4959176560 * 1.05
-  // Strict JSON.parse rejects that. Constant-fold simple `<num> <op> <num>`
-  // expressions (one operator deep) so the daemon doesn't lose otherwise
-  // valid decisions. Multi-operator chains are rare enough we just fail
-  // those and fall back to Redpill.
+  //   "notionalUsd":       4959171560 / 2000000 * 1000000
+  // Strict JSON.parse rejects both. Match the entire arithmetic expression
+  // as it appears AFTER a colon (so we don't touch strings/reasoning) and
+  // fold it to a single number via a safe left-to-right evaluator.
+  // Multi-operand chains work because the outer regex captures every
+  // operand+operator. Operator precedence isn't honoured — Qwen's
+  // outputs are simple enough that this hasn't been an issue.
   s = s.replace(
-    /:\s*(-?\d+(?:\.\d+)?)\s*([*/+\-])\s*(-?\d+(?:\.\d+)?)\s*([,}\n])/g,
-    (_match, a, op, b, tail) => {
-      const x = Number(a);
-      const y = Number(b);
-      let v: number;
-      switch (op) {
-        case "*": v = x * y; break;
-        case "/": v = x / y; break;
-        case "+": v = x + y; break;
-        case "-": v = x - y; break;
-        default: return _match;
-      }
-      if (!Number.isFinite(v)) return _match;
-      return `: ${v}${tail}`;
+    /:\s*(-?\d+(?:\.\d+)?(?:\s*[*/+\-]\s*-?\d+(?:\.\d+)?)+)(\s*[,}\n\]])/g,
+    (_match, expr: string, tail: string) => {
+      const v = evalArithmetic(expr);
+      if (v === null || !Number.isFinite(v)) return _match;
+      const out = Number.isInteger(v)
+        ? String(v)
+        : v.toFixed(6).replace(/\.?0+$/, "");
+      return `: ${out}${tail}`;
     },
   );
   return s;
+}
+
+/**
+ * Tiny safe evaluator for `<num> <op> <num> <op> ...` strings. Left-to-right
+ * (no precedence). Returns null if the input contains anything other than
+ * numbers and the four basic operators — defensive bound so we never invoke
+ * eval()-style behaviour on model output.
+ */
+function evalArithmetic(expr: string): number | null {
+  const tokens = expr.match(/-?\d+(?:\.\d+)?|[*/+\-]/g);
+  if (!tokens || tokens.length < 3 || tokens.length % 2 === 0) return null;
+  let acc = Number(tokens[0]);
+  if (!Number.isFinite(acc)) return null;
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const next = Number(tokens[i + 1]);
+    if (!Number.isFinite(next)) return null;
+    switch (op) {
+      case "*": acc *= next; break;
+      case "/": acc /= next; break;
+      case "+": acc += next; break;
+      case "-": acc -= next; break;
+      default: return null;
+    }
+  }
+  return acc;
 }
 
 // ─── Request scheduler ───────────────────────────────────────────────────
@@ -156,17 +179,36 @@ function releaseZeroGSlot(): void {
 }
 
 /**
- * System prompt prepended to every 0G call. Constraints the model output
- * shape so Qwen doesn't emit JS-style arithmetic in numeric fields (we've
- * observed `"thresholdLamports": 4959176560 * 1.05`, which strict
- * JSON.parse rejects). Also forbids prose / commentary.
+ * System prompt prepended to every 0G call. Tighter constraints than the
+ * brain.md user-prompt because Qwen-class models are smaller and more
+ * prone to schema drift than Claude. Each line addresses a failure mode
+ * we've actually seen in production logs:
+ *   - JS arithmetic in numeric fields  → "literal numbers, never arithmetic"
+ *   - amountUi=0 spam from too-cautious agents → minimum sizes + "noop instead"
+ *   - prose preambles wrapping the JSON → "ONLY a single JSON object"
+ *   - markdown fences ```json...``` → "no code fences"
  */
-const ZG_SYSTEM_PROMPT =
-  "You are an autonomous DeFi agent. Output ONLY a single JSON object " +
-  "matching the schema described in the user message. No prose, no " +
-  "commentary, no code fences. Numeric fields MUST be literal numbers — " +
-  "never arithmetic expressions like `100 * 1.05`; compute the value " +
-  "yourself and emit the result.";
+const ZG_SYSTEM_PROMPT = [
+  "You are an autonomous DeFi agent. Output ONLY a single JSON object",
+  "matching the schema described in the user message. No prose, no",
+  "commentary, no code fences.",
+  "",
+  "Numeric fields MUST be literal numbers — never arithmetic expressions",
+  "like `100 * 1.05` or `4959171560 / 2000000`. Compute the value",
+  "yourself and emit the result.",
+  "",
+  "NEVER emit 0 for any size/amount/threshold field. If you cannot size",
+  "a meaningful position with current capital, return",
+  "`{\"reasoning\": \"...\", \"actions\": [{\"type\": \"noop\"}]}` instead.",
+  "Minimums when you DO act:",
+  "  amountUi (USDC, mSOL, etc): >= 0.5",
+  "  amountSolUi:                 >= 0.05",
+  "  amountMsolUi:                >= 0.05",
+  "  amountInUi (swap):           >= 0.05",
+  "  notionalUsd (perp):          >= 5",
+  "  seedAmountBusd:              >= 1 and <= 5",
+  "  thresholdLamports:           must be a positive integer literal",
+].join("\n");
 
 export async function reasonViaZeroG(args: ReasonArgs): Promise<BrainDecision> {
   const broker = await getBroker();
