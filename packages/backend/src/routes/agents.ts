@@ -849,11 +849,13 @@ const ACTIVITY_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   "swap",
 ]);
 
-// Per-agent feed (the bet page's insight panel) drops periodic system
-// actions like commit_nav — bettors care about strategy decisions, not
-// the every-tick NAV checkpoint pulse. The global feed keeps commit_nav
-// as a "pulse" signal that the platform is alive.
-const PER_AGENT_DROP_TYPES: ReadonlySet<string> = new Set([
+// Periodic system actions like commit_nav are dropped from BOTH the
+// per-agent and global feeds by default. They fire on every tick for
+// every agent (every ~30s × N agents), so at the landing-page default
+// of limit=8 they completely drown out the rarer strategy verbs
+// (lend_deposit, lst_stake, swap, create_market) that the feed exists
+// to surface. Pulse-only views can opt in via ?includeHeartbeats=1.
+const HEARTBEAT_TYPES: ReadonlySet<string> = new Set([
   "commit_nav",
 ]);
 
@@ -877,12 +879,15 @@ agents.get("/api/activity", async (c) => {
   // to surface "what is THIS agent thinking right now". Empty / missing
   // returns the global feed (default behaviour).
   const agentSnsFilter = c.req.query("agent")?.trim() || null;
+  // Heartbeats (commit_nav) are dropped by default for both global and
+  // per-agent feeds. Pass `?includeHeartbeats=1` to opt back in (for
+  // platform-pulse dashboards that explicitly want to count NAV ticks).
+  const includeHeartbeats =
+    c.req.query("includeHeartbeats") === "1" ||
+    c.req.query("includeHeartbeats") === "true";
 
-  // Use array literal for the type filter so postgres can index it well.
-  // For per-agent queries we drop the periodic system actions (commit_nav)
-  // so the bet page's insight panel only shows real strategy moves.
   const allowedTypes = Array.from(ACTIVITY_DISPLAY_TYPES).filter(
-    (t) => !agentSnsFilter || !PER_AGENT_DROP_TYPES.has(t),
+    (t) => includeHeartbeats || !HEARTBEAT_TYPES.has(t),
   );
   try {
     const params: unknown[] = [allowedTypes];
