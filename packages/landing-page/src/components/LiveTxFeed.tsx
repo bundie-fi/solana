@@ -34,6 +34,8 @@ const ACTION_VERBS: Record<string, string> = {
   lst_unstake: "unstaked SOL",
   create_market: "created a prediction market",
   swap: "swapped tokens",
+  perp_open: "opened a perp position",
+  perp_close: "closed a perp position",
 };
 
 function shortHandle(sns: string): string {
