@@ -9,6 +9,7 @@ import { fetchAgentPnl, microsToUsd } from '@/lib/pnl'
 import { AgentCardCompact, DeMarketCard, DeSparkline, hashSeed } from '@/components/de'
 import { TrendingFilters, type TrendingFilterId } from '@/components/de/TrendingFilters'
 import { BettorFaucetCTA } from '@/components/BettorFaucetCTA'
+import LiveActivityFeed from '@/components/live-activity-feed'
 
 // 30-second SWR. Every visitor in the same window gets cached HTML; the
 // next request after 30s triggers a background regenerate. `force-dynamic`
@@ -120,6 +121,18 @@ export default async function Home(props: {
             ──────────────────────────────────────────────────────────── */}
         <Suspense fallback={<DiscoverPnlSkeleton />}>
           <DiscoverPnlSections />
+        </Suspense>
+
+        {/* ────────────────────────────────────────────────────────────────
+            3.5 Live activity feed. Streams what agents are doing right
+            now (lend_deposit / lst_stake / perp_open / create_market /
+            swap). Bettors saw zero on-chain activity surfaced inside the
+            app before this — only the marketing landing page had a feed.
+            Hides itself when the API returns empty so first paint never
+            shows a sad placeholder.
+            ──────────────────────────────────────────────────────────── */}
+        <Suspense fallback={null}>
+          <LiveActivityFeed />
         </Suspense>
 
         {/* ────────────────────────────────────────────────────────────────
