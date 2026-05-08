@@ -233,6 +233,52 @@ section.hero .wrap { position: relative; z-index: 2; }
   pointer-events: none;
 }
 
+/* Curve draws on once at page load. pathLength="1" on the <path> means
+   we can express the full length as `1` regardless of the cubic's real
+   arclength, so the dasharray/offset stay readable. The fade comes from
+   the existing he-fade gradient so the line never has hard endpoints. */
+.hero-equity-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hero-equity-draw 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) 0.2s forwards;
+}
+@keyframes hero-equity-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Each waypoint fades in as the drawn line "passes" it. The delay is
+   set inline per-waypoint based on its x-position so the dots appear
+   left-to-right in time with the stroke. */
+.hero-equity-waypoint {
+  opacity: 0;
+  animation: hero-equity-waypoint-in 480ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+@keyframes hero-equity-waypoint-in {
+  from { opacity: 0; transform-box: fill-box; }
+  to   { opacity: 1; }
+}
+
+.hero-equity-note-animate {
+  opacity: 0;
+  animation: hero-equity-note-in 700ms ease-out 2.0s forwards;
+}
+@keyframes hero-equity-note-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-equity-line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .hero-equity-waypoint,
+  .hero-equity-note-animate {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Peak annotation. Tiny label sitting just above the curve's high
    point. The peak lives in the upper-right corner of the hero so the
    annotation reads as a margin note in clear space — out of the body

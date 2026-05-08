@@ -67,6 +67,8 @@ export default function Home() {
             </linearGradient>
           </defs>
           <path
+            className="hero-equity-line"
+            pathLength={1}
             d="M 0 440 C 200 430 360 410 520 380 C 660 354 780 320 900 270 C 1020 220 1120 160 1220 120 C 1270 102 1310 102 1360 124 C 1440 156 1520 200 1600 220"
             fill="none"
             stroke="url(#he-fade)"
@@ -93,6 +95,7 @@ export default function Home() {
               key={pt.name}
               transform={`translate(${pt.x}, ${pt.y})`}
               className="hero-equity-waypoint"
+              style={{ animationDelay: `${0.45 + (pt.x / 1600) * 2.0}s` }}
             >
               <circle cx="0" cy="0" r="3" fill="rgb(18,68,58)" fillOpacity="0.55" />
               <text
@@ -112,7 +115,11 @@ export default function Home() {
           {/* Peak tick — same point as the second waypoint from the
               right (Solend). Kept separate so the HTML annotation
               label sits on top of it. */}
-          <g transform="translate(1260, 105)">
+          <g
+            transform="translate(1260, 105)"
+            className="hero-equity-waypoint hero-equity-peak"
+            style={{ animationDelay: `${0.45 + (1260 / 1600) * 2.0}s` }}
+          >
             <line
               x1="0"
               y1="-14"
@@ -129,7 +136,10 @@ export default function Home() {
         {/* Margin note, sits just above the peak tick. Rendered as HTML
             instead of SVG text so the brand sans renders on the pixel
             grid. Tiny, like a trader's pencil annotation. */}
-        <span className="hero-equity-note" aria-hidden="true">
+        <span
+          className="hero-equity-note hero-equity-note-animate"
+          aria-hidden="true"
+        >
           <span className="hero-equity-note-num">+$1,247</span>
           <span className="hero-equity-note-meta">7d · kamino-stacker</span>
         </span>
