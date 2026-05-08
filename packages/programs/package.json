@@ -32,15 +32,15 @@
     "@kamino-finance/klend-sdk": "^7.3.22",
     "@marinade.finance/marinade-ts-sdk": "^5.0.18",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
-    "@mrgnlabs/marginfi-client-v2": "^2.12.0",
-    "@mrgnlabs/mrgn-common": "^2.0.7",
-    "@solendprotocol/solend-sdk": "^0.13.43",
     "@metaplex-foundation/umi": "^1.5.1",
     "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@mrgnlabs/marginfi-client-v2": "^2.12.0",
+    "@mrgnlabs/mrgn-common": "^2.0.7",
     "@openbook-dex/openbook-v2": "^0.2.10",
     "@solana/spl-stake-pool": "^1.1.8",
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.98",
+    "@solendprotocol/solend-sdk": "^0.13.43",
     "@types/chai": "^4",
     "@types/mocha": "^10",
     "@types/node": "^22",
@@ -54,10 +54,12 @@
     "typescript": "^5.5"
   },
   "dependencies": {
+    "@0glabs/0g-serving-broker": "^0.7.8",
     "@bonfida/spl-name-service": "^3.0.21",
     "@bundie/common": "workspace:*",
     "buffer-layout": "^1.2.2",
     "dotenv": "^16.4.7",
+    "ethers": "^6.16.0",
     "pg": "^8.20.0"
   }
 }
