@@ -232,29 +232,127 @@ export async function readSplStakePoolAboveBps(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Jupiter Perps SOL-PERP funding rate — selector 5
+// Jupiter Perps SOL-PERP borrow rate — selector 5
 //
-// Replaces the old Zeta selector — Zeta is dormant on mainnet (last
-// activity 3 days stale, recent txs erroring). Jupiter Perpetuals is
-// the active venue (sub-second tx cadence) and runs against the JLP
-// pool's per-asset Custody accounts.
+// Replaces the old Zeta selector. Jupiter Perpetuals runs the active
+// SOL perp venue against the JLP pool's per-asset Custody accounts.
 //
-// Reading the live funding rate requires decoding the Custody account
-// at a known PDA. Until that probe is wired, return a small static
-// positive value so the brain has SOME signal — better than 0bps which
-// makes the brain skip perps entirely. Annualised, mildly positive (a
-// historically common Jupiter Perps regime).
+// Reads the SOL Custody (`7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz`)
+// and computes the current borrow rate from the on-chain jump-rate
+// curve. Both `fundingRateState.hourlyFundingDbps` and
+// `borrowsFundingRateState.hourlyFundingDbps` have been zeroed since
+// Jupiter migrated to dynamic curve-driven rates — verified by direct
+// mainnet getAccountInfo on 2026-05-08 (lastUpdate matched the call
+// timestamp, both hourly fields = 0).
+//
+// Borsh-packed offsets in the Custody account, derived from the
+// julianfssen/jupiter-perps-anchor-idl-parsing IDL:
+//   8-byte anchor discriminator, then
+//   pool / mint / tokenAccount: 3 × Pubkey = 96  → ends at  104
+//   decimals u8                         = 1     → ends at  105
+//   isStable bool                       = 1     → ends at  106
+//   oracle (OracleParams)               = 45    → ends at  151
+//     oracleAccount Pubkey 32, oracleType u8 1, buffer u64 8, maxPriceAgeSec u32 4
+//   pricing (PricingParams) 6 × u64     = 48    → ends at  199
+//   permissions 7 × bool                = 7     → ends at  206
+//   targetRatioBps u64                  = 8     → ends at  214
+//   assets (Assets) 6 × u64             = 48    → ends at  262
+//     ★ assets.owned  at offset 214 + 8  = 222 (u64)
+//     ★ assets.locked at offset 214 + 16 = 230 (u64)
+//   fundingRateState (legacy, zeroed)   = 32    → ends at  294
+//   bump u8 + tokenAccountBump u8       = 2     → ends at  296
+//   increase/decrease/maxPosition 3×u64 = 24    → ends at  320
+//   dovesOracle Pubkey                  = 32    → ends at  352
+//   jumpRateState 4 × u64               = 32    → ends at  384
+//     ★ minRateBps              at 352 (u64, annualised bps)
+//     ★ maxRateBps              at 360 (u64)
+//     ★ targetRateBps           at 368 (u64)
+//     ★ targetUtilizationRate   at 376 (u64, 9-decimal scale; 0.8 = 800_000_000)
 // ─────────────────────────────────────────────────────────────────────────
 
 export const JUPITER_PERPS_PROGRAM_ID = new PublicKey(
   "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
 );
 
-export async function readJupSolPerpFundingBps(_conn: Connection): Promise<number> {
-  // TODO(probe:jup-perps): read SOL custody account on the JLP pool, decode
-  // funding accumulator, normalise to annualised bps. Static 30 bps for
-  // now so the brain considers Jupiter Perps as a venue.
-  return 30;
+export const JUP_PERPS_SOL_CUSTODY_MAINNET = new PublicKey(
+  "7xS2gz2bTp3fwCC7knJvUWTEU9Tycczu6VhJYKgi1wdz",
+);
+
+const CUSTODY_OFFSET_ASSETS_OWNED = 222;
+const CUSTODY_OFFSET_ASSETS_LOCKED = 230;
+const CUSTODY_OFFSET_JUMP_MIN_RATE_BPS = 352;
+const CUSTODY_OFFSET_JUMP_MAX_RATE_BPS = 360;
+const CUSTODY_OFFSET_JUMP_TARGET_RATE_BPS = 368;
+const CUSTODY_OFFSET_JUMP_TARGET_UTIL = 376;
+/** Min length we need to safely read all jumpRateState fields. */
+const CUSTODY_MIN_LEN = CUSTODY_OFFSET_JUMP_TARGET_UTIL + 8;
+/** targetUtilizationRate is stored in a 9-decimal fraction (1.0 = 1e9). */
+const JUMP_UTIL_SCALE = 1_000_000_000n;
+
+/**
+ * Read SOL-PERP annualised borrow rate (bps) from Jupiter's jump-rate
+ * curve on the SOL Custody account. Computed live from current pool
+ * utilization and the on-chain curve parameters — varies meaningfully
+ * across ticks, so the brain's input-hash dedup can stop pinning the
+ * agent to noop.
+ *
+ * Returns 0 (the safe "no signal" sentinel matching the other readers)
+ * on any RPC / parse failure.
+ */
+export async function readJupSolPerpFundingBps(conn: Connection): Promise<number> {
+  try {
+    const info = await conn.getAccountInfo(JUP_PERPS_SOL_CUSTODY_MAINNET, "confirmed");
+    if (!info) {
+      console.warn(
+        `[rate-surfaces] Jupiter Perps SOL custody returned no account info — RPC issue?`,
+      );
+      return 0;
+    }
+    if (info.data.length < CUSTODY_MIN_LEN) {
+      console.warn(
+        `[rate-surfaces] Jupiter Perps SOL custody data too short (${info.data.length}b < ${CUSTODY_MIN_LEN}b)`,
+      );
+      return 0;
+    }
+    const owned = info.data.readBigUInt64LE(CUSTODY_OFFSET_ASSETS_OWNED);
+    const locked = info.data.readBigUInt64LE(CUSTODY_OFFSET_ASSETS_LOCKED);
+    const minRate = info.data.readBigUInt64LE(CUSTODY_OFFSET_JUMP_MIN_RATE_BPS);
+    const maxRate = info.data.readBigUInt64LE(CUSTODY_OFFSET_JUMP_MAX_RATE_BPS);
+    const targetRate = info.data.readBigUInt64LE(CUSTODY_OFFSET_JUMP_TARGET_RATE_BPS);
+    const targetUtil = info.data.readBigUInt64LE(CUSTODY_OFFSET_JUMP_TARGET_UTIL);
+
+    // Empty pool → no meaningful rate. Returning min handles the cold-start
+    // case the same way Jupiter's own UI does.
+    if (owned === 0n) return Number(minRate);
+
+    // utilization in the same 9-decimal scale as targetUtilizationRate, so
+    // the comparisons stay in pure bigint.
+    const utilScaled = (locked * JUMP_UTIL_SCALE) / owned;
+
+    let rate: bigint;
+    if (utilScaled <= targetUtil) {
+      // Linear ramp from minRate → targetRate as utilization goes 0 → target.
+      // rate = min + (util / target) * (target - min)
+      if (targetUtil === 0n) {
+        rate = targetRate;
+      } else {
+        rate = minRate + ((targetRate - minRate) * utilScaled) / targetUtil;
+      }
+    } else {
+      // Steeper ramp from targetRate → maxRate as utilization goes
+      // target → 100%. rate = target + ((util - target) / (1 - target)) * (max - target)
+      const num = (maxRate - targetRate) * (utilScaled - targetUtil);
+      const denom = JUMP_UTIL_SCALE - targetUtil;
+      rate = denom === 0n ? maxRate : targetRate + num / denom;
+    }
+    if (rate > maxRate) rate = maxRate;
+    return Number(rate);
+  } catch (err) {
+    console.warn(
+      `[rate-surfaces] Jupiter Perps SOL custody read failed: ${(err as Error).message}`,
+    );
+    return 0;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
