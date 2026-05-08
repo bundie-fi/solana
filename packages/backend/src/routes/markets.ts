@@ -148,6 +148,27 @@ interface MarketRow {
   yes_volume: string;
   no_volume: string;
   total_volume: string;
+  resolution_slot: string | number | null;
+}
+
+/**
+ * Solana mainnet/devnet target slot time. Real cadence drifts (jitter, vote
+ * delays) but 400ms is the protocol target and the value Solana docs use for
+ * back-of-envelope calculations.
+ */
+const SLOT_MS = 400;
+
+/** Format a positive ms duration into a compact "Xd Yh", "Xh Ym", or "Xm Ys" string. */
+function fmtRemaining(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "ended";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d ${h % 24}h`;
 }
 
 markets.get("/", async (c) => {
@@ -168,7 +189,8 @@ markets.get("/", async (c) => {
               status,
               yes_volume::text  AS yes_volume,
               no_volume::text   AS no_volume,
-              total_volume::text AS total_volume
+              total_volume::text AS total_volume,
+              resolution_slot
          FROM markets
         ORDER BY created_at DESC
         LIMIT 200`,
@@ -176,6 +198,16 @@ markets.get("/", async (c) => {
     rows = r?.rows ?? [];
   } catch (err) {
     return c.json({ error: (err as Error).message }, 500);
+  }
+
+  // One RPC round-trip per request to read the current devnet slot. Used for
+  // every row's timeRemaining computation. Failure → fall back to "" so the
+  // endpoint stays up even if the RPC is flaky.
+  let currentSlot: number | null = null;
+  try {
+    currentSlot = await connection.getSlot("confirmed");
+  } catch {
+    currentSlot = null;
   }
 
   const summaries: PredictionMarket[] = rows.map((row) => {
@@ -193,6 +225,24 @@ markets.get("/", async (c) => {
     // 2^53 base units in practice; if they ever overflow the UI will still
     // render correctly to the rounded display precision.
     const totalVolume = Number(totalBaseUnits / 1_000_000n);
+
+    // timeRemaining: empty string when (a) the market has already resolved,
+    // (b) the RPC slot read failed, or (c) resolution_slot is missing from
+    // the mirror. Otherwise human-readable countdown to resolution.
+    let timeRemaining = "";
+    const resSlot =
+      row.resolution_slot != null ? Number(row.resolution_slot) : null;
+    if (
+      row.status === "open" &&
+      currentSlot !== null &&
+      resSlot !== null &&
+      resSlot > 0
+    ) {
+      const slotsRemaining = resSlot - currentSlot;
+      timeRemaining =
+        slotsRemaining > 0 ? fmtRemaining(slotsRemaining * SLOT_MS) : "ended";
+    }
+
     return {
       address: row.market_pda,
       strategy: "",
@@ -202,7 +252,7 @@ markets.get("/", async (c) => {
       noPrice,
       totalVolume,
       status: row.status,
-      timeRemaining: "",
+      timeRemaining,
     };
   });
 
