@@ -33,9 +33,12 @@ prepare-only). MCP and Skills repos follow the same evm/solana split.
 - SNS .sol name resolution for identity
 
 ## Commands
-- `pnpm dev` — Start all packages in dev mode
-- `pnpm --filter web dev` — Start web app only
-- `pnpm --filter backend dev` — Start backend only
+- `pnpm dev` — Start backend (3001), web (3000), landing (3002) together with prefixed logs; web waits on backend `/health` before starting
+- `pnpm dev:web` — Backend + web only (skips landing)
+- `pnpm dev:backend` — Backend only
+- `pnpm dev:landing` — Landing only
+- `pnpm --filter @bundie/web dev` — Start web app only (no orchestration)
+- `pnpm --filter @bundie/backend dev` — Start backend only (no orchestration)
 - `pnpm --filter @bundie/sol-cli build` — Build the agent CLI
 - `cd packages/programs && anchor build` — Build Solana programs
 - `cd packages/programs && anchor test` — Run program tests
