@@ -39,6 +39,9 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pendingAgents, setPendingAgents] = useState<AgentRowFull[]>([]);
+  // Captured from the load() pass and surfaced in the page header as
+  // the issue's "publish slot" — the editorial date stamp.
+  const [currentSlot, setCurrentSlot] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!publicKey || !connected) {
@@ -69,6 +72,7 @@ export default function PortfolioPage() {
           : Math.floor(Date.now() / 400); // rough fallback; only used for "active" gating
       setMarkets(allMkts);
       setSolBalance(lamports == null ? null : lamports / LAMPORTS_PER_SOL);
+      if (slotRes.status === "fulfilled") setCurrentSlot(slot);
 
       // Position discovery: previously fanned out 2 ATA reads per market
       // (134 RPC calls for 67 markets), which crushed rpcfast's per-key
@@ -173,118 +177,308 @@ export default function PortfolioPage() {
 
   if (!connected) {
     return (
-      <main style={{ background: "var(--bg-0)", minHeight: "100vh", padding: "0 16px 32px" }}>
-        <PageHeader />
-        <div className="card" style={{ padding: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <p className="muted" style={{ fontSize: 13, textAlign: "center" }}>
-            Connect your wallet to view your YES / NO positions.
-          </p>
-          <WalletMultiButton
-            style={{
-              background: "var(--purple-tint)",
-              border: "1px solid rgba(167,139,250,0.3)",
-              borderRadius: "8px",
-              color: "var(--purple)",
-              fontSize: "13px",
-              fontFamily: "var(--font-mono)",
-              height: "42px",
-              padding: "0 20px",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-            }}
-          />
+      <main className="po-page">
+        <div className="po-container">
+          <PortfolioHeader slot={null} address={null} />
+          <div className="po-connect-prompt">
+            <div className="po-card" style={{ maxWidth: 460 }}>
+              <div className="po-card-eyebrow">No wallet</div>
+              <p style={{ margin: "4px 0 16px", fontSize: 13.5, color: "var(--de-ink-2)", lineHeight: 1.55 }}>
+                Connect a Solana wallet to publish your portfolio. Bundie reads
+                balances directly from devnet — nothing leaves your device.
+              </p>
+              <WalletMultiButton
+                style={{
+                  background: "var(--de-lavender)",
+                  border: "1px solid var(--de-line-2)",
+                  borderRadius: "999px",
+                  color: "var(--de-bg)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  height: "40px",
+                  padding: "0 22px",
+                }}
+              />
+            </div>
+          </div>
         </div>
+        <PortfolioStyles />
       </main>
     );
   }
 
+  const isEmpty = !loading && positions.length === 0;
+
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh", padding: "0 16px 32px" }}>
-      <PageHeader />
+    <main className="po-page">
+      <div className="po-container">
+        <PortfolioHeader
+          slot={currentSlot}
+          address={publicKey?.toBase58() ?? null}
+        />
 
-      {/* Wallet summary */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(1, 1fr)", gap: 8, marginBottom: 24 }}>
-        <div className="card" style={{ padding: "10px 14px" }}>
-          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>Connected</div>
-          <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)", wordBreak: "break-all" }}>
-            {publicKey?.toBase58().slice(0, 8)}…{publicKey?.toBase58().slice(-4)}
+        <BalanceStrip
+          sol={solBalance}
+          openCount={open.length}
+          pendingCount={pending.length}
+          resolvedCount={resolved.length}
+          marketsScanned={markets.length}
+        />
+
+        {err && <div className="po-error">{err}</div>}
+
+        <div className="po-spread">
+          <div className="po-main">
+            {loading && positions.length === 0 && <LoadingSkeleton />}
+
+            {isEmpty ? (
+              <QuickstartChecklist
+                hasSol={(solBalance ?? 0) > 0}
+                hasBet={positions.length > 0}
+                hasAgent={pendingAgents.length > 0}
+              />
+            ) : (
+              <>
+                <PositionSection
+                  title="Open positions"
+                  tint="success"
+                  subtitle="Markets still accepting bets"
+                  positions={open}
+                />
+                <PositionSection
+                  title="Pending resolution"
+                  tint="amber"
+                  subtitle="Resolution slot reached, awaiting on-chain resolver"
+                  positions={pending}
+                />
+                <PositionSection
+                  title="Resolved"
+                  tint="purple"
+                  subtitle="Redeem winning shares below"
+                  positions={resolved}
+                />
+              </>
+            )}
           </div>
+
+          <aside className="po-aside">
+            <IdentityCard
+              address={publicKey?.toBase58() ?? null}
+              sol={solBalance}
+            />
+            <PendingAgentsSection agents={pendingAgents} />
+          </aside>
         </div>
-        <div className="card" style={{ padding: "10px 14px" }}>
-          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>SOL balance</div>
-          <div className="mono" style={{ fontSize: 20, fontWeight: 600, color: "var(--gold)" }}>
-            {solBalance == null ? "-" : `${solBalance.toFixed(4)} SOL`}
-          </div>
-        </div>
-        <div className="card" style={{ padding: "10px 14px" }}>
-          <div className="bd-eyebrow" style={{ fontSize: 9, marginBottom: 4 }}>Markets scanned</div>
-          <div className="mono" style={{ fontSize: 20, fontWeight: 600, color: "var(--fg-0)" }}>
-            {markets.length}
-          </div>
-        </div>
-      </section>
+      </div>
 
-      {err && (
-        <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--red-tint)", border: "1px solid rgba(239,68,68,0.24)", color: "var(--red-2)", fontSize: 11, marginBottom: 16 }}>
-          {err}
-        </div>
-      )}
-
-      <PendingAgentsSection agents={pendingAgents} />
-
-
-      {loading && positions.length === 0 && <LoadingSkeleton />}
-
-      {!loading && positions.length === 0 && (
-        <div className="card hairline" style={{ padding: 32, textAlign: "center" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--fg-0)", letterSpacing: "-0.015em", marginBottom: 6 }}>
-            No positions yet.
-          </div>
-          <div className="muted" style={{ fontSize: 12 }}>
-            Head over to{" "}
-            <Link href="/markets" style={{ color: "var(--gold)", textDecoration: "underline" }}>
-              /markets
-            </Link>{" "}
-            and pick a side.
-          </div>
-        </div>
-      )}
-
-      <PositionSection
-        title="Open positions"
-        tint="success"
-        subtitle="Markets still accepting bets"
-        positions={open}
-      />
-      <PositionSection
-        title="Pending resolution"
-        tint="amber"
-        subtitle="Resolution slot reached, awaiting on-chain resolver"
-        positions={pending}
-      />
-      <PositionSection
-        title="Resolved"
-        tint="purple"
-        subtitle="Redeem winning shares below"
-        positions={resolved}
-      />
+      <PortfolioStyles />
     </main>
   );
 }
 
-function PageHeader() {
+// ─── Editorial header ────────────────────────────────────────────────────
+// "Issue" feel: top eyebrow with a publish-slot stamp, then the headline,
+// then a short lede. Matches the discover page's left-aligned hierarchy.
+function PortfolioHeader({
+  slot,
+  address,
+}: {
+  slot: number | null;
+  address: string | null;
+}) {
+  const slotStr = slot != null ? slot.toLocaleString("en-US") : "—";
+  const truncated = address
+    ? `${address.slice(0, 4)}…${address.slice(-4)}`
+    : null;
   return (
-    <div style={{ padding: "20px 0 16px" }}>
-      <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Portfolio</div>
-      <div className="section-title">
-        My <em>bets.</em>
+    <header className="po-header">
+      <div className="po-eyebrow">
+        <span>Your portfolio</span>
+        <span className="po-eyebrow-sep">·</span>
+        <span>Devnet</span>
+        <span className="po-eyebrow-sep">·</span>
+        <span>Slot {slotStr}</span>
+        {truncated ? (
+          <>
+            <span className="po-eyebrow-sep">·</span>
+            <span className="po-mono">{truncated}</span>
+          </>
+        ) : null}
       </div>
-      <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
-        Every YES / NO bet you hold across Bundie prediction markets, plus
-        any agents you launched. Tap a position to sell back into the
-        LS-LMSR pool, or jump straight to the agent you bet on.
+      <h1 className="po-headline">
+        My <em>bets.</em>
+      </h1>
+    </header>
+  );
+}
+
+// ─── Balance strip ───────────────────────────────────────────────────────
+// Horizontal stat row mirroring the discover page's PlatformStatsStrip.
+// Replaces the previous vertical-stack of three small cards which left
+// the page empty on desktop.
+function BalanceStrip({
+  sol,
+  openCount,
+  pendingCount,
+  resolvedCount,
+  marketsScanned,
+}: {
+  sol: number | null;
+  openCount: number;
+  pendingCount: number;
+  resolvedCount: number;
+  marketsScanned: number;
+}) {
+  return (
+    <div className="po-stats">
+      <Stat label="SOL balance" value={sol == null ? "—" : sol.toFixed(4)} accent />
+      <Stat label="Open" value={String(openCount)} />
+      <Stat label="Pending" value={String(pendingCount)} />
+      <Stat label="Resolved" value={String(resolvedCount)} />
+      <Stat label="Markets scanned" value={String(marketsScanned)} />
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="po-stat">
+      <div className="po-stat-label">{label}</div>
+      <div className={`po-stat-value${accent ? " po-stat-value-accent" : ""}`}>
+        {value}
       </div>
     </div>
+  );
+}
+
+// ─── Identity card (right rail) ──────────────────────────────────────────
+function IdentityCard({
+  address,
+  sol,
+}: {
+  address: string | null;
+  sol: number | null;
+}) {
+  if (!address) return null;
+  return (
+    <div className="po-card">
+      <div className="po-card-eyebrow">Identity</div>
+      <div className="po-identity-row">
+        <span className="po-identity-label">Wallet</span>
+        <span className="po-identity-value po-mono">
+          {address.slice(0, 4)}…{address.slice(-4)}
+        </span>
+      </div>
+      <div className="po-identity-row">
+        <span className="po-identity-label">SOL</span>
+        <span className="po-identity-value">
+          {sol == null ? "—" : `${sol.toFixed(4)} SOL`}
+        </span>
+      </div>
+      <div className="po-identity-row">
+        <span className="po-identity-label">Cluster</span>
+        <span className="po-identity-value">Devnet</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Quickstart checklist (replaces "No positions yet") ──────────────────
+// Empty state becomes a guided onboarding. Each row is a CTA. Items
+// fade to ✓ as their underlying condition becomes true (sol funded,
+// first bet placed, agent launched).
+function QuickstartChecklist({
+  hasSol,
+  hasBet,
+  hasAgent,
+}: {
+  hasSol: boolean;
+  hasBet: boolean;
+  hasAgent: boolean;
+}) {
+  const steps: Array<{
+    label: string;
+    detail: string;
+    href: string;
+    cta: string;
+    done: boolean;
+  }> = [
+    {
+      label: "Claim 50 bUSD from the faucet",
+      detail: "One-time devnet test currency. You'll need it before placing a bet.",
+      href: "/",
+      cta: "Open faucet",
+      // The faucet claims SOL alongside bUSD; treat any SOL balance as
+      // "step done" since it's the most reliable proxy in client state.
+      done: hasSol,
+    },
+    {
+      label: "Place your first bet on a market",
+      detail: "Pick a side on any open prediction market. LS-LMSR pool, no spread.",
+      href: "/markets",
+      cta: "Browse markets",
+      done: hasBet,
+    },
+    {
+      label: "Launch your own strategy",
+      detail: "Mint a .bundie.sol identity for an agent that trades real Solana DeFi.",
+      href: "/strategists",
+      cta: "Start a strategy",
+      done: hasAgent,
+    },
+    {
+      label: "Watch settlement on-chain",
+      detail: "Once a market reaches its resolution slot, NAV decides the winner.",
+      href: "/feed",
+      cta: "Open the feed",
+      done: false,
+    },
+  ];
+  return (
+    <section className="po-quickstart" aria-label="Get started with Bundie">
+      <div className="po-section-head">
+        <div className="po-section-eyebrow">Get started</div>
+        <h2 className="po-section-title">
+          Four moves to <em>your first bet.</em>
+        </h2>
+        <p className="po-section-sub">
+          Your portfolio publishes its first issue once you place a bet. Until
+          then, here&apos;s what to do next.
+        </p>
+      </div>
+
+      <ol className="po-checklist">
+        {steps.map((s, i) => (
+          <li
+            key={s.label}
+            className={`po-checklist-row${s.done ? " po-checklist-row-done" : ""}`}
+          >
+            <span className="po-checklist-num">
+              {s.done ? "✓" : String(i + 1).padStart(2, "0")}
+            </span>
+            <div className="po-checklist-body">
+              <div className="po-checklist-label">{s.label}</div>
+              <div className="po-checklist-detail">{s.detail}</div>
+            </div>
+            {!s.done && (
+              <Link href={s.href} className="po-checklist-cta">
+                {s.cta} →
+              </Link>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -449,4 +643,284 @@ async function readSplBalance(
   } catch {
     return 0;
   }
+}
+
+// ─── Page-scoped styles ─────────────────────────────────────────────────
+// Inline <style> matches the discover page's pattern so the portfolio
+// route ships its own grid logic without leaking class names into other
+// routes. Editorial tokens (--de-*) are inherited from globals.
+function PortfolioStyles() {
+  return (
+    <style>{`
+      .po-page {
+        background: var(--de-bg);
+        min-height: 100vh;
+        padding-bottom: 96px;
+        color: var(--de-ink);
+      }
+      .po-container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 32px 24px 0;
+      }
+
+      /* ── Header ────────────────────────────────────────────────────── */
+      .po-header { padding-top: 8px; }
+      .po-eyebrow {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--de-ink-3);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .po-eyebrow-sep { color: var(--de-ink-5); font-weight: 400; }
+      .po-mono {
+        font-family: var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        text-transform: none;
+        letter-spacing: 0.04em;
+      }
+      .po-headline {
+        margin: 14px 0 0;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(40px, 6vw, 60px);
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+        color: var(--de-ink);
+      }
+      .po-headline em {
+        font-style: italic;
+        color: var(--de-lavender-2);
+        font-weight: 400;
+      }
+
+      /* ── Stats strip ───────────────────────────────────────────────── */
+      .po-stats {
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        background: var(--de-line);
+        border-top: 1px solid var(--de-line);
+        border-bottom: 1px solid var(--de-line);
+      }
+      @media (min-width: 720px) {
+        .po-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      }
+      .po-stat {
+        background: var(--de-bg);
+        padding: 18px 18px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .po-stat-label {
+        font-family: var(--font-sans);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--de-ink-4);
+      }
+      .po-stat-value {
+        font-family: var(--font-sans);
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+        color: var(--de-ink);
+        font-variant-numeric: tabular-nums;
+      }
+      .po-stat-value-accent { color: var(--de-mint, var(--de-lavender)); }
+
+      /* ── Error banner ─────────────────────────────────────────────── */
+      .po-error {
+        margin-top: 16px;
+        padding: 12px 16px;
+        border: 1px solid rgba(239, 68, 68, 0.32);
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.06);
+        color: rgb(252, 165, 165);
+        font-size: 12.5px;
+      }
+
+      /* ── Two-column spread ────────────────────────────────────────── */
+      .po-spread {
+        margin-top: 40px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      @media (min-width: 1024px) {
+        .po-spread {
+          grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+          gap: 40px;
+        }
+      }
+      .po-main { min-width: 0; }
+      .po-aside {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
+      }
+
+      /* ── Card (right rail) ────────────────────────────────────────── */
+      .po-card {
+        padding: 20px 22px;
+        border: 1px solid var(--de-line);
+        background: var(--de-bg-raised);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .po-card-eyebrow {
+        font-family: var(--font-sans);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--de-ink-4);
+        margin-bottom: 4px;
+      }
+      .po-identity-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--de-line);
+        gap: 12px;
+      }
+      .po-identity-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+      .po-identity-label {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--de-ink-4);
+      }
+      .po-identity-value {
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        color: var(--de-ink);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Disconnected prompt ──────────────────────────────────────── */
+      .po-connect-prompt {
+        margin-top: 56px;
+      }
+
+      /* ── Quickstart checklist (empty state) ───────────────────────── */
+      .po-quickstart {
+        padding: 4px 0 0;
+      }
+      .po-section-head { margin-bottom: 28px; }
+      .po-section-eyebrow {
+        font-family: var(--font-sans);
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--de-ink-4);
+      }
+      .po-section-title {
+        margin: 12px 0 0;
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(26px, 3.4vw, 36px);
+        letter-spacing: -0.015em;
+        line-height: 1.15;
+        color: var(--de-ink);
+      }
+      .po-section-title em {
+        font-style: italic;
+        color: var(--de-lavender-2);
+        font-weight: 400;
+      }
+      .po-section-sub {
+        margin: 12px 0 0;
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--de-ink-3);
+        max-width: 56ch;
+      }
+
+      .po-checklist {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border-top: 1px solid var(--de-line);
+      }
+      .po-checklist-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 18px;
+        padding: 22px 4px 22px 4px;
+        border-bottom: 1px solid var(--de-line);
+      }
+      .po-checklist-num {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 22px;
+        color: var(--de-ink-4);
+        font-variant-numeric: tabular-nums;
+        min-width: 36px;
+      }
+      .po-checklist-row-done .po-checklist-num {
+        font-style: normal;
+        color: var(--de-mint, var(--de-lavender));
+      }
+      .po-checklist-body { min-width: 0; }
+      .po-checklist-label {
+        font-family: var(--font-sans);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--de-ink);
+        letter-spacing: -0.005em;
+      }
+      .po-checklist-row-done .po-checklist-label {
+        color: var(--de-ink-3);
+        text-decoration: line-through;
+        text-decoration-color: var(--de-line-2);
+      }
+      .po-checklist-detail {
+        margin-top: 4px;
+        font-size: 12.5px;
+        color: var(--de-ink-3);
+        line-height: 1.5;
+      }
+      .po-checklist-cta {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--de-lavender-2);
+        text-decoration: none;
+        white-space: nowrap;
+        padding: 8px 14px;
+        border: 1px solid var(--de-line-2);
+        border-radius: 999px;
+        transition: border-color 200ms, color 200ms;
+      }
+      .po-checklist-cta:hover {
+        border-color: var(--de-lavender-2);
+        color: var(--de-ink);
+      }
+    `}</style>
+  );
 }

@@ -75,21 +75,21 @@ export function StrategyStep({ state, dispatch }: Props) {
           })
         }
         style={{
-          border: "1px solid var(--line-1)",
-          background: "var(--bg-1)",
-          borderRadius: 10,
-          padding: "10px 14px",
+          border: "1px solid var(--de-line-2)",
+          background: "var(--de-bg-raised)",
+          borderRadius: 2,
+          padding: "12px 16px",
         }}
       >
         <summary
-          className="mono"
           style={{
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.16em",
-            color: "var(--fg-3)",
+            color: "var(--de-ink-3)",
             cursor: "pointer",
             userSelect: "none",
+            fontFamily: "var(--font-sans)",
           }}
         >
           Edit raw brain.md (advanced)
@@ -99,8 +99,8 @@ export function StrategyStep({ state, dispatch }: Props) {
           style={{
             display: "flex",
             justifyContent: "flex-end",
-            marginTop: 10,
-            marginBottom: 6,
+            marginTop: 12,
+            marginBottom: 8,
           }}
         >
           <button
@@ -111,15 +111,17 @@ export function StrategyStep({ state, dispatch }: Props) {
                 value: BRAIN_MD_TEMPLATE,
               })
             }
-            className="mono-tiny"
             style={{
               fontSize: 10.5,
-              padding: "4px 10px",
-              border: "1px solid var(--line-1)",
-              background: "var(--bg-2)",
-              borderRadius: 6,
-              color: "var(--fg-2)",
+              padding: "6px 12px",
+              border: "1px solid var(--de-line-2)",
+              background: "transparent",
+              borderRadius: 0,
+              color: "var(--de-ink-2)",
               cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
             }}
           >
             Load template
@@ -127,6 +129,7 @@ export function StrategyStep({ state, dispatch }: Props) {
         </div>
 
         <textarea
+          className="de-textarea"
           value={strategy.customBrainMd}
           onChange={(e) =>
             dispatch({ type: "STRATEGY/SET_BRAIN", value: e.target.value })
@@ -134,19 +137,19 @@ export function StrategyStep({ state, dispatch }: Props) {
           placeholder={BRAIN_MD_TEMPLATE}
           rows={18}
           style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid var(--line-1)",
-            background: "var(--bg-2)",
-            borderRadius: 8,
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-            color: "var(--fg-0)",
-            resize: "vertical",
-            outline: "none",
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+            fontSize: 12.5,
           }}
         />
-        <div className="dim mono-tiny" style={{ marginTop: 6, fontSize: 10.5 }}>
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 11.5,
+            color: "var(--de-ink-4)",
+            lineHeight: 1.5,
+          }}
+        >
           Overrides the preset blurb. The wizard wraps your text with the
           allowlist + observed-state schema the daemon injects every tick;
           you only write the personality + decision rules.
@@ -169,18 +172,11 @@ function PresetCard({
     <button
       type="button"
       onClick={onSelect}
+      className={`de-card${active ? " is-active" : ""}`}
       style={{
-        textAlign: "left",
-        padding: 14,
-        background: active ? "var(--gold-tint)" : "var(--bg-1)",
-        border: "1px solid",
-        borderColor: active ? "var(--gold)" : "var(--line-1)",
-        borderRadius: 10,
-        cursor: "pointer",
-        transition: "border-color 160ms ease, background 160ms ease",
         display: "flex",
         flexDirection: "column",
-        gap: 4,
+        gap: 6,
       }}
     >
       <div
@@ -191,11 +187,11 @@ function PresetCard({
         }}
       >
         <div
-          className="mono"
           style={{
-            fontSize: 13,
-            color: active ? "var(--gold)" : "var(--fg-0)",
-            fontWeight: 600,
+            fontFamily: "var(--font-display)",
+            fontSize: 19,
+            color: "var(--de-ink)",
+            letterSpacing: "-0.005em",
           }}
         >
           {preset.label}
@@ -203,17 +199,23 @@ function PresetCard({
         <div
           aria-hidden
           style={{
-            width: 16,
-            height: 16,
+            width: 14,
+            height: 14,
             borderRadius: "50%",
-            border: "2px solid",
-            borderColor: active ? "var(--gold)" : "var(--line-2)",
-            background: active ? "var(--gold)" : "transparent",
+            border: "1px solid",
+            borderColor: active ? "var(--de-lavender)" : "var(--de-line-3)",
+            background: active ? "var(--de-lavender)" : "transparent",
             transition: "all 160ms ease",
           }}
         />
       </div>
-      <div className="muted" style={{ fontSize: 12, lineHeight: 1.4 }}>
+      <div
+        style={{
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: "var(--de-ink-3)",
+        }}
+      >
         {preset.blurb}
       </div>
     </button>

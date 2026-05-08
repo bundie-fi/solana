@@ -170,7 +170,7 @@ export const INITIAL_STATE: WizardState = {
   identity: {
     snsPrefix: "",
     displayName: "",
-    emoji: "🤖",
+    emoji: "❖",
     tagline: "",
     snsAvailable: null,
     snsChecking: false,

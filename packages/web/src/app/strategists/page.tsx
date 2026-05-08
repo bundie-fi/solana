@@ -137,8 +137,8 @@ function CreateAgentBody() {
 
   return (
     <main
+      className="strategists-dark"
       style={{
-        background: "var(--bg-0)",
         minHeight: "100vh",
         padding: "0 16px 32px",
         maxWidth: 720,
@@ -157,11 +157,16 @@ function CreateAgentBody() {
         <Link
           href="/"
           className="mono-tiny"
-          style={{ color: "var(--fg-3)", textDecoration: "none" }}
+          style={{ color: "var(--de-ink-3)", textDecoration: "none" }}
         >
           ← Home
         </Link>
-        <span className="bd-eyebrow">Launch a strategy</span>
+        <span
+          className="bd-eyebrow"
+          style={{ color: "var(--de-ink-3)" }}
+        >
+          Launch a strategy
+        </span>
       </div>
 
       {resumeSns && (
@@ -176,8 +181,15 @@ function CreateAgentBody() {
       {/* Step indicator */}
       <StepIndicator current={state.current} />
 
-      {/* Active step body */}
-      <section style={{ padding: "20px 0 24px" }}>
+      {/* Active step body — fixed min-height so the footer (Back / Next)
+          stays anchored regardless of which step is mounted. Steps that
+          overflow scroll inside the section instead of pushing the page. */}
+      <section
+        style={{
+          padding: "20px 0 24px",
+          minHeight: 640,
+        }}
+      >
         {state.current === "identity" && (
           <IdentityStep state={state} dispatch={dispatch} />
         )}
@@ -203,7 +215,7 @@ function CreateAgentBody() {
           justifyContent: "space-between",
           gap: 12,
           paddingTop: 16,
-          borderTop: "1px solid var(--line-1)",
+          borderTop: "1px solid var(--de-line)",
         }}
       >
         <button
@@ -214,7 +226,10 @@ function CreateAgentBody() {
         >
           ← Back
         </button>
-        <span className="dim mono-tiny" style={{ fontSize: 10.5 }}>
+        <span
+          className="mono-tiny"
+          style={{ fontSize: 10.5, color: "var(--de-ink-4)" }}
+        >
           {stepIdx + 1} / {STEP_ORDER.length}
         </span>
         {!isFinal && (
@@ -328,16 +343,15 @@ function StepIndicator({ current }: { current: WizardStepId }) {
               {...(active ? { "aria-current": "step" as const } : {})}
               style={{
                 flex: 1,
-                height: 4,
-                borderRadius: 2,
+                height: 2,
+                borderRadius: 0,
                 background: past
-                  ? "var(--gold)"
+                  ? "var(--de-lavender)"
                   : active
-                    ? "var(--gold-tint)"
-                    : "var(--bg-3)",
-                border: "1px solid",
-                borderColor: active ? "var(--gold)" : "transparent",
-                transition: "background 240ms ease, border-color 240ms ease",
+                    ? "var(--de-lavender)"
+                    : "var(--de-line-2)",
+                opacity: active ? 1 : past ? 0.7 : 1,
+                transition: "background 240ms ease, opacity 240ms ease",
               }}
               aria-label={STEP_LABELS[id]}
             />
@@ -354,18 +368,19 @@ function ghostBtnStyle({
   disabled?: boolean;
 }): React.CSSProperties {
   return {
-    height: 36,
-    padding: "0 14px",
+    height: 38,
+    padding: "0 16px",
     background: "transparent",
-    color: disabled ? "var(--fg-4)" : "var(--fg-2)",
-    border: "1px solid var(--line-1)",
-    borderRadius: 8,
-    fontFamily: "var(--font-mono)",
+    color: disabled ? "var(--de-ink-5)" : "var(--de-ink-2)",
+    border: "1px solid var(--de-line-2)",
+    borderRadius: 0,
+    fontFamily: "var(--font-sans)",
     fontSize: 11,
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.14em",
     cursor: disabled ? "not-allowed" : "pointer",
-    minWidth: 96,
+    minWidth: 104,
+    transition: "border-color 160ms ease, color 160ms ease",
   };
 }
 
@@ -375,20 +390,20 @@ function primaryBtnStyle({
   disabled?: boolean;
 }): React.CSSProperties {
   return {
-    height: 36,
-    padding: "0 16px",
-    background: disabled ? "var(--bg-3)" : "var(--gold)",
-    color: disabled ? "var(--fg-4)" : "#fff",
+    height: 38,
+    padding: "0 18px",
+    background: disabled ? "transparent" : "var(--de-lavender)",
+    color: disabled ? "var(--de-ink-5)" : "var(--de-bg)",
     border: "1px solid",
-    borderColor: disabled ? "var(--line-1)" : "var(--gold)",
-    borderRadius: 8,
-    fontFamily: "var(--font-mono)",
+    borderColor: disabled ? "var(--de-line-2)" : "var(--de-lavender)",
+    borderRadius: 0,
+    fontFamily: "var(--font-sans)",
     fontSize: 11,
     fontWeight: 600,
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.14em",
     cursor: disabled ? "not-allowed" : "pointer",
     transition: "background 160ms ease, color 160ms ease",
-    minWidth: 96,
+    minWidth: 104,
   };
 }
