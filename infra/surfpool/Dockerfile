@@ -54,11 +54,21 @@ ENTRYPOINT []
 # socat is launched in the background AFTER a wait-loop confirms surfpool's
 # RPC is accepting connections on loopback (avoids opening a listener that
 # would RST callers during the 10-30s upstream-fetch warmup).
+# Persistent surfnet state via SQLite. SURFPOOL_DB_PATH points into the
+# Railway volume mounted at /data — surfpool writes simnet account state
+# (custom token mints, SPL balances, agent positions, etc.) to this file
+# so deploys / restarts don't wipe the agents' deployed strategies.
+# Defaults to /data/surfnet.sqlite; override via env when the volume
+# mountPath is configured differently. Set to ":memory:" to opt out for
+# local dev runs.
+ENV SURFPOOL_DB_PATH=/data/surfnet.sqlite
 CMD ["sh", "-c", "set -e; \
+    mkdir -p \"$(dirname \"$SURFPOOL_DB_PATH\")\" 2>/dev/null || true; \
+    echo \"[entrypoint] surfpool db = $SURFPOOL_DB_PATH\"; \
     ( while ! curl -s -m 1 http://127.0.0.1:8899 -X POST -H content-type:application/json -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSlot\"}' >/dev/null 2>&1; do sleep 1; done; \
       echo '[entrypoint] surfpool RPC up — starting socat forwarders'; \
       echo '  RPC :18899 → 127.0.0.1:8899'; \
       echo '  WS  :18900 → 127.0.0.1:8900 (signature subscriptions)'; \
       socat TCP6-LISTEN:18900,reuseaddr,fork TCP:127.0.0.1:8900 & \
       exec socat TCP6-LISTEN:18899,reuseaddr,fork TCP:127.0.0.1:8899 ) & \
-    exec surfpool start --no-tui --no-studio --port 8899 --rpc-url \"$MAINNET_RPC_URL\""]
+    exec surfpool start --no-tui --no-studio --port 8899 --rpc-url \"$MAINNET_RPC_URL\" --db \"$SURFPOOL_DB_PATH\""]
