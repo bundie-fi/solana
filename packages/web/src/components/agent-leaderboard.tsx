@@ -61,20 +61,13 @@ interface AgentStats {
   resolvedCount: number;
 }
 
-// Mock NAV trend data — only used as a fallback when the server-fed
-// sparkline payload doesn't carry an entry for an agent (e.g. backend
-// 5xx during SSR). Real series come from `pnlSparklines` prop.
-const NAV_TRENDS: Record<string, number[]> = {
-  "alice.bundie": [100,102,98,103,108,105,112,118,115,120,123,127,124,128,131,127,130,135,132,138,135,140,138,142,144,141,148,145,150,127],
-  "bob.bundie":   [100,103,107,104,110,113,109,115,120,117,122,118,123,125,121,127,124,128,121,126,118,123,116,121,114,118,108,112,104,84],
-  "charlie.bundie":[100,99,101,100,103,102,104,103,101,99,102,100,98,99,97,95,98,96,99,97,94,96,93,95,91,93,89,91,88,57],
-};
-
-const ARCHETYPES: Record<string, string> = {
-  "alice.bundie":   "LST ROTATION",
-  "bob.bundie":     "BASIS TRADE",
-  "charlie.bundie": "CONSERVATIVE 60/40",
-};
+// (Previously this file shipped synthetic NAV_TRENDS + ARCHETYPES for
+// alice/bob/charlie that rendered live whenever the server-fed
+// `pnlSparklines` payload was missing an entry — e.g. backend 5xx, or
+// for agents the indexer hadn't seeded yet. That's a violation of the
+// honest-data principle: graceful degrade should hide missing data,
+// not synthesize it. Removed; archetype now uses agent.strategyHandle
+// directly, sparkline renders empty when no real series exists.)
 
 /**
  * Server-prefetched P&L payload, keyed by SNS. Each entry holds:
@@ -255,29 +248,24 @@ function AgentCard({
   pnl?: PnlSparklineEntry;
 }) {
   const agentKey = resolveAgentKey(agent.sns);
-  const archetype = ARCHETYPES[agent.sns] ?? agent.strategyHandle;
+  const archetype = agent.strategyHandle;
 
-  // Real NAV series sourced server-side. If the backend hasn't seeded
-  // a series for this agent yet, fall back to the mock data so the
-  // card doesn't render an empty slot while devnet is bootstrapping.
+  // Real NAV series sourced server-side. When the backend hasn't seeded
+  // a series for this agent yet (cold-start, indexer delay, 5xx),
+  // navTrend stays empty and the sparkline renders its own empty
+  // state. Synthetic-fallback series were removed — better to show no
+  // chart than to fabricate one.
   const realSeries = pnl?.series ?? [];
-  const navTrend = realSeries.length >= 2 ? realSeries : NAV_TRENDS[agent.sns] ?? [];
+  const navTrend = realSeries.length >= 2 ? realSeries : [];
   const usingRealPnl = realSeries.length >= 2;
 
-  // Headline number: always render as percent. Real path = bps from
-  // /api/agents/.../pnl, divided by 100. Synthetic fallback derives
-  // "% above baseline 100" from the mock NAV trend (already in percent
-  // units, no conversion). Prior versions rendered the synthetic value
-  // as "+8 bps" — wrong unit AND wrong scale, two cards on the same
-  // page disagreed on what the number meant. Single % surface now.
+  // Headline number: render as percent from /api/agents/.../pnl bps.
+  // When the real bps value is missing the card shows '—' upstream
+  // (returnPct is null below), which our row renderer treats as
+  // unavailable.
   const realBps = pnl?.return30dBps ?? null;
-  const returnPct =
-    realBps != null
-      ? realBps / 100
-      : navTrend.length > 0
-      ? navTrend[navTrend.length - 1] - 100
-      : 0;
-  const positive = returnPct >= 0;
+  const returnPct = realBps != null ? realBps / 100 : null;
+  const positive = (returnPct ?? 0) >= 0;
 
   return (
     <Link href={`/agent/${agent.sns}`} style={{ display: "block", textDecoration: "none" }}>
@@ -352,13 +340,23 @@ function AgentCard({
             </span>
             {loading && stats.sol === null ? (
               <div className="skeleton" style={{ height: 28, width: 80, borderRadius: 4 }} />
+            ) : returnPct === null ? (
+              <span
+                className="mono dim"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                —
+              </span>
             ) : (
               <span
                 className="mono"
                 style={{
                   fontSize: 22,
                   fontWeight: 600,
-                  // Brand: positive = predict purple (live accent), negative = red.
                   color: positive ? "var(--predict)" : "var(--de-rose)",
                   fontVariantNumeric: "tabular-nums",
                 }}
