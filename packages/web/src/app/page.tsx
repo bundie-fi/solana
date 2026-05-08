@@ -879,10 +879,14 @@ async function DiscoverMarketsSection({ filter }: { filter: TrendingFilterId }) 
   const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy))
   const trending = filterTrending(liveMarkets, filter)
 
-  // liveAgentCount here is computed off `liveMarkets` only — no PnL
-  // needed, so the headline copy can land with the grid.
+  // The section header reads "Open across N agents", so count agents from
+  // currently-open markets only — not the resolved-market historical set.
+  // Without the status filter the count ratchets up forever as markets
+  // resolve, so the headline ends up implying open activity that doesn't
+  // exist on devnet today.
+  const openMarkets = liveMarkets.filter((m) => m.status === 'active')
   const liveAgents = new Set<string>()
-  for (const m of liveMarkets) {
+  for (const m of openMarkets) {
     const aSns = agentDir[m.createdBy]?.sns
     if (aSns) liveAgents.add(aSns)
     const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined
