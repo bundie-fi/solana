@@ -374,7 +374,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
     (async () => {
       try {
         const url =
-          (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000") +
+          (process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi") +
           `/api/agents?ownerWallet=${encodeURIComponent(ownerAddr)}`;
         const r = await fetch(url, { cache: "no-store" });
         if (!r.ok) {

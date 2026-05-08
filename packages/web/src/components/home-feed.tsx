@@ -29,7 +29,7 @@ const POLL_MS = 15_000;
 const MAX_MARKETS = 30;
 
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
 
 /**
  * Minimal shape returned by `GET /api/agents`. Only the fields the home feed

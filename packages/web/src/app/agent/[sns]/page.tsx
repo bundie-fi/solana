@@ -206,7 +206,7 @@ export default async function AgentProfilePage(props: {
 
   // Surfpool / agent-action-log feed for the recent-trades sidebar card.
   const backendBase =
-    process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
   let surfpoolActions: SurfpoolAction[] = [];
   try {
     const res = await fetch(

@@ -20,7 +20,7 @@
 import { fmtReturnBps } from "@/lib/pnl";
 
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
 
 interface PlatformStats {
   agentsActive: number;
