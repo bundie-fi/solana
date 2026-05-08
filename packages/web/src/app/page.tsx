@@ -889,29 +889,31 @@ async function DiscoverMarketsSection({ filter }: { filter: TrendingFilterId }) 
     fetchAllMarkets(connection, { allowedCreators: undefined }),
   ])
 
-  const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy))
+  // Drop the registered-creator filter on the home discover grid the same
+  // way /markets did in PR #42 — bettors couldn't tell why the home showed
+  // 1 market and the dedicated catalog showed 34. Both surfaces now read
+  // off the full on-chain market set; legacy / deregistered-creator
+  // markets are still bettable so they belong in the discovery surface.
+  const liveMarkets = markets
   const trending = filterTrending(liveMarkets, filter)
 
-  // The section header reads "Open across N agents", so count agents from
-  // currently-open markets only — not the resolved-market historical set.
-  // Without the status filter the count ratchets up forever as markets
-  // resolve, so the headline ends up implying open activity that doesn't
-  // exist on devnet today.
-  const openMarkets = liveMarkets.filter((m) => m.status === 'active')
-  const liveAgents = new Set<string>()
-  for (const m of openMarkets) {
-    const aSns = agentDir[m.createdBy]?.sns
-    if (aSns) liveAgents.add(aSns)
-    const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined
-    if (bSns) liveAgents.add(bSns)
-  }
-  const liveAgentCount = liveAgents.size
+  // The headline previously read "Open across N agents" but counted
+  // {creator, target} pairs from a single head-to-head market, which
+  // surfaced as "Open across 2 agents" for what was really one market —
+  // confusing on a page that shows a 6-agent leaderboard right above.
+  // Use the actual open-market count instead. Direct, unambiguous,
+  // matches what the cards below render.
+  const openMarketCount = liveMarkets.filter((m) => m.status === 'active').length
 
   return (
     <section className="discover-section" data-tour="markets">
       <SectionHeader
         eyebrow="Markets"
-        title={`Open across ${liveAgentCount} ${liveAgentCount === 1 ? 'agent' : 'agents'}`}
+        title={
+          openMarketCount === 0
+            ? 'No open markets right now'
+            : `${openMarketCount} open ${openMarketCount === 1 ? 'market' : 'markets'}`
+        }
         italicAccent={null}
       />
       <div style={{ marginTop: 20 }}>
