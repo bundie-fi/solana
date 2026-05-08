@@ -58,22 +58,22 @@ export async function MarketsView({
   ];
 
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+    <main style={{ background: "var(--de-bg)", minHeight: "100vh" }}>
       {/* Mobile-style header strip (visible on all sizes when no desktop TopNav) */}
       <div className="sm:hidden top-header" style={{}}>
         <span
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 22,
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
             letterSpacing: "-0.03em",
           }}
         >
-          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--gold)" }}>ie</em>
+          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--de-lavender)" }}>ie</em>
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className="pulse-dot" />
-          <span className="mono-tiny" style={{ color: "var(--green-2)", letterSpacing: "0.16em", fontSize: 10 }}>
+          <span className="mono-tiny" style={{ color: "var(--de-mint)", letterSpacing: "0.16em", fontSize: 10 }}>
             LIVE
           </span>
         </span>
@@ -82,7 +82,7 @@ export async function MarketsView({
       <div className="scroll-area" style={{ overflowY: "auto" }}>
         {/* Platform stats strip — credibility numbers above the fold so a
             first-time visitor sees scale + activity before the market list. */}
-        <div style={{ borderBottom: "1px solid var(--line-1)", padding: "12px 16px" }}>
+        <div style={{ borderBottom: "1px solid var(--de-line)", padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <PlatformStatsStrip />
             <SeekerBadge />
@@ -90,7 +90,7 @@ export async function MarketsView({
         </div>
 
         {/* Hero section — "what is this surface" in one line */}
-        <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
+        <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--de-line)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
             {markets.length} markets · ◎ {totalVolumeBusd.toFixed(1)} bUSD volume
           </div>
@@ -176,7 +176,7 @@ function MarketsList({
             style={{
               fontFamily: "var(--font-display)",
               fontSize: 22,
-              color: "var(--fg-0)",
+              color: "var(--de-ink)",
               letterSpacing: "-0.015em",
               marginBottom: 8,
             }}
@@ -185,7 +185,7 @@ function MarketsList({
           </div>
           <div className="muted" style={{ fontSize: 12.5 }}>
             {sub}{" "}
-            <Link href="/agents" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+            <Link href="/agents" style={{ color: "var(--de-lavender)", textDecoration: "underline" }}>
               See live strategies →
             </Link>
           </div>

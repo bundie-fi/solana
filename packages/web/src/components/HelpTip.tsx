@@ -33,9 +33,9 @@ export function HelpTip({
               width: 14,
               height: 14,
               borderRadius: 999,
-              border: "1px solid var(--line-2)",
+              border: "1px solid var(--de-line-2)",
               background: "transparent",
-              color: "var(--fg-4)",
+              color: "var(--de-ink-4)",
               fontSize: 9,
               fontWeight: 700,
               lineHeight: 1,
@@ -55,9 +55,9 @@ export function HelpTip({
               maxWidth: 280,
               padding: "8px 12px",
               borderRadius: "var(--r-3)",
-              border: "1px solid var(--line-1)",
-              background: "var(--bg-1)",
-              color: "var(--fg-1)",
+              border: "1px solid var(--de-line)",
+              background: "var(--de-bg-raised)",
+              color: "var(--de-ink)",
               fontSize: 12,
               lineHeight: 1.55,
               boxShadow: "0 12px 32px rgba(22,22,24,0.18)",
@@ -65,7 +65,7 @@ export function HelpTip({
           >
             {children}
             <TooltipPrimitive.Arrow
-              style={{ fill: "var(--bg-1)" }}
+              style={{ fill: "var(--de-bg-raised)" }}
               width={10}
               height={5}
             />

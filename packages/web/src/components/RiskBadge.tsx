@@ -8,8 +8,8 @@ export type RiskLevel = "low" | "medium" | "high";
 const STYLES: Record<RiskLevel, { label: string; fg: string; bg: string }> = {
   low: {
     label: "Low risk",
-    fg: "var(--green-2)",
-    bg: "var(--green-tint)",
+    fg: "var(--de-mint)",
+    bg: "var(--de-mint-tint)",
   },
   medium: {
     label: "Medium risk",
@@ -18,8 +18,8 @@ const STYLES: Record<RiskLevel, { label: string; fg: string; bg: string }> = {
   },
   high: {
     label: "High risk",
-    fg: "var(--red-2)",
-    bg: "var(--red-tint)",
+    fg: "var(--de-rose)",
+    bg: "var(--de-rose-tint)",
   },
 };
 

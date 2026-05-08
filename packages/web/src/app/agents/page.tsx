@@ -45,7 +45,7 @@ export default async function AgentsPage() {
   return (
     <main
       style={{
-        background: "var(--bg-0)",
+        background: "var(--de-bg)",
         minHeight: "100vh",
         maxWidth: 1100,
         margin: "0 auto",
@@ -59,11 +59,11 @@ export default async function AgentsPage() {
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 22,
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
             letterSpacing: "-0.03em",
           }}
         >
-          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--gold)" }}>ie</em>
+          Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--de-lavender)" }}>ie</em>
         </span>
       </div>
 
@@ -92,7 +92,7 @@ export default async function AgentsPage() {
       <div
         style={{
           padding: "32px 16px 48px",
-          borderTop: "1px solid var(--line-1)",
+          borderTop: "1px solid var(--de-line)",
           textAlign: "center",
         }}
       >
@@ -103,7 +103,7 @@ export default async function AgentsPage() {
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 22,
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
             letterSpacing: "-0.015em",
             marginBottom: 8,
           }}
@@ -123,7 +123,7 @@ export default async function AgentsPage() {
             height: 38,
             padding: "0 16px",
             borderRadius: 8,
-            background: "var(--gold)",
+            background: "var(--de-lavender)",
             color: "#fff",
             fontFamily: "var(--font-mono)",
             fontSize: 11,
@@ -131,7 +131,7 @@ export default async function AgentsPage() {
             letterSpacing: "0.14em",
             textTransform: "uppercase",
             textDecoration: "none",
-            border: "1px solid var(--gold)",
+            border: "1px solid var(--de-lavender)",
           }}
         >
           Launch a strategy →

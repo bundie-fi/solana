@@ -108,16 +108,16 @@ export async function PlatformStatsStrip() {
   const growthLabel = growth == null ? "—" : fmtReturnBps(growth);
   const growthColor =
     growth == null
-      ? "var(--fg-3)"
+      ? "var(--de-ink-3)"
       : growth >= 0
         ? "var(--pos)"
-        : "var(--red-2)";
+        : "var(--de-rose)";
 
   return (
     <div
       style={{
         padding: "14px 16px",
-        borderBottom: "1px solid var(--line-1)",
+        borderBottom: "1px solid var(--de-line)",
       }}
     >
       <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
@@ -160,7 +160,7 @@ export async function PlatformStatsStrip() {
             display: "flex",
             justifyContent: "flex-end",
             fontSize: 10,
-            color: "var(--fg-3)",
+            color: "var(--de-ink-3)",
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.06em",
           }}
@@ -203,7 +203,7 @@ function StatTile({
         style={{
           fontSize: 16,
           fontWeight: 600,
-          color: color ?? "var(--fg-0)",
+          color: color ?? "var(--de-ink)",
           fontVariantNumeric: "tabular-nums",
           lineHeight: 1.15,
           overflow: "hidden",

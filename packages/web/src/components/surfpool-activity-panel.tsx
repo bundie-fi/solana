@@ -140,7 +140,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
   const overflowRows = actions.slice(VISIBLE_ROWS);
 
   return (
-    <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-1)" }}>
+    <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--de-line)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <span className="pulse-dot amber" />
         <div className="bd-eyebrow">Recent activity</div>
@@ -158,10 +158,10 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
           className="card inset"
           style={{ padding: "16px", textAlign: "center" }}
         >
-          <p style={{ fontSize: 12, margin: 0, color: "var(--fg-2)" }}>
+          <p style={{ fontSize: 12, margin: 0, color: "var(--de-ink-2)" }}>
             No activity yet.
           </p>
-          <p className="mono-tiny" style={{ marginTop: 4, color: "var(--fg-3)" }}>
+          <p className="mono-tiny" style={{ marginTop: 4, color: "var(--de-ink-3)" }}>
             Your agent will start trading shortly.
           </p>
         </div>
@@ -181,7 +181,7 @@ export function SurfpoolActivityPanel({ actions }: SurfpoolActivityPanelProps) {
                 style={{
                   cursor: "pointer",
                   fontSize: 11,
-                  color: "var(--fg-3)",
+                  color: "var(--de-ink-3)",
                   padding: "8px 0",
                   textAlign: "center",
                   listStyle: "none",
@@ -272,14 +272,14 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                     </span>
                     <span
                       className="mono"
-                      style={{ fontSize: 12, color: "var(--fg-0)", fontWeight: 600 }}
+                      style={{ fontSize: 12, color: "var(--de-ink)", fontWeight: 600 }}
                     >
                       {actionLabel(a.actionType)}
                     </span>
                     {amount && (
                       <span
                         className="mono"
-                        style={{ fontSize: 12, color: "var(--gold)" }}
+                        style={{ fontSize: 12, color: "var(--de-lavender)" }}
                       >
                         {amount}
                       </span>
@@ -287,7 +287,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                     {a.protocol === "marinade" && a.actionType === "lst_stake" && (
                       <span
                         className="mono"
-                        style={{ fontSize: 11, color: "var(--fg-3)" }}
+                        style={{ fontSize: 11, color: "var(--de-ink-3)" }}
                       >
                         → mSOL
                       </span>
@@ -295,7 +295,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                     {meta.market && (
                       <span
                         className="mono"
-                        style={{ fontSize: 11, color: "var(--fg-2)", fontWeight: 600 }}
+                        style={{ fontSize: 11, color: "var(--de-ink-2)", fontWeight: 600 }}
                       >
                         {meta.market}
                       </span>
@@ -311,7 +311,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                     {meta.notional && (
                       <span
                         className="mono"
-                        style={{ fontSize: 11, color: "var(--fg-3)" }}
+                        style={{ fontSize: 11, color: "var(--de-ink-3)" }}
                       >
                         ${meta.notional} notional
                       </span>
@@ -321,10 +321,10 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                       style={{
                         fontSize: 8,
                         padding: "2px 6px",
-                        background: placeholder ? "var(--bg-3)" : "var(--green-tint)",
-                        color: placeholder ? "var(--fg-3)" : "var(--green-2)",
+                        background: placeholder ? "var(--bg-3)" : "var(--de-mint-tint)",
+                        color: placeholder ? "var(--de-ink-3)" : "var(--de-mint)",
                         border: placeholder
-                          ? "1px solid var(--line-1)"
+                          ? "1px solid var(--de-line)"
                           : "1px solid rgba(44,139,121,0.32)",
                       }}
                       title={
@@ -342,7 +342,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                       style={{
                         fontSize: 10,
                         marginTop: 3,
-                        color: "var(--fg-3)",
+                        color: "var(--de-ink-3)",
                         lineHeight: 1.35,
                       }}
                       title={`Destination token account: ${meta.destination}`}
@@ -356,7 +356,7 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                         fontSize: 10.5,
                         marginTop: 2,
                         lineHeight: 1.35,
-                        color: "var(--fg-3)",
+                        color: "var(--de-ink-3)",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -370,14 +370,14 @@ function ActivityRow({ action: a }: { action: SurfpoolAction }) {
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div
                     className="mono"
-                    style={{ fontSize: 10, color: "var(--fg-2)" }}
+                    style={{ fontSize: 10, color: "var(--de-ink-2)" }}
                     title={a.txSig}
                   >
                     {truncateSig(a.txSig)}
                   </div>
                   <div
                     className="mono-tiny"
-                    style={{ marginTop: 2, fontSize: 9, color: "var(--fg-3)" }}
+                    style={{ marginTop: 2, fontSize: 9, color: "var(--de-ink-3)" }}
                   >
                     slot {a.slot.toLocaleString()} · {formatRelative(a.createdAt)}
                   </div>

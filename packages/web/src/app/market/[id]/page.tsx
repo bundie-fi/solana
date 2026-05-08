@@ -22,11 +22,7 @@ import {
 } from "@/lib/markets";
 import { fetchAgentDirectory } from "@/lib/registry";
 import { PROGRAM_IDS } from "@/lib/constants";
-import {
-  resolveSns,
-  truncatePubkey,
-  HERO_AGENTS,
-} from "@/lib/sns-resolver";
+import { resolveSns, truncatePubkey } from "@/lib/sns-resolver";
 import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
 import { AgentInsight } from "@/components/agent-insight";
 import { checkAgentQualityGate } from "@/lib/quality-gate";
@@ -42,29 +38,27 @@ import {
 
 interface AgentLabel {
   name: string;
-  emoji: string;
   sns: string | null;
 }
 
+// Avatars in the dark editorial system come from monogram tiles
+// derived from the SNS handle, never emoji. The emoji field that
+// previously rode along with this shape was dead weight in this
+// surface — `SnsName` and `AgentCardCompact` derive their own
+// monogram from `sns`.
 function labelFor(
   pubkey: string,
   dir: Awaited<ReturnType<typeof fetchAgentDirectory>>,
 ): AgentLabel {
   const fromDir = dir[pubkey];
   if (fromDir) {
-    return {
-      name: fromDir.displayName,
-      emoji: fromDir.emoji ?? "🤖",
-      sns: fromDir.sns,
-    };
+    return { name: fromDir.displayName, sns: fromDir.sns };
   }
   const legacy = resolveSns(pubkey);
   if (legacy?.devnetName) {
-    const emoji =
-      HERO_AGENTS.find((a) => a.vault === pubkey)?.emoji ?? "🤖";
-    return { name: legacy.devnetName, emoji, sns: legacy.devnetName };
+    return { name: legacy.devnetName, sns: legacy.devnetName };
   }
-  return { name: truncatePubkey(pubkey), emoji: "🤖", sns: null };
+  return { name: truncatePubkey(pubkey), sns: null };
 }
 
 /** Convert a slot delta into a friendly "in ~5h" / "in ~2d" string,

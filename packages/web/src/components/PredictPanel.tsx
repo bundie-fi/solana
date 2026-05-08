@@ -269,7 +269,7 @@ export function PredictPanel({
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-predict-purple underline underline-offset-2 hover:text-purple-300 transition-colors"
-          style={{ color: "var(--gold)", display: "inline-block" }}
+          style={{ color: "var(--de-lavender)", display: "inline-block" }}
         >
           View on Solana Explorer →
         </a>

@@ -160,7 +160,7 @@ export function CapitalStep({ state, dispatch }: Props) {
               style={{
                 fontSize: 28,
                 fontWeight: 600,
-                color: fundsOk ? "var(--gold)" : "var(--fg-2)",
+                color: fundsOk ? "var(--de-lavender)" : "var(--de-ink-2)",
               }}
             >
               {capital.busdBalance == null
@@ -200,7 +200,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                   style={{
                     fontSize: 12,
                     fontWeight: 600,
-                    color: "var(--fg-0)",
+                    color: "var(--de-ink)",
                   }}
                 >
                   Get $50 bUSD
@@ -241,7 +241,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             {capital.faucetClaiming && (
               <div
                 className="mono-tiny"
-                style={{ fontSize: 10.5, color: "var(--fg-3)" }}
+                style={{ fontSize: 10.5, color: "var(--de-ink-3)" }}
               >
                 Waiting for the mint tx to confirm on devnet (~5-15s). Don't
                 close this tab.
@@ -250,7 +250,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             {fundsOk && (
               <div
                 className="mono-tiny"
-                style={{ fontSize: 10.5, color: "var(--green-2)" }}
+                style={{ fontSize: 10.5, color: "var(--de-mint)" }}
               >
                 ✓ ${balance.toFixed(2)} bUSD detected. Deposit signs a single
                 tx forwarding $50 into the agent vault on the next step.
@@ -270,7 +270,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             {capital.faucetError && (
               <div
                 className="mono-tiny"
-                style={{ color: "var(--red-2)", fontSize: 10.5 }}
+                style={{ color: "var(--de-rose)", fontSize: 10.5 }}
               >
                 {capital.faucetError}
               </div>
@@ -302,10 +302,10 @@ export function CapitalStep({ state, dispatch }: Props) {
                   marginTop: 6,
                   fontSize: 11,
                   padding: "8px 12px",
-                  border: "1px solid var(--gold)",
-                  background: "var(--gold-tint)",
+                  border: "1px solid var(--de-lavender)",
+                  background: "var(--de-lavender-tint)",
                   borderRadius: 8,
-                  color: "var(--fg-0)",
+                  color: "var(--de-ink)",
                   cursor: "pointer",
                   fontWeight: 600,
                 }}
@@ -326,7 +326,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                 fontSize: 11,
                 textTransform: "uppercase",
                 letterSpacing: "0.16em",
-                color: "var(--fg-3)",
+                color: "var(--de-ink-3)",
               }}
             >
               Approve & seed
@@ -351,10 +351,10 @@ function primaryBtnStyle({
   return {
     height: 36,
     padding: "0 14px",
-    background: disabled ? "var(--bg-3)" : "var(--gold)",
-    color: disabled ? "var(--fg-4)" : "#fff",
+    background: disabled ? "var(--bg-3)" : "var(--de-lavender)",
+    color: disabled ? "var(--de-ink-4)" : "#fff",
     border: "1px solid",
-    borderColor: disabled ? "var(--line-1)" : "var(--gold)",
+    borderColor: disabled ? "var(--de-line)" : "var(--de-lavender)",
     borderRadius: 8,
     fontFamily: "var(--font-mono)",
     fontSize: 11,

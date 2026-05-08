@@ -742,7 +742,7 @@ export default async function Home(props: {
           padding: 14px 22px;
           border-radius: 8px;
           background: var(--de-lavender);
-          color: #0B0F1C;
+          color: var(--de-bg-raised);
           font-family: var(--font-sans);
           font-size: 14px;
           font-weight: 700;

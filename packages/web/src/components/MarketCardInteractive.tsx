@@ -109,9 +109,9 @@ export function MarketCardInteractive({
         <div
           className="mt-3 inline-flex items-center gap-2 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
           style={{
-            background: "var(--gold-tint)",
-            color: "var(--gold)",
-            border: "1px solid var(--gold)",
+            background: "var(--de-lavender-tint)",
+            color: "var(--de-lavender)",
+            border: "1px solid var(--de-lavender)",
           }}
         >
           Track record building · {qualityGate.daysOfHistory}/

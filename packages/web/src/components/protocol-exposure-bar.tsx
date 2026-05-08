@@ -68,7 +68,7 @@ export function ProtocolExposureBar({
           height: 22,
           borderRadius: 999,
           overflow: "hidden",
-          border: "1px solid var(--line-1)",
+          border: "1px solid var(--de-line)",
           background: "var(--bg-3)",
         }}
       >
@@ -125,7 +125,7 @@ export function ProtocolExposureBar({
               />
               <span
                 style={{
-                  color: "var(--fg-2)",
+                  color: "var(--de-ink-2)",
                   textTransform: "uppercase",
                   letterSpacing: "0.12em",
                   fontSize: 10.5,
@@ -134,7 +134,7 @@ export function ProtocolExposureBar({
                 {s.label}
               </span>
               <span
-                style={{ color: "var(--fg-1)", marginLeft: "auto" }}
+                style={{ color: "var(--de-ink)", marginLeft: "auto" }}
               >
                 {pct.toFixed(1)}%
               </span>

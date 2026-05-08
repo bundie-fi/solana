@@ -17,7 +17,19 @@
  * sign here , a throwaway Keypair is sufficient and the provider is used
  * only for its `connection`.
  */
-import { cache } from "react";
+// React.cache exists at runtime in react@18.3+ for server components
+// but isn't declared in @types/react@18.3. Wrap the dynamic require
+// with the canonical signature so callers keep their typed return
+// values (otherwise `cache(fetchAllMarketsRaw)` collapses to `any`).
+import * as ReactRuntime from "react";
+const cache = (
+  ReactRuntime as unknown as {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cache: <CachedFunction extends (...args: any[]) => any>(
+      fn: CachedFunction,
+    ) => CachedFunction;
+  }
+).cache;
 import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 import type { Wallet as AnchorWallet } from "@coral-xyz/anchor/dist/cjs/provider";
 import { predictionMarketIdl } from "@bundie/common";

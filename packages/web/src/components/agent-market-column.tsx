@@ -34,7 +34,7 @@ export function AgentMarketColumn({
         <h2 className="font-serif text-h1 text-neutral-0 leading-tight">
           <em>{title}</em>
         </h2>
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[color:var(--fg-3)] mt-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[color:var(--de-ink-3)] mt-1">
           {subtitle}
         </p>
       </div>

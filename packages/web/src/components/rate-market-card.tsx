@@ -55,7 +55,7 @@ export function RateMarketCard({
     : 50;
   const noPct = 100 - yesPct;
 
-  const accent = "var(--gold)";
+  const accent = "var(--de-lavender)";
   // Markets are bUSD-collateralized (mint 42LaRiwv…). The variable name
   // is historical — every label rendered to users says bUSD now.
   const volumeBusd = (market.totalVolume / 1e6).toFixed(2);
@@ -118,7 +118,7 @@ export function RateMarketCard({
             style={{
               fontFamily: "var(--font-display)",
               fontSize: 17,
-              color: "var(--fg-0)",
+              color: "var(--de-ink)",
               letterSpacing: "-0.015em",
               lineHeight: 1.25,
               marginBottom: 6,
@@ -155,7 +155,7 @@ export function RateMarketCard({
             <>
               <span>·</span>
               <span>on</span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--fg-1)" }}>
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--de-ink)" }}>
                 {targetA.emoji ?? "🤖"} {targetA.name}
                 {targetB ? ` vs ${targetB.emoji ?? "🤖"} ${targetB.name}` : ""}
               </span>
