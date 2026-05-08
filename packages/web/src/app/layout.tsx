@@ -66,7 +66,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0A0E1F",
+  // Cream paper, matches --de-bg. Drives the iOS Safari address bar
+  // tint and the Android system bar so the chrome blends with the
+  // light editorial body.
+  themeColor: "#F4F1EA",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
