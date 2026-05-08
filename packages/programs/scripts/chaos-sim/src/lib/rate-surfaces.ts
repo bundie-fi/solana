@@ -175,7 +175,22 @@ export async function readSplStakePoolAboveBps(
 ): Promise<number> {
   try {
     const info = await conn.getAccountInfo(pool, "confirmed");
-    if (!info || info.data.length < SPL_STAKE_POOL_MIN_LEN) return 0;
+    if (!info) {
+      // Surface the empty-account case — usually means the RPC is rate-
+      // limited or the wrong pool address is configured. Without this
+      // log, the reader silently returns 0 and looks like the pool is
+      // pinned to par (it isn't).
+      console.warn(
+        `[rate-surfaces] SPL stake pool ${pool.toBase58().slice(0, 12)}… returned no account info — RPC issue or wrong address?`,
+      );
+      return 0;
+    }
+    if (info.data.length < SPL_STAKE_POOL_MIN_LEN) {
+      console.warn(
+        `[rate-surfaces] SPL stake pool ${pool.toBase58().slice(0, 12)}… data too short (${info.data.length}b < ${SPL_STAKE_POOL_MIN_LEN}b)`,
+      );
+      return 0;
+    }
     const totalLamports = info.data.readBigUInt64LE(SPL_STAKE_POOL_TOTAL_LAMPORTS_OFFSET);
     const tokenSupply = info.data.readBigUInt64LE(SPL_STAKE_POOL_TOKEN_SUPPLY_OFFSET);
     if (tokenSupply === 0n) return 0;
@@ -185,7 +200,10 @@ export async function readSplStakePoolAboveBps(
     if (lamperToken <= one) return 0;
     const bps = ((lamperToken - one) * 10000n) / one;
     return Number(bps > 5000n ? 5000n : bps);
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[rate-surfaces] SPL stake pool read failed: ${(err as Error).message}`,
+    );
     return 0;
   }
 }
