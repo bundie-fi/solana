@@ -715,7 +715,11 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-around;
   padding: 10px 8px 8px;
-  background: rgba(10,14,31,0.82);
+  /* Editorial cream — was rgba(10,14,31,0.82) (dark navy from the
+     deprecated palette), which clashed with the light page bg and made
+     the bottom-nav-item ink-3 dark text unreadable on a dark slab.
+     Match .top-header so both chrome strips read as the same paper. */
+  background: rgba(244,241,234,0.92);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-top: 1px solid var(--de-line);
@@ -832,4 +836,47 @@ button { font-family: inherit; }
   body {
     padding-bottom: 72px; /* height of bottom nav */
   }
+}
+
+/* ── Wallet-adapter overrides ─────────────────────────────────────────────
+   @solana/wallet-adapter-react-ui/styles.css ships a stock dark-purple
+   theme (#512da8) that ignores our editorial cream palette. The inline
+   `style` prop on <WalletMultiButton> targets the wrapper, but the
+   underlying <button class="wallet-adapter-button-trigger"> keeps the
+   ship-default purple unless we override the classes directly.
+   ─────────────────────────────────────────────────────────────────────── */
+.wallet-adapter-button,
+.wallet-adapter-button-trigger {
+  background: var(--de-lavender) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+}
+.wallet-adapter-button:not([disabled]):hover,
+.wallet-adapter-button-trigger:not([disabled]):hover {
+  background: var(--de-lavender) !important;
+  filter: brightness(0.96);
+}
+.wallet-adapter-button[disabled] {
+  background: var(--de-bg-2) !important;
+  color: var(--de-ink-3) !important;
+}
+/* Wallet-selection modal — used when "Connect Wallet" opens the picker.
+   Defaults to a dark-overlay panel; recolour to match editorial paper. */
+.wallet-adapter-modal-wrapper {
+  background: var(--de-bg) !important;
+  color: var(--de-ink) !important;
+}
+.wallet-adapter-modal-title {
+  color: var(--de-ink) !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: var(--de-bg-raised) !important;
+  color: var(--de-ink) !important;
+  border: 1px solid var(--de-line) !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: var(--de-bg-2) !important;
 }
