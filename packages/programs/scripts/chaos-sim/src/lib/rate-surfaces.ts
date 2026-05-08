@@ -75,7 +75,11 @@ export async function readMarinadeMsolAboveBps(conn: Connection): Promise<number
     const one = 1n << MSOL_PRICE_SCALE_BITS;
     if (raw <= one) return 0;
     const bps = ((raw - one) * 10000n) / one;
-    return Number(bps > 5000n ? 5000n : bps);
+    // Cap at 100% premium as a sanity bound. mSOL has been compounding
+    // since 2021 and currently sits ~3800bps (~38%) above par — verified
+    // against api2.marinade.finance/metrics_json. A 5000bps cap would
+    // bind today; keep room for the next decade of yield accrual.
+    return Number(bps > 10000n ? 10000n : bps);
   } catch {
     return 0;
   }
@@ -151,13 +155,29 @@ export async function readMarginfiUsdcUtilizationBps(
 //   [258..266] total_lamports: u64 LE   ★
 //   [266..274] pool_token_supply: u64 LE ★
 //
-// BlazeStake mainnet pool: stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov84HpwHA
-// Jito mainnet pool:       Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Poqu
-// (verify with probe:spl-stake or `solana account <addr>` on mainnet)
+// Mainnet pool addresses — VERIFIED via getAccountInfo against
+// api.mainnet-beta.solana.com (both return data with owner =
+// SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy):
+//   BlazeStake: stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov8HFDuMi
+//               source: stake-docs.solblaze.org/developers/addresses
+//   Jito:       Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb
+//               source: igneous-labs/S test-utils/src/consts.rs
+// (Earlier values stk9ApL5...HpwHA / Jito4APy...Poqu were copy-paste
+//  errors that didn't exist on mainnet — splStakePoolAboveBps had
+//  been silently returning 0 for the entire daemon's lifetime.)
+//
+// SOL/pool-token premium is CUMULATIVE since pool launch (compounding
+// rewards), not annualised — a 4-year-old pool will sit ~3000–4000bps
+// above par, not 200–800bps. The brain reads this premium relative to
+// other LSTs to decide which to stake into.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const BLAZE_STAKE_POOL_MAINNET = new PublicKey(
-  "stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov84HpwHA",
+  "stk9ApL5HeVAwPLr3TLhDXdZS8ptVu7zp6ov8HFDuMi",
+);
+
+export const JITO_STAKE_POOL_MAINNET = new PublicKey(
+  "Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb",
 );
 
 const SPL_STAKE_POOL_TOTAL_LAMPORTS_OFFSET = 258;
@@ -167,7 +187,8 @@ const SPL_STAKE_POOL_MIN_LEN = SPL_STAKE_POOL_TOKEN_SUPPLY_OFFSET + 8;
 /**
  * Read the exchange rate of an SPL stake pool (lamports per pool token)
  * and return how many bps above 1.0 SOL per token the pool is.
- * A healthy stake pool will be 200-800bps above par (~2-8% accumulated yield).
+ * The premium is CUMULATIVE — a healthy pool that's been running for
+ * years will sit several thousand bps above par.
  */
 export async function readSplStakePoolAboveBps(
   conn: Connection,
@@ -199,7 +220,9 @@ export async function readSplStakePoolAboveBps(
     const one = 1_000_000_000n; // 1 SOL in lamports
     if (lamperToken <= one) return 0;
     const bps = ((lamperToken - one) * 10000n) / one;
-    return Number(bps > 5000n ? 5000n : bps);
+    // Cap at 100% premium. Cumulative yield since pool launch — a
+    // multi-year-old pool can sit several thousand bps above par.
+    return Number(bps > 10000n ? 10000n : bps);
   } catch (err) {
     console.warn(
       `[rate-surfaces] SPL stake pool read failed: ${(err as Error).message}`,
