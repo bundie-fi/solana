@@ -215,6 +215,71 @@ section.hero {
 }
 section.hero .wrap { position: relative; z-index: 2; }
 
+/* Ghost equity curve. Lives in a fixed-height band at the top of the
+   hero, like a faint "ticker strip" of trading activity above the
+   headline. Anchoring to a fixed pixel height (not a percentage of
+   the hero) keeps the curve and its peak annotation in clear space
+   regardless of how much copy or content sits below in the hero.
+   The parent SVG no longer carries a blanket `opacity` so the
+   protocol waypoint labels can render at a readable contrast; the
+   curve's faintness comes from `stroke-opacity` on the path itself. */
+.hero-equity-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 320px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Peak annotation. Tiny label sitting just above the curve's high
+   point. The peak lives in the upper-right corner of the hero so the
+   annotation reads as a margin note in clear space — out of the body
+   subline's path. The percentages here must match the SVG's tick at
+   translate(1260, 105) on a 1600×500 viewBox; both stretch in lockstep
+   with `preserveAspectRatio="none"`. */
+.hero-equity-note {
+  position: absolute;
+  /* 105/500 of the 320px ticker band, minus 38px so the label sits
+     above the peak tick. That lands the annotation near the top of
+     the hero, in the empty area between the nav and the headline. */
+  top: calc(105 / 500 * 320px - 38px);
+  left: calc(1260 / 1600 * 100%);
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  transform: translateX(-50%);
+  font-family: var(--font-sans);
+  text-align: left;
+  white-space: nowrap;
+}
+.hero-equity-note-num {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--amber-3);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+.hero-equity-note-meta {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  opacity: 0.55;
+}
+@media (max-width: 720px) {
+  /* On narrow screens the curve compresses and the annotation sits on
+     top of body copy; hide it. The curve itself stays. */
+  .hero-equity-note { display: none; }
+  .hero-equity-ghost { opacity: 0.05; }
+}
+
 .hero-badge {
   display: inline-flex;
   align-items: center;
@@ -1285,6 +1350,181 @@ footer .row-2 {
   justify-content: center;
 }
 
+/* ---------- Market preview · newspaper leaderboard -------------------- */
+/* All paper, no slab. Hairline rules between rows, big serif percent on
+   the right. A blurred-and-faded "Recent activity" tail underneath says
+   "this is a peek, the app has more" without ever showing a screenshot. */
+.mkt-a {
+  position: relative;
+  margin: 56px auto 0;
+  max-width: 720px;
+  padding: 24px 28px 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: left;
+  overflow: hidden;
+}
+.mkt-a-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.mkt-a-question {
+  margin: 12px 0 18px;
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.mkt-a-question em {
+  font-style: italic;
+  color: var(--amber-3);
+}
+.mkt-a-table {
+  border-top: 1px solid var(--line-2);
+}
+.mkt-a-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+.mkt-a-side {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+.mkt-a-side-yes {
+  color: var(--amber-3);
+  background: var(--amber-tint);
+  border: 1px solid var(--amber-ring);
+}
+.mkt-a-side-no {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+}
+.mkt-a-name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.mkt-a-pct {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mkt-a-pct-dim {
+  color: var(--ink-3);
+}
+.mkt-a-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.mkt-dot {
+  color: var(--ink-5);
+}
+
+/* ── Recent-activity tail ─────────────────────────────────────────────── */
+/* A peek-of-more-content underneath the leaderboard. Real-shaped trade
+   ledger rows that progressively blur and fade to transparent at the
+   bottom edge — implies "this is one slice; the app has the full
+   ledger" without ever pasting in a screenshot. Compressed to two
+   rows + a tight bottom fade so the whole tail occupies < ~80px. */
+.mkt-a-tail {
+  position: relative;
+  margin-top: 14px;
+  padding: 12px 0 28px;
+  border-top: 1px solid var(--line-2);
+  /* Static blur on the whole region. Combined with the mask-image
+     fade below, this reads as out-of-focus background content. */
+  filter: blur(1.4px);
+  /* Fade aggressively — the tail's job is to suggest more content,
+     not to take real estate from the leaderboard above. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.2) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.2) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  user-select: none;
+}
+.mkt-a-tail-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 8px;
+}
+.mkt-a-tail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.mkt-a-tail-row {
+  display: grid;
+  grid-template-columns: 56px 80px 1fr auto;
+  align-items: center;
+  gap: 14px;
+}
+.mkt-a-tail-side {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-align: center;
+}
+.mkt-a-tail-side-buy {
+  color: var(--amber-3);
+  background: var(--amber-tint);
+  border: 1px solid var(--amber-ring);
+}
+.mkt-a-tail-side-sell {
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+}
+.mkt-a-tail-when {
+  color: var(--ink-4);
+  font-size: 11.5px;
+}
+
 /* ---------- Market preview card --------------------------------------- */
 .market-preview-card {
   margin: 40px auto 0;
@@ -2094,19 +2334,33 @@ h1.hero .hero-line-2 {
 /* Feature visuals , shared card chrome */
 .features-visual { width: 100%; }
 
-/* Cross-fade between tabs. The component keys both columns on activeId
-   so React unmounts/remounts them on tab change, which retriggers the
-   keyframe. Slightly longer entry (320ms) than exit (handled by unmount)
-   so the new content lands deliberately. */
+/* Tab change → fade up. The component keys both columns on activeId so
+   React unmounts/remounts them on tab change, which retriggers the
+   keyframe. The visual lags the copy by 80ms so they don't land in
+   lockstep — copy reads first, then the data card resolves underneath
+   it. Easing is the standard "ease-out-expo" cousin: fast start, slow
+   tail, content settles deliberately rather than bouncing. */
 .features-fade {
-  animation: features-cross-fade 320ms cubic-bezier(0.25, 0.4, 0.25, 1) both;
+  animation: features-rise 460ms cubic-bezier(0.16, 0.84, 0.32, 1) both;
 }
-@keyframes features-cross-fade {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+.features-visual.features-fade {
+  animation-delay: 80ms;
+}
+@keyframes features-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .features-fade { animation: none; }
+  .features-fade,
+  .features-visual.features-fade {
+    animation: none;
+  }
 }
 .vis-card {
   border: 1px solid var(--line);

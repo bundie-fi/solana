@@ -43,6 +43,97 @@ export default function Home() {
       {/* === HERO === */}
       <section className="hero">
         <div className="ambient" />
+
+        {/* Ghost equity curve. Single hand-tuned bezier path running
+            across the hero behind the headline, ~6% opacity in the
+            brand teal. Visually argues the headline copy: agents
+            trade, this is the trace of one trading. Static, no
+            animation — confidence over motion. The fade-at-edges
+            gradient makes it read as continuing offscreen rather than
+            as a finished chart. */}
+        <svg
+          className="hero-equity-ghost"
+          aria-hidden="true"
+          viewBox="0 0 1600 500"
+          preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="he-fade" x1="0%" x2="100%" y1="0%" y2="0%">
+              <stop offset="0%" stopColor="rgb(18,68,58)" stopOpacity="0" />
+              <stop offset="14%" stopColor="rgb(18,68,58)" stopOpacity="1" />
+              <stop offset="86%" stopColor="rgb(18,68,58)" stopOpacity="1" />
+              <stop offset="100%" stopColor="rgb(18,68,58)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 0 440 C 200 430 360 410 520 380 C 660 354 780 320 900 270 C 1020 220 1120 160 1220 120 C 1270 102 1310 102 1360 124 C 1440 156 1520 200 1600 220"
+            fill="none"
+            stroke="url(#he-fade)"
+            strokeOpacity="0.22"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Protocol waypoints. Each is a small dot on the curve plus
+              a label above it, naming the protocol an agent routes
+              through at that point. Turns the ghost line into a trade
+              path: this is the trace of capital moving through Solana
+              DeFi. Y-values are computed exactly on the cubic above
+              via getPointAtLength — eyeballed values drift by 5–10
+              units near the peak and end of the path. */}
+          {[
+            { x: 240, y: 421.4, name: "Marinade" },
+            { x: 540, y: 376.2, name: "Kamino" },
+            { x: 880, y: 278.2, name: "Jito" },
+            { x: 1140, y: 155.5, name: "Solend" },
+            { x: 1500, y: 185.1, name: "Jupiter" },
+          ].map((pt) => (
+            <g
+              key={pt.name}
+              transform={`translate(${pt.x}, ${pt.y})`}
+              className="hero-equity-waypoint"
+            >
+              <circle cx="0" cy="0" r="3" fill="rgb(18,68,58)" fillOpacity="0.55" />
+              <text
+                x="0"
+                y="-12"
+                textAnchor="middle"
+                fontFamily="var(--font-serif), 'Instrument Serif', Georgia, serif"
+                fontSize="13"
+                fontStyle="italic"
+                fill="rgb(18,68,58)"
+                fillOpacity="0.6"
+              >
+                {pt.name}
+              </text>
+            </g>
+          ))}
+          {/* Peak tick — same point as the second waypoint from the
+              right (Solend). Kept separate so the HTML annotation
+              label sits on top of it. */}
+          <g transform="translate(1260, 105)">
+            <line
+              x1="0"
+              y1="-14"
+              x2="0"
+              y2="0"
+              stroke="rgb(18,68,58)"
+              strokeOpacity="0.55"
+              strokeWidth="1"
+            />
+            <circle cx="0" cy="0" r="2.5" fill="rgb(18,68,58)" fillOpacity="0.7" />
+          </g>
+        </svg>
+
+        {/* Margin note, sits just above the peak tick. Rendered as HTML
+            instead of SVG text so the brand sans renders on the pixel
+            grid. Tiny, like a trader's pencil annotation. */}
+        <span className="hero-equity-note" aria-hidden="true">
+          <span className="hero-equity-note-num">+$1,247</span>
+          <span className="hero-equity-note-meta">7d · kamino-stacker</span>
+        </span>
+
         <div className="wrap">
           {/* Status pill , matches Aqua0 cadence: tiny pill above the
               huge headline, signals "this is live right now" before the
@@ -82,54 +173,11 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Market preview — stacked outcome rows (Polymarket pattern):
-              each outcome is a full-width row with label + bar + probability.
-              Asymmetric fills make the leading side obvious at a glance. */}
-          <div className="market-preview-card">
-            <div className="market-preview-eyebrow">
-              Live market · example
-            </div>
-            <div className="market-preview-question">
-              Will{' '}
-              <span className="market-preview-agent">kamino-stacker</span>{' '}
-              outperform{' '}
-              <span className="market-preview-agent">funding-shorter</span>{' '}
-              by Friday?
-            </div>
-            <div className="market-preview-outcomes">
-              <div className="mpo-row yes">
-                <div className="mpo-head">
-                  <div className="mpo-left">
-                    <span className="mpo-badge yes">YES</span>
-                    <span className="mpo-name">kamino-stacker wins</span>
-                  </div>
-                  <span className="mpo-pct yes">62%</span>
-                </div>
-                <div className="mpo-track">
-                  <div className="mpo-fill yes" style={{ width: '62%' }} />
-                </div>
-              </div>
-              <div className="mpo-row no">
-                <div className="mpo-head">
-                  <div className="mpo-left">
-                    <span className="mpo-badge no">NO</span>
-                    <span className="mpo-name">funding-shorter wins</span>
-                  </div>
-                  <span className="mpo-pct no">38%</span>
-                </div>
-                <div className="mpo-track">
-                  <div className="mpo-fill no" style={{ width: '38%' }} />
-                </div>
-              </div>
-            </div>
-            <div className="market-preview-footer">
-              <span>256 bUSD vol</span>
-              <span className="mpf-dot">·</span>
-              <span>Resolves Fri 9 May</span>
-              <span className="mpf-dot">·</span>
-              <span>No oracle</span>
-            </div>
-          </div>
+          {/* Market preview — newspaper-leaderboard layout with a
+              blurred + faded "recent activity" tail underneath. The
+              tail signals "there's more in the app" without ever
+              looking like a screenshot. */}
+          <MarketPreview />
         </div>
       </section>
 
@@ -234,15 +282,26 @@ export default function Home() {
       {/* === INSIDE BUNDIE (tabbed features) === */}
       <MotionSection id="inside-bundie" className="content">
         <div className="wrap">
-          <div className="section-head" style={{ marginBottom: 40 }}>
-            <span className="eyebrow">Inside Bundie</span>
-            <h2 className="section" style={{ marginTop: 16 }}>
-              Two primitives.
-              <em> One closed loop.</em>
-            </h2>
-          </div>
+          {/* Eyebrow + headline cascade up sequentially when the section
+              scrolls into view, on top of the wrapper section's own
+              fade-up. The user specifically called out the "Two
+              primitives. One closed loop." headline — staggering the
+              two spans makes the rise readable rather than monolithic. */}
+          <StaggerChildren className="section-head">
+            <StaggerItem>
+              <span className="eyebrow">Inside Bundie</span>
+            </StaggerItem>
+            <StaggerItem>
+              <h2 className="section" style={{ marginTop: 16 }}>
+                Two primitives.
+                <em> One closed loop.</em>
+              </h2>
+            </StaggerItem>
+          </StaggerChildren>
 
-          <FeaturesSwitcher />
+          <div style={{ marginTop: 40 }}>
+            <FeaturesSwitcher />
+          </div>
         </div>
       </MotionSection>
 
@@ -281,12 +340,13 @@ export default function Home() {
           <StaggerChildren className="validation-grid">
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/marinade.png"
                   alt="Marinade"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Marinade · Liquid staking</h3>
@@ -297,12 +357,13 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/kamino.png"
                   alt="Kamino"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Kamino · Lending</h3>
@@ -313,7 +374,7 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image src="/protocols/jito.png" alt="Jito" width={28} height={28} unoptimized />
+                <img src="/protocols/jito.png" alt="Jito" width={28} height={28} loading="eager" decoding="async" />
               </div>
               <h3 className="validation-title">Jito · MEV-aware staking</h3>
               <p className="validation-body">
@@ -323,12 +384,13 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/solend.png"
                   alt="Solend"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Solend · Permissionless lending</h3>
@@ -339,12 +401,13 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/jupiter.png"
                   alt="Jupiter"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Jupiter · Aggregated swaps</h3>
@@ -355,12 +418,13 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <Image
+                <img
                   src="/protocols/jupiter-perps.png"
                   alt="Jupiter Perps"
                   width={28}
                   height={28}
-                  unoptimized
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h3 className="validation-title">Jupiter Perpetuals · Leverage</h3>
@@ -487,5 +551,72 @@ export default function Home() {
         </div>
       </footer>
     </>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Market preview (newspaper leaderboard, with a blurred-fade tail)
+   ────────────────────────────────────────────────────────────────────── */
+
+const RECENT_TRADES = [
+  { side: 'BUY', size: '50 YES', price: '0.62 → 0.63', when: '2m ago' },
+  { side: 'SELL', size: '30 YES', price: '0.62 → 0.61', when: '4m ago' },
+]
+
+function MarketPreview() {
+  return (
+    <article className="mkt-a">
+      <div className="mkt-a-eyebrow">Live market · example</div>
+      <h3 className="mkt-a-question">
+        Will <em>kamino-stacker</em> outperform <em>funding-shorter</em> by
+        Friday?
+      </h3>
+      <div className="mkt-a-table">
+        <div className="mkt-a-row">
+          <span className="mkt-a-side mkt-a-side-yes">YES</span>
+          <span className="mkt-a-name">kamino-stacker wins</span>
+          <span className="mkt-a-pct">62%</span>
+        </div>
+        <div className="mkt-a-row">
+          <span className="mkt-a-side mkt-a-side-no">NO</span>
+          <span className="mkt-a-name">funding-shorter wins</span>
+          <span className="mkt-a-pct mkt-a-pct-dim">38%</span>
+        </div>
+      </div>
+      <div className="mkt-a-footer">
+        <span>256 bUSD vol</span>
+        <span className="mkt-dot">·</span>
+        <span>Resolves Fri 9 May</span>
+        <span className="mkt-dot">·</span>
+        <span>No oracle</span>
+      </div>
+
+      {/* Tail — recent activity peek. Visually blurs and fades to
+          transparent at the bottom of the card so it reads as
+          "there's more in the app, here is a glimpse". The content
+          itself is real-shaped (trade ledger rows) so even the
+          out-of-focus version reads as something believable. */}
+      <div className="mkt-a-tail" aria-hidden="true">
+        <div className="mkt-a-tail-eyebrow">Recent activity</div>
+        <div className="mkt-a-tail-rows">
+          {RECENT_TRADES.map((t, i) => (
+            <div key={i} className="mkt-a-tail-row">
+              <span
+                className={`mkt-a-tail-side ${
+                  t.side === 'BUY'
+                    ? 'mkt-a-tail-side-buy'
+                    : 'mkt-a-tail-side-sell'
+                }`}
+              >
+                {t.side}
+              </span>
+              <span className="mkt-a-tail-size">{t.size}</span>
+              <span className="mkt-a-tail-price">{t.price}</span>
+              <span className="mkt-a-tail-when">{t.when}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
   )
 }
