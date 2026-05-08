@@ -202,7 +202,7 @@ export function AgentLeaderboard({
         style={{
           padding: "32px 16px",
           textAlign: "center",
-          border: "1px dashed var(--line-2)",
+          border: "1px dashed var(--de-line-2)",
           borderRadius: 12,
         }}
       >
@@ -210,7 +210,7 @@ export function AgentLeaderboard({
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 18,
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
             letterSpacing: "-0.015em",
             marginBottom: 6,
           }}
@@ -306,8 +306,8 @@ function AgentCard({
                 width: 52,
                 height: 52,
                 borderRadius: "50%",
-                background: "var(--bg-2)",
-                border: "1px solid var(--line-2)",
+                background: "var(--de-bg-2)",
+                border: "1px solid var(--de-line-2)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -359,7 +359,7 @@ function AgentCard({
                   fontSize: 22,
                   fontWeight: 600,
                   // Brand: positive = predict purple (live accent), negative = red.
-                  color: positive ? "var(--predict)" : "var(--red-2)",
+                  color: positive ? "var(--predict)" : "var(--de-rose)",
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
@@ -373,7 +373,7 @@ function AgentCard({
               // Brand: positive returns render in the spec'd gold
               // (#d4a853). The local `--gold` token maps to a green
               // shade in this theme; we want the literal P&L gold.
-              color={positive ? "var(--pos)" : "var(--red-2)"}
+              color={positive ? "var(--pos)" : "var(--de-rose)"}
               width={96}
               height={32}
             />
@@ -385,7 +385,7 @@ function AgentCard({
           style={{
             display: "flex",
             justifyContent: "space-between",
-            borderTop: "1px solid var(--line-1)",
+            borderTop: "1px solid var(--de-line)",
             paddingTop: 12,
           }}
         >
@@ -433,7 +433,7 @@ function StatItem({ label, value, accent }: { label: string; value: string; acce
         style={{
           fontSize: 14,
           fontWeight: 600,
-          color: accent === "purple" ? "var(--purple)" : "var(--fg-0)",
+          color: accent === "purple" ? "var(--de-lavender)" : "var(--de-ink)",
         }}
       >
         {value}
@@ -444,7 +444,7 @@ function StatItem({ label, value, accent }: { label: string; value: string; acce
 
 function NavSparkline({
   data,
-  color = "var(--gold)",
+  color = "var(--de-lavender)",
   width = 96,
   height = 32,
 }: {
@@ -470,7 +470,7 @@ function NavSparkline({
         y1={height / 2}
         x2={width}
         y2={height / 2}
-        stroke="var(--line-2)"
+        stroke="var(--de-line-2)"
         strokeDasharray="2 3"
         strokeWidth=".5"
       />

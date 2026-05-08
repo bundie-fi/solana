@@ -285,7 +285,7 @@ export function MarketBuyPanel({
           <span
             style={{
               color:
-                market.outcome === "yes" ? "var(--green-2)" : "var(--red-2)",
+                market.outcome === "yes" ? "var(--de-mint)" : "var(--de-rose)",
               fontWeight: 600,
               fontFamily: "var(--font-mono)",
             }}
@@ -299,7 +299,7 @@ export function MarketBuyPanel({
             <p
               style={{
                 fontSize: 12,
-                color: "var(--fg-3)",
+                color: "var(--de-ink-3)",
                 marginBottom: 14,
                 textAlign: "center",
               }}
@@ -309,7 +309,7 @@ export function MarketBuyPanel({
             <WalletButton
               style={{
                 width: "100%",
-                background: "var(--fg-0)",
+                background: "var(--de-ink)",
                 border: "none",
                 borderRadius: "8px",
                 color: "#FAF7F0",
@@ -328,13 +328,13 @@ export function MarketBuyPanel({
             className="card inset"
             style={{
               padding: 14,
-              background: "var(--green-tint)",
+              background: "var(--de-mint-tint)",
               border: "1px solid rgba(34,197,94,0.24)",
             }}
           >
             <div
               style={{
-                color: "var(--green-2)",
+                color: "var(--de-mint)",
                 fontWeight: 600,
                 fontSize: 13,
                 marginBottom: 4,
@@ -476,13 +476,13 @@ export function MarketBuyPanel({
           </div>
         </div>
 
-        <p style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 14, textAlign: "center" }}>
+        <p style={{ fontSize: 12, color: "var(--de-ink-3)", marginBottom: 14, textAlign: "center" }}>
           Connect a wallet to bet on this market.
         </p>
         <WalletButton
           style={{
             width: "100%",
-            background: "var(--fg-0)",
+            background: "var(--de-ink)",
             border: "none",
             borderRadius: "8px",
             color: "#0a0a0a",
@@ -506,14 +506,14 @@ export function MarketBuyPanel({
             width: 56,
             height: 56,
             borderRadius: "50%",
-            border: "2px solid var(--line-2)",
-            borderTopColor: "var(--gold)",
+            border: "2px solid var(--de-line-2)",
+            borderTopColor: "var(--de-lavender)",
             margin: "0 auto 16px",
             animation: "spin 0.9s linear infinite",
           }}
         />
         <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Submitting</div>
-        <div style={{ fontSize: 14, color: "var(--fg-1)" }}>Placing your bet…</div>
+        <div style={{ fontSize: 14, color: "var(--de-ink)" }}>Placing your bet…</div>
         <div className="dim mono-tiny" style={{ marginTop: 6, fontSize: 10 }}>
           waiting for confirmation
         </div>
@@ -530,7 +530,7 @@ export function MarketBuyPanel({
             width: 56,
             height: 56,
             borderRadius: "50%",
-            background: "var(--green-tint)",
+            background: "var(--de-mint-tint)",
             border: "1px solid rgba(34,197,94,0.4)",
             margin: "0 auto 16px",
             display: "flex",
@@ -540,7 +540,7 @@ export function MarketBuyPanel({
           }}
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12.5l4.5 4.5L19 7" stroke="var(--green-2)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 12.5l4.5 4.5L19 7" stroke="var(--de-mint)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <div
@@ -550,7 +550,7 @@ export function MarketBuyPanel({
             textAlign: "center",
             marginBottom: 8,
             letterSpacing: "-0.02em",
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
           }}
         >
           Bet placed.
@@ -559,7 +559,7 @@ export function MarketBuyPanel({
           You hold{" "}
           <span
             className="mono"
-            style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)", fontSize: 12 }}
+            style={{ color: side === "yes" ? "var(--de-mint)" : "var(--de-rose)", fontSize: 12 }}
           >
             {shares.toFixed(2)} {side.toUpperCase()}
           </span>{" "}
@@ -593,20 +593,20 @@ export function MarketBuyPanel({
             fontSize: 22,
             marginBottom: 16,
             letterSpacing: "-0.02em",
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
           }}
         >
-          Bet <em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}>{side.toLowerCase()}.</em>
+          Bet <em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, color: side === "yes" ? "var(--de-mint)" : "var(--de-rose)" }}>{side.toLowerCase()}.</em>
         </div>
         <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 18 }}>
           {market.question}
         </div>
 
         <div className="card inset" style={{ padding: 14, marginBottom: 16 }}>
-          <BetRow label="Side" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}>{side.toUpperCase()}</span>} />
+          <BetRow label="Side" value={<span style={{ color: side === "yes" ? "var(--de-mint)" : "var(--de-rose)" }}>{side.toUpperCase()}</span>} />
           <BetRow label="Stake" value={`${amountNum.toFixed(2)} bUSD`} />
           <BetRow label="Shares" value={`${shares.toFixed(2)} ${side.toUpperCase()}`} />
-          <BetRow label="Max payout" value={<span style={{ color: side === "yes" ? "var(--green-2)" : "var(--red-2)", fontFamily: "var(--font-mono)" }}>◎{payout.toFixed(2)}</span>} last />
+          <BetRow label="Max payout" value={<span style={{ color: side === "yes" ? "var(--de-mint)" : "var(--de-rose)", fontFamily: "var(--font-mono)" }}>◎{payout.toFixed(2)}</span>} last />
         </div>
 
         <button
@@ -676,7 +676,7 @@ export function MarketBuyPanel({
               background: "transparent",
               border: 0,
               outline: 0,
-              color: "var(--fg-0)",
+              color: "var(--de-ink)",
               fontFamily: "var(--font-mono)",
               fontSize: 18,
               fontWeight: 600,
@@ -725,7 +725,7 @@ export function MarketBuyPanel({
           <span className="muted" style={{ fontSize: 11 }}>Payout if correct</span>
           <span
             className="mono"
-            style={{ fontSize: 13, fontWeight: 600, color: side === "yes" ? "var(--green-2)" : "var(--red-2)" }}
+            style={{ fontSize: 13, fontWeight: 600, color: side === "yes" ? "var(--de-mint)" : "var(--de-rose)" }}
           >
             ◎{payout.toFixed(2)}
           </span>
@@ -765,7 +765,7 @@ function BetRow({
         justifyContent: "space-between",
         alignItems: "center",
         padding: "7px 0",
-        borderBottom: last ? "none" : "1px solid var(--line-1)",
+        borderBottom: last ? "none" : "1px solid var(--de-line)",
       }}
     >
       <span className="muted" style={{ fontSize: 11 }}>{label}</span>
@@ -791,18 +791,18 @@ function QualityGateBanner({
       className="card"
       style={{
         padding: "11px 13px",
-        background: "var(--gold-tint)",
-        border: "1px solid var(--gold)",
+        background: "var(--de-lavender-tint)",
+        border: "1px solid var(--de-lavender)",
         ...style,
       }}
     >
       <div
         className="bd-eyebrow"
-        style={{ color: "var(--gold)", marginBottom: 4, fontSize: 9 }}
+        style={{ color: "var(--de-lavender)", marginBottom: 4, fontSize: 9 }}
       >
         Track record building · {gate.daysOfHistory}/{QUALITY_GATE_MIN_DAYS} days
       </div>
-      <div style={{ fontSize: 11.5, lineHeight: 1.45, color: "var(--gold)" }}>
+      <div style={{ fontSize: 11.5, lineHeight: 1.45, color: "var(--de-lavender)" }}>
         Bundie disables bets on strategies with less than{" "}
         {QUALITY_GATE_MIN_DAYS} days of NAV history. This protects
         predictors from strategies without a track record.
@@ -820,9 +820,9 @@ function TxStatus({ error, sig }: { error: string | null; sig: string | null }) 
           style={{
             padding: "10px 12px",
             borderRadius: 8,
-            background: "var(--red-tint)",
+            background: "var(--de-rose-tint)",
             border: "1px solid rgba(239,68,68,0.24)",
-            color: "var(--red-2)",
+            color: "var(--de-rose)",
             fontSize: 11,
             wordBreak: "break-word",
           }}
@@ -835,16 +835,16 @@ function TxStatus({ error, sig }: { error: string | null; sig: string | null }) 
           style={{
             padding: "10px 12px",
             borderRadius: 8,
-            background: "var(--green-tint)",
+            background: "var(--de-mint-tint)",
             border: "1px solid rgba(34,197,94,0.24)",
           }}
         >
-          <div style={{ color: "var(--green-2)", fontWeight: 600, fontSize: 11, marginBottom: 4 }}>Confirmed.</div>
+          <div style={{ color: "var(--de-mint)", fontWeight: 600, fontSize: 11, marginBottom: 4 }}>Confirmed.</div>
           <a
             href={`https://orbmarkets.io/tx/${sig}?cluster=devnet`}
             target="_blank"
             rel="noreferrer"
-            style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}
+            style={{ color: "var(--de-lavender)", fontFamily: "var(--font-mono)", fontSize: 10, wordBreak: "break-all" }}
           >
             {sig.slice(0, 20)}…{sig.slice(-8)}
           </a>

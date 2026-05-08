@@ -37,14 +37,14 @@ export function AgentAvatar({ agent, size = 36, beat = true, delay = 0, style = 
           height: size,
           borderRadius: "50%",
           background: "var(--bg-3)",
-          border: "1px solid var(--line-2)",
+          border: "1px solid var(--de-line-2)",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
           fontFamily: "var(--font-mono)",
           fontSize: size * 0.4,
-          color: "var(--fg-4)",
+          color: "var(--de-ink-4)",
           fontWeight: 600,
         }}
       >

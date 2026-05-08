@@ -24,13 +24,13 @@ export interface DiscoverAgentRow {
 export function DiscoverAgentList({ rows }: { rows: DiscoverAgentRow[] }) {
   if (rows.length === 0) {
     return (
-      <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--fg-4)", fontSize: 12.5 }}>
+      <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--de-ink-4)", fontSize: 12.5 }}>
         Live strategies will appear here once the chaos-sim ticks devnet.
       </div>
     );
   }
   return (
-    <div style={{ borderTop: "1px solid var(--line-1)" }}>
+    <div style={{ borderTop: "1px solid var(--de-line)" }}>
       {rows.map((r) => (
         <AgentRow key={r.sns} row={r} />
       ))}
@@ -47,8 +47,8 @@ function AgentRow({ row }: { row: DiscoverAgentRow }) {
       href={`/agent/${encodeURIComponent(row.sns)}`}
       style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "14px 16px", borderBottom: "1px solid var(--line-1)",
-        textDecoration: "none", color: "var(--fg-0)",
+        padding: "14px 16px", borderBottom: "1px solid var(--de-line)",
+        textDecoration: "none", color: "var(--de-ink)",
       }}
     >
       <Avatar seed={row.avatarSeed} size={44} />
@@ -56,7 +56,7 @@ function AgentRow({ row }: { row: DiscoverAgentRow }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.1 }}>
             {row.displayName}
-            <span style={{ color: "var(--fg-4)", fontWeight: 400 }}>.bundie.sol</span>
+            <span style={{ color: "var(--de-ink-4)", fontWeight: 400 }}>.bundie.sol</span>
           </span>
           {row.snsVerified && (
             <span style={{ fontSize: 11, color: "var(--predict)", fontWeight: 700 }}>✓</span>
@@ -66,7 +66,7 @@ function AgentRow({ row }: { row: DiscoverAgentRow }) {
           className="mono"
           style={{
             display: "flex", gap: 8, fontSize: 11,
-            color: "var(--fg-4)", marginTop: 2, fontVariantNumeric: "tabular-nums",
+            color: "var(--de-ink-4)", marginTop: 2, fontVariantNumeric: "tabular-nums",
           }}
         >
           {tvl != null && <span>{fmtUsd(tvl)} TVL</span>}
@@ -91,7 +91,7 @@ function AgentRow({ row }: { row: DiscoverAgentRow }) {
             ? `${pos ? "+" : ""}${row.return30dPct.toFixed(1)}%`
             : "—"}
         </div>
-        <div style={{ fontSize: 10, color: "var(--fg-4)", marginTop: 2 }}>30d</div>
+        <div style={{ fontSize: 10, color: "var(--de-ink-4)", marginTop: 2 }}>30d</div>
       </div>
     </Link>
   );

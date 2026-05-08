@@ -13,6 +13,7 @@
  * the page so the wording stays consistent with the rest of the surface.
  */
 import type { CSSProperties, ReactNode } from "react";
+import { Check } from "lucide-react";
 
 const KIND_META: Record<
   number,
@@ -229,7 +230,10 @@ export function RulesAndResolution({
             textTransform: "uppercase",
           }}
         >
-          <span>✓ No oracle</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Check size={13} strokeWidth={2.25} aria-hidden="true" />
+            No oracle
+          </span>
           <span style={{ color: "var(--de-ink-5)" }}>·</span>
           <span>No committee</span>
           <span style={{ color: "var(--de-ink-5)" }}>·</span>

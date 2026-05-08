@@ -67,7 +67,7 @@ export async function AgentPerformanceBlock({
     <section
       style={{
         padding: "16px",
-        borderBottom: "1px solid var(--line-1)",
+        borderBottom: "1px solid var(--de-line)",
       }}
     >
       {/* Header + range toggle */}
@@ -89,7 +89,7 @@ export async function AgentPerformanceBlock({
             display: "inline-flex",
             gap: 0,
             background: "var(--bg-3)",
-            border: "1px solid var(--line-1)",
+            border: "1px solid var(--de-line)",
             borderRadius: 999,
             padding: 2,
           }}
@@ -110,8 +110,8 @@ export async function AgentPerformanceBlock({
                   letterSpacing: "0.14em",
                   borderRadius: 999,
                   textDecoration: "none",
-                  background: active ? "var(--gold)" : "transparent",
-                  color: active ? "#fff" : "var(--fg-3)",
+                  background: active ? "var(--de-lavender)" : "transparent",
+                  color: active ? "#fff" : "var(--de-ink-3)",
                   fontWeight: active ? 600 : 500,
                   transition: "background 120ms ease, color 120ms ease",
                 }}
@@ -246,10 +246,10 @@ function PerfStat({
   /** Optional small caption underneath the value (e.g. "since May 2"). */
   caption?: string | null;
 }) {
-  let color = "var(--fg-0)";
+  let color = "var(--de-ink)";
   // Brand: positive returns gold, negative red. Neutral = default fg.
   if (tone === "pos") color = "var(--pos)";
-  if (tone === "neg") color = "var(--red-2)";
+  if (tone === "neg") color = "var(--de-rose)";
 
   return (
     <div className="card" style={{ padding: "10px 12px" }}>

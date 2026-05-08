@@ -496,10 +496,10 @@ function PositionSection({
   if (positions.length === 0) return null;
   const tintColor =
     tint === "success"
-      ? "var(--green-2)"
+      ? "var(--de-mint)"
       : tint === "amber"
         ? "var(--amber)"
-        : "var(--purple)";
+        : "var(--de-lavender)";
   return (
     <section style={{ marginBottom: 24 }}>
       <div style={{ marginBottom: 10 }}>
@@ -531,7 +531,7 @@ function PendingAgentsSection({ agents }: { agents: AgentRowFull[] }) {
             fontSize: 10,
             textTransform: "uppercase",
             letterSpacing: "0.18em",
-            color: "var(--gold)",
+            color: "var(--de-lavender)",
             fontWeight: 500,
           }}
         >
@@ -560,7 +560,7 @@ function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        borderColor: "var(--gold)",
+        borderColor: "var(--de-lavender)",
       }}
     >
       <div style={{ fontSize: 28, lineHeight: 1 }}>{agent.emoji ?? "🤖"}</div>
@@ -569,7 +569,7 @@ function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 16,
-            color: "var(--fg-0)",
+            color: "var(--de-ink)",
             letterSpacing: "-0.015em",
           }}
         >
@@ -587,9 +587,9 @@ function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
         style={{
           height: 36,
           padding: "0 14px",
-          background: "var(--gold)",
+          background: "var(--de-lavender)",
           color: "#fff",
-          border: "1px solid var(--gold)",
+          border: "1px solid var(--de-lavender)",
           borderRadius: 8,
           fontFamily: "var(--font-mono)",
           fontSize: 11,

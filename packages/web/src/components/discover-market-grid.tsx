@@ -75,9 +75,9 @@ export function DiscoverMarketGrid({
               style={{
                 padding: "6px 12px", borderRadius: 999,
                 border: "1px solid",
-                borderColor: active ? "var(--predict)" : "var(--line-1)",
+                borderColor: active ? "var(--predict)" : "var(--de-line)",
                 background: active ? "var(--predict-tint)" : "transparent",
-                color: active ? "var(--predict)" : "var(--fg-3)",
+                color: active ? "var(--predict)" : "var(--de-ink-3)",
                 fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
                 cursor: "pointer", fontFamily: "inherit",
               }}
@@ -89,7 +89,7 @@ export function DiscoverMarketGrid({
       </div>
 
       {trending.length === 0 ? (
-        <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--fg-4)", fontSize: 12.5 }}>
+        <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--de-ink-4)", fontSize: 12.5 }}>
           No markets in this category yet. Try All.
         </div>
       ) : (
@@ -112,7 +112,7 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
   const noPct = 100 - yesPct;
 
   const agent = dir[market.createdBy];
-  const kindMeta = MARKET_KIND[market.kind] ?? { label: "MKT", color: "var(--fg-3)" };
+  const kindMeta = MARKET_KIND[market.kind] ?? { label: "MKT", color: "var(--de-ink-3)" };
   const closes = relativeCloses(market.resolutionSlot);
 
   return (
@@ -120,9 +120,9 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
       href={`/market/${encodeURIComponent(market.address)}`}
       style={{
         display: "flex", flexDirection: "column", gap: 10,
-        padding: 14, background: "var(--bg-1)",
-        border: "1px solid var(--line-1)", borderRadius: 10,
-        textDecoration: "none", color: "var(--fg-0)",
+        padding: 14, background: "var(--de-bg-raised)",
+        border: "1px solid var(--de-line)", borderRadius: 10,
+        textDecoration: "none", color: "var(--de-ink)",
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between" }}>
@@ -140,7 +140,7 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
           {agent && (
             <span
               style={{
-                fontSize: 11, color: "var(--fg-4)", minWidth: 0,
+                fontSize: 11, color: "var(--de-ink-4)", minWidth: 0,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}
             >
@@ -151,7 +151,7 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
         <span
           className="mono"
           style={{
-            fontSize: 11, color: "var(--fg-4)",
+            fontSize: 11, color: "var(--de-ink-4)",
             fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
           }}
         >
@@ -159,7 +159,7 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
         </span>
       </div>
 
-      <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--fg-0)" }}>
+      <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--de-ink)" }}>
         {market.question}
       </div>
 
@@ -204,7 +204,7 @@ function MarketCard({ market, dir }: { market: MarketView; dir: AgentDirectory }
         className="mono"
         style={{
           display: "flex", gap: 12, fontSize: 10,
-          color: "var(--fg-4)", fontVariantNumeric: "tabular-nums",
+          color: "var(--de-ink-4)", fontVariantNumeric: "tabular-nums",
         }}
       >
         <span>Vol ${(market.totalVolume / 1e6).toFixed(0)}</span>

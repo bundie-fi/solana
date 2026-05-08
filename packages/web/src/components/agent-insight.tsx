@@ -102,15 +102,15 @@ export async function AgentInsight({
       <section
         style={{
           padding: 16,
-          border: "1px solid var(--line-1)",
+          border: "1px solid var(--de-line)",
           borderRadius: 12,
-          background: "var(--bg-1)",
+          background: "var(--de-bg-raised)",
         }}
       >
         <div className="bd-eyebrow" style={{ marginBottom: 6 }}>
           {displayName ?? "Target agent"}
         </div>
-        <p style={{ fontSize: 12, color: "var(--fg-3)" }}>
+        <p style={{ fontSize: 12, color: "var(--de-ink-3)" }}>
           No registered SNS — track-record data unavailable for legacy / un-
           registered creators.
         </p>
@@ -136,9 +136,9 @@ export async function AgentInsight({
     <section
       style={{
         padding: 16,
-        border: "1px solid var(--line-1)",
+        border: "1px solid var(--de-line)",
         borderRadius: 12,
-        background: "var(--bg-1)",
+        background: "var(--de-bg-raised)",
         display: "flex",
         flexDirection: "column",
         gap: 14,
@@ -148,13 +148,13 @@ export async function AgentInsight({
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <span className="bd-eyebrow">Target · {displayName ?? sns.split(".")[0]}</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>
+          <span className="mono" style={{ fontSize: 11, color: "var(--de-ink-3)" }}>
             {sns}
           </span>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-          <Stat label="7d" value={r7d == null ? "—" : fmtReturnBps(r7d)} color={r7d != null && r7d >= 0 ? "var(--pos)" : r7d != null ? "var(--red-2)" : undefined} />
-          <Stat label="30d" value={r30d == null ? "—" : fmtReturnBps(r30d)} color={r30d != null && r30d >= 0 ? "var(--pos)" : r30d != null ? "var(--red-2)" : undefined} />
+          <Stat label="7d" value={r7d == null ? "—" : fmtReturnBps(r7d)} color={r7d != null && r7d >= 0 ? "var(--pos)" : r7d != null ? "var(--de-rose)" : undefined} />
+          <Stat label="30d" value={r30d == null ? "—" : fmtReturnBps(r30d)} color={r30d != null && r30d >= 0 ? "var(--pos)" : r30d != null ? "var(--de-rose)" : undefined} />
           <Stat label="Win" value={winRatePct == null ? "—" : `${winRatePct.toFixed(0)}%`} />
         </div>
       </div>
@@ -165,7 +165,7 @@ export async function AgentInsight({
         {series.length >= 2 ? (
           <NavChart data={series} />
         ) : (
-          <div style={{ fontSize: 11, color: "var(--fg-3)" }}>
+          <div style={{ fontSize: 11, color: "var(--de-ink-3)" }}>
             Not enough history yet ({series.length} snapshot{series.length === 1 ? "" : "s"}).
           </div>
         )}
@@ -175,7 +175,7 @@ export async function AgentInsight({
       <div>
         <div className="bd-eyebrow" style={{ marginBottom: 6 }}>Recent decisions</div>
         {activity.length === 0 ? (
-          <div style={{ fontSize: 11, color: "var(--fg-3)" }}>No actions logged yet.</div>
+          <div style={{ fontSize: 11, color: "var(--de-ink-3)" }}>No actions logged yet.</div>
         ) : (
           <ul style={{ display: "flex", flexDirection: "column", gap: 6, padding: 0, margin: 0, listStyle: "none" }}>
             {activity.map((a, i) => (
@@ -187,20 +187,20 @@ export async function AgentInsight({
                   gap: 2,
                   padding: "6px 8px",
                   borderRadius: 6,
-                  background: "var(--bg-0)",
-                  border: "1px solid var(--line-1)",
+                  background: "var(--de-bg)",
+                  border: "1px solid var(--de-line)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--predict)", letterSpacing: "0.02em" }}>
                     {prettyAction(a.actionType)}
                   </span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--fg-4)" }}>
+                  <span className="mono" style={{ fontSize: 10, color: "var(--de-ink-4)" }}>
                     {relativeTime(a.tickAt)}
                   </span>
                 </div>
                 {a.reasoning && (
-                  <p style={{ fontSize: 11, color: "var(--fg-2)", margin: 0, lineHeight: 1.35 }}>
+                  <p style={{ fontSize: 11, color: "var(--de-ink-2)", margin: 0, lineHeight: 1.35 }}>
                     {a.reasoning.length > 140 ? `${a.reasoning.slice(0, 140)}…` : a.reasoning}
                   </p>
                 )}
@@ -233,7 +233,7 @@ function Stat({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-end" }}>
-      <span className="mono" style={{ fontSize: 9, color: "var(--fg-4)", letterSpacing: "0.12em" }}>
+      <span className="mono" style={{ fontSize: 9, color: "var(--de-ink-4)", letterSpacing: "0.12em" }}>
         {label}
       </span>
       <span
@@ -241,7 +241,7 @@ function Stat({
         style={{
           fontSize: 12,
           fontWeight: 600,
-          color: color ?? "var(--fg-0)",
+          color: color ?? "var(--de-ink)",
           fontVariantNumeric: "tabular-nums",
         }}
       >
@@ -275,7 +275,7 @@ function NavChart({ data }: { data: number[] }) {
   const last = data[data.length - 1];
   const first = data[0];
   const direction = last >= first;
-  const stroke = direction ? "var(--pos)" : "var(--red-2)";
+  const stroke = direction ? "var(--pos)" : "var(--de-rose)";
   const fillCol = direction ? "rgba(31,158,106,0.10)" : "rgba(209,69,69,0.08)";
   return (
     <svg

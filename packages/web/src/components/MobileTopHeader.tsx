@@ -37,16 +37,16 @@ export function MobileTopHeader({ live = true, backHref, backLabel }: MobileTopH
             style={{
               fontFamily: "var(--font-display)",
               fontSize: 22,
-              color: "var(--fg-0)",
+              color: "var(--de-ink)",
               letterSpacing: "-0.03em",
             }}
           >
-            Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--gold)" }}>ie</em>
+            Bund<em style={{ fontFamily: "var(--font-sans)", fontStyle: "italic", fontWeight: 300, fontSize: 20, color: "var(--de-lavender)" }}>ie</em>
           </span>
           {live && (
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className="pulse-dot" />
-              <span className="mono-tiny" style={{ color: "var(--green-2)", letterSpacing: "0.16em", fontSize: 10 }}>
+              <span className="mono-tiny" style={{ color: "var(--de-mint)", letterSpacing: "0.16em", fontSize: 10 }}>
                 LIVE
               </span>
             </span>
@@ -58,9 +58,9 @@ export function MobileTopHeader({ live = true, backHref, backLabel }: MobileTopH
         <WalletButton
           style={{
             background: "transparent",
-            border: "1px solid var(--line-2)",
+            border: "1px solid var(--de-line-2)",
             borderRadius: "8px",
-            color: "var(--fg-2)",
+            color: "var(--de-ink-2)",
             fontSize: "11px",
             fontFamily: "var(--font-mono)",
             height: "32px",
@@ -75,7 +75,7 @@ export function MobileTopHeader({ live = true, backHref, backLabel }: MobileTopH
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {live && <span className="pulse-dot" />}
           {live && (
-            <span className="mono-tiny" style={{ color: "var(--green-2)" }}>
+            <span className="mono-tiny" style={{ color: "var(--de-mint)" }}>
               LIVE
             </span>
           )}

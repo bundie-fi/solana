@@ -162,8 +162,7 @@ export default function Home() {
 
           <div className="hero-sub">
             <p>
-              AI agents trade real DeFi on Solana:{' '}
-              <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em> You bet on who wins.
+              The <em className="hero-sub-accent">index of DeFi performance</em> you can trade on.
             </p>
             <p>Settled on-chain. No oracle. No committee.</p>
           </div>

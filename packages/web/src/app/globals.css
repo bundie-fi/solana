@@ -112,56 +112,68 @@
      decoration. See packages/web/DESIGN.md for the full philosophy.
      ----------------------------------------------------------------------- */
 
-  /* Surfaces — ink-on-paper inversion. Pure navy was too cold against
-     a serif headline; we shift toward a near-black ink with a slight
-     blue undertone so the cream type sits warm on a still-cool ground. */
-  --de-bg:         #0B0F1C;
-  --de-bg-raised:  #11162A;
-  --de-bg-2:       #161C36;
-  --de-bg-3:       #1D2440;
-  --de-bg-sunken:  #070A17;
+  /* === LIGHT EDITORIAL PALETTE ==========================================
+     2026-05-08 pivot: the web app now follows the landing-page paper
+     aesthetic. The `--de-*` token names are kept (every component
+     references them) but their values are remapped to cream-paper
+     surfaces, warm ink, and brand teal as the single accent. This way
+     a single CSS edit flips the whole UI; no component code changes.
+     ----------------------------------------------------------------------- */
 
-  /* Borders — cream-tinted hairlines, kept faint so type carries the page */
-  --de-line:       rgba(242,237,224,0.07);
-  --de-line-2:     rgba(242,237,224,0.13);
-  --de-line-3:     rgba(242,237,224,0.20);
+  /* Surfaces — paper-light. Same palette as the landing page so the
+     two surfaces feel like the same publication. */
+  --de-bg:         #F4F1EA;            /* page (cream paper) */
+  --de-bg-raised:  #FAF7F0;            /* cards, panels */
+  --de-bg-2:       #EDE8DC;            /* hover, secondary surface */
+  --de-bg-3:       #E2DCCB;            /* inset wells, inputs */
+  --de-bg-sunken:  #EDE8DC;            /* recessed regions */
 
-  /* Ink — warm cream, layered alphas. The base color shifts a hair warmer
-     than pure off-white because Instrument Serif has a literary undertone
-     that benefits from a touch of paper warmth. */
-  --de-ink:        #F4EFE0;
-  --de-ink-2:      rgba(244,239,224,0.74);
-  --de-ink-3:      rgba(244,239,224,0.54);
-  --de-ink-4:      rgba(244,239,224,0.36);
-  --de-ink-5:      rgba(244,239,224,0.20);
+  /* Borders — warm-ink hairlines on cream */
+  --de-line:       rgba(22,22,24,0.08);
+  --de-line-2:     rgba(22,22,24,0.16);
+  --de-line-3:     rgba(22,22,24,0.24);
 
-  /* Primary accent — lavender. Single accent rule: this is the only
-     color that signals "interactive / brand". Mint and rose are outcomes,
-     amber is reserved for Earn mode, everything else is ink at varied alpha. */
-  --de-lavender:        #A899F5;
-  --de-lavender-2:      #BDB1F8;
-  --de-lavender-3:      #8675E8;
-  --de-lavender-tint:   rgba(168,153,245,0.12);
-  --de-lavender-glow:   rgba(168,153,245,0.24);
+  /* Ink — warm near-black, layered alphas. Same base value the
+     landing page uses (#161618), kept consistent so type weights
+     read the same on both surfaces. */
+  --de-ink:        #161618;
+  --de-ink-2:      rgba(22,22,24,0.72);
+  --de-ink-3:      rgba(22,22,24,0.52);
+  --de-ink-4:      rgba(22,22,24,0.36);
+  --de-ink-5:      rgba(22,22,24,0.20);
 
-  /* Outcome A — soft mint (YES / Beat / above target) */
-  --de-mint:       #A8E6CF;
-  --de-mint-2:     #C2EFDB;
-  --de-mint-tint:  rgba(168,230,207,0.12);
-  --de-mint-glow:  rgba(168,230,207,0.24);
+  /* Primary accent — brand teal (was lavender). The token name stays
+     `--de-lavender` so every consumer keeps working; only the value
+     flips. Matches the landing page's `--amber-3` brand teal so the
+     two surfaces share one interactive accent. */
+  --de-lavender:        #2C8B79;
+  --de-lavender-2:      #1C6154;
+  --de-lavender-3:      #12443A;
+  --de-lavender-tint:   rgba(44,139,121,0.12);
+  --de-lavender-glow:   rgba(44,139,121,0.24);
 
-  /* Outcome B — muted rose (NO / Miss / below target) */
-  --de-rose:       #E8A5A5;
-  --de-rose-2:     #F1BFBF;
-  --de-rose-tint:  rgba(232,165,165,0.12);
-  --de-rose-glow:  rgba(232,165,165,0.24);
+  /* Outcome A — mint (YES / Beat / above target). Darkened from the
+     dark-mode value so it carries enough contrast against cream. */
+  --de-mint:       #2A9D6E;
+  --de-mint-2:     #34B07D;
+  --de-mint-tint:  rgba(42,157,110,0.10);
+  --de-mint-glow:  rgba(42,157,110,0.22);
 
-  /* Auxiliary — dim signals that should not compete with the lavender */
-  --de-amber:      #E8C58A;
-  --de-amber-tint: rgba(232,197,138,0.12);
-  --de-blue:       #8AB6F0;
-  --de-blue-tint:  rgba(138,182,240,0.12);
-  /* === end dark editorial palette ======================================== */
+  /* Outcome B — rose (NO / Miss / below target). Same cream-bg
+     adjustment as mint. */
+  --de-rose:       #C75252;
+  --de-rose-2:     #D86767;
+  --de-rose-tint:  rgba(199,82,82,0.10);
+  --de-rose-glow:  rgba(199,82,82,0.22);
+
+  /* Amber — Earn mode signals (vault yields, agent claimables). Kept
+     as a warm gold because it pairs with the cream paper. */
+  --de-amber:      #B17A3C;
+  --de-amber-tint: rgba(177,122,60,0.12);
+  /* Blue — auxiliary signals (committed slot, on-chain confirmation) */
+  --de-blue:       #4F7AAB;
+  --de-blue-tint:  rgba(79,122,171,0.12);
+  /* === end light editorial palette ====================================== */
 }
 
 * { box-sizing: border-box; }
@@ -169,7 +181,10 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
-  color-scheme: dark;
+  /* Light scheme so form controls (-webkit-text-fill-color, autofill,
+     scrollbars) render against a paper-cream background instead of
+     defaulting to system dark. */
+  color-scheme: light;
 }
 
 /* Dark editorial form inputs. Inline `color` alone isn't enough on macOS —

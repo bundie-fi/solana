@@ -66,7 +66,7 @@ export async function TopPerformersStrip() {
     <div
       style={{
         padding: "14px 16px",
-        borderBottom: "1px solid var(--line-1)",
+        borderBottom: "1px solid var(--de-line)",
       }}
     >
       <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
@@ -110,7 +110,7 @@ export async function TopPerformersStrip() {
               <span
                 className="mono"
                 style={{
-                  color: "var(--gold)",
+                  color: "var(--de-lavender)",
                   fontSize: 11,
                   fontWeight: 500,
                   overflow: "hidden",
@@ -137,7 +137,7 @@ export async function TopPerformersStrip() {
                   fontSize: 14,
                   fontWeight: 600,
                   color:
-                    return30dBps >= 0 ? "var(--pos)" : "var(--red-2)",
+                    return30dBps >= 0 ? "var(--pos)" : "var(--de-rose)",
                   fontVariantNumeric: "tabular-nums",
                   lineHeight: 1.1,
                 }}

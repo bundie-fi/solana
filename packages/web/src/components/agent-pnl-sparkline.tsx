@@ -37,7 +37,7 @@ export function AgentPnlSparkline({
           x2={width - 2}
           y1={height / 2}
           y2={height / 2}
-          stroke="var(--line-2)"
+          stroke="var(--de-line-2)"
           strokeDasharray="2 3"
           strokeWidth="1"
         />
@@ -68,8 +68,8 @@ export function AgentPnlSparkline({
     resolvedTone === "pos"
       ? "var(--pos)"
       : resolvedTone === "neg"
-      ? "var(--red-2)"
-      : "var(--fg-4)";
+      ? "var(--de-rose)"
+      : "var(--de-ink-4)";
 
   const last = pts[pts.length - 1];
 

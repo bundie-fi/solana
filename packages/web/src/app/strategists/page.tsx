@@ -288,10 +288,10 @@ function ResumeBanner({
   active: boolean;
 }) {
   const tone = error
-    ? { bg: "var(--red-tint)", border: "rgba(239,68,68,0.24)", fg: "var(--red-2)" }
+    ? { bg: "var(--de-rose-tint)", border: "rgba(239,68,68,0.24)", fg: "var(--de-rose)" }
     : active
-      ? { bg: "var(--gold-tint)", border: "var(--gold)", fg: "var(--gold)" }
-      : { bg: "var(--bg-2)", border: "var(--line-1)", fg: "var(--fg-2)" };
+      ? { bg: "var(--de-lavender-tint)", border: "var(--de-lavender)", fg: "var(--de-lavender)" }
+      : { bg: "var(--de-bg-2)", border: "var(--de-line)", fg: "var(--de-ink-2)" };
   return (
     <div
       role="status"

@@ -219,8 +219,8 @@ export function AgentEquityChart({
       >
         <defs>
           <linearGradient id="equity-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--de-lavender)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="var(--de-lavender)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -234,7 +234,7 @@ export function AgentEquityChart({
                 x2={w - PADDING.right}
                 y1={y}
                 y2={y}
-                stroke="var(--line-1)"
+                stroke="var(--de-line)"
                 strokeWidth="0.5"
               />
               <text
@@ -242,7 +242,7 @@ export function AgentEquityChart({
                 y={y + 3}
                 fontSize="9"
                 textAnchor="end"
-                fill="var(--fg-4)"
+                fill="var(--de-ink-4)"
                 fontFamily="var(--font-mono)"
                 style={{ fontVariantNumeric: "tabular-nums" }}
               >
@@ -267,7 +267,7 @@ export function AgentEquityChart({
               y={height - 6}
               fontSize="9"
               textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}
-              fill="var(--fg-4)"
+              fill="var(--de-ink-4)"
               fontFamily="var(--font-mono)"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
@@ -284,7 +284,7 @@ export function AgentEquityChart({
               x2={w - PADDING.right}
               y1={seedY}
               y2={seedY}
-              stroke="var(--fg-4)"
+              stroke="var(--de-ink-4)"
               strokeDasharray="3 3"
               strokeWidth="1"
               opacity="0.7"
@@ -294,7 +294,7 @@ export function AgentEquityChart({
               y={seedY - 4}
               fontSize="9"
               textAnchor="end"
-              fill="var(--fg-3)"
+              fill="var(--de-ink-3)"
               fontFamily="var(--font-mono)"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
@@ -308,7 +308,7 @@ export function AgentEquityChart({
         <path
           d={path}
           fill="none"
-          stroke="var(--gold)"
+          stroke="var(--de-lavender)"
           strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -327,7 +327,7 @@ export function AgentEquityChart({
                 x2={cx}
                 y1={PADDING.top}
                 y2={height - PADDING.bottom}
-                stroke="var(--fg-3)"
+                stroke="var(--de-ink-3)"
                 strokeWidth="1"
                 strokeDasharray="3 3"
               />
@@ -336,7 +336,7 @@ export function AgentEquityChart({
                 y={PADDING.top + 9}
                 fontSize="9"
                 textAnchor="start"
-                fill="var(--fg-3)"
+                fill="var(--de-ink-3)"
                 fontFamily="var(--font-mono)"
               >
                 fork rebuild
@@ -353,7 +353,7 @@ export function AgentEquityChart({
               x2={hoverX}
               y1={PADDING.top}
               y2={height - PADDING.bottom}
-              stroke="var(--fg-3)"
+              stroke="var(--de-ink-3)"
               strokeWidth="0.8"
               strokeDasharray="2 3"
               opacity="0.6"
@@ -362,8 +362,8 @@ export function AgentEquityChart({
               cx={hoverX}
               cy={hoverY}
               r="3.5"
-              fill="var(--gold)"
-              stroke="var(--bg-0)"
+              fill="var(--de-lavender)"
+              stroke="var(--de-bg)"
               strokeWidth="1.5"
             />
           </g>
@@ -401,7 +401,7 @@ export function AgentEquityChart({
             style={{
               fontSize: 14,
               fontWeight: 600,
-              color: "var(--gold)",
+              color: "var(--de-lavender)",
               marginBottom: 6,
             }}
           >
@@ -479,9 +479,9 @@ function ComponentRow({
             background: color,
           }}
         />
-        <span style={{ color: "var(--fg-3)" }}>{label}</span>
+        <span style={{ color: "var(--de-ink-3)" }}>{label}</span>
       </span>
-      <span style={{ color: "var(--fg-1)", textAlign: "right" }}>
+      <span style={{ color: "var(--de-ink)", textAlign: "right" }}>
         ${fmtUsdInline(usd)}
       </span>
     </>

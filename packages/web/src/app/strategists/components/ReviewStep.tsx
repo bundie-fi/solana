@@ -302,7 +302,7 @@ export function ReviewStep({ state, dispatch }: Props) {
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: 18,
-                color: "var(--fg-0)",
+                color: "var(--de-ink)",
                 letterSpacing: "-0.015em",
               }}
             >
@@ -336,7 +336,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.16em",
-            color: "var(--fg-3)",
+            color: "var(--de-ink-3)",
             marginBottom: 8,
           }}
         >
@@ -348,7 +348,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             paddingLeft: 18,
             fontSize: 12.5,
             lineHeight: 1.6,
-            color: "var(--fg-1)",
+            color: "var(--de-ink)",
           }}
         >
           <li>Seed treasury: $50 bUSD (your wallet)</li>
@@ -372,7 +372,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.16em",
-            color: "var(--fg-3)",
+            color: "var(--de-ink-3)",
             marginBottom: 8,
           }}
         >
@@ -387,12 +387,12 @@ export function ReviewStep({ state, dispatch }: Props) {
           style={{
             margin: 0,
             padding: 12,
-            background: "var(--bg-2)",
-            border: "1px solid var(--line-1)",
+            background: "var(--de-bg-2)",
+            border: "1px solid var(--de-line)",
             borderRadius: 8,
             fontFamily: "var(--font-mono)",
             fontSize: 11,
-            color: "var(--fg-1)",
+            color: "var(--de-ink)",
             whiteSpace: "pre-wrap",
             maxHeight: 240,
             overflow: "auto",
@@ -410,7 +410,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.16em",
-            color: "var(--fg-3)",
+            color: "var(--de-ink-3)",
             marginBottom: 8,
           }}
         >
@@ -422,13 +422,13 @@ export function ReviewStep({ state, dispatch }: Props) {
             paddingLeft: 18,
             fontSize: 12.5,
             lineHeight: 1.6,
-            color: "var(--fg-1)",
+            color: "var(--de-ink)",
           }}
         >
           {state.resume ? (
             <>
               <li>
-                <span style={{ color: "var(--green-2)" }}>✓</span> Strategy +
+                <span style={{ color: "var(--de-mint)" }}>✓</span> Strategy +
                 vault created
               </li>
               <li>You sign one transfer to seed the vault with $50 bUSD</li>
@@ -453,7 +453,7 @@ export function ReviewStep({ state, dispatch }: Props) {
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: "0.16em",
-              color: done ? "var(--green-2)" : "var(--fg-3)",
+              color: done ? "var(--de-mint)" : "var(--de-ink-3)",
               marginBottom: 8,
             }}
           >
@@ -506,7 +506,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             <div
               className="mono-tiny"
               style={{
-                color: "var(--red-2)",
+                color: "var(--de-rose)",
                 fontSize: 10.5,
                 marginTop: 8,
               }}
@@ -523,7 +523,7 @@ export function ReviewStep({ state, dispatch }: Props) {
           className="card hairline"
           style={{
             padding: 14,
-            borderColor: "var(--gold)",
+            borderColor: "var(--de-lavender)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -535,12 +535,12 @@ export function ReviewStep({ state, dispatch }: Props) {
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: "0.16em",
-              color: "var(--gold)",
+              color: "var(--de-lavender)",
             }}
           >
             {checkingRecovery ? "Checking on-chain status…" : "Action needed"}
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--fg-1)", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12.5, color: "var(--de-ink)", lineHeight: 1.5 }}>
             {checkingRecovery &&
               "Reading the vault treasury to figure out where to pick up."}
             {orphanDeposit &&
@@ -599,7 +599,7 @@ export function ReviewStep({ state, dispatch }: Props) {
               style={{
                 alignSelf: "center",
                 fontSize: 11,
-                color: "var(--fg-2)",
+                color: "var(--de-ink-2)",
                 textDecoration: "underline",
               }}
             >
@@ -701,7 +701,7 @@ function LandingProgress({ txSig }: { txSig: string | null }) {
           style={{
             width: `${pct}%`,
             height: "100%",
-            background: "var(--gold)",
+            background: "var(--de-lavender)",
             transition: "width 240ms linear",
           }}
         />
@@ -711,7 +711,7 @@ function LandingProgress({ txSig }: { txSig: string | null }) {
         style={{
           marginTop: 6,
           fontSize: 10.5,
-          color: "var(--fg-3)",
+          color: "var(--de-ink-3)",
           display: "flex",
           justifyContent: "space-between",
         }}
@@ -754,10 +754,10 @@ function Stage({
   txSig?: string | null;
 }) {
   const color = past
-    ? "var(--green-2)"
+    ? "var(--de-mint)"
     : active
-      ? "var(--gold)"
-      : "var(--fg-4)";
+      ? "var(--de-lavender)"
+      : "var(--de-ink-4)";
   return (
     <div
       style={{
@@ -802,10 +802,10 @@ function launchBtnStyle({
     width: "100%",
     height: 48,
     padding: "0 16px",
-    background: disabled ? "var(--bg-3)" : "var(--gold)",
-    color: disabled ? "var(--fg-4)" : "#fff",
+    background: disabled ? "var(--bg-3)" : "var(--de-lavender)",
+    color: disabled ? "var(--de-ink-4)" : "#fff",
     border: "1px solid",
-    borderColor: disabled ? "var(--line-1)" : "var(--gold)",
+    borderColor: disabled ? "var(--de-line)" : "var(--de-lavender)",
     borderRadius: 10,
     fontFamily: "var(--font-mono)",
     fontSize: 12,

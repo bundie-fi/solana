@@ -215,13 +215,13 @@ export function HomeFeed({
     lastTick > 0 ? formatRelative(lastTick) : "connecting…";
 
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh" }}>
+    <main style={{ background: "var(--de-bg)", minHeight: "100vh" }}>
       {/* Mobile header */}
       <MobileTopHeader live={lastTick > 0} />
 
       <div className="scroll-area" style={{ flex: 1, overflowY: "auto" }}>
         {/* Hero strip */}
-        <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--line-1)" }}>
+        <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--de-line)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
             Activity stream · {agents.length} strategies online
           </div>
@@ -242,7 +242,7 @@ export function HomeFeed({
               height: 38,
               padding: "0 14px",
               borderRadius: 8,
-              background: "var(--gold)",
+              background: "var(--de-lavender)",
               color: "#fff",
               fontFamily: "var(--font-mono)",
               fontSize: 11,
@@ -250,7 +250,7 @@ export function HomeFeed({
               letterSpacing: "0.14em",
               textTransform: "uppercase",
               textDecoration: "none",
-              border: "1px solid var(--gold)",
+              border: "1px solid var(--de-lavender)",
             }}
           >
             Launch your agent
@@ -279,7 +279,7 @@ export function HomeFeed({
         {topPerformersSlot}
 
         {/* Agent quick-tap strip , sourced from /api/agents (Phase L registry). */}
-        <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", overflowX: "auto" }}>
+        <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--de-line)", overflowX: "auto" }}>
           {agents.map((a, i) => {
             const agentKey = resolveAgentKey(a.sns);
             return (
@@ -293,8 +293,8 @@ export function HomeFeed({
                   gap: 6,
                   padding: "10px 14px",
                   borderRadius: 10,
-                  background: "var(--bg-1)",
-                  border: "1px solid var(--line-2)",
+                  background: "var(--de-bg-raised)",
+                  border: "1px solid var(--de-line-2)",
                   textDecoration: "none",
                   minWidth: 80,
                   flexShrink: 0,
@@ -321,7 +321,7 @@ export function HomeFeed({
             alignItems: "center",
             justifyContent: "flex-end",
             padding: "6px 16px",
-            borderBottom: "1px solid var(--line-1)",
+            borderBottom: "1px solid var(--de-line)",
           }}
         >
           <span className="dim mono-tiny">{asOfLabel}</span>
@@ -334,9 +334,9 @@ export function HomeFeed({
               margin: "12px 16px",
               padding: "10px 14px",
               borderRadius: 8,
-              background: "var(--red-tint)",
+              background: "var(--de-rose-tint)",
               border: "1px solid rgba(239,68,68,0.24)",
-              color: "var(--red-2)",
+              color: "var(--de-rose)",
               fontFamily: "var(--font-mono)",
               fontSize: 11,
             }}
@@ -368,8 +368,8 @@ export function HomeFeed({
                   width: 24,
                   height: 24,
                   borderRadius: "50%",
-                  background: "var(--bg-2)",
-                  border: "1px solid var(--line-2)",
+                  background: "var(--de-bg-2)",
+                  border: "1px solid var(--de-line-2)",
                   opacity: 0.4 - i * 0.12,
                 }}
               />
@@ -403,7 +403,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
       className="feed-enter"
       style={{
         padding: "14px 16px",
-        borderBottom: "1px solid var(--line-1)",
+        borderBottom: "1px solid var(--de-line)",
         background: "transparent",
         animationDelay: `${idx * 40}ms`,
       }}
@@ -440,7 +440,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
             <span
               className="mono"
               style={{
-                color: "var(--gold)",
+                color: "var(--de-lavender)",
                 fontSize: 12,
                 fontWeight: 500,
               }}
@@ -466,7 +466,7 @@ function FeedCard({ ev, idx }: { ev: FeedEvent; idx: number }) {
           </div>
 
           {/* Line 2: content */}
-          <div style={{ fontSize: 13.5, color: "var(--fg-1)", lineHeight: 1.4 }}>
+          <div style={{ fontSize: 13.5, color: "var(--de-ink)", lineHeight: 1.4 }}>
             {ev.headline}
           </div>
           {ev.detail && (
@@ -531,7 +531,7 @@ function FeedSkeleton() {
           key={i}
           style={{
             padding: "14px 16px",
-            borderBottom: "1px solid var(--line-1)",
+            borderBottom: "1px solid var(--de-line)",
             display: "flex",
             gap: 12,
             alignItems: "flex-start",
@@ -560,8 +560,8 @@ function FeedEmpty() {
               width: 32,
               height: 32,
               borderRadius: "50%",
-              background: "var(--bg-2)",
-              border: "1px dashed var(--line-2)",
+              background: "var(--de-bg-2)",
+              border: "1px dashed var(--de-line-2)",
               opacity: 0.5 - i * 0.12,
             }}
           />
@@ -571,7 +571,7 @@ function FeedEmpty() {
         style={{
           fontFamily: "var(--font-display)",
           fontSize: 18,
-          color: "var(--fg-0)",
+          color: "var(--de-ink)",
           letterSpacing: "-0.015em",
           marginBottom: 6,
         }}

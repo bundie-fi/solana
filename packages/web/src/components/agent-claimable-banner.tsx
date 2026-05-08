@@ -119,7 +119,7 @@ export function AgentClaimableBanner({ resolvedMarkets }: Props) {
               style={{
                 fontSize: 13,
                 lineHeight: 1.35,
-                color: "var(--fg-0)",
+                color: "var(--de-ink)",
                 fontWeight: 500,
               }}
             >

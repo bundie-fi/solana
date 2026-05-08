@@ -153,12 +153,12 @@ export default function WalletPage() {
 
   if (!connected || !publicKey) {
     return (
-      <main style={{ background: "var(--bg-0)", minHeight: "100vh", padding: "60px 20px" }}>
+      <main style={{ background: "var(--de-bg)", minHeight: "100vh", padding: "60px 20px" }}>
         <div style={{ maxWidth: 360, margin: "0 auto", textAlign: "center" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 8 }}>Wallet</div>
           <h1 style={{
             fontFamily: "var(--font-display)", fontSize: 28, letterSpacing: -0.4,
-            margin: "0 0 12px", color: "var(--fg-0)",
+            margin: "0 0 12px", color: "var(--de-ink)",
           }}>
             Connect to view your wallet
           </h1>
@@ -173,7 +173,7 @@ export default function WalletPage() {
   }
 
   return (
-    <main style={{ background: "var(--bg-0)", minHeight: "100vh", paddingBottom: 80 }}>
+    <main style={{ background: "var(--de-bg)", minHeight: "100vh", paddingBottom: 80 }}>
       {/* Hero */}
       <div style={{ padding: "20px 16px 16px" }}>
         <div className="bd-eyebrow">Wallet balance</div>
@@ -182,12 +182,12 @@ export default function WalletPage() {
             className="mono"
             style={{
               fontSize: 30, fontWeight: 600, letterSpacing: -0.6,
-              fontVariantNumeric: "tabular-nums", color: "var(--fg-0)",
+              fontVariantNumeric: "tabular-nums", color: "var(--de-ink)",
             }}
           >
             {fmtUsd(totalUsd)}
           </span>
-          <span style={{ fontSize: 13, color: "var(--fg-3)", fontVariantNumeric: "tabular-nums" }}>
+          <span style={{ fontSize: 13, color: "var(--de-ink-3)", fontVariantNumeric: "tabular-nums" }}>
             ◎{sol.toFixed(2)}
           </span>
         </div>
@@ -197,12 +197,12 @@ export default function WalletPage() {
           style={{
             marginTop: 6, display: "inline-flex", alignItems: "center", gap: 6,
             background: "transparent", border: "none", padding: 0, cursor: "pointer",
-            color: "var(--fg-3)", fontSize: 12,
+            color: "var(--de-ink-3)", fontSize: 12,
             fontFamily: "var(--font-mono)",
           }}
         >
           {truncatedAddr}
-          <span style={{ fontSize: 11, color: copied ? "var(--pos)" : "var(--fg-4)" }}>
+          <span style={{ fontSize: 11, color: copied ? "var(--pos)" : "var(--de-ink-4)" }}>
             {copied ? "✓ copied" : "⌘ copy"}
           </span>
         </button>
@@ -239,9 +239,9 @@ export default function WalletPage() {
 
       {/* Tokens — only surface left after Domains + Connected apps were
           removed. Heading kept so the section has a visible label. */}
-      <div style={{ borderBottom: "1px solid var(--line-1)", padding: "10px 16px" }}>
+      <div style={{ borderBottom: "1px solid var(--de-line)", padding: "10px 16px" }}>
         <span style={{
-          fontSize: 11, fontWeight: 600, color: "var(--fg-3)",
+          fontSize: 11, fontWeight: 600, color: "var(--de-ink-3)",
           letterSpacing: "0.16em", textTransform: "uppercase",
           fontFamily: "var(--font-mono)",
         }}>
@@ -263,7 +263,7 @@ export default function WalletPage() {
           />
         ))}
         {tokens.length === 0 && solLamports != null && (
-          <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12 }}>
+          <div style={{ padding: 24, textAlign: "center", color: "var(--de-ink-4)", fontSize: 12 }}>
             No SPL tokens detected. Open the bUSD faucet on the Discover tab to get started.
           </div>
         )}
@@ -276,8 +276,8 @@ export default function WalletPage() {
           onClick={disconnect}
           style={{
             width: "100%", padding: "12px", borderRadius: 8,
-            background: "transparent", border: "1px solid var(--line-1)",
-            color: "var(--fg-3)", fontSize: 12, fontWeight: 500,
+            background: "transparent", border: "1px solid var(--de-line)",
+            color: "var(--de-ink-3)", fontSize: 12, fontWeight: 500,
             letterSpacing: 0.2, cursor: "pointer", fontFamily: "inherit",
           }}
         >
@@ -300,7 +300,7 @@ function TokenRow({
     <div
       style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "14px 16px", borderBottom: "1px solid var(--line-1)",
+        padding: "14px 16px", borderBottom: "1px solid var(--de-line)",
       }}
     >
       <div
@@ -315,11 +315,11 @@ function TokenRow({
         {symbol.slice(0, 4)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--fg-0)" }}>{name}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--de-ink)" }}>{name}</div>
         <div
           className="mono"
           style={{
-            fontSize: 11, color: "var(--fg-4)", marginTop: 2,
+            fontSize: 11, color: "var(--de-ink-4)", marginTop: 2,
             fontVariantNumeric: "tabular-nums",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           }}
@@ -336,17 +336,17 @@ function TokenRow({
         <div
           className="mono"
           style={{
-            fontSize: 13, fontWeight: 600, color: "var(--fg-0)",
+            fontSize: 13, fontWeight: 600, color: "var(--de-ink)",
             fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
           }}
         >
           {amount.toFixed(amount >= 100 ? 2 : 4)}{" "}
-          <span style={{ color: "var(--fg-4)", fontWeight: 500 }}>{symbol}</span>
+          <span style={{ color: "var(--de-ink-4)", fontWeight: 500 }}>{symbol}</span>
         </div>
         <div
           className="mono"
           style={{
-            fontSize: 11, color: "var(--fg-4)",
+            fontSize: 11, color: "var(--de-ink-4)",
             fontVariantNumeric: "tabular-nums", marginTop: 2, whiteSpace: "nowrap",
           }}
         >
@@ -411,14 +411,14 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12 }}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--de-ink-4)", fontSize: 12 }}>
         Loading domains…
       </div>
     );
   }
   if (domains.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: "center", color: "var(--fg-4)", fontSize: 12, lineHeight: 1.5 }}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--de-ink-4)", fontSize: 12, lineHeight: 1.5 }}>
         No <span className="mono">.bundie</span> names registered to this wallet yet.{" "}
         <Link href="/strategists" style={{ color: "var(--predict)", textDecoration: "underline" }}>
           Launch a strategy →
@@ -434,8 +434,8 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
           href={`/agent/${encodeURIComponent(d.sns)}`}
           style={{
             display: "flex", alignItems: "center", gap: 12,
-            padding: "14px 16px", borderBottom: "1px solid var(--line-1)",
-            textDecoration: "none", color: "var(--fg-0)",
+            padding: "14px 16px", borderBottom: "1px solid var(--de-line)",
+            textDecoration: "none", color: "var(--de-ink)",
           }}
         >
           <div
@@ -454,7 +454,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>
                 {d.sns.replace(".bundie.sol", "")}
-                <span style={{ color: "var(--fg-4)", fontWeight: 400 }}>.bundie.sol</span>
+                <span style={{ color: "var(--de-ink-4)", fontWeight: 400 }}>.bundie.sol</span>
               </span>
               {d.verified && (
                 <span style={{ fontSize: 11, color: "var(--predict)", fontWeight: 700 }}>✓</span>
@@ -463,7 +463,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
             <div
               className="mono"
               style={{
-                fontSize: 11, color: "var(--fg-4)", marginTop: 2,
+                fontSize: 11, color: "var(--de-ink-4)", marginTop: 2,
                 fontVariantNumeric: "tabular-nums",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               }}
@@ -471,7 +471,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
               vault {d.vaultPda.slice(0, 4)}…{d.vaultPda.slice(-4)}
             </div>
           </div>
-          <span style={{ color: "var(--fg-4)", fontSize: 16 }}>›</span>
+          <span style={{ color: "var(--de-ink-4)", fontSize: 16 }}>›</span>
         </Link>
       ))}
     </div>
@@ -499,9 +499,9 @@ function ActionTile({
     <span
       style={{
         padding: "14px 8px", borderRadius: 12,
-        background: "var(--bg-1)", border: "1px solid var(--line-1)",
+        background: "var(--de-bg-raised)", border: "1px solid var(--de-line)",
         display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-        cursor: "pointer", color: "var(--fg-1)",
+        cursor: "pointer", color: "var(--de-ink)",
       }}
     >
       <span
@@ -585,7 +585,7 @@ function ReceiveModal({ addr, onClose }: { addr: string; onClose: () => void }) 
         className="mono"
         style={{
           fontSize: 13, fontVariantNumeric: "tabular-nums",
-          textAlign: "center", padding: "6px 12px", color: "var(--fg-1)",
+          textAlign: "center", padding: "6px 12px", color: "var(--de-ink)",
           wordBreak: "break-all", lineHeight: 1.5,
         }}
       >
@@ -604,7 +604,7 @@ function ReceiveModal({ addr, onClose }: { addr: string; onClose: () => void }) 
       >
         {copied ? "Copied ✓" : "Copy address"}
       </button>
-      <p style={{ fontSize: 11, color: "var(--fg-4)", textAlign: "center", marginTop: 12, lineHeight: 1.4 }}>
+      <p style={{ fontSize: 11, color: "var(--de-ink-4)", textAlign: "center", marginTop: 12, lineHeight: 1.4 }}>
         Send SOL or any SPL token to this address.
         <br />
         Devnet only — do not send mainnet funds.
@@ -710,9 +710,9 @@ function SendModal({
               onClick={() => setToken(t)}
               style={{
                 flex: 1, padding: "8px 12px", borderRadius: 8,
-                border: active ? "1px solid var(--predict)" : "1px solid var(--line-1)",
+                border: active ? "1px solid var(--predict)" : "1px solid var(--de-line)",
                 background: active ? "var(--predict-tint)" : "transparent",
-                color: active ? "var(--predict)" : "var(--fg-3)",
+                color: active ? "var(--predict)" : "var(--de-ink-3)",
                 fontSize: 13, fontWeight: 600, cursor: "pointer",
                 fontFamily: "inherit",
               }}
@@ -723,7 +723,7 @@ function SendModal({
         })}
       </div>
 
-      <label style={{ display: "block", fontSize: 11, color: "var(--fg-4)", letterSpacing: 0.2 }}>
+      <label style={{ display: "block", fontSize: 11, color: "var(--de-ink-4)", letterSpacing: 0.2 }}>
         Recipient address
       </label>
       <input
@@ -736,8 +736,8 @@ function SendModal({
         spellCheck={false}
         style={{
           width: "100%", padding: "10px 12px", marginTop: 4,
-          borderRadius: 8, border: "1px solid var(--line-1)",
-          background: "var(--bg-2)", color: "var(--fg-0)",
+          borderRadius: 8, border: "1px solid var(--de-line)",
+          background: "var(--de-bg-2)", color: "var(--de-ink)",
           fontFamily: "var(--font-mono)", fontSize: 12,
           fontVariantNumeric: "tabular-nums",
         }}
@@ -749,7 +749,7 @@ function SendModal({
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 14 }}>
-        <label style={{ fontSize: 11, color: "var(--fg-4)", letterSpacing: 0.2 }}>
+        <label style={{ fontSize: 11, color: "var(--de-ink-4)", letterSpacing: 0.2 }}>
           Amount
         </label>
         <button
@@ -771,8 +771,8 @@ function SendModal({
         placeholder={token === "SOL" ? "0.10" : "10.00"}
         style={{
           width: "100%", padding: "10px 12px", marginTop: 4,
-          borderRadius: 8, border: "1px solid var(--line-1)",
-          background: "var(--bg-2)", color: "var(--fg-0)",
+          borderRadius: 8, border: "1px solid var(--de-line)",
+          background: "var(--de-bg-2)", color: "var(--de-ink)",
           fontFamily: "var(--font-mono)", fontSize: 16,
           fontVariantNumeric: "tabular-nums",
         }}
@@ -787,7 +787,7 @@ function SendModal({
         <div
           style={{
             marginTop: 10, padding: "8px 10px", borderRadius: 8,
-            background: "var(--red-tint)", color: "var(--neg)",
+            background: "var(--de-rose-tint)", color: "var(--neg)",
             fontSize: 11, lineHeight: 1.4,
           }}
         >
@@ -803,7 +803,7 @@ function SendModal({
           marginTop: 16, width: "100%", padding: "12px",
           borderRadius: 10, border: "none",
           background: canSubmit ? "var(--predict)" : "var(--bg-3)",
-          color: canSubmit ? "#fff" : "var(--fg-4)",
+          color: canSubmit ? "#fff" : "var(--de-ink-4)",
           fontSize: 13, fontWeight: 600,
           cursor: canSubmit ? "pointer" : "not-allowed",
           fontFamily: "inherit", letterSpacing: 0.2,
@@ -848,7 +848,7 @@ function ModalShell({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxWidth: 420,
-          background: "var(--bg-0)", borderTopLeftRadius: 16, borderTopRightRadius: 16,
+          background: "var(--de-bg)", borderTopLeftRadius: 16, borderTopRightRadius: 16,
           padding: "16px 16px 32px",
           maxHeight: "92vh", overflowY: "auto",
           paddingBottom: "max(32px, env(safe-area-inset-bottom))",
@@ -857,13 +857,13 @@ function ModalShell({
         <div
           style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            paddingBottom: 12, borderBottom: "1px solid var(--line-1)", marginBottom: 14,
+            paddingBottom: 12, borderBottom: "1px solid var(--de-line)", marginBottom: 14,
           }}
         >
           <span
             style={{
               fontFamily: "var(--font-display)", fontSize: 20,
-              letterSpacing: -0.3, color: "var(--fg-0)",
+              letterSpacing: -0.3, color: "var(--de-ink)",
             }}
           >
             {title}
@@ -874,7 +874,7 @@ function ModalShell({
             aria-label="Close"
             style={{
               background: "transparent", border: "none", cursor: "pointer",
-              fontSize: 22, color: "var(--fg-3)", padding: 0,
+              fontSize: 22, color: "var(--de-ink-3)", padding: 0,
               fontFamily: "inherit",
             }}
           >

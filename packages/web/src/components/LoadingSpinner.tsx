@@ -33,8 +33,8 @@ export function LoadingSpinner({
         width: px,
         height: px,
         borderRadius: 999,
-        border: `${stroke}px solid var(--line-2)`,
-        borderTopColor: "var(--gold)",
+        border: `${stroke}px solid var(--de-line-2)`,
+        borderTopColor: "var(--de-lavender)",
         animation: "bd-spin 720ms linear infinite",
         ...style,
       }}
