@@ -1677,10 +1677,8 @@ footer .row-2 {
   gap: 8px;
   margin-bottom: 6px;
 }
-.agent-emoji {
-  font-size: 22px;
-  line-height: 1;
-}
+/* `.agent-emoji` was the emoji avatar on agent cards. Replaced by the
+   editorial `AgentMonogram` component, which renders inline styles. */
 .agent-handle {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -1808,11 +1806,8 @@ footer .row-2 {
   color: var(--ink-2);
 }
 .tx-feed-row:last-child { border-bottom: 0; }
-.tx-feed-emoji {
-  font-size: 18px;
-  line-height: 1;
-  text-align: center;
-}
+/* `.tx-feed-emoji` was the emoji avatar on activity rows. Replaced by
+   the editorial `AgentMonogram` component, which renders inline styles. */
 .tx-feed-text {
   color: var(--ink);
   word-break: break-word;
@@ -1927,10 +1922,58 @@ h1.hero .hero-line-2 {
   align-items: baseline;
 }
 .ps-flow-step-final {
+  position: relative;
+  overflow: hidden;
   border-color: var(--amber-ring);
   background:
     radial-gradient(circle at 100% 0%, rgba(18, 68, 58, 0.06), transparent 55%),
     var(--bg-raised);
+  /* Breathing teal halo — telegraphs that step 3 is the resolution
+     moment without crossing into "AI-pulse" territory. 4.2s loop, low
+     opacity, paired with the slow shine sweep below. */
+  animation: ps-flow-breathe 4.2s ease-in-out infinite;
+}
+/* Shine sweep. Travels left→right every 5.4s, then pauses for the rest
+   of the loop so the card doesn't feel like a marquee. Behind the
+   content (z-index 0) and pointer-events:none so it never interferes
+   with copy or hit-testing. */
+.ps-flow-step-final::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(18, 68, 58, 0.10) 50%,
+    transparent 65%
+  );
+  transform: translateX(-110%);
+  pointer-events: none;
+  z-index: 0;
+  animation: ps-flow-sweep 5.4s ease-in-out infinite;
+}
+.ps-flow-step-final > * { position: relative; z-index: 1; }
+
+@keyframes ps-flow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(18, 68, 58, 0.00),
+      0 0 0 0 rgba(18, 68, 58, 0.00);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(18, 68, 58, 0.08),
+      0 0 28px rgba(18, 68, 58, 0.12);
+  }
+}
+@keyframes ps-flow-sweep {
+  0%   { transform: translateX(-110%); }
+  55%  { transform: translateX(110%); }
+  100% { transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-flow-step-final { animation: none; }
+  .ps-flow-step-final::after { display: none; }
 }
 .ps-flow-num {
   grid-row: 1 / span 2;

@@ -49,7 +49,7 @@ export default function Home() {
               visitor even reads the words. */}
           <span className="hero-badge" style={{ marginBottom: 28 }}>
             <span className="dot" />
-            Live · Devnet
+            Live on Devnet
           </span>
 
           <h1 className="hero">
