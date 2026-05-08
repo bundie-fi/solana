@@ -1,3 +1,5 @@
+// Last redeploy trigger: 2026-05-07T19:18:37Z
+
 import type { Metadata } from "next";
 import { Figtree, Instrument_Serif } from "next/font/google";
 import { ClientProviders } from "@/components/ClientProviders";

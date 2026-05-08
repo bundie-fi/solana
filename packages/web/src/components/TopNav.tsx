@@ -47,10 +47,10 @@ export function TopNav() {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "12px 20px 10px",
-        background: "rgba(10,14,31,0.82)",
+        background: "rgba(244,241,234,0.92)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
-        borderBottom: "1px solid var(--de-line)",
+        borderBottom: "1px solid var(--line-1)",
         position: "sticky",
         top: 0,
         zIndex: 30,
@@ -61,11 +61,11 @@ export function TopNav() {
           style={{
             fontFamily: "var(--font-display)",
             fontSize: 22,
-            color: "var(--de-ink)",
+            color: "var(--fg-0)",
             letterSpacing: "-0.03em",
           }}
         >
-          Bund<span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--de-lavender)" }}>ie</span>
+          Bund<span style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>ie</span>
         </span>
       </Link>
 
@@ -186,9 +186,9 @@ export function TopNav() {
             height: 28,
             padding: "0 10px",
             borderRadius: 999,
-            border: "1px solid var(--de-line-2)",
-            background: "var(--de-bg-raised)",
-            color: "var(--de-ink-2)",
+            border: "1px solid var(--line-2)",
+            background: "var(--bg-1)",
+            color: "var(--fg-2)",
             fontFamily: "var(--font-mono)",
             fontSize: 10,
             fontWeight: 600,
@@ -201,8 +201,8 @@ export function TopNav() {
               width: 6,
               height: 6,
               borderRadius: 999,
-              background: "var(--de-mint)",
-              boxShadow: "0 0 6px var(--de-mint-glow)",
+              background: "var(--green-2)",
+              boxShadow: "0 0 6px var(--green-tint)",
             }}
           />
           Devnet
@@ -211,10 +211,10 @@ export function TopNav() {
         {connected && publicKey ? (
           <WalletButton
             style={{
-              background: "var(--de-lavender-tint)",
-              border: "1px solid var(--de-line-2)",
+              background: "var(--gold-tint)",
+              border: "1px solid var(--line-2)",
               borderRadius: "999px",
-              color: "var(--de-lavender)",
+              color: "var(--gold)",
               fontSize: "11px",
               fontFamily: "var(--font-mono)",
               height: "34px",
@@ -229,8 +229,8 @@ export function TopNav() {
                   width: 6,
                   height: 6,
                   borderRadius: 999,
-                  background: "var(--de-lavender)",
-                  boxShadow: "0 0 6px var(--de-lavender-glow)",
+                  background: "var(--gold)",
+                  boxShadow: "0 0 6px var(--gold-glow)",
                   display: "inline-block",
                 }}
               />
@@ -241,10 +241,10 @@ export function TopNav() {
         ) : (
           <WalletButton
             style={{
-              background: "var(--de-lavender)",
-              border: "1px solid var(--de-lavender)",
+              background: "var(--gold)",
+              border: "1px solid var(--gold)",
               borderRadius: "8px",
-              color: "var(--de-bg)",
+              color: "#fff",
               fontSize: "11px",
               fontFamily: "var(--font-mono)",
               height: "34px",
