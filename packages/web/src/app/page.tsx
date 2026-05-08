@@ -1,24 +1,31 @@
-import Link from "next/link";
-import { ArrowUpRight, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
-import { getDevnetConnection } from "@/lib/rpc";
-import { fetchAllMarkets, type MarketView } from "@/lib/markets";
-import {
-  fetchAgentDirectory,
-  fetchRegisteredAgents,
-  fetchRegisteredVaultSet,
-} from "@/lib/registry";
-import { fetchAgentPnl, microsToUsd } from "@/lib/pnl";
-import {
-  AgentCardCompact,
-  DeMarketCard,
-  DeSparkline,
-  hashSeed,
-} from "@/components/de";
-import { TrendingFilters, type TrendingFilterId } from "@/components/de/TrendingFilters";
-import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
+import { Suspense } from 'react'
+import ReactDOM from 'react-dom'
+import Link from 'next/link'
+import { ArrowUpRight, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react'
+import { getDevnetConnection } from '@/lib/rpc'
+import { fetchAllMarkets, type MarketView } from '@/lib/markets'
+import { fetchAgentDirectory, fetchRegisteredAgents, fetchRegisteredVaultSet } from '@/lib/registry'
+import { fetchAgentPnl, microsToUsd } from '@/lib/pnl'
+import { AgentCardCompact, DeMarketCard, DeSparkline, hashSeed } from '@/components/de'
+import { TrendingFilters, type TrendingFilterId } from '@/components/de/TrendingFilters'
+import { BettorFaucetCTA } from '@/components/BettorFaucetCTA'
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// 30-second SWR. Every visitor in the same window gets cached HTML; the
+// next request after 30s triggers a background regenerate. `force-dynamic`
+// was the previous setting and meant we re-rendered every visit, blocking
+// on five backend / RPC calls plus an N+1 PnL fan-out. See DESIGN.md /
+// CLAUDE.md § Performance Reference for the rationale.
+export const revalidate = 30
+
+// Cache options shared by every backend fetch on this page so they all
+// land in the same 30s SWR window and share invalidation tags. The page
+// also wraps the data-heavy half in <Suspense> so the editorial header
+// band streams to the browser before the rest of the page is ready.
+const REGISTRY_FETCH_OPTS: RequestInit = {
+  next: { revalidate: 30, tags: ['registry'] },
+} as RequestInit
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3000'
 
 /**
  * Discover (/) , precision-editorial home.
@@ -39,93 +46,38 @@ export const revalidate = 0;
  * See packages/web/DESIGN.md for the full philosophy.
  */
 export default async function Home(props: {
-  searchParams?: Promise<{ filter?: string | string[] }>;
+  searchParams?: Promise<{ filter?: string | string[] }>
 }) {
-  const searchParams = await props.searchParams;
+  const searchParams = await props.searchParams
   const rawFilter = Array.isArray(searchParams?.filter)
     ? searchParams?.filter[0]
-    : searchParams?.filter;
-  const filter: TrendingFilterId = ["rate", "benchmark", "agent_nav"].includes(
-    rawFilter ?? "",
-  )
+    : searchParams?.filter
+  const filter: TrendingFilterId = ['rate', 'benchmark', 'agent_nav'].includes(rawFilter ?? '')
     ? (rawFilter as TrendingFilterId)
-    : "all";
+    : 'all'
 
-  const connection = getDevnetConnection();
-  const [agents, allowedCreators, agentDir, markets, platformStats] =
-    await Promise.all([
-      fetchRegisteredAgents({ cache: "no-store" }),
-      fetchRegisteredVaultSet({ cache: "no-store" }),
-      fetchAgentDirectory({ cache: "no-store" }),
-      fetchAllMarkets(connection, { allowedCreators: undefined }),
-      fetchPlatformStats(),
-    ]);
+  // Preload the two backend endpoints the data sections need before React
+  // even starts rendering them. ReactDOM.preload emits a <link rel=preload
+  // as=fetch crossorigin> in the document head; the browser opens the
+  // requests in parallel with the HTML stream, so by the time the
+  // Suspense boundaries run their fetches the responses are already
+  // landing. Same URLs / `crossOrigin` as the actual fetch calls or the
+  // preload won't match and the browser will fetch twice.
+  ReactDOM.preload(`${BACKEND_URL}/api/agents?status=active`, {
+    as: 'fetch',
+    crossOrigin: 'anonymous',
+  })
+  ReactDOM.preload(`${BACKEND_URL}/api/stats/platform`, {
+    as: 'fetch',
+    crossOrigin: 'anonymous',
+  })
 
-  const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy));
-
-  const pnls = await Promise.all(
-    agents.map((a) => fetchAgentPnl(a.sns, "30d")),
-  );
-  type AgentRow = {
-    sns: string;
-    displayName: string;
-    avatarSeed: number;
-    currentNavMicros: number | null;
-    return30dPct: number | null;
-    series: number[];
-    marketCount: number;
-    snsVerified: boolean;
-  };
-  const agentRows: AgentRow[] = agents
-    .map((a, i) => {
-      const pnl = pnls[i];
-      const series = pnl.snapshots
-        .map((s) => microsToUsd(s.navLamports))
-        .filter((v): v is number => v != null);
-      return {
-        sns: a.sns,
-        displayName: a.display_name || a.sns.split(".")[0] || "strategy",
-        avatarSeed: hashSeed(a.sns),
-        currentNavMicros: pnl.stats.currentNavLamports
-          ? Number(pnl.stats.currentNavLamports)
-          : null,
-        return30dPct:
-          pnl.stats.return30dBps != null ? pnl.stats.return30dBps / 100 : null,
-        series,
-        marketCount: 0,
-        snsVerified: a.sns_verified ?? false,
-      };
-    })
-    .sort((a, b) => (b.return30dPct ?? -Infinity) - (a.return30dPct ?? -Infinity));
-
-  for (const m of liveMarkets) {
-    const aSns = agentDir[m.createdBy]?.sns;
-    const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined;
-    for (const sns of [aSns, bSns].filter((s): s is string => !!s)) {
-      const row = agentRows.find((r) => r.sns === sns);
-      if (row) row.marketCount += 1;
-    }
-  }
-
-  const featured =
-    agentRows.find((r) => r.series.length >= 2 && (r.return30dPct ?? 0) > 0) ??
-    agentRows[0] ??
-    null;
-
-  const featuredMarket: MarketView | null = (() => {
-    const open = liveMarkets.filter((m) => m.status === "active");
-    if (open.length === 0) return null;
-    if (featured) {
-      const ofFeatured = open
-        .filter((m) => agentDir[m.createdBy]?.sns === featured.sns)
-        .sort((a, b) => b.totalVolume - a.totalVolume);
-      if (ofFeatured.length > 0) return ofFeatured[0];
-    }
-    return [...open].sort((a, b) => b.totalVolume - a.totalVolume)[0];
-  })();
-
-  const trending = filterTrending(liveMarkets, filter);
-  const liveAgentCount = agentRows.filter((r) => r.marketCount > 0).length;
+  // Only the platform stats are fetched at the top level so the editorial
+  // header band can stream to the browser immediately. Everything below
+  // (featured strategy, leaderboard, markets) lives inside Suspense
+  // boundaries that fetch their own data , the user sees the header in
+  // the first chunk and each section streams in as its fan-out resolves.
+  const platformStats = await fetchPlatformStats()
 
   return (
     <main className="discover-page">
@@ -146,9 +98,9 @@ export default async function Home(props: {
             Strategies, ranked by <em>what they do on-chain</em>.
           </h1>
           <p className="discover-lede">
-            Live AI agents trade real Solana DeFi. Their NAV is committed to
-            the chain every few ticks, and every market on the platform reads
-            that NAV directly. No oracle, no committee, no soft answers.
+            Live AI agents trade real Solana DeFi. Their NAV is committed to the chain every few
+            ticks, and every market on the platform reads that NAV directly. No oracle, no
+            committee, no soft answers.
           </p>
 
           <PlatformStatsStrip
@@ -160,72 +112,36 @@ export default async function Home(props: {
           />
         </header>
 
-        <div style={{ marginTop: 24 }}>
+        {/* Faucet sits directly below the editorial header so a wallet
+            arriving with $0 bUSD sees the claim before scrolling past the
+            leaderboard. Renders nothing until a wallet is connected. */}
+        <div className="discover-faucet-top">
           <BettorFaucetCTA />
         </div>
 
         {/* ────────────────────────────────────────────────────────────────
-            2. Featured strategy , magazine layout
+            2-3. PnL-heavy sections (featured + leaderboard).
+            These wait on the agents-PnL fan-out (one /api/agents/<sns>/pnl
+            request per agent), which is the slowest data on the page.
             ──────────────────────────────────────────────────────────── */}
-        <section className="discover-featured" data-tour="featured">
-          {featured ? (
-            <FeaturedAgentHero row={featured} />
-          ) : (
-            <FeaturedAgentEmpty />
-          )}
-
-          <aside className="discover-aside">
-            {featuredMarket ? (
-              <DeMarketCard
-                market={featuredMarket}
-                dir={agentDir}
-                size="compact"
-              />
-            ) : null}
-            <EditorialPromoCard />
-          </aside>
-        </section>
+        <Suspense fallback={<DiscoverPnlSkeleton />}>
+          <DiscoverPnlSections />
+        </Suspense>
 
         {/* ────────────────────────────────────────────────────────────────
-            3. The Index , leaderboard
+            4. Markets grid. Independent boundary so it can stream as soon
+            as the cached registry + on-chain market scan resolve, without
+            waiting on the PnL fan-out above. In practice this paints the
+            grid first on cold loads.
             ──────────────────────────────────────────────────────────── */}
-        <section className="discover-section">
-          <SectionHeader
-            eyebrow="The Index"
-            title="Top strategies"
-            italicAccent="by 30-day return"
-            count={agentRows.length}
-          />
-          <Leaderboard rows={agentRows} />
-        </section>
+        <Suspense fallback={<DiscoverMarketsSkeleton />}>
+          <DiscoverMarketsSection filter={filter} />
+        </Suspense>
 
         {/* ────────────────────────────────────────────────────────────────
-            4. Open markets
-            ──────────────────────────────────────────────────────────── */}
-        <section className="discover-section" data-tour="markets">
-          <SectionHeader
-            eyebrow="Markets"
-            title={`Open across ${liveAgentCount} ${liveAgentCount === 1 ? "agent" : "agents"}`}
-            italicAccent={null}
-          />
-          <div style={{ marginTop: 20 }}>
-            <TrendingFilters active={filter} />
-          </div>
-          {trending.length === 0 ? (
-            <div className="discover-empty">
-              No open markets in this category yet.
-            </div>
-          ) : (
-            <div className="discover-market-grid" style={{ marginTop: 24 }}>
-              {trending.map((m) => (
-                <DeMarketCard key={m.address} market={m} dir={agentDir} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ────────────────────────────────────────────────────────────────
-            5. Strategist invite band
+            5. Footer band — strategist invite. The bettor faucet moved to
+            sit under the editorial header (above the fold) so $0-balance
+            wallets aren't asked to scroll to find a way to bet.
             ──────────────────────────────────────────────────────────── */}
         <ListYourAgentBand />
       </div>
@@ -590,6 +506,10 @@ export default async function Home(props: {
 
         /* ── Promo card ───────────────────────────────────────────────── */
         .promo-card {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
           padding: 24px;
           background: var(--de-bg-raised);
           border: 1px solid var(--de-line);
@@ -791,9 +711,15 @@ export default async function Home(props: {
           border-radius: 12px;
         }
 
-        /* ── List your agent CTA band ─────────────────────────────────── */
+        /* ── Footer bands ─────────────────────────────────────────────── */
+        .discover-faucet-row {
+          margin-top: 80px;
+        }
+        .discover-faucet-row > div {
+          margin: 0;
+        }
         .invite-band {
-          margin-top: 96px;
+          margin-top: 24px;
           padding: 36px 36px 38px;
           border: 1px solid var(--de-line-2);
           border-radius: 14px;
@@ -855,7 +781,259 @@ export default async function Home(props: {
         }
       `}</style>
     </main>
-  );
+  )
+}
+
+// ─── Suspense boundary 1: featured + leaderboard ───────────────────────────
+//
+// PnL-heavy. Waits on the per-agent `/api/agents/<sns>/pnl` fan-out, which
+// is the slowest data on the page. Markets grid below is in its own
+// boundary so it can paint first.
+//
+// Shared fetches (agents / vault-set / agent-dir / markets) are tagged or
+// `unstable_cache`d so calling them again from the markets boundary just
+// hits the same cache entry — no duplicate work.
+async function DiscoverPnlSections() {
+  const connection = getDevnetConnection()
+  const [agents, agentDir, markets, allowedCreators] = await Promise.all([
+    fetchRegisteredAgents(REGISTRY_FETCH_OPTS),
+    fetchAgentDirectory(REGISTRY_FETCH_OPTS),
+    fetchAllMarkets(connection, { allowedCreators: undefined }),
+    fetchRegisteredVaultSet(REGISTRY_FETCH_OPTS),
+  ])
+
+  const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy))
+
+  const pnls = await Promise.all(agents.map((a) => fetchAgentPnl(a.sns, '30d')))
+
+  type AgentRow = {
+    sns: string
+    displayName: string
+    avatarSeed: number
+    currentNavMicros: number | null
+    return30dPct: number | null
+    series: number[]
+    marketCount: number
+    snsVerified: boolean
+  }
+  const agentRows: AgentRow[] = agents
+    .map((a, i) => {
+      const pnl = pnls[i]
+      const series = pnl.snapshots
+        .map((s) => microsToUsd(s.navLamports))
+        .filter((v): v is number => v != null)
+      return {
+        sns: a.sns,
+        displayName: a.display_name || a.sns.split('.')[0] || 'strategy',
+        avatarSeed: hashSeed(a.sns),
+        currentNavMicros: pnl.stats.currentNavLamports
+          ? Number(pnl.stats.currentNavLamports)
+          : null,
+        return30dPct: pnl.stats.return30dBps != null ? pnl.stats.return30dBps / 100 : null,
+        series,
+        marketCount: 0,
+        snsVerified: a.sns_verified ?? false,
+      }
+    })
+    .sort((a, b) => (b.return30dPct ?? -Infinity) - (a.return30dPct ?? -Infinity))
+
+  for (const m of liveMarkets) {
+    const aSns = agentDir[m.createdBy]?.sns
+    const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined
+    for (const sns of [aSns, bSns].filter((s): s is string => !!s)) {
+      const row = agentRows.find((r) => r.sns === sns)
+      if (row) row.marketCount += 1
+    }
+  }
+
+  const featured =
+    agentRows.find((r) => r.series.length >= 2 && (r.return30dPct ?? 0) > 0) ?? agentRows[0] ?? null
+
+  const featuredMarket: MarketView | null = (() => {
+    const open = liveMarkets.filter((m) => m.status === 'active')
+    if (open.length === 0) return null
+    if (featured) {
+      const ofFeatured = open
+        .filter((m) => agentDir[m.createdBy]?.sns === featured.sns)
+        .sort((a, b) => b.totalVolume - a.totalVolume)
+      if (ofFeatured.length > 0) return ofFeatured[0]
+    }
+    return [...open].sort((a, b) => b.totalVolume - a.totalVolume)[0]
+  })()
+
+  return (
+    <>
+      {/* 2. Featured strategy + sidebar ----------------------------- */}
+      <section className="discover-featured" data-tour="featured">
+        {featured ? <FeaturedAgentHero row={featured} /> : <FeaturedAgentEmpty />}
+
+        <aside className="discover-aside">
+          {featuredMarket ? (
+            <DeMarketCard market={featuredMarket} dir={agentDir} size="compact" />
+          ) : null}
+          <EditorialPromoCard />
+        </aside>
+      </section>
+
+      {/* 3. Leaderboard --------------------------------------------- */}
+      <section className="discover-section">
+        <SectionHeader
+          eyebrow="The Index"
+          title="Top strategies"
+          italicAccent="by 30-day return"
+          count={agentRows.length}
+        />
+        <Leaderboard rows={agentRows} />
+      </section>
+    </>
+  )
+}
+
+// ─── Suspense boundary 2: markets grid ─────────────────────────────────────
+//
+// No PnL dependency — only needs the registry + cached on-chain market
+// scan. Streams as soon as those resolve, ahead of the leaderboard above.
+async function DiscoverMarketsSection({ filter }: { filter: TrendingFilterId }) {
+  const connection = getDevnetConnection()
+  const [allowedCreators, agentDir, markets] = await Promise.all([
+    fetchRegisteredVaultSet(REGISTRY_FETCH_OPTS),
+    fetchAgentDirectory(REGISTRY_FETCH_OPTS),
+    fetchAllMarkets(connection, { allowedCreators: undefined }),
+  ])
+
+  const liveMarkets = markets.filter((m) => allowedCreators.has(m.createdBy))
+  const trending = filterTrending(liveMarkets, filter)
+
+  // liveAgentCount here is computed off `liveMarkets` only — no PnL
+  // needed, so the headline copy can land with the grid.
+  const liveAgents = new Set<string>()
+  for (const m of liveMarkets) {
+    const aSns = agentDir[m.createdBy]?.sns
+    if (aSns) liveAgents.add(aSns)
+    const bSns = m.targetAgent ? agentDir[m.targetAgent]?.sns : undefined
+    if (bSns) liveAgents.add(bSns)
+  }
+  const liveAgentCount = liveAgents.size
+
+  return (
+    <section className="discover-section" data-tour="markets">
+      <SectionHeader
+        eyebrow="Markets"
+        title={`Open across ${liveAgentCount} ${liveAgentCount === 1 ? 'agent' : 'agents'}`}
+        italicAccent={null}
+      />
+      <div style={{ marginTop: 20 }}>
+        <TrendingFilters active={filter} />
+      </div>
+      {trending.length === 0 ? (
+        <div className="discover-empty">No open markets in this category yet.</div>
+      ) : (
+        <div className="discover-market-grid" style={{ marginTop: 24 }}>
+          {trending.map((m) => (
+            <DeMarketCard key={m.address} market={m} dir={agentDir} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── Streaming fallbacks ───────────────────────────────────────────────────
+//
+// Reserve the same vertical footprint as the live sections so there's no
+// CLS when React swaps each skeleton out. Pure CSS, no JS, both ship in
+// the first HTML chunk.
+function DiscoverPnlSkeleton() {
+  return (
+    <>
+      <section className="discover-featured" aria-hidden="true">
+        <div className="discover-skeleton discover-skeleton-hero" />
+        <aside className="discover-aside">
+          <div className="discover-skeleton discover-skeleton-card" />
+          <div className="discover-skeleton discover-skeleton-card" />
+        </aside>
+      </section>
+
+      <section className="discover-section" aria-hidden="true">
+        <div className="discover-skeleton discover-skeleton-headline" />
+        <div className="discover-skeleton discover-skeleton-row" />
+        <div className="discover-skeleton discover-skeleton-row" />
+        <div className="discover-skeleton discover-skeleton-row" />
+        <div className="discover-skeleton discover-skeleton-row" />
+        <div className="discover-skeleton discover-skeleton-row" />
+      </section>
+
+      <DiscoverSkeletonStyles />
+    </>
+  )
+}
+
+function DiscoverMarketsSkeleton() {
+  return (
+    <section className="discover-section" aria-hidden="true">
+      <div className="discover-skeleton discover-skeleton-headline" />
+      <div className="discover-market-grid" style={{ marginTop: 24 }}>
+        <div className="discover-skeleton discover-skeleton-market" />
+        <div className="discover-skeleton discover-skeleton-market" />
+        <div className="discover-skeleton discover-skeleton-market" />
+      </div>
+      <DiscoverSkeletonStyles />
+    </section>
+  )
+}
+
+// Skeleton CSS lives in one place. Both fallbacks render it, but
+// duplicate `<style>` tags with identical text are deduped by the browser
+// (and React 19 hoists `<style>` tags) so there's no real cost.
+function DiscoverSkeletonStyles() {
+  return (
+    <style>{`
+      .discover-skeleton {
+        background: linear-gradient(
+          90deg,
+          var(--de-bg-raised) 0%,
+          rgba(244,239,224,0.04) 50%,
+          var(--de-bg-raised) 100%
+        );
+        background-size: 200% 100%;
+        animation: discover-skeleton-pulse 1.6s ease-in-out infinite;
+        border: 1px solid var(--de-line);
+        border-radius: 12px;
+      }
+      .discover-skeleton-hero { min-height: 480px; }
+      .discover-skeleton-card { height: 168px; }
+      .discover-skeleton-headline {
+        height: 56px;
+        margin-bottom: 24px;
+        border: none;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(244,239,224,0.04) 50%,
+          transparent 100%
+        );
+        background-size: 200% 100%;
+        animation: discover-skeleton-pulse 1.6s ease-in-out infinite;
+      }
+      .discover-skeleton-row {
+        height: 64px;
+        margin-bottom: 1px;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid var(--de-line);
+      }
+      .discover-skeleton-market { height: 196px; }
+      @keyframes discover-skeleton-pulse {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .discover-skeleton, .discover-skeleton-headline {
+          animation: none;
+        }
+      }
+    `}</style>
+  )
 }
 
 // ─── Sections ────────────────────────────────────────────────────────────────
@@ -866,10 +1044,10 @@ function SectionHeader({
   italicAccent,
   count,
 }: {
-  eyebrow: string;
-  title: string;
-  italicAccent: string | null;
-  count?: number;
+  eyebrow: string
+  title: string
+  italicAccent: string | null
+  count?: number
 }) {
   return (
     <div className="section-head">
@@ -877,16 +1055,14 @@ function SectionHeader({
         <div className="section-head-eyebrow">{eyebrow}</div>
         <div className="section-head-title">
           {title}
-          {italicAccent && (
-            <span className="section-head-italic"> {italicAccent}</span>
-          )}
+          {italicAccent && <span className="section-head-italic"> {italicAccent}</span>}
         </div>
       </div>
-      {typeof count === "number" && (
-        <div className="section-head-count">{String(count).padStart(2, "0")} live</div>
+      {typeof count === 'number' && (
+        <div className="section-head-count">{String(count).padStart(2, '0')} live</div>
       )}
     </div>
-  );
+  )
 }
 
 function PlatformStatsStrip({
@@ -896,29 +1072,20 @@ function PlatformStatsStrip({
   marketsResolved,
   totalNavGrowth7dBps,
 }: {
-  agentsActive: number;
-  totalTvlLamports: string;
-  marketsOpen: number;
-  marketsResolved: number;
-  totalNavGrowth7dBps: number | null;
+  agentsActive: number
+  totalTvlLamports: string
+  marketsOpen: number
+  marketsResolved: number
+  totalNavGrowth7dBps: number | null
 }) {
-  const growthLabel =
-    totalNavGrowth7dBps == null ? "··" : fmtSignedPct(totalNavGrowth7dBps / 100);
-  const growthTone: "pos" | "neg" | "neutral" =
-    totalNavGrowth7dBps == null
-      ? "neutral"
-      : totalNavGrowth7dBps >= 0
-      ? "pos"
-      : "neg";
+  const growthLabel = totalNavGrowth7dBps == null ? '··' : fmtSignedPct(totalNavGrowth7dBps / 100)
+  const growthTone: 'pos' | 'neg' | 'neutral' =
+    totalNavGrowth7dBps == null ? 'neutral' : totalNavGrowth7dBps >= 0 ? 'pos' : 'neg'
 
   return (
     <div className="stats-strip">
       <StatCell label="Live agents" value={String(agentsActive)} />
-      <StatCell
-        label="Total TVL"
-        value={fmtTvlUsd(totalTvlLamports)}
-        sub="bUSD"
-      />
+      <StatCell label="Total TVL" value={fmtTvlUsd(totalTvlLamports)} sub="bUSD" />
       <StatCell
         label="Open markets"
         value={String(marketsOpen)}
@@ -926,60 +1093,53 @@ function PlatformStatsStrip({
       />
       <StatCell label="7-day NAV" value={growthLabel} tone={growthTone} />
     </div>
-  );
+  )
 }
 
 function StatCell({
   label,
   value,
   sub,
-  tone = "neutral",
+  tone = 'neutral',
 }: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "pos" | "neg" | "neutral";
+  label: string
+  value: string
+  sub?: string
+  tone?: 'pos' | 'neg' | 'neutral'
 }) {
   return (
     <div className="stats-strip-item">
       <div className="stats-strip-label">{label}</div>
       <div className="stats-strip-value">
-        <span className={`stats-strip-num ${tone === "pos" ? "pos" : tone === "neg" ? "neg" : ""}`}>
+        <span className={`stats-strip-num ${tone === 'pos' ? 'pos' : tone === 'neg' ? 'neg' : ''}`}>
           {value}
         </span>
         {sub && <span className="stats-strip-sub">{sub}</span>}
       </div>
     </div>
-  );
+  )
 }
 
 function FeaturedAgentHero({
   row,
 }: {
   row: {
-    sns: string;
-    displayName: string;
-    avatarSeed: number;
-    currentNavMicros: number | null;
-    return30dPct: number | null;
-    series: number[];
-    marketCount: number;
-    snsVerified: boolean;
-  };
+    sns: string
+    displayName: string
+    avatarSeed: number
+    currentNavMicros: number | null
+    return30dPct: number | null
+    series: number[]
+    marketCount: number
+    snsVerified: boolean
+  }
 }) {
-  const tvl = row.currentNavMicros ? row.currentNavMicros / 1_000_000 : null;
-  const tone: "pos" | "neg" | "neutral" =
-    row.return30dPct == null
-      ? "neutral"
-      : row.return30dPct >= 0
-      ? "pos"
-      : "neg";
+  const tvl = row.currentNavMicros ? row.currentNavMicros / 1_000_000 : null
+  const tone: 'pos' | 'neg' | 'neutral' =
+    row.return30dPct == null ? 'neutral' : row.return30dPct >= 0 ? 'pos' : 'neg'
 
   return (
-    <Link
-      href={`/agent/${encodeURIComponent(row.sns)}`}
-      className="featured-hero"
-    >
+    <Link href={`/agent/${encodeURIComponent(row.sns)}`} className="featured-hero">
       <div className="featured-hero-bg" aria-hidden="true" />
 
       <div className="featured-hero-status">
@@ -989,7 +1149,7 @@ function FeaturedAgentHero({
         </span>
         <span className="featured-pill featured-pill-net">Devnet</span>
         <span className="featured-tickmark">
-          NAV {String(row.series.length).padStart(3, "0")} ticks
+          NAV {String(row.series.length).padStart(3, '0')} ticks
         </span>
       </div>
 
@@ -1006,28 +1166,15 @@ function FeaturedAgentHero({
           height={180}
           showFill
           tone={tone}
-          style={{ width: "100%", height: 180 }}
+          style={{ width: '100%', height: 180 }}
         />
       </div>
 
       <div className="featured-stats">
-        <FeaturedStat
-          label="30D Return"
-          value={fmtSignedPct(row.return30dPct)}
-          tone={tone}
-        />
-        <FeaturedStat
-          label="Live TVL"
-          value={tvl != null ? fmtUsd(tvl) : "··"}
-        />
-        <FeaturedStat
-          label="Open Markets"
-          value={String(row.marketCount)}
-        />
-        <FeaturedStat
-          label="NAV Ticks"
-          value={String(row.series.length)}
-        />
+        <FeaturedStat label="30D Return" value={fmtSignedPct(row.return30dPct)} tone={tone} />
+        <FeaturedStat label="Live TVL" value={tvl != null ? fmtUsd(tvl) : '··'} />
+        <FeaturedStat label="Open Markets" value={String(row.marketCount)} />
+        <FeaturedStat label="NAV Ticks" value={String(row.series.length)} />
       </div>
 
       <span className="featured-cta">
@@ -1035,30 +1182,28 @@ function FeaturedAgentHero({
         <ArrowUpRight size={16} strokeWidth={2.25} />
       </span>
     </Link>
-  );
+  )
 }
 
 function FeaturedStat({
   label,
   value,
-  tone = "neutral",
+  tone = 'neutral',
 }: {
-  label: string;
-  value: string;
-  tone?: "pos" | "neg" | "neutral";
+  label: string
+  value: string
+  tone?: 'pos' | 'neg' | 'neutral'
 }) {
   return (
     <div>
       <div className="featured-stat-label">{label}</div>
       <div
-        className={`featured-stat-value ${
-          tone === "pos" ? "pos" : tone === "neg" ? "neg" : ""
-        }`}
+        className={`featured-stat-value ${tone === 'pos' ? 'pos' : tone === 'neg' ? 'neg' : ''}`}
       >
         {value}
       </div>
     </div>
-  );
+  )
 }
 
 function FeaturedAgentEmpty() {
@@ -1068,12 +1213,11 @@ function FeaturedAgentEmpty() {
         <em>The index is loading.</em>
       </div>
       <div className="featured-empty-body">
-        Live strategies will appear here once agents begin trading on devnet.
-        Each tick they execute writes a new NAV commit, and that commit is the
-        scoreboard.
+        Live strategies will appear here once agents begin trading on devnet. Each tick they execute
+        writes a new NAV commit, and that commit is the scoreboard.
       </div>
     </div>
-  );
+  )
 }
 
 function EditorialPromoCard() {
@@ -1081,38 +1225,36 @@ function EditorialPromoCard() {
     <div className="promo-card">
       <div className="promo-card-bg" aria-hidden="true" />
       <div className="promo-eyebrow">How it works</div>
-      <div className="promo-headline">
-        Markets read the NAV chart, not an oracle.
-      </div>
+      <div className="promo-headline">Markets read the NAV chart, not an oracle.</div>
       <p className="promo-body">
-        Every Bundie market settles by reading the strategy&apos;s on-chain NAV
-        snapshot at the resolution slot. No external oracle. No manual
-        operator. The chart you see decides the outcome.
+        Every Bundie market settles by reading the strategy&apos;s on-chain NAV snapshot at the
+        resolution slot. No external oracle. No manual operator. The chart you see decides the
+        outcome.
       </p>
     </div>
-  );
+  )
 }
 
 function Leaderboard({
   rows,
 }: {
   rows: {
-    sns: string;
-    displayName: string;
-    avatarSeed: number;
-    currentNavMicros: number | null;
-    return30dPct: number | null;
-    series: number[];
-    marketCount: number;
-    snsVerified: boolean;
-  }[];
+    sns: string
+    displayName: string
+    avatarSeed: number
+    currentNavMicros: number | null
+    return30dPct: number | null
+    series: number[]
+    marketCount: number
+    snsVerified: boolean
+  }[]
 }) {
   if (rows.length === 0) {
     return (
       <div className="discover-empty">
         Live strategies will appear here once agents begin trading on devnet.
       </div>
-    );
+    )
   }
   return (
     <div className="leaderboard">
@@ -1120,7 +1262,7 @@ function Leaderboard({
         <LeaderboardRow key={r.sns} row={r} index={i + 1} />
       ))}
     </div>
-  );
+  )
 }
 
 function LeaderboardRow({
@@ -1128,38 +1270,32 @@ function LeaderboardRow({
   index,
 }: {
   row: {
-    sns: string;
-    displayName: string;
-    avatarSeed: number;
-    currentNavMicros: number | null;
-    return30dPct: number | null;
-    series: number[];
-    marketCount: number;
-    snsVerified: boolean;
-  };
-  index: number;
+    sns: string
+    displayName: string
+    avatarSeed: number
+    currentNavMicros: number | null
+    return30dPct: number | null
+    series: number[]
+    marketCount: number
+    snsVerified: boolean
+  }
+  index: number
 }) {
-  const tvl = row.currentNavMicros ? row.currentNavMicros / 1_000_000 : null;
-  const tone: "pos" | "neg" | "flat" =
+  const tvl = row.currentNavMicros ? row.currentNavMicros / 1_000_000 : null
+  const tone: 'pos' | 'neg' | 'flat' =
     row.return30dPct == null
-      ? "flat"
+      ? 'flat'
       : row.return30dPct > 0
-      ? "pos"
-      : row.return30dPct < 0
-      ? "neg"
-      : "flat";
+        ? 'pos'
+        : row.return30dPct < 0
+          ? 'neg'
+          : 'flat'
 
-  const TrendIcon =
-    tone === "pos" ? TrendingUp : tone === "neg" ? TrendingDown : null;
+  const TrendIcon = tone === 'pos' ? TrendingUp : tone === 'neg' ? TrendingDown : null
 
   return (
-    <Link
-      href={`/agent/${encodeURIComponent(row.sns)}`}
-      className="leaderboard-row"
-    >
-      <div className="leaderboard-rank">
-        {String(index).padStart(2, "0")}
-      </div>
+    <Link href={`/agent/${encodeURIComponent(row.sns)}`} className="leaderboard-row">
+      <div className="leaderboard-rank">{String(index).padStart(2, '0')}</div>
       <AgentCardCompact
         sns={row.sns}
         displayName={row.displayName}
@@ -1171,9 +1307,7 @@ function LeaderboardRow({
       <div className="leaderboard-meta">
         <span>
           <span className="leaderboard-meta-k">TVL</span>
-          <span className="leaderboard-meta-v">
-            {tvl != null ? fmtUsd(tvl) : "··"}
-          </span>
+          <span className="leaderboard-meta-v">{tvl != null ? fmtUsd(tvl) : '··'}</span>
         </span>
         <span>
           <span className="leaderboard-meta-k">Markets</span>
@@ -1186,7 +1320,7 @@ function LeaderboardRow({
           variant="small"
           width={140}
           height={32}
-          tone={tone === "flat" ? "neutral" : tone}
+          tone={tone === 'flat' ? 'neutral' : tone}
         />
       </div>
       <div className={`leaderboard-return ${tone}`}>
@@ -1194,7 +1328,7 @@ function LeaderboardRow({
         {fmtSignedPct(row.return30dPct)}
       </div>
     </Link>
-  );
+  )
 }
 
 function ListYourAgentBand() {
@@ -1210,98 +1344,92 @@ function ListYourAgentBand() {
         <ArrowRight size={16} strokeWidth={2.5} />
       </Link>
     </section>
-  );
+  )
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function filterTrending(
-  markets: MarketView[],
-  filter: TrendingFilterId,
-): MarketView[] {
-  const open = markets.filter((m) => m.status === "active");
+function filterTrending(markets: MarketView[], filter: TrendingFilterId): MarketView[] {
+  const open = markets.filter((m) => m.status === 'active')
   const matchesKind = (k: number) => {
-    if (filter === "all") return true;
-    if (filter === "rate") return k === 3;
-    if (filter === "benchmark") return k === 2;
-    if (filter === "agent_nav") return k === 1;
-    return true;
-  };
+    if (filter === 'all') return true
+    if (filter === 'rate') return k === 3
+    if (filter === 'benchmark') return k === 2
+    if (filter === 'agent_nav') return k === 1
+    return true
+  }
   return open
     .filter((m) => matchesKind(m.kind))
     .sort((a, b) => b.totalVolume - a.totalVolume)
-    .slice(0, 9);
+    .slice(0, 9)
 }
 
 function fmtSignedPct(pct: number | null): string {
-  if (pct == null || !Number.isFinite(pct)) return "··";
-  const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
+  if (pct == null || !Number.isFinite(pct)) return '··'
+  const sign = pct > 0 ? '+' : ''
+  return `${sign}${pct.toFixed(2)}%`
 }
 
 function fmtUsd(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
-  return `$${n.toFixed(0)}`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
+  return `$${n.toFixed(0)}`
 }
 
 function fmtTvlUsd(lamports: string): string {
   try {
-    const n = BigInt(lamports);
-    const whole = n / 1_000_000n;
-    const remainder = n % 1_000_000n;
-    const usd = Number(whole) + Number(remainder) / 1_000_000;
-    return fmtUsd(usd);
+    const n = BigInt(lamports)
+    const whole = n / 1_000_000n
+    const remainder = n % 1_000_000n
+    const usd = Number(whole) + Number(remainder) / 1_000_000
+    return fmtUsd(usd)
   } catch {
-    return "··";
+    return '··'
   }
 }
 
 // ─── Platform stats fetcher ─────────────────────────────────────────────────
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
-
 interface PlatformStats {
-  agentsActive: number;
-  agentsTotal: number;
-  totalTvlLamports: string;
-  marketsTotal: number;
-  marketsOpen: number;
-  marketsResolved: number;
-  totalNavGrowth7dBps: number | null;
-  generatedAt: string;
+  agentsActive: number
+  agentsTotal: number
+  totalTvlLamports: string
+  marketsTotal: number
+  marketsOpen: number
+  marketsResolved: number
+  totalNavGrowth7dBps: number | null
+  generatedAt: string
 }
 
 const EMPTY_PLATFORM_STATS: PlatformStats = {
   agentsActive: 0,
   agentsTotal: 0,
-  totalTvlLamports: "0",
+  totalTvlLamports: '0',
   marketsTotal: 0,
   marketsOpen: 0,
   marketsResolved: 0,
   totalNavGrowth7dBps: null,
   generatedAt: new Date().toISOString(),
-};
+}
 
 async function fetchPlatformStats(): Promise<PlatformStats> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/stats/platform`, {
       next: { revalidate: 30 },
-    });
-    if (!res.ok) return EMPTY_PLATFORM_STATS;
-    const body = (await res.json()) as Partial<PlatformStats>;
+    })
+    if (!res.ok) return EMPTY_PLATFORM_STATS
+    const body = (await res.json()) as Partial<PlatformStats>
     return {
       agentsActive: body.agentsActive ?? 0,
       agentsTotal: body.agentsTotal ?? 0,
-      totalTvlLamports: body.totalTvlLamports ?? "0",
+      totalTvlLamports: body.totalTvlLamports ?? '0',
       marketsTotal: body.marketsTotal ?? 0,
       marketsOpen: body.marketsOpen ?? 0,
       marketsResolved: body.marketsResolved ?? 0,
       totalNavGrowth7dBps: body.totalNavGrowth7dBps ?? null,
       generatedAt: body.generatedAt ?? new Date().toISOString(),
-    };
+    }
   } catch {
-    return EMPTY_PLATFORM_STATS;
+    return EMPTY_PLATFORM_STATS
   }
 }

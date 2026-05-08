@@ -1,3 +1,7 @@
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // `output: "standalone"` removed — recent Next.js exits immediately after
@@ -6,7 +10,20 @@ const nextConfig = {
   // also switches to `node .next/standalone/server.js` (and copies
   // .next/static + public/ into the standalone tree).
   images: {
-    unoptimized: true,
+    // Allow next/image to optimise our internal assets (protocol icons,
+    // agent avatars). Remote backend-served avatars are explicitly
+    // allowlisted; everything else is local /public.
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.bundie.fi",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
+    ],
   },
   transpilePackages: ["@bundie/common"],
   // /create-agent was renamed to /strategists when we repositioned the
@@ -37,4 +54,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);

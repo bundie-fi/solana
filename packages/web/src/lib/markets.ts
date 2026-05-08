@@ -17,6 +17,7 @@
  * sign here , a throwaway Keypair is sufficient and the provider is used
  * only for its `connection`.
  */
+import { cache } from "react";
 import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 import type { Wallet as AnchorWallet } from "@coral-xyz/anchor/dist/cjs/provider";
 import { predictionMarketIdl } from "@bundie/common";
@@ -321,41 +322,53 @@ export interface FetchAllMarketsOptions {
   allowedCreators?: Set<string>;
 }
 
+// Request-scoped dedup of the raw `getProgramAccounts` scan. When the
+// discover page renders, multiple Suspense boundaries each call
+// `fetchAllMarkets` — `React.cache` ensures the underlying RPC fires
+// once per render pass. We can't use `unstable_cache` here because
+// MarketView contains `bigint` fields and unstable_cache JSON-serialises
+// its return value. Cross-request caching is already provided by the
+// page-level `revalidate = 30`.
+const fetchAllMarketsRaw = cache(
+  async (connection: Connection): Promise<MarketView[]> => {
+    const program = getProgram(connection);
+    try {
+      const accounts = await program.account.market.all();
+      return accounts.map((a) => toMarketView(a.publicKey, a.account));
+    } catch (err) {
+      console.error("[markets] fetchAllMarkets raw scan failed:", err);
+      return [];
+    }
+  },
+);
+
 export async function fetchAllMarkets(
   connection: Connection,
   opts: FetchAllMarketsOptions = {},
 ): Promise<MarketView[]> {
-  const program = getProgram(connection);
-  try {
-    const accounts = await program.account.market.all();
-    return accounts
-      .map((a) => toMarketView(a.publicKey, a.account))
-      // The previous HERO_VAULTS allowlist (alice/bob/charlie pubkeys) was
-      // dropped once those demo agents were migrated into the Supabase
-      // `agents` registry , markets are now sourced from the on-chain set
-      // and the per-agent profile/leaderboard pages decide which agents to
-      // surface. The `createdAt` cutoff still filters out the pre-launch
-      // chaos-sim test markets, and `isSupportedMarket` drops any zombie
-      // accounts left over from deprecated kinds (0/4/5/6) that the new
-      // resolver no longer accepts.
-      .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
-      .filter(isSupportedMarket)
-      // Registry filter , only markets created by an agent in the
-      // Supabase registry are surfaced. When the registry is empty
-      // (backend down or no agents registered yet), no markets render —
-      // this is the intended graceful-degrade behaviour, not a bug.
-      .filter(
-        (m) =>
-          opts.allowedCreators === undefined ||
-          opts.allowedCreators.has(m.createdBy),
-      )
-      // newest first
-      .sort((a, b) => b.createdAt - a.createdAt);
-  } catch (err) {
-    // Swallow RPC errors so the page renders an empty state rather than a 500.
-    console.error("[markets] fetchAllMarkets failed:", err);
-    return [];
-  }
+  // The previous HERO_VAULTS allowlist (alice/bob/charlie pubkeys) was
+  // dropped once those demo agents were migrated into the Supabase
+  // `agents` registry , markets are now sourced from the on-chain set
+  // and the per-agent profile/leaderboard pages decide which agents to
+  // surface. The `createdAt` cutoff still filters out the pre-launch
+  // chaos-sim test markets, and `isSupportedMarket` drops any zombie
+  // accounts left over from deprecated kinds (0/4/5/6) that the new
+  // resolver no longer accepts.
+  const raw = await fetchAllMarketsRaw(connection);
+  return raw
+    .filter((m) => m.createdAt >= MARKET_FRESH_START_TS)
+    .filter(isSupportedMarket)
+    // Registry filter , only markets created by an agent in the
+    // Supabase registry are surfaced. When the registry is empty
+    // (backend down or no agents registered yet), no markets render —
+    // this is the intended graceful-degrade behaviour, not a bug.
+    .filter(
+      (m) =>
+        opts.allowedCreators === undefined ||
+        opts.allowedCreators.has(m.createdBy),
+    )
+    // newest first
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function fetchMarketByAddress(
