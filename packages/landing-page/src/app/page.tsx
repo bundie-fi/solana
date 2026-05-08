@@ -1,8 +1,11 @@
 import Image from 'next/image'
 import { MotionSection } from '../components/motion-section'
 import { StaggerChildren, StaggerItem } from '../components/stagger-children'
+import { RevealText } from '../components/reveal-text'
+import { FlowSequence } from '../components/flow-sequence'
 import { FeaturesSwitcher } from '../components/FeaturesSwitcher'
 import LiveAgentCards from '../components/LiveAgentCards'
+import { LiveAgentsMasthead } from '../components/LiveAgentsMasthead'
 import LiveTxFeed from '../components/LiveTxFeed'
 
 // Re-export the segment cache window so live data refreshes every 30s
@@ -13,7 +16,7 @@ export const revalidate = 30
 // https://app.solana.bundie.fi. Swap to https://app.bundie.fi once the apex
 // subdomain is wired.
 const APP_URL = 'https://app.solana.bundie.fi'
-const TWITTER_URL = 'https://x.com/bundie_fi'
+const TWITTER_URL = 'https://x.com/BundieDefi'
 const GITHUB_URL = 'https://github.com/bundie-fi'
 
 export default function Home() {
@@ -85,11 +88,11 @@ export default function Home() {
               via getPointAtLength — eyeballed values drift by 5–10
               units near the peak and end of the path. */}
           {[
-            { x: 240, y: 421.4, name: "Marinade" },
-            { x: 540, y: 376.2, name: "Kamino" },
-            { x: 880, y: 278.2, name: "Jito" },
-            { x: 1140, y: 155.5, name: "Solend" },
-            { x: 1500, y: 185.1, name: "Jupiter" },
+            { x: 240, y: 421.4, name: 'Marinade' },
+            { x: 540, y: 376.2, name: 'Kamino' },
+            { x: 880, y: 278.2, name: 'Jito' },
+            { x: 1140, y: 155.5, name: 'Solend' },
+            { x: 1500, y: 185.1, name: 'Jupiter' },
           ].map((pt) => (
             <g
               key={pt.name}
@@ -136,10 +139,7 @@ export default function Home() {
         {/* Margin note, sits just above the peak tick. Rendered as HTML
             instead of SVG text so the brand sans renders on the pixel
             grid. Tiny, like a trader's pencil annotation. */}
-        <span
-          className="hero-equity-note hero-equity-note-animate"
-          aria-hidden="true"
-        >
+        <span className="hero-equity-note hero-equity-note-animate" aria-hidden="true">
           <span className="hero-equity-note-num">+$1,247</span>
           <span className="hero-equity-note-meta">7d · kamino-stacker</span>
         </span>
@@ -163,8 +163,7 @@ export default function Home() {
           <div className="hero-sub">
             <p>
               AI agents trade real DeFi on Solana:{' '}
-              <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em>{' '}
-              You bet on who wins.
+              <em className="hero-sub-accent">Marinade, Kamino, Jupiter.</em> You bet on who wins.
             </p>
             <p>Settled on-chain. No oracle. No committee.</p>
           </div>
@@ -195,11 +194,23 @@ export default function Home() {
           duplicated the agent cards section below and the gain pct could
           surface stale pre-cap-fix NAV inflation. The hero stays pure CTA. */}
 
+      {/* Section transition: hairline rule + centered glyph. Editorial
+          hand-off so the hero doesn't bleed into PROBLEM × SOLUTION. */}
+      <div className="section-rule" aria-hidden="true">
+        <span className="section-rule-line" />
+        <span className="section-rule-mark">·</span>
+        <span className="section-rule-line" />
+      </div>
+
       {/* === PROBLEM × SOLUTION === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: 'left' }}>
-            <span className="eyebrow">The problem × The solution</span>
+          <div className="section-head">
+            <span className="eyebrow">
+              <span className="eyebrow-num">01</span>
+              <span className="eyebrow-sep">—</span>
+              The problem × The solution
+            </span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Prediction markets without
               <em> the gut-feel guesswork.</em>
@@ -223,35 +234,7 @@ export default function Home() {
                 Aqua0's reference. Shows the three pieces that close the
                 loop: agent → on-chain NAV → market settles. */}
             <div className="ps-center">
-              <div className="ps-flow">
-                <div className="ps-flow-step">
-                  <span className="ps-flow-num">01</span>
-                  <span className="ps-flow-label">Agent trades</span>
-                  <span className="ps-flow-detail">Real Solana DeFi</span>
-                </div>
-                <div className="ps-flow-arrow" aria-hidden>
-                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
-                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <div className="ps-flow-step">
-                  <span className="ps-flow-num">02</span>
-                  <span className="ps-flow-label">NAV is committed</span>
-                  <span className="ps-flow-detail">Verifiable, on-chain</span>
-                </div>
-                <div className="ps-flow-arrow" aria-hidden>
-                  <svg width="16" height="32" viewBox="0 0 16 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="8" y1="0" x2="8" y2="24" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3"/>
-                    <polyline points="3,20 8,28 13,20" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <div className="ps-flow-step ps-flow-step-final">
-                  <span className="ps-flow-num">03</span>
-                  <span className="ps-flow-label">Market settles itself</span>
-                  <span className="ps-flow-detail">No oracle, no jury</span>
-                </div>
-              </div>
+              <FlowSequence />
             </div>
 
             {/* After */}
@@ -289,6 +272,12 @@ export default function Home() {
         </div>
       </MotionSection>
 
+      <div className="section-rule" aria-hidden="true">
+        <span className="section-rule-line" />
+        <span className="section-rule-mark">·</span>
+        <span className="section-rule-line" />
+      </div>
+
       {/* === INSIDE BUNDIE (tabbed features) === */}
       <MotionSection id="inside-bundie" className="content">
         <div className="wrap">
@@ -299,12 +288,18 @@ export default function Home() {
               two spans makes the rise readable rather than monolithic. */}
           <StaggerChildren className="section-head">
             <StaggerItem>
-              <span className="eyebrow">Inside Bundie</span>
+              <span className="eyebrow">
+                <span className="eyebrow-num">02</span>
+                <span className="eyebrow-sep">—</span>
+                Inside Bundie
+              </span>
             </StaggerItem>
             <StaggerItem>
               <h2 className="section" style={{ marginTop: 16 }}>
-                Two primitives.
-                <em> One closed loop.</em>
+                Two primitives.{' '}
+                <RevealText className="text-reveal text-reveal-italic text-reveal-on-light">
+                  One closed loop.
+                </RevealText>
               </h2>
             </StaggerItem>
           </StaggerChildren>
@@ -315,15 +310,34 @@ export default function Home() {
         </div>
       </MotionSection>
 
+      <div className="section-rule" aria-hidden="true">
+        <span className="section-rule-line" />
+        <span className="section-rule-mark">·</span>
+        <span className="section-rule-line" />
+      </div>
+
       {/* === LIVE AGENTS , real rows from the registry; falls back to
               hard-coded seed copy on backend failure. === */}
       <section className="content" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: 'left' }}>
-            <span className="eyebrow">Live agents</span>
-            <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
-              Real agents shipping <em>right now.</em>
-            </h2>
+          {/* Two-column section head: eyebrow + headline on the left,
+              live registry status block on the right. The masthead is
+              a server component that hits the same /api/agents
+              endpoint as LiveAgentCards — Next's fetch cache dedupes
+              so it's a free piggyback. Hidden if the backend is
+              unreachable; fake stats are worse than no stats. */}
+          <div className="section-head section-head-split">
+            <div className="section-head-main">
+              <span className="eyebrow">
+                <span className="eyebrow-num">03</span>
+                <span className="eyebrow-sep">—</span>
+                Live agents
+              </span>
+              <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
+                Real agents shipping <em>right now.</em>
+              </h2>
+            </div>
+            <LiveAgentsMasthead />
           </div>
           <LiveAgentCards />
         </div>
@@ -332,11 +346,21 @@ export default function Home() {
       {/* === LIVE TX FEED , silently hides if there's no recent activity. === */}
       <LiveTxFeed />
 
+      <div className="section-rule" aria-hidden="true">
+        <span className="section-rule-line" />
+        <span className="section-rule-mark">·</span>
+        <span className="section-rule-line" />
+      </div>
+
       {/* === TRUSTED BY THE ECOSYSTEM === */}
       <MotionSection className="content">
         <div className="wrap">
-          <div className="section-head" style={{ textAlign: 'left' }}>
-            <span className="eyebrow">Trusted by the ecosystem</span>
+          <div className="section-head">
+            <span className="eyebrow">
+              <span className="eyebrow-num">04</span>
+              <span className="eyebrow-sep">—</span>
+              Trusted by the ecosystem
+            </span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
               Built on protocols that
               <em> already secure billions.</em>
@@ -384,7 +408,14 @@ export default function Home() {
             </StaggerItem>
             <StaggerItem className="validation-card">
               <div className="validation-logo">
-                <img src="/protocols/jito.png" alt="Jito" width={28} height={28} loading="eager" decoding="async" />
+                <img
+                  src="/protocols/jito.png"
+                  alt="Jito"
+                  width={28}
+                  height={28}
+                  loading="eager"
+                  decoding="async"
+                />
               </div>
               <h3 className="validation-title">Jito · MEV-aware staking</h3>
               <p className="validation-body">
@@ -447,56 +478,47 @@ export default function Home() {
         </div>
       </MotionSection>
 
-      {/* === FEES (Pricing-equivalent) === */}
+      <div className="section-rule" aria-hidden="true">
+        <span className="section-rule-line" />
+        <span className="section-rule-mark">·</span>
+        <span className="section-rule-line" />
+      </div>
+
+      {/* === FEES — three confident figures, no card, no table.
+              Each column is one number you need to know. The serif
+              numerals do all the typographic work; everything else
+              fades to support copy. === */}
       <MotionSection className="content">
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 32 }}>
-            <span className="eyebrow">Fees</span>
+            <span className="eyebrow">
+              <span className="eyebrow-num">05</span>
+              <span className="eyebrow-sep">—</span>
+              Fees
+            </span>
+            <h2 className="section" style={{ marginTop: 16 }}>
+              Three numbers.
+              <em> The only three.</em>
+            </h2>
           </div>
 
-          <div className="fees-panel">
-            <div className="fees-accent-line" aria-hidden />
-
-            <span className="hero-badge" style={{ marginBottom: 28 }}>
-              <span className="dot" />
-              Live · Devnet
-            </span>
-
-            <h2 className="section" style={{ marginBottom: 20 }}>
-              Free during devnet.
-              <em> No platform fee.</em>
-            </h2>
-
-            <p className="fees-sub">
-              Bundie doesn&apos;t take a cut of NAV, market spreads, or agent earnings. The only
-              on-chain cost on devnet is Solana transaction fees , under a tenth of a cent per
-              action.
-            </p>
-
-            <div className="fees-grid">
-              <div className="fees-row">
-                <span className="fees-label">Bet in a prediction market</span>
-                <span className="fees-value">Free</span>
-              </div>
-              <div className="fees-row">
-                <span className="fees-label">Claim devnet bUSD</span>
-                <span className="fees-value">Free · 50 bUSD/wallet</span>
-              </div>
-              <div className="fees-row">
-                <span className="fees-label">Solana network fee</span>
-                <span className="fees-value">~0.000005 SOL/tx</span>
-              </div>
+          <div className="fees-trio">
+            <div className="fees-figure">
+              <span className="fees-figure-num">0%</span>
+              <span className="fees-figure-label">on NAV</span>
+              <span className="fees-figure-meta">Bundie takes nothing from agent earnings.</span>
             </div>
-
-            <div className="hero-ctas" style={{ marginTop: 36 }}>
-              <a
-                href={APP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-amber btn-amber-lg"
-              >
-                Try the demo →
-              </a>
+            <div className="fees-figure">
+              <span className="fees-figure-num">$0</span>
+              <span className="fees-figure-label">per bet</span>
+              <span className="fees-figure-meta">No spread, no take rate, no resolution fee.</span>
+            </div>
+            <div className="fees-figure">
+              <span className="fees-figure-num">~$0.00005</span>
+              <span className="fees-figure-label">per Solana tx</span>
+              <span className="fees-figure-meta">
+                The only on-chain cost. Paid to validators, not us.
+              </span>
             </div>
           </div>
         </div>
@@ -512,7 +534,9 @@ export default function Home() {
 
           <h2 className="final-cta-headline">
             Bet on agents.
-            <span className="final-cta-line-2">Earn from their wins.</span>
+            <RevealText className="final-cta-line-2 text-reveal text-reveal-on-dark">
+              Earn from their wins.
+            </RevealText>
           </h2>
 
           <p className="final-cta-sub">
@@ -578,8 +602,7 @@ function MarketPreview() {
     <article className="mkt-a">
       <div className="mkt-a-eyebrow">Live market · example</div>
       <h3 className="mkt-a-question">
-        Will <em>kamino-stacker</em> outperform <em>funding-shorter</em> by
-        Friday?
+        Will <em>kamino-stacker</em> outperform <em>funding-shorter</em> by Friday?
       </h3>
       <div className="mkt-a-table">
         <div className="mkt-a-row">
@@ -613,9 +636,7 @@ function MarketPreview() {
             <div key={i} className="mkt-a-tail-row">
               <span
                 className={`mkt-a-tail-side ${
-                  t.side === 'BUY'
-                    ? 'mkt-a-tail-side-buy'
-                    : 'mkt-a-tail-side-sell'
+                  t.side === 'BUY' ? 'mkt-a-tail-side-buy' : 'mkt-a-tail-side-sell'
                 }`}
               >
                 {t.side}

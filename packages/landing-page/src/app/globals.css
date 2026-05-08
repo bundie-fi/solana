@@ -181,6 +181,54 @@ nav.top .inner {
   color: var(--ink-3);
   white-space: nowrap;
 }
+/* Chapter-number prefix on the eyebrow. The number sits in tabular
+   nums so 01–09 align cleanly, the em-dash separator gets its own
+   muted colour, and the section name continues at the eyebrow's
+   default colour. Lets `01 — INSIDE BUNDIE` read as a magazine TOC
+   without extra wrapping. */
+.eyebrow-num {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
+}
+.eyebrow-sep {
+  color: var(--ink-5);
+  margin-right: 8px;
+}
+
+/* ── Section divider ──────────────────────────────────────────────────
+   Hairline rule with a centered glyph between sections. Editorial
+   pattern from print broadsheets ("───  ·  ───"). Sits in its own
+   thin band so consecutive sections don't bleed into each other.
+   The rule is static decoration — no scroll animation; it's the
+   hand-off between two sections, not content. */
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 1160px;
+  margin: 96px auto 0;
+  padding: 0 32px;
+}
+.section-rule-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.section-rule-mark {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-4);
+  letter-spacing: 0.4em;
+  /* Padding-right offsets the letter-spacing so the glyph reads
+     visually centred between the two lines. */
+  padding-right: 0.4em;
+  user-select: none;
+}
+@media (max-width: 720px) {
+  .section-rule { margin-top: 64px; padding: 0 20px; }
+}
 
 h1.hero {
   font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
@@ -434,10 +482,98 @@ section.content {
   padding: clamp(56px, 6vw, 88px) 0;
 }
 .section-head {
-  text-align: center;
+  /* Left-aligned by default — the editorial standard for chapter-style
+     sections (FT, NYT, Bloomberg). Hero and final CTA opt into
+     centered alignment via their own scoped class names; body
+     chapters all share this rhythm. */
+  text-align: left;
   margin-bottom: clamp(32px, 4vw, 56px);
 }
 .section-head .eyebrow { margin-bottom: 20px; display: inline-block; }
+
+/* Two-column section header: headline on the left, masthead block
+   on the right. Aligned to the bottom so the masthead reads as a
+   margin note next to where the headline ends — print-broadsheet
+   pattern. Wraps to a single column on narrow viewports. */
+.section-head-split {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.section-head-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Live agents masthead — small editorial status block. Counts of
+   active / paused agents in serif numerals, with a tiny supporting
+   line about refresh cadence. Auto-hides if the backend fetch fails
+   (component returns null). */
+.live-masthead {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  font-family: var(--font-sans);
+  text-align: left;
+  padding-bottom: 6px;
+}
+.live-masthead-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--ink);
+}
+.live-masthead-row-active {
+  /* Slightly larger leading so the dot + active count read as the
+     primary line, with paused as a secondary row underneath. */
+}
+.live-masthead-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber-3);
+  box-shadow: 0 0 0 3px rgba(18, 68, 58, 0.12);
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: 2px;
+}
+.live-masthead-num {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  text-align: right;
+}
+.live-masthead-row:not(.live-masthead-row-active) .live-masthead-num {
+  color: var(--ink-3);
+}
+.live-masthead-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.live-masthead-meta {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-2);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  width: 100%;
+}
+@media (max-width: 720px) {
+  .section-head-split { gap: 20px; }
+  .live-masthead { padding-bottom: 0; }
+}
 
 /* ---------- Three Ways cards ------------------------------------------ */
 .three-col {
@@ -2210,35 +2346,61 @@ h1.hero .hero-line-2 {
 .ps-flow-step-final {
   position: relative;
   overflow: hidden;
-  border-color: var(--amber-ring);
+  /* Border switches to the brand teal directly, not just the ring
+     tint, so the card reads as the resolution outcome at first glance.
+     Padding-left gains 4px to make room for the accent stripe (::before). */
+  border-color: rgba(18, 68, 58, 0.42);
+  padding-left: 22px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(18, 68, 58, 0.06), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(18, 68, 58, 0.14), transparent 55%),
+    linear-gradient(135deg, rgba(18, 68, 58, 0.05), rgba(18, 68, 58, 0.02) 60%, transparent 100%),
     var(--bg-raised);
   /* Breathing teal halo — telegraphs that step 3 is the resolution
-     moment without crossing into "AI-pulse" territory. 4.2s loop, low
-     opacity, paired with the slow shine sweep below. */
+     moment. Opacity bumped from 8/12% to 14/22% so the glow reads at
+     normal viewing distance, not just on close inspection. */
   animation: ps-flow-breathe 4.2s ease-in-out infinite;
+}
+/* Vertical accent bar pinned to the left edge. Editorial pattern (a
+   "rule" alongside a quote / call-out) that anchors the card as the
+   conclusion of the flow. Sits inside the rounded border via the
+   same radius and a small inset. */
+.ps-flow-step-final::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    var(--amber-3) 0%,
+    rgba(18, 68, 58, 0.6) 100%
+  );
+  border-radius: 2px;
+  z-index: 1;
+  pointer-events: none;
 }
 /* Shine sweep. Travels left→right every 5.4s, then pauses for the rest
    of the loop so the card doesn't feel like a marquee. Behind the
    content (z-index 0) and pointer-events:none so it never interferes
-   with copy or hit-testing. */
+   with copy or hit-testing. Opacity bumped 0.10 → 0.16 so the wipe
+   reads at glance. */
 .ps-flow-step-final::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
     115deg,
-    transparent 35%,
-    rgba(18, 68, 58, 0.10) 50%,
-    transparent 65%
+    transparent 30%,
+    rgba(18, 68, 58, 0.16) 50%,
+    transparent 70%
   );
   transform: translateX(-110%);
   pointer-events: none;
   z-index: 0;
   animation: ps-flow-sweep 5.4s ease-in-out infinite;
 }
-.ps-flow-step-final > * { position: relative; z-index: 1; }
+.ps-flow-step-final > * { position: relative; z-index: 2; }
 
 @keyframes ps-flow-breathe {
   0%, 100% {
@@ -2248,8 +2410,8 @@ h1.hero .hero-line-2 {
   }
   50% {
     box-shadow:
-      0 0 0 4px rgba(18, 68, 58, 0.08),
-      0 0 28px rgba(18, 68, 58, 0.12);
+      0 0 0 5px rgba(18, 68, 58, 0.14),
+      0 0 36px rgba(18, 68, 58, 0.22);
   }
 }
 @keyframes ps-flow-sweep {
@@ -2258,7 +2420,15 @@ h1.hero .hero-line-2 {
   100% { transform: translateX(110%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ps-flow-step-final { animation: none; }
+  .ps-flow-step-final {
+    animation: none;
+    /* Without the breathing halo, lean on a static teal box-shadow so
+       the card still reads as elevated — reduced-motion users still
+       get the highlight, just without movement. */
+    box-shadow:
+      0 0 0 4px rgba(18, 68, 58, 0.10),
+      0 0 24px rgba(18, 68, 58, 0.14);
+  }
   .ps-flow-step-final::after { display: none; }
 }
 .ps-flow-num {
@@ -2275,7 +2445,13 @@ h1.hero .hero-line-2 {
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.ps-flow-step-final .ps-flow-label { color: var(--amber-3); }
+.ps-flow-step-final .ps-flow-label {
+  color: var(--amber-3);
+  /* Step 3 is the payoff — bumping weight + size by half a step
+     anchors it visually against the breathing halo and accent bar. */
+  font-size: 19px;
+  letter-spacing: -0.012em;
+}
 .ps-flow-detail {
   font-family: var(--font-sans);
   font-size: 11px;
@@ -2590,69 +2766,65 @@ h1.hero .hero-line-2 {
   color: var(--ink-2);
 }
 
-/* ---------- Fees panel ------------------------------------------------ */
-.fees-panel {
-  position: relative;
-  padding: clamp(48px, 6vw, 80px) clamp(28px, 5vw, 72px);
-  border: 1px solid var(--amber-ring);
-  border-radius: 18px;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(18, 68, 58, 0.06), transparent 70%),
-    var(--bg-raised);
-  text-align: center;
-  overflow: hidden;
+/* ---------- Fees · three confident figures --------------------------- */
+/* No card chrome, no table. Three columns, each a single oversized
+   serif numeral with a small label and one supporting line. The
+   typography does the work — the implicit assertion is "these are the
+   only three numbers you need to know about Bundie's pricing". */
+.fees-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-top: 20px;
 }
-.fees-accent-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    var(--amber-3) 50%,
-    transparent 100%
-  );
-  box-shadow: 0 0 18px 1px rgba(44, 139, 121, 0.4);
-}
-.fees-sub {
-  margin: 0 auto 36px;
-  max-width: 560px;
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--ink-2);
-  text-wrap: balance;
-}
-.fees-grid {
-  max-width: 560px;
-  margin: 0 auto;
+.fees-figure {
+  background: var(--bg);
+  padding: 56px clamp(20px, 3vw, 40px) 48px;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--bg);
-}
-.fees-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--line);
-  font-size: 14px;
-}
-.fees-row:last-child { border-bottom: 0; }
-.fees-label {
-  color: var(--ink-2);
+  gap: 14px;
   text-align: left;
 }
-.fees-value {
+.fees-figure-num {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(56px, 7vw, 96px);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fees-figure-label {
   font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: var(--amber-3);
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  margin-top: 4px;
+}
+.fees-figure-meta {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  max-width: 28ch;
+}
+.fees-cta {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 40px;
+}
+@media (max-width: 720px) {
+  .fees-trio {
+    grid-template-columns: 1fr;
+  }
+  .fees-figure {
+    padding: 36px 24px;
+  }
 }
 
 /* ---------- Final CTA band ------------------------------------------- */
@@ -2708,6 +2880,58 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   display: block;
   color: rgba(255, 255, 255, 0.5);
   font-style: italic;
+}
+
+/* ── Left-to-right text colour reveal ─────────────────────────────────
+   Generic text-reveal effect. The element renders transparent text on
+   top of a 200%-wide horizontal gradient (bright on the left half, dim
+   on the right). At rest the gradient sits at background-position
+   100% — bright is offscreen left, only dim shows. When the wrapping
+   <RevealText> client component flips `is-revealed` (via
+   IntersectionObserver, fires once per page), the gradient slides to
+   0% so the bright half occupies the element from left to right.
+   `--reveal-bright` and `--reveal-dim` are set per-context (light bg
+   uses brand teal, dark bg uses white). The 4% feathered transition
+   between halves keeps the wipe edge soft. */
+.text-reveal {
+  background-image: linear-gradient(
+    to right,
+    var(--reveal-bright) 0%,
+    var(--reveal-bright) 48%,
+    var(--reveal-dim) 52%,
+    var(--reveal-dim) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 100% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: background-position 1.4s cubic-bezier(0.16, 0.84, 0.32, 1);
+}
+.text-reveal.is-revealed {
+  background-position: 0% 0%;
+}
+.text-reveal-italic {
+  font-style: italic;
+}
+/* Cream-paper context: bright = brand teal (--amber-3), dim = a
+   washed-out version that reads as "ghost". Used inside h2.section
+   where the existing em-style colour was already amber-3. */
+.text-reveal-on-light {
+  --reveal-bright: var(--amber-3);
+  --reveal-dim: rgba(18, 68, 58, 0.18);
+}
+/* Dark-band context (final CTA): bright = full white, dim = the same
+   50%-white the previous static colour used. */
+.text-reveal-on-dark {
+  --reveal-bright: #ffffff;
+  --reveal-dim: rgba(255, 255, 255, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-reveal {
+    transition: none;
+    background-position: 0% 0%;
+  }
 }
 .final-cta-sub {
   font-size: clamp(15px, 1.4vw, 18px);
