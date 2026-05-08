@@ -73,13 +73,19 @@ export function DiscoverMarketGrid({
               type="button"
               onClick={() => setFilter(f.id)}
               style={{
-                padding: "6px 12px", borderRadius: 999,
+                // 44px min-height + 16px horizontal padding = Apple HIG
+                // 44×44 minimum tap target. fontSize bumped 12→13 so the
+                // pill still feels balanced at the new height instead of
+                // the text floating in a sparse vertical band.
+                minHeight: 44,
+                padding: "10px 16px", borderRadius: 999,
                 border: "1px solid",
                 borderColor: active ? "var(--predict)" : "var(--de-line)",
                 background: active ? "var(--predict-tint)" : "transparent",
                 color: active ? "var(--predict)" : "var(--de-ink-3)",
-                fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
+                fontSize: 13, fontWeight: 500, whiteSpace: "nowrap",
                 cursor: "pointer", fontFamily: "inherit",
+                display: "inline-flex", alignItems: "center",
               }}
             >
               {f.label}
