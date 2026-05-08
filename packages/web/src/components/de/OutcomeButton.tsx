@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * OutcomeButton — large rectangular CTA for market YES / NO / NAMED outcomes.
  *
@@ -10,8 +12,12 @@
  *   NO    → rose
  *   NAMED → lavender (use for kind=2 vs-benchmark with custom labels)
  *
- * Pure presentational — wire `onClick` from the parent. Server-friendly via
- * standard <button>.
+ * Marked "use client" because hover styling uses inline onMouseEnter /
+ * onMouseLeave handlers — Server Components can't serialize event-handler
+ * functions, which threw `Event handlers cannot be passed to Client
+ * Component props` in production whenever a server-rendered page (e.g.
+ * the market grid) included this button. The earlier "Server-friendly"
+ * note in this header was wrong as soon as the hover handlers landed.
  */
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 
