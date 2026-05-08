@@ -716,13 +716,24 @@ button { font-family: inherit; }
   justify-content: space-around;
   padding: 10px 8px 8px;
   /* Editorial cream — was rgba(10,14,31,0.82) (dark navy from the
-     deprecated palette), which clashed with the light page bg and made
-     the bottom-nav-item ink-3 dark text unreadable on a dark slab.
-     Match .top-header so both chrome strips read as the same paper. */
-  background: rgba(244,241,234,0.92);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+     deprecated palette). Mobile keeps it nearly opaque (no
+     backdrop-filter — see below) so the GPU doesn't re-blur the
+     viewport every scroll frame on Mediatek-class chips. */
+  background: rgba(244,241,234,0.98);
   border-top: 1px solid var(--de-line);
+}
+/* Frosted-glass effect — desktop only. backdrop-filter on a fixed bar
+   means the GPU re-runs the blur pass for the underlying content every
+   scroll frame. Mid-range mobile chips (Mediatek Dimensity 7300 in the
+   Solana Seeker) drop frame rate noticeably under that load. Solid bg
+   above is the mobile fallback; the frosted look returns at sm+ where
+   the GPU can afford it. */
+@media (min-width: 768px) {
+  .bottom-nav {
+    background: rgba(244,241,234,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
 }
 .bottom-nav-item {
   display: flex;
@@ -751,13 +762,20 @@ button { font-family: inherit; }
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px 10px;
-  background: rgba(244,241,234,0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  /* Mobile: opaque bg, no blur — sticky+blur was the dominant scroll
+     paint cost on the Seeker. Desktop gets the frosted look back below. */
+  background: rgba(244,241,234,0.98);
   border-bottom: 1px solid var(--line-1);
   position: sticky;
   top: 0;
   z-index: 30;
+}
+@media (min-width: 768px) {
+  .top-header {
+    background: rgba(244,241,234,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────────────────── */
