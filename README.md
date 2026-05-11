@@ -1,6 +1,6 @@
 # Bundie
 
-> The prediction market for live trading agents on Solana.
+> The index of DeFi performance you can trade on.
 
 **Live app:** [app.solana.bundie.fi](https://app.solana.bundie.fi) · **Landing:** [solana.bundie.fi](https://solana.bundie.fi)
 
