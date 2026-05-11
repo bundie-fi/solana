@@ -35,7 +35,12 @@ import {
   createMintToInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Obligation } from "@kamino-finance/klend-sdk";
+import {
+  KaminoMarket,
+  KaminoObligation,
+} from "@kamino-finance/klend-sdk";
+import { createSolanaRpc } from "@solana/kit";
+import type { Address } from "@solana/kit";
 import { createHash } from "node:crypto";
 
 import { PREDICTION_MARKET_PROGRAM_ID, bundieVaultPda } from "../actions/create-nav-market.js";
@@ -768,10 +773,58 @@ async function loadKaminoSnapshots(
 // ─── Kamino Obligation reader ────────────────────────────────────────────
 
 /**
- * Q60.60 scaled-fraction divisor for klend's `marketValueSf` fields
- * (used by obligation deposits/borrows and reserve liquidity values).
+ * Module-scope cache of the loaded `KaminoMarket`. The first
+ * `KaminoMarket.load()` against surfpool is slow (~9min in the worst
+ * case — pulls every reserve + scope state) but subsequent loads warm
+ * from Solana's RPC caches. The cache here keeps the loaded market
+ * alive across multiple per-agent NAV computations within a single
+ * daemon tick AND across nearby ticks, while still refreshing often
+ * enough that `KaminoObligation.load(...).refreshedStats` reflects
+ * recent oracle moves.
+ *
+ * TTL = 60s: chaos-sim ticks every ~15s (CHAOS_SIM_POLL_INTERVAL_MS),
+ * so this is ~1 load per minute, ~7 reuses per load.
  */
-const SF_SCALE_KLEND = 1n << 60n;
+const KAMINO_MARKET_TTL_MS = 60_000;
+let kaminoMarketCache: { market: KaminoMarket; fetchedAt: number } | null =
+  null;
+const MAINNET_SLOT_DURATION_MS_NAV = 450;
+
+async function getCachedKaminoMarket(
+  rpcUrl: string,
+): Promise<KaminoMarket | null> {
+  const now = Date.now();
+  if (
+    kaminoMarketCache &&
+    now - kaminoMarketCache.fetchedAt < KAMINO_MARKET_TTL_MS
+  ) {
+    return kaminoMarketCache.market;
+  }
+  try {
+    const kitRpc = createSolanaRpc(rpcUrl);
+    const market = await KaminoMarket.load(
+      kitRpc,
+      KAMINO_MAIN_MARKET_PDA_STR as Address,
+      MAINNET_SLOT_DURATION_MS_NAV,
+      KLEND_MAINNET_PROGRAM_ID_STR as Address,
+      true,
+    );
+    if (!market) {
+      // Don't cache nulls — let the next call retry.
+      console.warn(
+        `[nav-pricing] WARN: KaminoMarket.load returned null for ${KAMINO_MAIN_MARKET_PDA_STR}`,
+      );
+      return null;
+    }
+    kaminoMarketCache = { market, fetchedAt: now };
+    return market;
+  } catch (e) {
+    console.warn(
+      `[nav-pricing] WARN: KaminoMarket.load failed: ${(e as Error).message}`,
+    );
+    return null;
+  }
+}
 
 /**
  * Derive the Vanilla Obligation PDA for `(market, user)` — mirrors
@@ -809,70 +862,89 @@ function vanillaObligationPda(
 }
 
 /**
- * Decode the agent's vanilla Obligation account on the Kamino main market
- * and return the USD value of (deposits − borrows), using Kamino's own
- * `marketValueSf` fields as the source of truth.
+ * Compute the USD value of the agent's vanilla Kamino obligation
+ * (deposits − borrows), using the klend SDK's `KaminoObligation.load`
+ * to apply CURRENT reserve exchange rates and oracle prices.
  *
- * Why marketValueSf (not a hand-rolled deposit × exchangeRate × price):
- *   The previous decoder read `depositedAmount` raw and applied a local
- *   "exchangeRate = totalUnderlying / collateralMintTotalSupply" formula,
- *   defaulting to 1.0 when collateralMintTotalSupply == 0. For the main
- *   USDC reserve, NO cTokens are ever minted to vanilla obligation
- *   holders — cTokenSupply == 0 is the steady state, not the initial
- *   state. The 1:1 fallback then treats raw `depositedAmount` as USDC
- *   base units, inflating NAV by 100x+. See
- *   `probe-kamino-obligations.ts` for the live audit.
+ * Why the SDK path (over raw byte reads or static `marketValueSf`):
  *
- *   `marketValueSf` is written by klend on every refresh_obligation ix
- *   using the reserve's real liquidity-shares math and its oracle price.
- *   It's the same number Kamino's UI shows users, so we mirror it. The
- *   tradeoff is slight staleness — marketValueSf is only updated when
- *   Kamino's program refreshes the obligation, not on every NAV tick —
- *   but for USDC at $1 with no leverage that drift is negligible.
+ *   The obligation account stores `depositedAmount` (collateral base
+ *   units) and a `marketValueSf` (USD × 2^60). Both have edge-cases:
  *
- * Returns 0 when the agent has no Obligation (never deposited), when the
- * account exists but has no positions, or on any decode error.
+ *   1. `depositedAmount` requires a collateral→underlying exchange rate
+ *      to translate to USD. For Kamino's main USDC reserve no cTokens
+ *      are minted (collateralMintTotalSupply == 0 is steady-state, not
+ *      empty-reserve), so the obvious `totalUnderlying / cTokenSupply`
+ *      formula divides by zero and the prior hand-rolled decoder fell
+ *      back to 1:1 — which under-counted by ~17% vs the program's
+ *      actual rate (1.181x for the May 2026 cohort).
+ *
+ *   2. `marketValueSf` IS the program-computed USD, but it's only
+ *      refreshed when a deposit / withdraw / refresh_obligation ix
+ *      runs against the obligation. Probes showed values 70+ hours
+ *      stale; for stable-arber it read $5 while the on-tick refreshed
+ *      value (per a simulated withdraw) was $1005.
+ *
+ *   `KaminoObligation.load` does both at once: pulls the obligation
+ *   account, pulls the reserves it references via the cached
+ *   KaminoMarket, applies the SDK's own collateral-exchange-rate
+ *   formula (matching klend's `collateral_to_liquidity` exactly), and
+ *   exposes the result on `refreshedStats.userTotalDeposit` /
+ *   `userTotalBorrow` in USD.
+ *
+ *   We subtract borrows defensively. Vanilla obligations on the main
+ *   USDC reserve don't carry borrows today, but the same code path is
+ *   used for any future market the brain targets (Multiply, leveraged
+ *   pools, etc.) where borrows would otherwise inflate NAV.
+ *
+ * Returns 0 when the agent has no Obligation, when the loaded
+ * KaminoMarket isn't available (cold-start failure, RPC blip), or on
+ * any per-agent decode error. Fail-soft is the right behavior for the
+ * NAV writer — a transient zero won't permanently affect TVL because
+ * the next tick re-reads.
  */
 async function computeKaminoObligationUsd(
   surfpool: Connection,
   authority: PublicKey,
 ): Promise<number> {
   try {
-    const market = new PublicKey(KAMINO_MAIN_MARKET_PDA_STR);
-    const obligationPda = vanillaObligationPda(market, authority);
+    const market = await getCachedKaminoMarket(surfpool.rpcEndpoint);
+    if (!market) {
+      // Couldn't load the market — drop a zero rather than crash the
+      // NAV tick. The next tick will retry; if surfpool is really down
+      // the rest of the breakdown still reports correctly.
+      return 0;
+    }
+    const marketPk = new PublicKey(KAMINO_MAIN_MARKET_PDA_STR);
+    const obligationPda = vanillaObligationPda(marketPk, authority);
+
+    // Bail early if the agent has no obligation account at all — this
+    // is the common "never deposited" path and avoids a wasted SDK
+    // call that would just return null anyway.
     const info = await surfpool.getAccountInfo(obligationPda, "confirmed");
-    if (!info) return 0; // No obligation → never deposited.
+    if (!info) return 0;
     if (info.owner.toBase58() !== KLEND_MAINNET_PROGRAM_ID_STR) {
       throw new Error(
         `obligation owner ${info.owner.toBase58()} != klend mainnet`,
       );
     }
 
-    let obl;
-    try {
-      obl = Obligation.decode(info.data);
-    } catch (e) {
-      throw new Error(
-        `Obligation.decode failed (layout drift?): ${(e as Error).message}`,
-      );
+    const kobl = await KaminoObligation.load(
+      market,
+      obligationPda.toBase58() as Address,
+    );
+    if (!kobl) {
+      // load() returns null when the obligation isn't fetchable through
+      // the market's reserve set. Treat as zero — the obligation exists
+      // (we just confirmed) but the SDK couldn't price it, so don't
+      // make up a number.
+      return 0;
     }
 
-    // Sum marketValueSf on each side. Empty array slots have a zero
-    // amount field; their marketValueSf is also zero so summing them is
-    // a no-op, no per-slot filter needed.
-    let netSf = 0n;
-    for (const d of obl.deposits) {
-      netSf += BigInt(d.marketValueSf.toString());
-    }
-    for (const b of obl.borrows) {
-      netSf -= BigInt(b.marketValueSf.toString());
-    }
-    if (netSf <= 0n) return 0;
-
-    // (USD × 2^60) → USD float via micro-USD intermediate to keep sub-cent
-    // precision without dropping into floating-point arithmetic too early.
-    const microUsd = (netSf * 1_000_000n) / SF_SCALE_KLEND;
-    return Number(microUsd) / 1_000_000;
+    const deposit = kobl.refreshedStats.userTotalDeposit.toNumber();
+    const borrow = kobl.refreshedStats.userTotalBorrow.toNumber();
+    const net = deposit - borrow;
+    return net > 0 ? net : 0;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
