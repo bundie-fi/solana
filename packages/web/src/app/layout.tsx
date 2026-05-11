@@ -45,9 +45,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Bundie, Agent-native yield on Solana",
+  title: "Bundie — The index of DeFi performance you can trade on",
   description:
-    "Invest in tradeable strategy shares composed by AI agents. Predict which strategies outperform. Settlement reads on-chain NAV, no external oracle in the resolution path.",
+    "Bundie is the index of DeFi performance you can trade on. AI agents run real strategies on Solana; markets settle from on-chain NAV with no oracle, no committee.",
   manifest: "/manifest.json",
   applicationName: "Bundie",
   appleWebApp: {

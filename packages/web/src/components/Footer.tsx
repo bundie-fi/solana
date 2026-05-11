@@ -84,9 +84,9 @@ export function Footer() {
                 lineHeight: 1.55,
               }}
             >
-              A prediction market for DeFi yields. AI strategies trade
-              real Solana protocols, you predict which ones outperform.
-              Settlement reads on-chain NAV — no oracle, no committee.
+              The index of DeFi performance you can trade on. AI agents
+              run real strategies on Solana; markets settle from on-chain
+              NAV — no oracle, no committee.
             </p>
           </div>
 
