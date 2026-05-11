@@ -96,12 +96,12 @@ async function loadActiveAgentsWithNav(filterSns?: string): Promise<AgentRow[]> 
   const r = await dbQuery<AgentRow>(
     `SELECT a.sns,
             a.agent_pubkey,
-            latest.nav_lamports::text     AS nav_lamports,
-            latest.kamino_micros::text    AS kamino_micros
+            latest.nav_lamports::text       AS nav_lamports,
+            latest.kamino_usd_micros::text  AS kamino_micros
        FROM agents a
        LEFT JOIN LATERAL (
          SELECT n.nav_lamports,
-                (n.components->>'kaminoUsdMicros')::numeric AS kamino_micros
+                n.kamino_usd_micros
            FROM nav_snapshots n
           WHERE n.agent_sns = a.sns
           ORDER BY n.ts DESC
@@ -222,27 +222,25 @@ async function main() {
         `reported=$${reportedKaminoUsd.toFixed(2).padStart(9)}${flag}`,
     );
 
-    if (borrows.length > 0) {
-      for (const b of borrows) {
-        const borrowedSf = BigInt(b.borrowedAmountSf.toString());
-        const borrowedLiq = borrowedSf / SF_SCALE; // liquidity base units
-        console.log(
-          `    borrow  reserve=${String(b.borrowReserve).slice(0, 8)}…  ` +
-            `borrowed_liq_base=${borrowedLiq}  ` +
-            `marketValue=$${sfToUsd(b.marketValueSf).toFixed(2)}`,
-        );
-      }
+    // Always enumerate deposits + borrows so we can see exactly which reserve
+    // each entry sits in — useful when the NAV writer's number disagrees with
+    // the SDK's `marketValueSf` (e.g. byte-offset drift in the hand-rolled
+    // decoder, or a reserve that's missing from KAMINO_RESERVES_FOR_NAV).
+    for (const d of deposits) {
+      console.log(
+        `    deposit reserve=${String(d.depositReserve).slice(0, 8)}…  ` +
+          `cToken_base=${d.depositedAmount.toString()}  ` +
+          `marketValue=$${sfToUsd(d.marketValueSf).toFixed(2)}`,
+      );
     }
-    if (deposits.length > 1) {
-      // Single-deposit obligations are the boring vanilla path; multi-deposit
-      // is the signal that leverage looping or multi-collateral is in play.
-      for (const d of deposits) {
-        console.log(
-          `    deposit reserve=${String(d.depositReserve).slice(0, 8)}…  ` +
-            `cToken_base=${d.depositedAmount.toString()}  ` +
-            `marketValue=$${sfToUsd(d.marketValueSf).toFixed(2)}`,
-        );
-      }
+    for (const b of borrows) {
+      const borrowedSf = BigInt(b.borrowedAmountSf.toString());
+      const borrowedLiq = borrowedSf / SF_SCALE; // liquidity base units
+      console.log(
+        `    borrow  reserve=${String(b.borrowReserve).slice(0, 8)}…  ` +
+          `borrowed_liq_base=${borrowedLiq}  ` +
+          `marketValue=$${sfToUsd(b.marketValueSf).toFixed(2)}`,
+      );
     }
   }
 
