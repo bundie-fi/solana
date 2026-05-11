@@ -21,6 +21,7 @@
     "chaos:agent-daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "chaos:agent-demo": "tsx scripts/chaos-sim/src/run-agent-daemon.ts --once",
     "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
+    "chaos:probe-kamino": "tsx scripts/chaos-sim/src/scripts/probe-kamino-obligations.ts",
     "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts",
     "busd:attach-metadata": "tsx scripts/setup-busd/attach-metadata.ts"
   },
