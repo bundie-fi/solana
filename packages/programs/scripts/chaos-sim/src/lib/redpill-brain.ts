@@ -67,23 +67,13 @@ export type BrainAction =
     }
   | { type: "lst_stake";   protocol: LstProtocol; args: { amountSolUi: number } }
   | { type: "lst_unstake"; protocol: LstProtocol; args: { amountMsolUi: number } }
-  | {
-      type: "perp_open";
-      protocol: PerpProtocol;
-      args: {
-        /** Perp market symbol — e.g. "SOL-PERP", "BTC-PERP". */
-        market: string;
-        /** "long" pays funding when funding>0; "short" earns it. */
-        side: "long" | "short";
-        /** Notional size in USDC (collateral × leverage). */
-        notionalUsd: number;
-      };
-    }
-  | {
-      type: "perp_close";
-      protocol: PerpProtocol;
-      args: { market: string };
-    }
+  // NOTE: perp_open / perp_close are intentionally absent from the union.
+  // Jupiter Perps execution exists (jup-perps-execute.ts) but the matching
+  // NAV decoder is stubbed (commit-nav-helper.ts: zetaUsd = 0). Re-adding
+  // perp actions before the decoder ships causes USDC to leave the agent's
+  // ATA without being credited in NAV, tanking the agent's measured TVL.
+  // `PerpProtocol` is retained as an exported type for the executor when
+  // the decoder lands.
   | {
       type: "swap";
       venue: SwapVenue;

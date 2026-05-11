@@ -30,7 +30,8 @@ import {
 import { createNavMarket } from "../actions/create-nav-market.js";
 import { stakeMarinade, unstakeMarinade } from "./marinade-execute.js";
 import { stakeJito, unstakeJito } from "./jito-execute.js";
-import { openJupiterPerp, closeJupiterPerp } from "./jup-perps-execute.js";
+// Jupiter Perps executor remains in-tree but is not wired here — see the
+// note on perp_open / perp_close in redpill-brain.ts.
 import { depositKamino, withdrawKamino } from "./kamino-execute.js";
 import { depositSolend, withdrawSolend } from "./solend-execute.js";
 import { swapJupiter } from "./jupiter-execute.js";
@@ -43,7 +44,6 @@ import type {
   BrainAction,
   LendProtocol,
   LstProtocol,
-  PerpProtocol,
   SwapVenue,
 } from "./redpill-brain.js";
 
@@ -62,18 +62,6 @@ const LEND_IX: Record<LendProtocol, { deposit: string; withdraw: string }> = {
 const LST_PROGRAM: Record<LstProtocol, string> = {
   marinade: "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
   jito:     "SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy",
-};
-
-const PERP_PROGRAM: Record<PerpProtocol, string> = {
-  // Jupiter Perpetuals mainnet program — same id on the surfpool fork.
-  "jupiter-perps": "PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu",
-};
-
-const PERP_IX: Record<PerpProtocol, { open: string; close: string }> = {
-  "jupiter-perps": {
-    open: "create_increase_position_request",
-    close: "create_decrease_position_request",
-  },
 };
 
 const LST_IX: Record<LstProtocol, { stake: string; unstake: string }> = {
@@ -422,38 +410,6 @@ async function executeLst(
   throw new Error(`executeLst: unhandled protocol ${protocol}`);
 }
 
-async function executePerp(
-  args: ExecuteActionArgs,
-  direction: "open" | "close",
-  protocol: PerpProtocol,
-): Promise<ExecuteActionResult> {
-  const programId = PERP_PROGRAM[protocol];
-  const ixName = PERP_IX[protocol][direction];
-  const policyGate = gate(args.policyPath, programId, ixName);
-
-  // Hard-fail when the surfpool fork is unreachable — Zeta perps cannot
-  // safely fall back to devnet (Zeta's mainnet CrossMargin program isn't
-  // deployed there). The activity feed still gets a "policy-gated, not
-  // submitted" row via the early return below.
-  if (!args.surfpoolAvailable) {
-    return {
-      phase: "execute", chain: "surfpool",
-      action: `perp_${direction}`, protocol,
-      policyGate,
-      notes: "surfpool unreachable — policy-gated but not submitted",
-    };
-  }
-
-  // PerpProtocol is currently the singleton union "jupiter-perps". The
-  // Zeta CPI path was removed; jupiter-perps execution is still pending.
-  return {
-    phase: "execute", chain: "surfpool",
-    action: `perp_${direction}`, protocol,
-    policyGate,
-    notes: `${protocol} ${direction}: policy-gated, perp CPI pending`,
-  };
-}
-
 /**
  * Single helper used by every surfpool executor (lend, lst, perp) so the
  * recorder write is uniform across protocols. Failure to persist must
@@ -736,10 +692,10 @@ export async function executeAction(
       return executeLst(args, "stake", action.protocol);
     case "lst_unstake":
       return executeLst(args, "unstake", action.protocol);
-    case "perp_open":
-      return executePerp(args, "open", action.protocol);
-    case "perp_close":
-      return executePerp(args, "close", action.protocol);
+    // perp_open / perp_close intentionally not dispatched. They are not in
+    // BrainAction at all today; if a stale brain_md emits one, the default
+    // arm below throws and shared-tick logs `${type}_error` — which is not
+    // in ACTIVITY_DISPLAY_TYPES, so the bogus row stays out of the feed.
     case "swap":
       return executeSwap(args);
     case "create_market":

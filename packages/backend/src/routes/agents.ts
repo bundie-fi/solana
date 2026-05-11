@@ -847,13 +847,13 @@ const ACTIVITY_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   "lst_unstake",
   "create_market",
   "swap",
-  // Jupiter Perps actions — were silently filtered out of the feed
-  // even though funding-shorter routes through perp_open every few
-  // ticks. Without these, the UI undercounted real on-chain activity
-  // and the bettor-facing live feed felt sparser than the agents
-  // actually were.
-  "perp_open",
-  "perp_close",
+  // perp_open / perp_close were briefly surfaced here (see commit dd227f5)
+  // but the brain has since been removed from the perp action space until
+  // the Jupiter Perps NAV decoder ships — see the note in redpill-brain.ts.
+  // Historical perp_* rows in agent_action_log stay in the DB but are
+  // hidden from the live feed. Stale brains that still emit perp_open
+  // throw in the exhaustive switch and log as `perp_open_error`, which
+  // is also outside this allowlist.
 ]);
 
 // Periodic system actions like commit_nav are dropped from BOTH the

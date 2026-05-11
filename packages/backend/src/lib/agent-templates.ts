@@ -244,12 +244,12 @@ export function generateBrainMd(opts: {
   lines.push(
     `    {"type": "swap",          "venue": "jupiter",                       "args": {"inputMint": "<mint>", "outputMint": "<mint>", "amountInUi": <number>, "slippageBps": <number>}} |`,
   );
-  lines.push(
-    `    {"type": "perp_open",     "protocol": "jupiter-perps",              "args": {"market": "SOL-PERP"|"BTC-PERP"|"ETH-PERP", "side": "long"|"short", "notionalUsd": <number>}} |`,
-  );
-  lines.push(
-    `    {"type": "perp_close",    "protocol": "jupiter-perps",              "args": {"market": "SOL-PERP"|"BTC-PERP"|"ETH-PERP"}} |`,
-  );
+  // perp_open / perp_close intentionally omitted — Jupiter Perps execution
+  // lands the PositionRequest tx but the NAV decoder for Jupiter Perps is
+  // still stubbed (commit-nav-helper.ts: zetaUsd = 0). Exposing perps to
+  // the brain before the decoder is ready makes USDC leave the agent's
+  // ATA without being credited back into NAV, tanking the agent's
+  // measured TVL. Re-enable when the decoder ships.
   lines.push(
     `    {"type": "create_market", "args": {"kind": <1|2|3>, "targetAgentA": "<vault_pubkey>", "targetAgentB"?: "<vault_pubkey, kind=2 only>", "thresholdLamports"?: <u64, kind=1 only>, "drawdownBps"?: <1..10000, kind=3 only>, "windowSlots": <number>, "questionTemplate": "<string max 128 chars>", "seedAmountBusd": <1..5>}}`,
   );
