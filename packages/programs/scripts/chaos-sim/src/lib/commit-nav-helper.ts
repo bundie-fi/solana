@@ -35,6 +35,7 @@ import {
   createMintToInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
+import { Obligation } from "@kamino-finance/klend-sdk";
 import { createHash } from "node:crypto";
 
 import { PREDICTION_MARKET_PROGRAM_ID, bundieVaultPda } from "../actions/create-nav-market.js";
@@ -767,41 +768,10 @@ async function loadKaminoSnapshots(
 // ─── Kamino Obligation reader ────────────────────────────────────────────
 
 /**
- * Anchor account discriminator for klend's `Obligation` (mirrors
- * `Obligation.discriminator` in the codegen file). Used to pre-validate
- * any Obligation account read before decoding.
+ * Q60.60 scaled-fraction divisor for klend's `marketValueSf` fields
+ * (used by obligation deposits/borrows and reserve liquidity values).
  */
-const KLEND_OBLIGATION_DISCRIMINATOR = Buffer.from([
-  168, 206, 141, 106, 88, 76, 172, 167,
-]);
-
-/**
- * Byte offset of the `deposits` array inside the Obligation account.
- *
- * Layout (mirrored from klend's `Obligation.layout` codegen):
- *   0-7    discriminator
- *   8-15   tag                                 u64
- *   16-23  lastUpdate.slot                     u64
- *   24-31  lastUpdate.stale + reserved         u64
- *   32-63  lendingMarket                       Pubkey
- *   64-95  owner                               Pubkey
- *   96-... deposits[8] (each 56B)              array
- *
- * Each ObligationCollateral entry is:
- *   0-31   depositReserve   Pubkey
- *   32-39  depositedAmount  u64
- *   40-55  marketValueSf    u128 (scaled fraction)
- *
- * MAX_OBLIGATION_DEPOSITS = 8.
- *
- * Source of truth — klend codegen at:
- *   `@kamino-finance/klend-sdk/dist/@codegen/klend/accounts/Obligation.js`
- */
-const OBLIG_OFFSET_DEPOSITS_ARRAY = 96;
-const OBLIG_DEPOSIT_ENTRY_SIZE = 56;
-const OBLIG_DEPOSITS_COUNT = 8;
-const OBLIG_DEPOSIT_OFFSET_RESERVE = 0;
-const OBLIG_DEPOSIT_OFFSET_AMOUNT = 32;
+const SF_SCALE_KLEND = 1n << 60n;
 
 /**
  * Derive the Vanilla Obligation PDA for `(market, user)` — mirrors
@@ -839,92 +809,70 @@ function vanillaObligationPda(
 }
 
 /**
- * Decode the agent's vanilla Obligation account on the Kamino main
- * market, sum every non-zero deposit position priced via the matching
- * reserve snapshot, and return the USD subtotal.
+ * Decode the agent's vanilla Obligation account on the Kamino main market
+ * and return the USD value of (deposits − borrows), using Kamino's own
+ * `marketValueSf` fields as the source of truth.
  *
- * Returns 0 when the agent has no Obligation (never deposited) or when
- * the account exists but has no positions. Per-component fail-soft: any
- * decode error logs and returns 0.
+ * Why marketValueSf (not a hand-rolled deposit × exchangeRate × price):
+ *   The previous decoder read `depositedAmount` raw and applied a local
+ *   "exchangeRate = totalUnderlying / collateralMintTotalSupply" formula,
+ *   defaulting to 1.0 when collateralMintTotalSupply == 0. For the main
+ *   USDC reserve, NO cTokens are ever minted to vanilla obligation
+ *   holders — cTokenSupply == 0 is the steady state, not the initial
+ *   state. The 1:1 fallback then treats raw `depositedAmount` as USDC
+ *   base units, inflating NAV by 100x+. See
+ *   `probe-kamino-obligations.ts` for the live audit.
  *
- * Why we go raw bytes here rather than use the SDK's `Obligation.fetch`:
- *   1. The SDK uses `@solana/kit`'s Rpc<>, requiring a separate RPC
- *      client construction;
- *   2. We only need two fields per deposit (reserve + amount) so the
- *      full borsh decode is overkill;
- *   3. The byte layout is stable across klend versions (the codegen
- *      produces identical offsets for the discriminator + fixed-size
- *      head of the struct).
+ *   `marketValueSf` is written by klend on every refresh_obligation ix
+ *   using the reserve's real liquidity-shares math and its oracle price.
+ *   It's the same number Kamino's UI shows users, so we mirror it. The
+ *   tradeoff is slight staleness — marketValueSf is only updated when
+ *   Kamino's program refreshes the obligation, not on every NAV tick —
+ *   but for USDC at $1 with no leverage that drift is negligible.
+ *
+ * Returns 0 when the agent has no Obligation (never deposited), when the
+ * account exists but has no positions, or on any decode error.
  */
 async function computeKaminoObligationUsd(
   surfpool: Connection,
   authority: PublicKey,
-  reservesByPda: Map<string, KaminoReserveSnapshot>,
-  prices: Record<string, number>,
 ): Promise<number> {
-  if (reservesByPda.size === 0) return 0;
   try {
     const market = new PublicKey(KAMINO_MAIN_MARKET_PDA_STR);
     const obligationPda = vanillaObligationPda(market, authority);
     const info = await surfpool.getAccountInfo(obligationPda, "confirmed");
     if (!info) return 0; // No obligation → never deposited.
-    if (info.data.length < OBLIG_OFFSET_DEPOSITS_ARRAY + OBLIG_DEPOSIT_ENTRY_SIZE * OBLIG_DEPOSITS_COUNT) {
-      throw new Error(
-        `obligation account ${obligationPda.toBase58()} too small (${info.data.length}B)`,
-      );
-    }
-    if (
-      !info.data.subarray(0, 8).equals(KLEND_OBLIGATION_DISCRIMINATOR)
-    ) {
-      throw new Error(
-        `obligation account ${obligationPda.toBase58()} discriminator mismatch — layout drift?`,
-      );
-    }
     if (info.owner.toBase58() !== KLEND_MAINNET_PROGRAM_ID_STR) {
       throw new Error(
         `obligation owner ${info.owner.toBase58()} != klend mainnet`,
       );
     }
 
-    let depositUsd = 0;
-    for (let i = 0; i < OBLIG_DEPOSITS_COUNT; i++) {
-      const base = OBLIG_OFFSET_DEPOSITS_ARRAY + i * OBLIG_DEPOSIT_ENTRY_SIZE;
-      const reserveBytes = info.data.subarray(
-        base + OBLIG_DEPOSIT_OFFSET_RESERVE,
-        base + OBLIG_DEPOSIT_OFFSET_RESERVE + 32,
+    let obl;
+    try {
+      obl = Obligation.decode(info.data);
+    } catch (e) {
+      throw new Error(
+        `Obligation.decode failed (layout drift?): ${(e as Error).message}`,
       );
-      const reservePk = new PublicKey(reserveBytes).toBase58();
-      // Empty deposit slot — depositReserve is the zero pubkey.
-      if (reservePk === "11111111111111111111111111111111") continue;
-      const amount = info.data.readBigUInt64LE(base + OBLIG_DEPOSIT_OFFSET_AMOUNT);
-      if (amount === 0n) continue;
-      const snap = reservesByPda.get(reservePk);
-      if (!snap) {
-        // Deposit in a reserve we don't know how to value — skip rather
-        // than crash. Future expansions should add the reserve to
-        // KAMINO_RESERVES_FOR_NAV.
-        console.warn(
-          `[nav-pricing] WARN: kamino obligation has deposit in unknown reserve ${reservePk} — contributing 0`,
-        );
-        continue;
-      }
-      const px =
-        prices[snap.underlyingSymbol] ??
-        STUB_PRICE_USD[snap.underlyingSymbol] ??
-        0;
-      if (px <= 0) continue;
-      // depositedAmount is in collateral base units (cTokens). Convert
-      // to underlying base units via exchangeRate, then to UI by
-      // dividing by 10^underlyingDecimals. Underlying decimals for the
-      // reserves we currently support: USDC=6. Hardcoded — extend the
-      // KAMINO_RESERVES_FOR_NAV entries with a `decimals` field if we
-      // ever add a reserve whose underlying decimals differ.
-      const underlyingDecimals = snap.underlyingSymbol === "SOL" ? 9 : 6;
-      const underlyingBaseUnits = Number(amount) * snap.exchangeRate;
-      const ui = underlyingBaseUnits / Math.pow(10, underlyingDecimals);
-      depositUsd += ui * px;
     }
-    return depositUsd;
+
+    // Sum marketValueSf on each side. Empty array slots have a zero
+    // amount field; their marketValueSf is also zero so summing them is
+    // a no-op, no per-slot filter needed.
+    let netSf = 0n;
+    for (const d of obl.deposits) {
+      netSf += BigInt(d.marketValueSf.toString());
+    }
+    for (const b of obl.borrows) {
+      netSf -= BigInt(b.marketValueSf.toString());
+    }
+    if (netSf <= 0n) return 0;
+
+    // (USD × 2^60) → USD float via micro-USD intermediate to keep sub-cent
+    // precision without dropping into floating-point arithmetic too early.
+    const microUsd = (netSf * 1_000_000n) / SF_SCALE_KLEND;
+    return Number(microUsd) / 1_000_000;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
@@ -1826,12 +1774,13 @@ export async function computeNavBreakdown(
   //     USDC via `kamino-execute.ts` end up with an Obligation PDA whose
   //     `deposits[]` array references the reserve directly — no cToken
   //     SPL balance is minted, so the path above wouldn't catch them.
+  //     Valued via `marketValueSf` from the klend SDK — `reservesByPda`
+  //     and `prices` are no longer needed because Kamino's program writes
+  //     the USD value directly into the obligation account.
   try {
     const obligationUsd = await computeKaminoObligationUsd(
       surfpool,
       authority,
-      kamino.byReserve,
-      prices,
     );
     kaminoUsd += obligationUsd;
   } catch (e) {
