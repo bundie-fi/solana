@@ -5,8 +5,13 @@ import { dbQuery } from "../lib/db.js";
 
 export const faucet = new Hono();
 
-const FAUCET_AMOUNT_BUSD = 50;
-const FAUCET_AMOUNT_BASE = 50_000_000;
+// Faucet hands out the canonical agent seed in one claim — same number
+// the wizard uses for `seedAmountBusd` and that warmup.ts re-mints as
+// USDC on the surfpool fork. Keeping these three numbers in lockstep so
+// "I claimed → I seeded my agent → my agent has matching strategy
+// capital" is a single mental model.
+const FAUCET_AMOUNT_BUSD = 100;
+const FAUCET_AMOUNT_BASE = 100_000_000;
 
 function getEnvOrThrow(name: string): string {
   const v = process.env[name];

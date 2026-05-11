@@ -201,7 +201,11 @@ export function ReviewStep({ state, dispatch }: Props) {
           preset: strategy.preset,
           allowedProtocols: allowlist.protocols,
           perProtocolLimits: allowlist.limits,
-          seedAmountBusd: 50,
+          // Canonical agent seed — matches the faucet's per-claim amount
+          // (faucet.ts FAUCET_AMOUNT_BUSD) so a fresh user can fund one
+          // agent with exactly one faucet claim. warmup.ts then mints
+          // the same value as USDC on the surfpool fork.
+          seedAmountBusd: 100,
           customBrainMd:
             strategy.showCustomBrain && strategy.customBrainMd.trim()
               ? strategy.customBrainMd

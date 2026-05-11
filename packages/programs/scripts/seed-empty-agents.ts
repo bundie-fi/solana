@@ -12,13 +12,17 @@
  * Optional env:
  *   SURFPOOL_RPC_URL  defaults to the public Railway hostname so this
  *                     can be run from a local dev machine.
- *   SEED_USDC_UI      defaults to 1000.
+ *   SEED_USDC_UI      defaults to 100 — same as the canonical agent
+ *                     seed (faucet.ts FAUCET_AMOUNT_BUSD, the wizard's
+ *                     seedAmountBusd default, and what warmup.ts mints
+ *                     when the agent first ticks). Pass a different
+ *                     value to top up beyond the standard seed.
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 import { ensureSurfpoolUsdc } from "./chaos-sim/src/lib/surfpool-seed.js";
 
 const RPC = process.env.SURFPOOL_RPC_URL ?? "https://bundie-surfpool-production.up.railway.app";
-const AMOUNT = Number(process.env.SEED_USDC_UI ?? "1000");
+const AMOUNT = Number(process.env.SEED_USDC_UI ?? "100");
 
 const AGENTS: Array<[string, string]> = [
   ["barbell",         "4GgG1CyrrAefJvYBF4smgLxjjBmFKaye69cdEg9HZv5r"],
