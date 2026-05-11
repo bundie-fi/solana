@@ -53,7 +53,7 @@ export function BettorFaucetCTA() {
       // to ingest the mint then reread.
       await new Promise((r) => setTimeout(r, 1500));
       await refresh();
-      toast.success("Claimed $50 bUSD — you're ready to bet.");
+      toast.success("Claimed $100 bUSD — you're ready to bet.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(msg.includes("429") ? "Faucet busy, try again in a moment." : `Faucet error: ${msg}`);
@@ -156,7 +156,7 @@ export function BettorFaucetCTA() {
           transition: "background 160ms ease, color 160ms ease",
         }}
       >
-        {claiming ? "Claiming…" : needsMore ? "Claim $50 bUSD" : "+ Top up"}
+        {claiming ? "Claiming…" : needsMore ? "Claim $100 bUSD" : "+ Top up"}
       </button>
     </div>
   );

@@ -285,8 +285,8 @@ export function ReviewStep({ state, dispatch }: Props) {
         title={state.resume ? "Finish setup." : "Ship it."}
         sub={
           state.resume
-            ? `Vault for ${sns} is already on-chain, sign one transfer to seed it with $50 bUSD and the strategy goes live.`
-            : "Final review. We'll register the SNS, init the on-chain vault, then move $50 bUSD into the treasury."
+            ? `Vault for ${sns} is already on-chain, sign one transfer to seed it with $100 bUSD and the strategy goes live.`
+            : "Final review. We'll register the SNS, init the on-chain vault, then move $100 bUSD into the treasury."
         }
       />
 
@@ -355,7 +355,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             color: "var(--de-ink)",
           }}
         >
-          <li>Seed treasury: $50 bUSD (your wallet)</li>
+          <li>Seed treasury: $100 bUSD (your wallet)</li>
           <li>Allowed protocols: {allowlist.protocols.join(", ")}</li>
           <li>
             Per-protocol caps:{" "}
@@ -435,13 +435,13 @@ export function ReviewStep({ state, dispatch }: Props) {
                 <span style={{ color: "var(--de-mint)" }}>✓</span> Strategy +
                 vault created
               </li>
-              <li>You sign one transfer to seed the vault with $50 bUSD</li>
+              <li>You sign one transfer to seed the vault with $100 bUSD</li>
               <li>Strategy goes live</li>
             </>
           ) : (
             <>
               <li>We create your strategy and its vault</li>
-              <li>You sign one transfer to seed the vault with $50 bUSD</li>
+              <li>You sign one transfer to seed the vault with $100 bUSD</li>
               <li>Strategy goes live</li>
             </>
           )}
@@ -481,7 +481,7 @@ export function ReviewStep({ state, dispatch }: Props) {
               txSig={launch.initTxSig}
             />
             <Stage
-              label="Sign deposit ($50 bUSD)…"
+              label="Sign deposit ($100 bUSD)…"
               active={launch.stage === "signing-deposit"}
               past={isPast(launch.stage, "signing-deposit")}
               txSig={launch.depositTxSig}
@@ -550,7 +550,7 @@ export function ReviewStep({ state, dispatch }: Props) {
             {orphanDeposit &&
               "Your deposit landed but the strategy didn't go live. Retry to flip it to active, no second on-chain transaction needed."}
             {droppedDeposit &&
-              "Your previous transaction didn't land, your wallet still holds the $50 bUSD. Sign once more to seed the vault."}
+              "Your previous transaction didn't land, your wallet still holds the $100 bUSD. Sign once more to seed the vault."}
           </div>
           {launch.depositTxSig && orphanDeposit && (
             <a
@@ -649,7 +649,7 @@ export function ReviewStep({ state, dispatch }: Props) {
                   ? "Finishing…"
                   : "Launching…"
                 : state.resume
-                  ? "Sign deposit ($50 bUSD)"
+                  ? "Sign deposit ($100 bUSD)"
                   : "Launch strategy"}
         </button>
       )}

@@ -264,7 +264,7 @@ export function HomeFeed({
                 letterSpacing: "0.1em",
               }}
             >
-              $50 bUSD seed
+              $100 bUSD seed
             </span>
           </Link>
         </div>

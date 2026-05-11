@@ -414,7 +414,7 @@ function QuickstartChecklist({
     done: boolean;
   }> = [
     {
-      label: "Claim 50 bUSD from the faucet",
+      label: "Claim 100 bUSD from the faucet",
       detail: "One-time devnet test currency. You'll need it before placing a bet.",
       href: "/",
       cta: "Open faucet",

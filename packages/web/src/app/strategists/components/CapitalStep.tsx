@@ -15,7 +15,9 @@ interface Props {
   dispatch: (action: WizardAction) => void;
 }
 
-const FAUCET_AMOUNT = 50;
+// Matches the backend faucet (faucet.ts FAUCET_AMOUNT_BUSD) and the
+// wizard's seedAmountBusd default. Keep in lockstep — see commit bf9d07c.
+const FAUCET_AMOUNT = 100;
 
 export function CapitalStep({ state, dispatch }: Props) {
   const { capital } = state;
@@ -203,7 +205,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                     color: "var(--de-ink)",
                   }}
                 >
-                  Get $50 bUSD
+                  Get $100 bUSD
                 </div>
                 <div className="dim mono-tiny" style={{ fontSize: 10.5 }}>
                   One-shot faucet drip, 24h cooldown.
@@ -310,7 +312,7 @@ export function CapitalStep({ state, dispatch }: Props) {
                   fontWeight: 600,
                 }}
               >
-                I already have ≥ $50 bUSD, continue to deposit →
+                I already have ≥ $100 bUSD, continue to deposit →
               </button>
             )}
           </div>
@@ -334,7 +336,7 @@ export function CapitalStep({ state, dispatch }: Props) {
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {fundsOk
                 ? "Funds detected, review your strategy on the next step, then sign one transfer to seed it."
-                : "Get to $50 bUSD first, the seed transfer happens on the Review step."}
+                : "Get to $100 bUSD first, the seed transfer happens on the Review step."}
             </div>
           </div>
         </>

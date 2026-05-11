@@ -16,7 +16,7 @@
  *   time `confirmInit` is called, the vault PDA is already on-chain.
  *
  *   That leaves only `deposit_to_vault` for the wallet to sign , the
- *   user transfers $50 bUSD from their ATA into the vault's
+ *   user transfers $100 bUSD from their ATA into the vault's
  *   treasury_ata. The vault PDA + treasury_ata addresses come back in
  *   `nextSteps` from `POST /api/agents`.
  *
@@ -76,7 +76,7 @@ export interface BuildDepositArgs {
   vaultPda: PublicKey;
   /** Treasury mint (bUSD) , used to derive the depositor + treasury ATAs. */
   treasuryMint: PublicKey;
-  /** Amount in base units (50 bUSD = 50_000_000 with 6dp). */
+  /** Amount in base units (100 bUSD = 100_000_000 with 6dp). */
   amountBase: number | bigint;
 }
 
@@ -466,7 +466,7 @@ export async function launchAgent({
       if (ataMissing) {
         throw new Error(
           "Your wallet has no bUSD account yet. Go back to step 4 and " +
-            "click 'Claim faucet' to get $50 bUSD.",
+            "click 'Claim faucet' to get $100 bUSD.",
         );
       }
       if (have < need) {
@@ -474,7 +474,7 @@ export async function launchAgent({
         const needUi = Number(need) / 1_000_000;
         throw new Error(
           `Your wallet only has ${haveUi.toFixed(2)} bUSD (need ${needUi.toFixed(2)}). ` +
-            "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
+            "Go back to step 4 and click 'Claim faucet' to get $100 bUSD.",
         );
       }
     }
@@ -621,7 +621,7 @@ export async function launchAgent({
             }
             throw new Error(
               "Your wallet doesn't have enough bUSD to seed the agent. " +
-                "Go back to step 4 and click 'Claim faucet' to get $50 bUSD.",
+                "Go back to step 4 and click 'Claim faucet' to get $100 bUSD.",
             );
           }
           // Otherwise: surface the err code + last few logs so the user can

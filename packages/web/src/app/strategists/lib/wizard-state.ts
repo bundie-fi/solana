@@ -276,8 +276,9 @@ export function canAdvance(state: WizardState): boolean {
     case "allowlist":
       return state.allowlist.protocols.length > 0;
     case "capital":
-      // Need ≥ $50 bUSD before approving the seed deposit.
-      return (state.capital.busdBalance ?? 0) >= 50;
+      // Need ≥ $100 bUSD before approving the seed deposit — matches
+      // the faucet + wizard seedAmountBusd. See commit bf9d07c.
+      return (state.capital.busdBalance ?? 0) >= 100;
     case "review":
       // Final step , "Launch" is its own button, Next is hidden.
       return true;
