@@ -250,11 +250,18 @@ export function generateBrainMd(opts: {
   lines.push(
     `    {"type": "lend_withdraw", "protocol": "kamino"|"solend", "args": {"amountUi": <number>, "reserveAddress"?: "<reserve_pda>", "marketAddress"?: "<market_pda>"}} |`,
   );
+  // Marinade is temporarily excluded — the surfpool fork's Marinade
+  // State.msol_supply is out of sync with the mSOL mint.supply (by ~36
+  // mSOL as of 2026-05-11), so every Deposit ix aborts with
+  // UnregisteredMsolMinted (Custom: 6071, deposit.rs:110). Until the
+  // fork's Marinade state is resynced, the brain should only attempt
+  // Jito for SOL→LST. Re-add "marinade" once surfpool is fixed and the
+  // executor's preflight returns clean.
   lines.push(
-    `    {"type": "lst_stake",     "protocol": "marinade"|"jito",            "args": {"amountSolUi": <number>}} |`,
+    `    {"type": "lst_stake",     "protocol": "jito",                       "args": {"amountSolUi": <number>}} |`,
   );
   lines.push(
-    `    {"type": "lst_unstake",   "protocol": "marinade"|"jito",            "args": {"amountMsolUi": <number>}} |`,
+    `    {"type": "lst_unstake",   "protocol": "jito",                       "args": {"amountMsolUi": <number>}} |`,
   );
   lines.push(
     `    {"type": "swap",          "venue": "jupiter",                       "args": {"inputMint": "<mint>", "outputMint": "<mint>", "amountInUi": <number>, "slippageBps": <number>}} |`,

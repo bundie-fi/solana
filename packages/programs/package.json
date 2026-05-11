@@ -23,6 +23,7 @@
     "chaos-sim:daemon": "tsx scripts/chaos-sim/src/run-agent-daemon.ts",
     "chaos:probe-kamino": "tsx scripts/chaos-sim/src/scripts/probe-kamino-obligations.ts",
     "chaos:inject-rotation": "tsx scripts/chaos-sim/src/scripts/inject-rotation-rules.ts",
+    "chaos:inject-marinade-disabled": "tsx scripts/chaos-sim/src/scripts/inject-marinade-disabled.ts",
     "init-vaults": "tsx scripts/chaos-sim/src/scripts/init-vaults.ts",
     "busd:attach-metadata": "tsx scripts/setup-busd/attach-metadata.ts"
   },
