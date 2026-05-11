@@ -203,6 +203,21 @@ export function generateBrainMd(opts: {
   lines.push(
     `- BEFORE proposing a lend_deposit, check self.usdc. If it's near zero, your capital is already deployed — propose lend_withdraw or noop, NOT another deposit. The platform no longer auto-refills USDC.`,
   );
+  // ── ROTATION RULES ──────────────────────────────────────────────────
+  // Without these, the brain accumulates open positions and almost never
+  // emits lend_withdraw / lst_unstake — the live activity feed becomes
+  // an "opens only" stream, which both looks broken and means strategies
+  // never adapt to changing rates. These two bullets MUST stay in sync
+  // with the same strings hardcoded in
+  //   scripts/chaos-sim/src/scripts/inject-rotation-rules.ts
+  // so that newly-minted brain_md (here) and backfilled brain_md (there)
+  // remain bit-identical.
+  lines.push(
+    `- ROTATE positions, don't accumulate. A yield strategy that only OPENS is not a strategy. Aim for roughly 1 close action (lend_withdraw or lst_unstake) per 2-3 open actions over each ~24h window. Close triggers: (a) another reserve / LST venue shows >100 bps better rate than your current position, (b) the rate on your current position has dropped >300 bps below where you opened it, or (c) the position has been open >50 history entries without reassessment. Predictors watch closes as a strong signal — closing decisively is itself information.`,
+  );
+  lines.push(
+    `- DO NOT force a close in the first 5 history entries after opening (give the position time), or when your current position is still the best rate available across allowed protocols.`,
+  );
   lines.push(``);
   lines.push(
     `- Use "swap" to rotate between mints when no lend/lst path exists for the source asset (e.g. USDC → SOL before a Marinade stake). Available venues: jupiter.`,
