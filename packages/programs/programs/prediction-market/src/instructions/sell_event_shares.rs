@@ -23,33 +23,33 @@ pub struct SellEventShares<'info> {
         constraint = (MARKET_KIND_EVENT_THRESHOLD..=MARKET_KIND_EVENT_MAX).contains(&market.kind)
             @ MarketError::InvalidKind,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     /// YES or NO mint (caller passes the side they're selling). Verified
     /// against the market's PDA seeds in the handler.
     #[account(mut)]
-    pub outcome_mint: Account<'info, Mint>,
+    pub outcome_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         constraint = seller_shares.owner == seller.key(),
         constraint = seller_shares.mint == outcome_mint.key() @ MarketError::WrongOutcomeMint,
     )]
-    pub seller_shares: Account<'info, TokenAccount>,
+    pub seller_shares: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         constraint = seller_collateral.owner == seller.key(),
         constraint = seller_collateral.mint == market.collateral_mint,
     )]
-    pub seller_collateral: Account<'info, TokenAccount>,
+    pub seller_collateral: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         seeds = [b"vault", market.key().as_ref()],
         bump = market.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }

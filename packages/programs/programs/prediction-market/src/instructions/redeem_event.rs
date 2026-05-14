@@ -20,32 +20,32 @@ pub struct RedeemEvent<'info> {
         constraint = (MARKET_KIND_EVENT_THRESHOLD..=MARKET_KIND_EVENT_MAX).contains(&market.kind)
             @ MarketError::InvalidKind,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     /// The winning mint (caller passes the side that won).
     #[account(mut)]
-    pub winner_mint: Account<'info, Mint>,
+    pub winner_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         constraint = redeemer_shares.owner == redeemer.key(),
         constraint = redeemer_shares.mint == winner_mint.key() @ MarketError::WrongOutcomeMint,
     )]
-    pub redeemer_shares: Account<'info, TokenAccount>,
+    pub redeemer_shares: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         constraint = redeemer_collateral.owner == redeemer.key(),
         constraint = redeemer_collateral.mint == market.collateral_mint,
     )]
-    pub redeemer_collateral: Account<'info, TokenAccount>,
+    pub redeemer_collateral: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         seeds = [b"vault", market.key().as_ref()],
         bump = market.vault_bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }

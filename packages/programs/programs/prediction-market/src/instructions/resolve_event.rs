@@ -35,7 +35,7 @@ pub struct ResolveEvent<'info> {
         constraint = (MARKET_KIND_EVENT_THRESHOLD..=MARKET_KIND_EVENT_MAX).contains(&market.kind)
             @ MarketError::InvalidKind,
     )]
-    pub market: Account<'info, Market>,
+    pub market: Box<Account<'info, Market>>,
 
     #[account(
         seeds = [RESOLVER_AUTH_SEED, market.key().as_ref()],
@@ -45,7 +45,7 @@ pub struct ResolveEvent<'info> {
         constraint = resolver_authority.resolver == resolver.key()
             @ MarketError::ResolverMismatch,
     )]
-    pub resolver_authority: Account<'info, ResolverAuthority>,
+    pub resolver_authority: Box<Account<'info, ResolverAuthority>>,
 }
 
 pub fn handler(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
