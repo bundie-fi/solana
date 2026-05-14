@@ -150,18 +150,30 @@ function encodePayload(
     payload.writeBigUInt64LE(BigInt(windowEnd), 24);
     feedPubkey.toBuffer().copy(payload, 32);
   } else if (kind === MARKET_KIND.PROTOCOL_TVL_DROP) {
-    const dropThreshold = BigInt(Number(cfg.drop_threshold_usd) * 1e6); // → micro-dollars
+    const dropThreshold = BigInt(Math.round(Number(cfg.drop_threshold_usd) * 1e6)); // → micro-dollars
     const rollingWindow = Number(cfg.rolling_window_seconds);
     const windowEnd = Math.floor(Date.now() / 1000) + Number(cfg.outcome_window_seconds);
     payload.writeBigUInt64LE(dropThreshold, 0);
     payload.writeBigUInt64LE(BigInt(rollingWindow), 8);
     payload.writeBigUInt64LE(BigInt(windowEnd), 16);
-    // payload[32..64] = tvl_source_pubkey — pass system_program as a
-    // placeholder if [VERIFY] tag is set. The off-chain resolver knows
-    // the real account via resolver_config; on-chain just needs non-default.
-    SystemProgram.programId.toBuffer().copy(payload, 32);
+    // payload[32..64] = tvl_source_pubkey — until the actual TVL account
+    // is wired (e.g. Kamino main lending market), use a non-default
+    // placeholder pubkey so on-chain validation passes. The off-chain
+    // resolver reads the real source from resolver_config; on-chain only
+    // checks that this field is != Pubkey::default(). Using a 0x01-filled
+    // 32-byte pubkey makes the placeholder visually distinct from real
+    // addresses while remaining valid.
+    const tvlPlaceholder = Buffer.alloc(32, 1);
+    tvlPlaceholder.copy(payload, 32);
   } else if (kind === MARKET_KIND.PUBLIC_STATUS_POLL) {
-    const minDuration = Number(cfg.min_duration_seconds);
+    // sources.json uses `min_downtime_seconds` for Statuspage entries and
+    // `min_duration_seconds` for AWS Health entries — accept either.
+    const minDuration = Number(cfg.min_duration_seconds ?? cfg.min_downtime_seconds);
+    if (!Number.isFinite(minDuration) || minDuration <= 0) {
+      throw new Error(
+        `event ${event.event_id}: missing min_duration_seconds / min_downtime_seconds in resolver_config`,
+      );
+    }
     const rollingWindow = Number(cfg.rolling_window_seconds ?? 0);
     const windowEnd = Math.floor(Date.now() / 1000) + Number(cfg.outcome_window_seconds);
     const resolverClassId = RESOLVER_CLASS_ID[event.resolver_class];
