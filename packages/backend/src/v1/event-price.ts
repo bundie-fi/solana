@@ -22,6 +22,7 @@ import { Hono } from "hono";
 import { loadRegistry, getEvent } from "./registry.js";
 import { readMarketSnapshot } from "./onchain.js";
 import { yesPrice, confidenceScore } from "./lmsr.js";
+import { signResponse, publicKeyBase58 } from "./attestation.js";
 import type { EventPriceResponse, EventSummary } from "./types.js";
 
 export const v1 = new Hono();
@@ -53,7 +54,7 @@ function stubPriceResponse(eventId: string): EventPriceResponse {
     spot_vs_twap_pct: 0,
     resolver_class: event.resolver_class,
     resolver_track_record: { total: 0, disputed: 0, lost: 0 },
-    signed_attestation: "",
+    signed_attestation: "", // filled by signResponse() before serialisation
     as_of: now.toISOString(),
   };
 }
@@ -142,10 +143,24 @@ v1.get("/event-price", async (c) => {
   }
   try {
     const response = await livePriceResponse(eventId);
-    return c.json(response);
+    const signed = signResponse(response);
+    return c.json(signed);
   } catch (err) {
     return c.json({ error: (err as Error).message }, 404);
   }
+});
+
+/**
+ * GET /v1/attestation-key
+ * Returns the base58 ed25519 public key used to sign /v1/event-price
+ * responses. Free tier; clients call once at startup and cache.
+ */
+v1.get("/attestation-key", (c) => {
+  return c.json({
+    public_key_base58: publicKeyBase58(),
+    algorithm: "ed25519",
+    canonicalisation: "json-sorted-keys-no-whitespace-excluding-signed_attestation",
+  });
 });
 
 /**

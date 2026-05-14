@@ -128,3 +128,17 @@ export function resolverClassLabel(cls: string): string {
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+/**
+ * Compute the sha256 of an event_id slug for use as the market PDA seed
+ * AND as the `event_id_hash` argument to `buy_event_shares` / `sell_event_shares`
+ * / `redeem_event`. Matches the on-chain seed derivation in `create_event`.
+ *
+ * Uses Web Crypto so it runs in both browser and Edge runtimes. Returns
+ * a 32-byte Uint8Array.
+ */
+export async function computeEventIdHash(eventId: string): Promise<Uint8Array> {
+  const enc = new TextEncoder().encode(eventId);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return new Uint8Array(buf);
+}

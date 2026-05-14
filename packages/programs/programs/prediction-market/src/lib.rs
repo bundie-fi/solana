@@ -184,4 +184,37 @@ pub mod prediction_market {
     pub fn resolve_event(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
         instructions::resolve_event::handler(ctx, outcome)
     }
+
+    /// Buy YES or NO shares in an event market (kinds 7/8/9). Mirrors
+    /// `buy_shares` but signs with the `event_market` PDA seed prefix.
+    /// `event_id_hash` is the sha256 of the canonical event_id slug from
+    /// `scripts/resolvers/sources.json` — clients pass the same hash they
+    /// used to derive the market PDA.
+    pub fn buy_event_shares(
+        ctx: Context<BuyEventShares>,
+        event_id_hash: [u8; 32],
+        outcome: Outcome,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::buy_event_shares::handler(ctx, event_id_hash, outcome, amount)
+    }
+
+    /// Sell YES or NO shares back to an event market.
+    pub fn sell_event_shares(
+        ctx: Context<SellEventShares>,
+        event_id_hash: [u8; 32],
+        outcome: Outcome,
+        shares: u64,
+    ) -> Result<()> {
+        instructions::sell_event_shares::handler(ctx, event_id_hash, outcome, shares)
+    }
+
+    /// Redeem winning shares in a resolved event market for a pro-rata
+    /// claim on the vault.
+    pub fn redeem_event(
+        ctx: Context<RedeemEvent>,
+        event_id_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::redeem_event::handler(ctx, event_id_hash)
+    }
 }
