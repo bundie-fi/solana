@@ -28,10 +28,6 @@ const USDC_MINT = new PublicKey(
 );
 
 // Anchor discriminators — sha256("global:<ix_name>")[..8].
-// Verified against the Rust source at:
-//   packages/programs/programs/prediction-market/src/lib.rs
-// Recomputed via:
-//   node -e "console.log(require('crypto').createHash('sha256').update('global:buy_event_shares').digest().slice(0,8))"
 const DISCRIMINATOR = {
   BUY: Buffer.from([205, 39, 9, 22, 245, 91, 127, 61]),
   SELL: Buffer.from([137, 168, 108, 109, 165, 108, 7, 232]),
@@ -40,13 +36,24 @@ const DISCRIMINATOR = {
 
 interface TradeButtonsProps {
   eventId: string;
-  /** Market PDA from /v1/event-detail, or null if no market exists yet. */
   marketAddress?: string;
+  /** Live YES share price [0,1] from /v1/event-price. Used for the cost preview. */
+  yesPrice?: number;
 }
 
 type Mode = "buy" | "sell" | "redeem";
 
-export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
+const MODES: { id: Mode; label: string }[] = [
+  { id: "buy", label: "Buy" },
+  { id: "sell", label: "Sell" },
+  { id: "redeem", label: "Redeem" },
+];
+
+export function TradeButtons({
+  eventId,
+  marketAddress,
+  yesPrice = 0.5,
+}: TradeButtonsProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const {
@@ -57,7 +64,7 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
   } = wallet;
 
   const [mode, setMode] = useState<Mode>("buy");
-  const [busy, setBusy] = useState<"yes" | "no" | "redeem" | null>(null);
+  const [busy, setBusy] = useState<"yes" | "no" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [txSig, setTxSig] = useState<string | null>(null);
   const [amount, setAmount] = useState("5");
@@ -65,15 +72,18 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
   if (!marketAddress) {
     return (
       <div className="rounded-2xl border border-dashed border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6 text-center">
-        <p className="text-sm text-[var(--de-ink-2)]">
-          Market not yet deployed for {eventId}.
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+          Pre-deploy
         </p>
-        <p className="mt-1 text-xs text-[var(--de-ink-3)]">
-          Run{" "}
+        <p className="mt-2 text-sm text-[var(--de-ink-2)]">
+          Market for {eventId} isn’t on-chain yet.
+        </p>
+        <p className="mt-2 text-xs text-[var(--de-ink-3)]">
+          Bootstrap with{" "}
           <code className="font-mono text-[var(--de-lavender)]">
-            ./packages/programs/scripts/deploy-events-devnet.sh
-          </code>{" "}
-          to bootstrap.
+            scripts/deploy-events-devnet.sh
+          </code>
+          .
         </p>
       </div>
     );
@@ -82,10 +92,15 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
   if (!connected || !publicKey) {
     return (
       <div className="rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6 text-center">
-        <p className="mb-4 text-sm text-[var(--de-ink-2)]">
-          Connect a wallet to trade.
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+          Connect to trade
         </p>
-        <WalletMultiButton />
+        <p className="mt-2 mb-4 text-sm text-[var(--de-ink-2)]">
+          Wallet required for YES / NO position changes.
+        </p>
+        <div className="flex justify-center">
+          <WalletMultiButton />
+        </div>
       </div>
     );
   }
@@ -102,6 +117,16 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
   const yesMintPda = derivePda("yes_mint");
   const noMintPda = derivePda("no_mint");
 
+  const parsedAmount = parseFloat(amount);
+  const validAmount = !isNaN(parsedAmount) && parsedAmount > 0;
+  const noPrice = 1 - yesPrice;
+  // Cost preview: shares-per-dollar at current LMSR price, ignoring fee/slippage.
+  // The on-chain LMSR will price the trade with slippage; this is the headline.
+  const previewYesShares =
+    validAmount && yesPrice > 0 ? parsedAmount / yesPrice : 0;
+  const previewNoShares =
+    validAmount && noPrice > 0 ? parsedAmount / noPrice : 0;
+
   async function buildBuyIx(
     signer: PublicKey,
     side: "yes" | "no",
@@ -112,15 +137,12 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
     const buyerYesAta = await getAssociatedTokenAddress(yesMintPda, signer);
     const buyerNoAta = await getAssociatedTokenAddress(noMintPda, signer);
 
-    // ix data: discriminator (8) + event_id_hash (32) + Outcome (1) + amount (8) = 49 bytes
     const data = Buffer.alloc(49);
     DISCRIMINATOR.BUY.copy(data, 0);
     Buffer.from(eventIdHash).copy(data, 8);
     data.writeUInt8(side === "yes" ? 0 : 1, 40);
     data.writeBigUInt64LE(amountLamports, 41);
 
-    // Account ordering MUST match `BuyEventShares` in
-    // packages/programs/programs/prediction-market/src/instructions/buy_event_shares.rs.
     return new TransactionInstruction({
       programId: PROGRAM_ID,
       data,
@@ -151,7 +173,10 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
     eventIdHash: Uint8Array,
   ): Promise<TransactionInstruction> {
     const outcomeMint = side === "yes" ? yesMintPda : noMintPda;
-    const sellerSharesAta = await getAssociatedTokenAddress(outcomeMint, signer);
+    const sellerSharesAta = await getAssociatedTokenAddress(
+      outcomeMint,
+      signer,
+    );
     const sellerUsdcAta = await getAssociatedTokenAddress(USDC_MINT, signer);
 
     const data = Buffer.alloc(49);
@@ -181,10 +206,12 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
     eventIdHash: Uint8Array,
   ): Promise<TransactionInstruction> {
     const winnerMint = winnerSide === "yes" ? yesMintPda : noMintPda;
-    const redeemerSharesAta = await getAssociatedTokenAddress(winnerMint, signer);
+    const redeemerSharesAta = await getAssociatedTokenAddress(
+      winnerMint,
+      signer,
+    );
     const redeemerUsdcAta = await getAssociatedTokenAddress(USDC_MINT, signer);
 
-    // ix data: discriminator (8) + event_id_hash (32) = 40 bytes
     const data = Buffer.alloc(40);
     DISCRIMINATOR.REDEEM.copy(data, 0);
     Buffer.from(eventIdHash).copy(data, 8);
@@ -204,7 +231,7 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
     });
   }
 
-  async function dispatch(side: "yes" | "no" | "redeem") {
+  async function dispatch(side: "yes" | "no") {
     if (!publicKey) return;
     setError(null);
     setTxSig(null);
@@ -212,27 +239,19 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
 
     try {
       const eventIdHash = await computeEventIdHash(eventId);
-      const parsed = parseFloat(amount);
-      if (mode !== "redeem" && (isNaN(parsed) || parsed <= 0)) {
-        throw new Error("Enter a positive amount");
+      if (mode !== "redeem" && !validAmount) {
+        throw new Error("Enter a positive amount.");
       }
-      const amountLamports = BigInt(Math.round(parsed * 1_000_000));
+      const amountLamports = BigInt(Math.round(parsedAmount * 1_000_000));
 
       const buildIx = async (
         signer: PublicKey,
       ): Promise<TransactionInstruction> => {
-        if (mode === "buy" && side !== "redeem") {
+        if (mode === "buy") {
           return buildBuyIx(signer, side, amountLamports, eventIdHash);
         }
-        if (mode === "sell" && side !== "redeem") {
+        if (mode === "sell") {
           return buildSellIx(signer, side, amountLamports, eventIdHash);
-        }
-        // redeem — `side` is the winning side
-        if (side === "redeem") {
-          // We need the winning side; let the user click YES or NO redeem
-          // explicitly. This branch shouldn't fire in the new UX (redeem
-          // mode renders two separate buttons).
-          throw new Error("Redeem requires a winning side");
         }
         return buildRedeemIx(signer, side, eventIdHash);
       };
@@ -271,7 +290,7 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
         setTxSig(sig);
       }
     } catch (err) {
-      setError((err as Error).message.slice(0, 200));
+      setError(humanizeError((err as Error).message));
     } finally {
       setBusy(null);
     }
@@ -279,82 +298,133 @@ export function TradeButtons({ eventId, marketAddress }: TradeButtonsProps) {
 
   return (
     <div className="rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6">
-      <div className="mb-4 flex items-center gap-2">
-        {(["buy", "sell", "redeem"] as Mode[]).map((m) => (
+      {/* Mode tabs — full-width segmented control with mint/rose context line */}
+      <div
+        role="tablist"
+        aria-label="Trade mode"
+        className="mb-5 grid grid-cols-3 gap-1 rounded-lg border border-[var(--de-line)] bg-[var(--de-bg-3)] p-1"
+      >
+        {MODES.map((m) => (
           <button
-            key={m}
+            key={m.id}
             type="button"
-            onClick={() => setMode(m)}
-            className={`rounded-lg px-3 py-1 text-xs uppercase tracking-wider transition ${
-              mode === m
-                ? "bg-[var(--de-lavender-tint)] text-[var(--de-lavender)]"
-                : "text-[var(--de-ink-3)] hover:text-[var(--de-ink)]"
+            role="tab"
+            aria-selected={mode === m.id}
+            onClick={() => {
+              setMode(m.id);
+              setError(null);
+            }}
+            className={`min-h-9 rounded-md font-mono text-xs uppercase tracking-[0.16em] transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-lavender)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg-raised)] ${
+              mode === m.id
+                ? "bg-[var(--de-bg-raised)] text-[var(--de-ink)] shadow-[inset_0_0_0_1px_var(--de-line-2)]"
+                : "text-[var(--de-ink-3)] hover:text-[var(--de-ink-2)]"
             }`}
           >
-            {m}
+            {m.label}
           </button>
         ))}
       </div>
 
       {mode !== "redeem" && (
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-4">
           <label
             htmlFor="amount"
-            className="text-xs uppercase tracking-wider text-[var(--de-ink-3)]"
+            className="mb-1.5 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]"
           >
-            {mode === "buy" ? "USDC" : "Shares"}
+            <span>{mode === "buy" ? "Spend (USDC)" : "Sell (shares)"}</span>
+            <span className="text-[var(--de-ink-4)] normal-case tracking-normal">
+              LS-LMSR · slippage applies
+            </span>
           </label>
-          <input
-            id="amount"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-24 rounded-lg border border-[var(--de-line-2)] bg-[var(--de-bg-3)] px-3 py-1.5 font-mono text-sm text-[var(--de-ink)] focus:border-[var(--de-line-3)] focus:outline-none"
-          />
+          <div className="relative">
+            <input
+              id="amount"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full rounded-lg border border-[var(--de-line-2)] bg-[var(--de-bg-3)] px-4 py-3 font-mono text-lg tabular-nums text-[var(--de-ink)] placeholder:text-[var(--de-ink-4)] focus:border-[var(--de-line-3)] focus:outline-none focus:ring-2 focus:ring-[var(--de-lavender-glow)]"
+              placeholder="0.0"
+              aria-describedby="amount-hint"
+            />
+          </div>
+          {mode === "buy" && validAmount ? (
+            <p
+              id="amount-hint"
+              className="mt-2 font-mono text-[11px] tabular-nums text-[var(--de-ink-3)]"
+            >
+              ≈{" "}
+              <span className="text-[var(--de-mint)]">
+                {previewYesShares.toFixed(2)} YES
+              </span>{" "}
+              <span className="text-[var(--de-ink-5)]">/</span>{" "}
+              <span className="text-[var(--de-rose)]">
+                {previewNoShares.toFixed(2)} NO
+              </span>{" "}
+              at current price
+            </p>
+          ) : null}
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
+        <OutcomeButton
+          accent="mint"
+          label={
+            mode === "redeem" ? "Redeem YES" : `${actionLabel(mode)} YES`
+          }
+          busy={busy === "yes"}
           disabled={busy !== null}
           onClick={() => dispatch("yes")}
-          className="rounded-xl border border-[var(--de-line-2)] bg-[var(--de-bg-2)] py-3 text-sm font-medium text-[var(--de-mint)] transition hover:bg-[var(--de-bg-3)] disabled:opacity-50"
-        >
-          {busy === "yes" ? "Sending…" : `${actionLabel(mode)} YES`}
-        </button>
-        <button
-          type="button"
+          subtle={
+            mode === "redeem"
+              ? "If YES won"
+              : `${(yesPrice * 100).toFixed(1)}%`
+          }
+        />
+        <OutcomeButton
+          accent="rose"
+          label={
+            mode === "redeem" ? "Redeem NO" : `${actionLabel(mode)} NO`
+          }
+          busy={busy === "no"}
           disabled={busy !== null}
           onClick={() => dispatch("no")}
-          className="rounded-xl border border-[var(--de-line-2)] bg-[var(--de-bg-2)] py-3 text-sm font-medium text-[var(--de-lavender)] transition hover:bg-[var(--de-bg-3)] disabled:opacity-50"
-        >
-          {busy === "no" ? "Sending…" : `${actionLabel(mode)} NO`}
-        </button>
+          subtle={
+            mode === "redeem"
+              ? "If NO won"
+              : `${(noPrice * 100).toFixed(1)}%`
+          }
+        />
       </div>
 
       {mode === "redeem" && (
-        <p className="mt-3 text-xs text-[var(--de-ink-3)]">
-          Click the side that won. If you hold winning shares, your USDC
-          payout is proportional to your share of the winning supply.
+        <p className="mt-3 text-xs leading-relaxed text-[var(--de-ink-3)]">
+          Click the side that won. Payout is your share of the winning
+          supply against the vault balance.
         </p>
       )}
 
       {error ? (
-        <p className="mt-3 font-mono text-xs text-red-300">{error}</p>
+        <div
+          role="alert"
+          className="mt-4 rounded-lg border border-[var(--de-rose-tint)] bg-[var(--de-rose-tint)] px-3 py-2 font-mono text-[11px] text-[var(--de-rose)]"
+        >
+          {error}
+        </div>
       ) : null}
+
       {txSig ? (
-        <p className="mt-3 text-xs text-[var(--de-ink-3)]">
-          Tx{" "}
-          <a
-            href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-[var(--de-lavender)] hover:underline"
-          >
-            {txSig.slice(0, 10)}…
-          </a>
-        </p>
+        <a
+          href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 flex items-center justify-between rounded-lg border border-[var(--de-mint-tint)] bg-[var(--de-mint-tint)] px-3 py-2 font-mono text-[11px] text-[var(--de-mint)] transition-colors duration-150 ease-out hover:bg-[var(--de-mint-glow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-mint)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg-raised)]"
+        >
+          <span>Confirmed on devnet</span>
+          <span className="text-[var(--de-mint-2)]">
+            {txSig.slice(0, 8)}… ↗
+          </span>
+        </a>
       ) : null}
     </div>
   );
@@ -369,4 +439,67 @@ function actionLabel(mode: Mode): string {
     case "redeem":
       return "Redeem";
   }
+}
+
+function humanizeError(raw: string): string {
+  const truncated = raw.slice(0, 200);
+  if (/User rejected/i.test(truncated)) return "Signature declined.";
+  if (/insufficient/i.test(truncated))
+    return "Insufficient USDC. Top up from the devnet faucet.";
+  if (/blockhash not found/i.test(truncated))
+    return "Network hiccup — try again in a second.";
+  return truncated;
+}
+
+interface OutcomeButtonProps {
+  accent: "mint" | "rose";
+  label: string;
+  subtle: string;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+function OutcomeButton({
+  accent,
+  label,
+  subtle,
+  busy,
+  disabled,
+  onClick,
+}: OutcomeButtonProps) {
+  const text = accent === "mint" ? "var(--de-mint)" : "var(--de-rose)";
+  const border =
+    accent === "mint" ? "var(--de-mint-tint)" : "var(--de-rose-tint)";
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-busy={busy}
+      className="group flex flex-col items-stretch gap-1 rounded-xl border bg-[var(--de-bg-2)] px-4 py-3 text-left transition-[transform,background-color,border-color] duration-150 ease-out hover:bg-[var(--de-bg-3)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg-raised)] disabled:opacity-50 disabled:active:translate-y-0"
+      style={
+        {
+          borderColor: border,
+          color: text,
+          // Inline so the focus ring inherits the accent without a new utility.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ["--tw-ring-color" as any]: text,
+        } as React.CSSProperties
+      }
+    >
+      <span className="flex items-center gap-2 font-mono text-sm font-medium uppercase tracking-[0.12em]">
+        {busy ? (
+          <span
+            aria-hidden="true"
+            className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+          />
+        ) : null}
+        <span>{label}</span>
+      </span>
+      <span className="font-mono text-[11px] tabular-nums text-[var(--de-ink-3)] group-hover:text-[var(--de-ink-2)]">
+        {subtle}
+      </span>
+    </button>
+  );
 }
