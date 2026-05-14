@@ -19,6 +19,12 @@ interface Balances {
   no: number;
 }
 
+/**
+ * PositionDisplay — thin position strip designed to sit BELOW TradeButtons
+ * inside the same panel. Visually a continuation of the trade action, not a
+ * separate card. Empty state is intentionally quiet (the user hasn't traded
+ * yet, no need to shout "no position").
+ */
 export function PositionDisplay({ marketAddress }: PositionDisplayProps) {
   const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
@@ -73,58 +79,53 @@ export function PositionDisplay({ marketAddress }: PositionDisplayProps) {
 
   if (!connected || !marketAddress) return null;
 
-  const hasPosition =
-    balances && (balances.yes > 0 || balances.no > 0);
+  const hasPosition = balances && (balances.yes > 0 || balances.no > 0);
 
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6">
-        <div className="text-xs uppercase tracking-wider text-[var(--de-ink-3)]">
-          Your position
-        </div>
-        <div className="mt-2 font-mono text-sm text-[var(--de-ink-4)]">
-          Loading…
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasPosition) {
-    return (
-      <div className="rounded-2xl border border-dashed border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6">
-        <div className="text-xs uppercase tracking-wider text-[var(--de-ink-3)]">
-          Your position
-        </div>
-        <div className="mt-2 text-sm text-[var(--de-ink-2)]">
-          No YES or NO shares yet for this market.
-        </div>
-      </div>
-    );
-  }
-
+  // Layout: a thin horizontal strip. Inline with TradeButtons by wrapping
+  // them in a shared border in the page composition.
   return (
-    <div className="rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6">
-      <div className="mb-3 text-xs uppercase tracking-wider text-[var(--de-ink-3)]">
-        Your position
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
-            YES
+    <div
+      className="border-t border-[var(--de-line)] px-6 py-3"
+      aria-label="Your position"
+    >
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+          Your position
+        </p>
+        {loading ? (
+          <div className="flex items-baseline gap-3" aria-hidden="true">
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-4 w-12" />
           </div>
-          <div className="font-mono text-2xl tabular-nums text-[var(--de-mint)]">
-            {balances!.yes.toFixed(2)}
+        ) : hasPosition ? (
+          <div className="flex items-baseline gap-4 font-mono text-sm tabular-nums">
+            <span className="text-[var(--de-mint)]">
+              {balances!.yes.toFixed(2)}
+              <span className="ml-1 text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
+                YES
+              </span>
+            </span>
+            <span className="text-[var(--de-rose)]">
+              {balances!.no.toFixed(2)}
+              <span className="ml-1 text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
+                NO
+              </span>
+            </span>
           </div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
-            NO
-          </div>
-          <div className="font-mono text-2xl tabular-nums text-[var(--de-lavender)]">
-            {balances!.no.toFixed(2)}
-          </div>
-        </div>
+        ) : (
+          <p className="font-mono text-[11px] text-[var(--de-ink-4)]">
+            First trade opens a position
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-block animate-pulse rounded bg-[var(--de-bg-3)] ${className}`}
+    />
   );
 }

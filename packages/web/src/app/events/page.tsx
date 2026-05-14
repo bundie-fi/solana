@@ -4,7 +4,6 @@ import {
   formatPrice,
   listEvents,
   marketKindLabel,
-  resolverClassLabel,
   type EventSummary,
 } from "@/lib/events";
 
@@ -14,7 +13,7 @@ export const revalidate = 30;
 export const metadata = {
   title: "Events · Bundie",
   description:
-    "Trade outcomes. A marketplace where retail trades event prices and AI agents pay to read them.",
+    "A marketplace where retail trades outcomes and AI agents pay to read the prices.",
 };
 
 export default async function EventsPage() {
@@ -29,30 +28,22 @@ export default async function EventsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--de-bg)] text-[var(--de-ink)]">
-      <header className="border-b border-[var(--de-line)] px-6 py-12 sm:px-12">
-        <div className="mx-auto max-w-6xl">
-          <p className="mb-3 text-xs uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
-            Bundie · Event Markets
-          </p>
-          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-            Trade outcomes. <span className="text-[var(--de-lavender)]">AI agents pay to read the prices.</span>
-          </h1>
-          <p className="mt-4 max-w-2xl text-[var(--de-ink-2)]">
-            Every measurable event has a market on Bundie. Retail traders price
-            the probability; AI agents query the live consensus via x402
-            micropayments. Solana settlement.
-          </p>
-        </div>
-      </header>
+      <Hero />
 
-      <section className="px-6 py-10 sm:px-12">
+      <section className="px-6 pb-14 sm:px-12">
         <div className="mx-auto max-w-6xl">
+          <SectionEyebrow
+            title="Live markets"
+            count={events.length}
+            error={!!error}
+          />
+
           {error ? (
             <ErrorState message={error} />
           ) : events.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {events.map((e) => (
                 <EventCard key={e.event_id} event={e} />
               ))}
@@ -61,72 +52,155 @@ export default async function EventsPage() {
         </div>
       </section>
 
-      <footer className="border-t border-[var(--de-line)] px-6 py-8 text-xs text-[var(--de-ink-3)] sm:px-12">
-        <div className="mx-auto max-w-6xl flex flex-col gap-2 sm:flex-row sm:justify-between">
-          <span>Devnet beta. Real USDC live on mainnet beta soon.</span>
-          <Link href="/" className="hover:text-[var(--de-ink)]">
-            ← back home
+      <Footer />
+    </main>
+  );
+}
+
+function Hero() {
+  return (
+    <header
+      className="relative overflow-hidden border-b border-[var(--de-line)] px-6 pb-14 pt-16 sm:px-12 sm:pt-24"
+      style={{
+        background:
+          "radial-gradient(60% 40% at 50% 0%, var(--de-lavender-glow), transparent)",
+      }}
+    >
+      <div className="relative mx-auto max-w-6xl">
+        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
+          Bundie / Event markets / x402 API
+        </p>
+        <h1 className="max-w-3xl font-serif text-4xl leading-[1.05] tracking-tight sm:text-6xl">
+          A marketplace where retail trades outcomes
+          <span className="text-[var(--de-lavender)]"> and AI agents pay to read the prices</span>.
+        </h1>
+        <p className="mt-5 max-w-xl text-base text-[var(--de-ink-2)]">
+          Every measurable event has a market on Bundie. Trade YES or NO with
+          LS-LMSR pricing. Or query the live consensus via x402 for{" "}
+          <span className="font-mono text-[var(--de-ink)]">$0.001</span> a call.
+        </p>
+        <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+          <span>
+            <span className="mr-2 inline-block size-1.5 rounded-full bg-[var(--de-mint)] align-middle" />
+            Devnet beta · Solana
+          </span>
+          <Link
+            href="#agents"
+            className="text-[var(--de-lavender)] transition-colors duration-150 ease-out hover:text-[var(--de-lavender-2)] focus-visible:outline-none focus-visible:underline"
+          >
+            Agents → API docs
           </Link>
         </div>
-      </footer>
-    </main>
+      </div>
+    </header>
+  );
+}
+
+function SectionEyebrow({
+  title,
+  count,
+  error,
+}: {
+  title: string;
+  count: number;
+  error: boolean;
+}) {
+  return (
+    <div className="mb-6 mt-12 flex items-baseline justify-between border-b border-[var(--de-line)] pb-4">
+      <h2 className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
+        {title}
+      </h2>
+      <span className="font-mono text-[11px] tabular-nums text-[var(--de-ink-3)]">
+        {error ? "—" : `${count} ${count === 1 ? "market" : "markets"}`}
+      </span>
+    </div>
   );
 }
 
 function EventCard({ event }: { event: EventSummary }) {
   const yesPct = formatPrice(event.price);
   const noPct = formatPrice(1 - event.price);
+  const isLive = event.status === "active";
   return (
     <Link
       href={`/events/${encodeURIComponent(event.event_id)}`}
-      className="group block rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6 transition hover:border-[var(--de-line-3)] hover:bg-[var(--de-bg-2)]"
+      className="group block rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6 transition-[transform,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-[var(--de-line-3)] hover:bg-[var(--de-bg-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-lavender)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg)]"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <span className="rounded-full bg-[var(--de-lavender-tint)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--de-lavender)]">
-          {marketKindLabel(event.market_kind)}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+          {humanKind(event.market_kind, event.resolver_class)}
         </span>
-        <span className="text-[10px] uppercase tracking-wider text-[var(--de-ink-4)]">
-          {resolverClassLabel(event.resolver_class)}
-        </span>
+        <StatusPill live={isLive} />
       </div>
 
-      <p className="mb-6 text-sm leading-relaxed text-[var(--de-ink)] group-hover:text-white">
+      <p className="mb-6 text-[15px] leading-snug text-[var(--de-ink)]">
         {event.description}
       </p>
 
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-3 border-t border-[var(--de-line)] pt-4">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
             YES
-          </div>
-          <div className="font-mono text-2xl tabular-nums text-[var(--de-mint)]">
+          </p>
+          <p className="mt-1 font-mono text-3xl tabular-nums text-[var(--de-mint)]">
             {yesPct}
-          </div>
+          </p>
         </div>
         <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--de-ink-3)]">
-            NO
-          </div>
-          <div className="font-mono text-lg tabular-nums text-[var(--de-ink-2)]">
-            {noPct}
-          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+            Depth
+          </p>
+          <p className="mt-1 font-mono text-sm tabular-nums text-[var(--de-ink-2)]">
+            {formatDepth(event.depth_usd)}
+          </p>
+          <p className="mt-0.5 font-mono text-[10px] tabular-nums text-[var(--de-ink-4)]">
+            NO {noPct}
+          </p>
         </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between border-t border-[var(--de-line)] pt-3 text-[11px] text-[var(--de-ink-3)]">
-        <span>Depth {formatDepth(event.depth_usd)}</span>
-        <span className="capitalize">{event.status}</span>
       </div>
     </Link>
   );
 }
 
+function StatusPill({ live }: { live: boolean }) {
+  if (live) {
+    return (
+      <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-mint)]">
+        <span className="relative inline-flex size-1.5 items-center justify-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-[var(--de-mint)] opacity-60" />
+          <span className="relative inline-block size-1.5 rounded-full bg-[var(--de-mint)]" />
+        </span>
+        Live
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-4)]">
+      Scheduled
+    </span>
+  );
+}
+
+function humanKind(kind: number, resolverClass: string): string {
+  // Re-label the on-chain taxonomy in product language.
+  if (resolverClass.startsWith("pyth_threshold")) return "Stablecoin · price";
+  if (resolverClass.startsWith("onchain_tvl")) return "Protocol TVL";
+  if (resolverClass.startsWith("statuspage")) return "Service uptime";
+  if (resolverClass.startsWith("aws_health")) return "Cloud incident";
+  return marketKindLabel(kind as 7 | 8 | 9);
+}
+
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-12 text-center">
-      <p className="font-serif text-2xl text-[var(--de-ink)]">No events yet.</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
+        Pre-launch
+      </p>
+      <p className="mt-3 font-serif text-2xl text-[var(--de-ink)]">
+        No markets yet.
+      </p>
       <p className="mt-2 text-sm text-[var(--de-ink-2)]">
-        Markets are being deployed to devnet now. Refresh in a minute.
+        Devnet bootstrap landing shortly. Refresh in a minute.
       </p>
     </div>
   );
@@ -135,11 +209,52 @@ function EmptyState() {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-8">
-      <p className="font-medium text-[var(--de-ink)]">Couldn’t load events.</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-rose)]">
+        Backend unreachable
+      </p>
+      <p className="mt-3 text-base text-[var(--de-ink)]">
+        We couldn’t fetch the live market list.
+      </p>
       <p className="mt-1 font-mono text-xs text-[var(--de-ink-3)]">{message}</p>
       <p className="mt-3 text-sm text-[var(--de-ink-2)]">
-        Backend may still be starting up. Try again in a few seconds.
+        Backend may still be starting. Try again in a few seconds.
       </p>
     </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer
+      id="agents"
+      className="border-t border-[var(--de-line)] px-6 py-10 sm:px-12"
+    >
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-sm">
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
+              Building an agent?
+            </p>
+            <p className="font-serif text-xl tracking-tight text-[var(--de-ink)]">
+              Read live market prices over x402 for{" "}
+              <span className="text-[var(--de-lavender)]">$0.001</span> a call.
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--de-line-2)] bg-[var(--de-bg-3)] p-3 font-mono text-[11px] leading-relaxed text-[var(--de-ink-2)]">
+            <span className="text-[var(--de-ink-3)]">GET</span>{" "}
+            /v1/event-price?id=&lt;id&gt;
+          </div>
+        </div>
+        <div className="mt-8 flex items-center justify-between border-t border-[var(--de-line)] pt-4 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-4)]">
+          <span>Devnet beta · cluster: solana:devnet</span>
+          <Link
+            href="/"
+            className="hover:text-[var(--de-ink)] focus-visible:outline-none focus-visible:underline"
+          >
+            ← home
+          </Link>
+        </div>
+      </div>
+    </footer>
   );
 }
