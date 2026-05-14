@@ -16,6 +16,10 @@ RUN npm install -g pnpm@10
 
 # Workspace metadata first so the layer caches across resolver-only changes.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml declares patchedDependencies — pnpm install reads the
+# patch file content at lockfile-resolution time, so it MUST be present
+# before `pnpm install --frozen-lockfile` runs or the build fails ENOENT.
+COPY patches patches
 COPY packages/backend/package.json packages/backend/
 COPY packages/common/package.json packages/common/
 COPY packages/zerion-agent/package.json packages/zerion-agent/
