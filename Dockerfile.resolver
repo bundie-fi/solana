@@ -1,0 +1,48 @@
+# Dockerfile for the Bundie event-market resolver runner.
+#
+# Used by the bundie-resolver Railway service (set via RAILWAY_DOCKERFILE_PATH).
+# The resolver is a long-lived daemon that polls Pyth / Statuspage / AWS for
+# trigger events and submits resolve_event transactions when they fire.
+#
+# Why a dedicated Dockerfile: the project-level nixpacks.toml builds the
+# Next.js web app and starts its server. The resolver needs a different
+# build (only @bundie/backend) and a different start (node dist/v1/runner.js).
+
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+RUN npm install -g pnpm@10
+
+# Workspace metadata first so the layer caches across resolver-only changes.
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/backend/package.json packages/backend/
+COPY packages/common/package.json packages/common/
+COPY packages/zerion-agent/package.json packages/zerion-agent/
+
+RUN pnpm install --frozen-lockfile
+
+# Source + build the backend (which is where runner.ts lives).
+COPY packages/backend packages/backend
+COPY packages/common packages/common
+
+# The resolver loads scripts/resolvers/sources.json at runtime — copy it so
+# the BUNDIE_RESOLVER_SOURCES env var path resolves inside the container.
+COPY packages/programs/scripts/resolvers packages/programs/scripts/resolvers
+
+RUN pnpm --filter @bundie/common build || true
+RUN pnpm --filter @bundie/backend build
+
+# ─── Runtime image ────────────────────────────────────────────────────────
+FROM node:20-slim AS runtime
+
+WORKDIR /app
+
+RUN npm install -g pnpm@10
+
+COPY --from=builder /app /app
+
+ENV NODE_ENV=production
+
+# Long-lived daemon. No HTTP port. Railway treats it as a worker.
+CMD ["node", "packages/backend/dist/v1/runner.js"]
