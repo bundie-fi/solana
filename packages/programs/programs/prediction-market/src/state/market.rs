@@ -72,18 +72,19 @@ pub const MARKET_KIND_RATE_BARRIER: u8 = 5;
 pub const MARKET_KIND_AGENT_VS_BENCHMARK: u8 = 6;
 
 // ───────────────────────────────────────────────────────────────────────
-// v3 event classes (Bundie v2 framing, locked 2026-05-14).
+// Event-market kinds (primary Bundie product surface, locked 2026-05-14).
 //
-// The v1/v2 kinds above all measure agent / strategy NAV. v3 generalizes
-// the market primitive to ANY measurable event — DeFi-native and beyond.
-// All v3 kinds share the same 64-byte payload buffer; only the layout
-// differs per kind. The resolver-side dispatch lives in resolve_market_v3
-// (TODO: ship in the next commit).
+// The v1/v2 kinds above all measure agent / strategy NAV and are
+// retained for zerion-agent backward compatibility. The kinds below
+// generalise the market primitive to ANY measurable event — DeFi-native
+// and beyond. All event kinds share the same 64-byte payload buffer;
+// only the layout differs per kind. The resolver-side dispatch lives
+// in `resolve_event`.
 //
 // Numeric values are part of the on-chain ABI — MUST stay stable once a
 // market is deployed on mainnet.
 
-/// (v3, kind=7) EventThreshold — a Pyth (or other signed price feed)
+/// (kind=7) EventThreshold — a Pyth (or other signed price feed)
 /// value crosses a threshold and stays past it for a minimum duration.
 ///
 ///   payload[0..8]   = threshold (u64 LE, price in 1e-8 units)
@@ -100,7 +101,7 @@ pub const MARKET_KIND_AGENT_VS_BENCHMARK: u8 = 6;
 /// Example: USDC depeg <$0.99 for >30 min in next 30 days.
 pub const MARKET_KIND_EVENT_THRESHOLD: u8 = 7;
 
-/// (v3, kind=8) ProtocolTvlDrop — a protocol's on-chain TVL falls by
+/// (kind=8) ProtocolTvlDrop — a protocol's on-chain TVL falls by
 /// more than `drop_threshold` in any rolling `rolling_window_seconds`
 /// window.
 ///
@@ -120,7 +121,7 @@ pub const MARKET_KIND_EVENT_THRESHOLD: u8 = 7;
 /// Example: Kamino TVL drops >$50M in any 24h window over next 90 days.
 pub const MARKET_KIND_PROTOCOL_TVL_DROP: u8 = 8;
 
-/// (v3, kind=9) PublicStatusPoll — a public status page or health API
+/// (kind=9) PublicStatusPoll — a public status page or health API
 /// reports an incident exceeding `min_duration_seconds` within the
 /// outcome window. The resolver class encodes which feed to poll; the
 /// signed resolution attests the incident occurred.
@@ -139,15 +140,16 @@ pub const MARKET_KIND_PROTOCOL_TVL_DROP: u8 = 8;
 ///
 /// Outcome YES iff: the registered resolver reports a qualifying incident
 /// within the outcome window. The resolver itself is in resolver_registry
-/// (or a v3-specific extension) and signs the resolution.
+/// (or an event-market-specific extension) and signs the resolution.
 ///
 /// Example: Anthropic API downtime >5 min in any rolling 7-day window;
 ///          AWS us-east-1 incident >30 min in next 30 days.
 pub const MARKET_KIND_PUBLIC_STATUS_POLL: u8 = 9;
 
-/// Highest v3 kind discriminant currently defined. Update when adding
-/// new v3 kinds; resolve_market_v3 uses this to bound its dispatch.
-pub const MARKET_KIND_V3_MAX: u8 = MARKET_KIND_PUBLIC_STATUS_POLL;
+/// Highest event-market kind discriminant currently defined. Update
+/// when adding new event kinds; `resolve_event` uses this to bound its
+/// dispatch.
+pub const MARKET_KIND_EVENT_MAX: u8 = MARKET_KIND_PUBLIC_STATUS_POLL;
 
 /// Length of the per-kind payload, in bytes. Fixed-size array so we never
 /// need to Borsh-decode a variable enum payload — keeps deserialisation

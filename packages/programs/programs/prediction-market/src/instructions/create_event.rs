@@ -1,17 +1,20 @@
-//! create_event_v3 — open a v3 event market (kind 7/8/9) bound to an
-//! off-chain resolver authority.
+//! create_event — open a parametric event market (kind 7/8/9) bound to
+//! an off-chain resolver authority.
 //!
-//! Unlike `create_market_v2` (which is agent-NAV oriented and pulls a
-//! BundieVault snapshot), v3 event markets resolve from off-chain data
-//! sources (Pyth feeds, public status pages, on-chain TVL accounts) via
-//! a trusted resolver signer recorded in the `ResolverAuthority` PDA.
+//! This is the primary market-creation entrypoint for the Bundie event
+//! venue. `create_market_v2` is the legacy agent-NAV path retained for
+//! zerion-agent compatibility.
+//!
+//! Event markets resolve from off-chain data sources (Pyth feeds,
+//! public status pages, on-chain TVL accounts) via a trusted resolver
+//! signer recorded in the `ResolverAuthority` PDA.
 //!
 //! Wire layout (after the 8-byte Anchor discriminator):
 //!   question:        String           (Borsh u32 len + utf-8, max 128)
 //!   market_id:       u64
 //!   event_id_hash:   [u8; 32]         (blake3 of the event_id slug from
 //!                                      scripts/resolvers/sources.json)
-//!   kind:            u8               (MARKET_KIND_EVENT_THRESHOLD..=V3_MAX)
+//!   kind:            u8               (MARKET_KIND_EVENT_THRESHOLD..=EVENT_MAX)
 //!   payload:         [u8; 64]         (per-kind layout — see state::market)
 //!   resolution_slot: u64
 //!   initial_subsidy: u64              (collateral units, e.g. USDC 6dp)
@@ -26,7 +29,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 #[instruction(question: String, market_id: u64, event_id_hash: [u8; 32])]
-pub struct CreateEventV3<'info> {
+pub struct CreateEvent<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
 
@@ -34,7 +37,7 @@ pub struct CreateEventV3<'info> {
         init,
         payer = creator,
         space = 8 + Market::INIT_SPACE,
-        seeds = [b"market_v3".as_ref(), event_id_hash.as_ref(), market_id.to_le_bytes().as_ref()],
+        seeds = [b"event_market".as_ref(), event_id_hash.as_ref(), market_id.to_le_bytes().as_ref()],
         bump,
     )]
     pub market: Box<Account<'info, Market>>,
@@ -98,7 +101,7 @@ pub struct CreateEventV3<'info> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn handler(
-    ctx: Context<CreateEventV3>,
+    ctx: Context<CreateEvent>,
     question: String,
     market_id: u64,
     _event_id_hash: [u8; 32], // consumed by seeds, no body use
@@ -113,14 +116,14 @@ pub fn handler(
     require!(question.len() <= 128, MarketError::QuestionTooLong);
     require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
     require!(
-        (MARKET_KIND_EVENT_THRESHOLD..=MARKET_KIND_V3_MAX).contains(&kind),
+        (MARKET_KIND_EVENT_THRESHOLD..=MARKET_KIND_EVENT_MAX).contains(&kind),
         MarketError::InvalidKind
     );
     require!(resolver != Pubkey::default(), MarketError::InvalidResolver);
 
     // Per-kind payload sanity checks. Each branch enforces the minimum
     // contract documented on `MarketKind` in state/market.rs — anything
-    // looser is rejected at create-time so resolve_market_v3 never has to
+    // looser is rejected at create-time so resolve_event never has to
     // re-validate a malformed payload.
     match kind {
         MARKET_KIND_EVENT_THRESHOLD => {
@@ -166,15 +169,15 @@ pub fn handler(
 
     // Initialise the market.
     let market = &mut ctx.accounts.market;
-    market.strategy = Pubkey::default(); // unused for v3 event markets
+    market.strategy = Pubkey::default(); // unused for event markets
     market.strategy_b = None;
     market.authority = ctx.accounts.creator.key();
     market.created_by = ctx.accounts.creator.key();
     market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
-    market.market_type = MarketType::Absolute; // all v3 markets are binary YES/NO
+    market.market_type = MarketType::Absolute; // all event markets are binary YES/NO
     market.market_id = market_id;
-    market.threshold_bps = 0; // unused for v3
+    market.threshold_bps = 0; // unused for event markets
     market.resolution_slot = resolution_slot;
     market.yes_shares = 0;
     market.no_shares = 0;
@@ -223,7 +226,7 @@ pub fn handler(
     )?;
 
     msg!(
-        "create_event_v3: kind={} market_id={} resolution_slot={} resolver={} seeded={}",
+        "create_event: kind={} market_id={} resolution_slot={} resolver={} seeded={}",
         kind,
         market_id,
         resolution_slot,

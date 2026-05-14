@@ -140,14 +140,17 @@ pub mod prediction_market {
         instructions::close_vault::handler(ctx)
     }
 
-    /// V3 — open a parametric event market (kind 7/8/9) bound to an
-    /// off-chain resolver authority. Unlike v2 (which is agent-NAV
-    /// oriented), v3 markets resolve from off-chain data sources (Pyth
-    /// feeds, status pages, on-chain TVL accounts) via a signature from
-    /// the resolver recorded in `ResolverAuthority`.
+    /// Open a parametric event market (kind 7/8/9) bound to an off-chain
+    /// resolver authority. This is the primary market-creation entrypoint
+    /// for the Bundie event venue. `create_market_v2` is retained as a
+    /// legacy agent-NAV path used by zerion-agent.
+    ///
+    /// Event markets resolve from off-chain data sources (Pyth feeds,
+    /// status pages, on-chain TVL accounts) via a signature from the
+    /// resolver recorded in `ResolverAuthority`.
     #[allow(clippy::too_many_arguments)]
-    pub fn create_event_v3(
-        ctx: Context<CreateEventV3>,
+    pub fn create_event(
+        ctx: Context<CreateEvent>,
         question: String,
         market_id: u64,
         event_id_hash: [u8; 32],
@@ -159,7 +162,7 @@ pub mod prediction_market {
         resolver: Pubkey,
         config_hash: [u8; 32],
     ) -> Result<()> {
-        instructions::create_event_v3::handler(
+        instructions::create_event::handler(
             ctx,
             question,
             market_id,
@@ -174,11 +177,11 @@ pub mod prediction_market {
         )
     }
 
-    /// V3 — settle a v3 event market. The transaction must be signed by
-    /// the pubkey recorded in the market's `ResolverAuthority` PDA. The
+    /// Settle an event market. The transaction must be signed by the
+    /// pubkey recorded in the market's `ResolverAuthority` PDA. The
     /// resolver passes the outcome it observed off-chain; the on-chain
     /// logic only verifies the signer is the registered authority.
-    pub fn resolve_market_v3(ctx: Context<ResolveMarketV3>, outcome: Outcome) -> Result<()> {
-        instructions::resolve_market_v3::handler(ctx, outcome)
+    pub fn resolve_event(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
+        instructions::resolve_event::handler(ctx, outcome)
     }
 }

@@ -1,8 +1,8 @@
-//! ResolverAuthority — pinned-resolver PDA for v3 event markets.
+//! ResolverAuthority — pinned-resolver PDA for event markets.
 //!
-//! Each v3 market (kind 7/8/9 in `market.rs`) has exactly one
+//! Each event market (kind 7/8/9 in `market.rs`) has exactly one
 //! ResolverAuthority PDA derived from `["resolver_auth", market.key()]`.
-//! `resolve_market_v3` requires the transaction to be signed by the pubkey
+//! `resolve_event` requires the transaction to be signed by the pubkey
 //! recorded here, so the off-chain resolver bound at create-time is the
 //! only key that can move the market to Resolved.
 //!
@@ -21,8 +21,8 @@ pub const RESOLVER_AUTH_SEED: &[u8] = b"resolver_auth";
 #[account]
 #[derive(InitSpace)]
 pub struct ResolverAuthority {
-    /// The pubkey allowed to sign `resolve_market_v3` for this market.
-    /// Set at create-time via `create_event_v3`; immutable thereafter
+    /// The pubkey allowed to sign `resolve_event` for this market.
+    /// Set at create-time via `create_event`; immutable thereafter
     /// (v1 ships no rotation ix — that lands when the dispute layer does).
     pub resolver: Pubkey,
     /// blake3 hash of the resolver's `scripts/resolvers/sources.json` entry.

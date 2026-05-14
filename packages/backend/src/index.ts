@@ -10,6 +10,7 @@ import { faucet } from "./routes/faucet.js";
 import { agents } from "./routes/agents.js";
 import { pnl } from "./routes/pnl.js";
 import { stats } from "./routes/stats.js";
+import { v1 } from "./v1/event-price.js";
 
 const app = new Hono();
 
@@ -32,6 +33,10 @@ app.route("/", agents);
 app.route("/", pnl);
 // stats routes self-mount under /api/stats/* (full paths inside)
 app.route("/", stats);
+
+// v1 public oracle API — x402-priced in production; free during devnet.
+// Endpoints: /v1/events, /v1/event-price, /v1/event-detail
+app.route("/v1", v1);
 
 const port = Number(process.env.PORT) || 3001;
 
