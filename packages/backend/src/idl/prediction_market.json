@@ -8,6 +8,366 @@
   },
   "instructions": [
     {
+      "name": "buy_event_shares",
+      "docs": [
+        "Buy YES or NO shares in an event market (kinds 7/8/9). Mirrors",
+        "`buy_shares` but signs with the `event_market` PDA seed prefix.",
+        "`event_id_hash` is the sha256 of the canonical event_id slug from",
+        "`scripts/resolvers/sources.json` — clients pass the same hash they",
+        "used to derive the market PDA."
+      ],
+      "discriminator": [
+        205,
+        39,
+        9,
+        22,
+        245,
+        91,
+        127,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              },
+              {
+                "kind": "account",
+                "path": "market.market_id",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buyer_collateral",
+          "docs": [
+            "Buyer's USDC ATA — must hold enough to pay cost + fee."
+          ],
+          "writable": true
+        },
+        {
+          "name": "buyer_yes_ata",
+          "docs": [
+            "Buyer's YES ATA — created on first buy if missing."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "yes_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "buyer_no_ata",
+          "docs": [
+            "Buyer's NO ATA — created on first buy if missing."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "buyer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "no_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "outcome",
+          "type": {
+            "defined": {
+              "name": "Outcome"
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "buy_shares",
       "docs": [
         "Buy YES or NO shares using LS-LMSR pricing"
@@ -467,6 +827,250 @@
         },
         {
           "name": "commit_digest",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_event",
+      "docs": [
+        "Open a parametric event market (kind 7/8/9) bound to an off-chain",
+        "resolver authority. This is the primary market-creation entrypoint",
+        "for the Bundie event venue. `create_market_v2` is retained as a",
+        "legacy agent-NAV path used by zerion-agent.",
+        "",
+        "Event markets resolve from off-chain data sources (Pyth feeds,",
+        "status pages, on-chain TVL accounts) via a signature from the",
+        "resolver recorded in `ResolverAuthority`."
+      ],
+      "discriminator": [
+        49,
+        219,
+        29,
+        203,
+        22,
+        98,
+        100,
+        87
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "resolver_authority",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  115,
+                  111,
+                  108,
+                  118,
+                  101,
+                  114,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "yes_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  121,
+                  101,
+                  115,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "no_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "subsidy_source",
+          "docs": [
+            "Creator's collateral ATA. The full `initial_subsidy` is transferred",
+            "into `vault` at create time so the market opens with real backing."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "question",
+          "type": "string"
+        },
+        {
+          "name": "market_id",
+          "type": "u64"
+        },
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "payload",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        },
+        {
+          "name": "resolution_slot",
+          "type": "u64"
+        },
+        {
+          "name": "initial_subsidy",
+          "type": "u64"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "resolver",
+          "type": "pubkey"
+        },
+        {
+          "name": "config_hash",
           "type": {
             "array": [
               "u8",
@@ -1220,6 +1824,115 @@
       "args": []
     },
     {
+      "name": "redeem_event",
+      "docs": [
+        "Redeem winning shares in a resolved event market for a pro-rata",
+        "claim on the vault."
+      ],
+      "discriminator": [
+        97,
+        251,
+        103,
+        148,
+        202,
+        54,
+        93,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "redeemer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              },
+              {
+                "kind": "account",
+                "path": "market.market_id",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner_mint",
+          "docs": [
+            "The winning mint (caller passes the side that won)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "redeemer_shares",
+          "writable": true
+        },
+        {
+          "name": "redeemer_collateral",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "resolve",
       "docs": [
         "Resolve market using strategy's on-chain NAV (oracle-free)"
@@ -1263,6 +1976,77 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "resolve_event",
+      "docs": [
+        "Settle an event market. The transaction must be signed by the",
+        "pubkey recorded in the market's `ResolverAuthority` PDA. The",
+        "resolver passes the outcome it observed off-chain; the on-chain",
+        "logic only verifies the signer is the registered authority."
+      ],
+      "discriminator": [
+        184,
+        55,
+        78,
+        47,
+        114,
+        38,
+        50,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "resolver",
+          "docs": [
+            "Must match `resolver_authority.resolver` — checked via constraint."
+          ],
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "resolver_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  115,
+                  111,
+                  108,
+                  118,
+                  101,
+                  114,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "outcome",
+          "type": {
+            "defined": {
+              "name": "Outcome"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "resolve_market_v2",
@@ -1325,6 +2109,128 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "sell_event_shares",
+      "docs": [
+        "Sell YES or NO shares back to an event market."
+      ],
+      "discriminator": [
+        137,
+        168,
+        108,
+        109,
+        165,
+        108,
+        7,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "seller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              },
+              {
+                "kind": "account",
+                "path": "market.market_id",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "outcome_mint",
+          "docs": [
+            "YES or NO mint (caller passes the side they're selling). Verified",
+            "against the market's PDA seeds in the handler."
+          ],
+          "writable": true
+        },
+        {
+          "name": "seller_shares",
+          "writable": true
+        },
+        {
+          "name": "seller_collateral",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "outcome",
+          "type": {
+            "defined": {
+              "name": "Outcome"
+            }
+          }
+        },
+        {
+          "name": "shares",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "sell_shares",
@@ -1444,6 +2350,19 @@
         227,
         198,
         154
+      ]
+    },
+    {
+      "name": "ResolverAuthority",
+      "discriminator": [
+        74,
+        73,
+        254,
+        104,
+        250,
+        219,
+        64,
+        134
       ]
     }
   ],
@@ -1572,6 +2491,21 @@
       "code": 6024,
       "name": "UnauthorizedVaultClose",
       "msg": "Caller is not the vault owner_wallet — cannot close"
+    },
+    {
+      "code": 6025,
+      "name": "ResolverMismatch",
+      "msg": "Resolver signer does not match the registered ResolverAuthority pubkey"
+    },
+    {
+      "code": 6026,
+      "name": "WrongResolverMarket",
+      "msg": "ResolverAuthority PDA's market field does not match the supplied market account"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidResolver",
+      "msg": "Invalid resolver pubkey (default Pubkey not allowed)"
     }
   ],
   "types": [
@@ -1981,6 +2915,52 @@
           },
           {
             "name": "No"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResolverAuthority",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "resolver",
+            "docs": [
+              "The pubkey allowed to sign `resolve_event` for this market.",
+              "Set at create-time via `create_event`; immutable thereafter",
+              "(v1 ships no rotation ix — that lands when the dispute layer does)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "config_hash",
+            "docs": [
+              "blake3 hash of the resolver's `scripts/resolvers/sources.json` entry.",
+              "Off-chain resolvers verify this before signing — if it doesn't match",
+              "their loaded config, they refuse to resolve."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "market",
+            "docs": [
+              "The market this resolver is bound to. Defence-in-depth — a stale",
+              "PDA passed by a malicious client is rejected on key mismatch."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
           }
         ]
       }
