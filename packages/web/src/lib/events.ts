@@ -53,6 +53,8 @@ export interface EventDetail {
   outcome_no: string;
   notes: string | null;
   resolver_config: Record<string, unknown>;
+  /** Live on-chain market address, or null if not yet deployed. */
+  market_address: string | null;
 }
 
 /** GET /v1/events — list all registered events. */

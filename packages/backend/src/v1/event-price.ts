@@ -1,7 +1,7 @@
 /**
  * v1 — public event-price API.
  *
- * Endpoints (all priced via x402 in production; free in dev):
+ * Endpoints (priced via x402 in production; free in dev):
  *
  *   GET /v1/events
  *     List all registered events with current market state.
@@ -12,24 +12,24 @@
  *   GET /v1/event-detail?id=<event_id>
  *     Full event metadata + resolver track record.
  *
- * v1 implementation note: when no on-chain market exists for an event_id
- * yet (i.e. before create_event_v3 has been called), the endpoint returns
- * a stub response with price=0.5, confidence=0, depth=0. Clients filter
- * on confidence>0 to ignore unresolved-state stubs. Once markets are
- * deployed, the same code path reads on-chain state and returns real
- * numbers — no separate "mocked" vs "real" branches.
+ * When no on-chain market exists for an event_id yet (i.e. before
+ * `create_event` has been called), the response returns price=0.5,
+ * confidence=0, depth=0 — same schema, sentinel values. Clients filter
+ * on `confidence > 0` to ignore unresolved-state stubs.
  */
 
 import { Hono } from "hono";
 import { loadRegistry, getEvent } from "./registry.js";
+import { readMarketSnapshot } from "./onchain.js";
+import { yesPrice, confidenceScore } from "./lmsr.js";
 import type { EventPriceResponse, EventSummary } from "./types.js";
 
 export const v1 = new Hono();
 
 /**
  * Stub price response for an event with no on-chain market yet. Real-market
- * pricing replaces this once create_event_v3 has been called and the LMSR
- * has trades. The shape is identical; only the values are zero/sentinel.
+ * pricing replaces this once `create_event` has been called and the LMSR
+ * has trades. The shape is identical; only the values are sentinel zeros.
  */
 function stubPriceResponse(eventId: string): EventPriceResponse {
   const event = getEvent(eventId);
@@ -37,7 +37,6 @@ function stubPriceResponse(eventId: string): EventPriceResponse {
     throw new Error(`Unknown event_id: ${eventId}`);
   }
   const now = new Date();
-  // window_start at now, window_end +30d as a placeholder
   const windowEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   return {
     event_id: eventId,
@@ -60,42 +59,89 @@ function stubPriceResponse(eventId: string): EventPriceResponse {
 }
 
 /**
+ * Build a live price response from on-chain market state. Falls back to
+ * the stub if no market is deployed yet for the event_id.
+ */
+async function livePriceResponse(eventId: string): Promise<EventPriceResponse> {
+  const event = getEvent(eventId);
+  if (!event) {
+    throw new Error(`Unknown event_id: ${eventId}`);
+  }
+  const snapshot = await readMarketSnapshot(eventId);
+  if (!snapshot) {
+    return stubPriceResponse(eventId);
+  }
+
+  const price = yesPrice(snapshot.yesShares, snapshot.noShares, snapshot.liquidityParam);
+  const depthUsd = snapshot.totalVolumeUsd;
+  // Trade-count / unique-trader stats require an indexer; v1 surfaces 0
+  // until packages/backend/src/indexer/ is wired. Confidence still works
+  // off depth alone — thin markets self-report low confidence.
+  const tradeCount24h = 0;
+  const uniqueTraders24h = 0;
+  const confidence = confidenceScore(depthUsd, tradeCount24h, uniqueTraders24h);
+
+  const now = new Date();
+  return {
+    event_id: eventId,
+    description: event.description,
+    window_start: now.toISOString(),
+    window_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    price,
+    confidence,
+    depth_usd: depthUsd,
+    trade_count_24h: tradeCount24h,
+    unique_traders_24h: uniqueTraders24h,
+    twap_24h: price, // TWAP requires history; same as spot until indexer ships
+    last_change_24h: 0,
+    spot_vs_twap_pct: 0,
+    resolver_class: event.resolver_class,
+    resolver_track_record: { total: 0, disputed: 0, lost: 0 },
+    signed_attestation: "", // signer wires in v1.5
+    as_of: now.toISOString(),
+  };
+}
+
+/**
  * GET /v1/events
- *
- * Returns the full list of registered events with summary fields.
  * Free tier — no x402 payment required for discovery.
  */
-v1.get("/events", (c) => {
+v1.get("/events", async (c) => {
   const registry = loadRegistry();
-  const events: EventSummary[] = registry.events.map((e) => ({
-    event_id: e.event_id,
-    description: e.description,
-    market_kind: marketKindFromProposed(e.market_kind_proposed),
-    resolver_class: e.resolver_class,
-    price: 0.5, // stub until markets deploy
-    depth_usd: 0,
-    window_end: new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
-    status: "scheduled",
-  }));
+  const events: EventSummary[] = await Promise.all(
+    registry.events.map(async (e) => {
+      const snapshot = await readMarketSnapshot(e.event_id).catch(() => null);
+      const price = snapshot
+        ? yesPrice(snapshot.yesShares, snapshot.noShares, snapshot.liquidityParam)
+        : 0.5;
+      return {
+        event_id: e.event_id,
+        description: e.description,
+        market_kind: marketKindFromProposed(e.market_kind_proposed),
+        resolver_class: e.resolver_class,
+        price,
+        depth_usd: snapshot?.totalVolumeUsd ?? 0,
+        window_end: new Date(
+          Date.now() + 30 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        status: (snapshot?.status ?? "scheduled") as EventSummary["status"],
+      };
+    }),
+  );
   return c.json({ events });
 });
 
 /**
  * GET /v1/event-price?id=<event_id>
- *
- * The core x402-priced endpoint. Returns the live market price for an
- * event. In production, the x402 payment headers are verified before
- * the response is returned; in dev, the endpoint is free.
+ * Core x402-priced endpoint.
  */
-v1.get("/event-price", (c) => {
+v1.get("/event-price", async (c) => {
   const eventId = c.req.query("id");
   if (!eventId) {
     return c.json({ error: "Missing 'id' query parameter" }, 400);
   }
   try {
-    const response = stubPriceResponse(eventId);
+    const response = await livePriceResponse(eventId);
     return c.json(response);
   } catch (err) {
     return c.json({ error: (err as Error).message }, 404);
@@ -104,12 +150,8 @@ v1.get("/event-price", (c) => {
 
 /**
  * GET /v1/event-detail?id=<event_id>
- *
- * Full event metadata including resolver config (sanitised — no private
- * keys, no internal endpoints). Used by agent SDKs to introspect the
- * event before subscribing.
  */
-v1.get("/event-detail", (c) => {
+v1.get("/event-detail", async (c) => {
   const eventId = c.req.query("id");
   if (!eventId) {
     return c.json({ error: "Missing 'id' query parameter" }, 400);
@@ -118,6 +160,7 @@ v1.get("/event-detail", (c) => {
   if (!event) {
     return c.json({ error: `Unknown event_id: ${eventId}` }, 404);
   }
+  const snapshot = await readMarketSnapshot(eventId).catch(() => null);
   return c.json({
     event_id: event.event_id,
     description: event.description,
@@ -126,11 +169,8 @@ v1.get("/event-detail", (c) => {
     outcome_yes: event.outcome_yes,
     outcome_no: event.outcome_no,
     notes: event.notes ?? null,
-    // resolver_config is sanitised on read — drop any keys starting with _ or
-    // anything looking like a credential. None of the v1 demo configs contain
-    // sensitive data, but defensive sanitisation prevents accidental leaks
-    // when new resolvers are added.
     resolver_config: sanitiseConfig(event.resolver_config),
+    market_address: snapshot?.marketAddress ?? null,
   });
 });
 

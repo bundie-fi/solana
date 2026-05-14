@@ -9,6 +9,7 @@ import {
   type EventDetail,
   type EventPrice,
 } from "@/lib/events";
+import { TradeButtons } from "./TradeButtons";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 5;
@@ -84,6 +85,12 @@ export default async function EventPage(props: EventPageProps) {
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2">
           <OutcomeCard label="YES" value={yesPct} accent="mint" highlighted />
           <OutcomeCard label="NO" value={noPct} accent="lavender" />
+        </div>
+        <div className="mx-auto mt-6 max-w-5xl">
+          <TradeButtons
+            eventId={eventId}
+            marketAddress={detail.market_address ?? undefined}
+          />
         </div>
       </section>
 

@@ -11,6 +11,7 @@ import { agents } from "./routes/agents.js";
 import { pnl } from "./routes/pnl.js";
 import { stats } from "./routes/stats.js";
 import { v1 } from "./v1/event-price.js";
+import { x402 } from "./v1/x402.js";
 
 const app = new Hono();
 
@@ -36,6 +37,8 @@ app.route("/", stats);
 
 // v1 public oracle API — x402-priced in production; free during devnet.
 // Endpoints: /v1/events, /v1/event-price, /v1/event-detail
+// x402 middleware logs would-charge amounts in dev; enforces payment in prod.
+app.use("/v1/*", x402());
 app.route("/v1", v1);
 
 const port = Number(process.env.PORT) || 3001;
