@@ -139,4 +139,79 @@ pub mod prediction_market {
     pub fn close_vault(ctx: Context<CloseVault>) -> Result<()> {
         instructions::close_vault::handler(ctx)
     }
+
+    /// Open a parametric event market (kind 7/8/9) bound to an off-chain
+    /// resolver authority. This is the primary market-creation entrypoint
+    /// for the Bundie event venue. `create_market_v2` is retained as a
+    /// legacy agent-NAV path used by zerion-agent.
+    ///
+    /// Event markets resolve from off-chain data sources (Pyth feeds,
+    /// status pages, on-chain TVL accounts) via a signature from the
+    /// resolver recorded in `ResolverAuthority`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_event(
+        ctx: Context<CreateEvent>,
+        question: String,
+        market_id: u64,
+        event_id_hash: [u8; 32],
+        kind: u8,
+        payload: [u8; MARKET_PAYLOAD_LEN],
+        resolution_slot: u64,
+        initial_subsidy: u64,
+        fee_bps: u16,
+        resolver: Pubkey,
+        config_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::create_event::handler(
+            ctx,
+            question,
+            market_id,
+            event_id_hash,
+            kind,
+            payload,
+            resolution_slot,
+            initial_subsidy,
+            fee_bps,
+            resolver,
+            config_hash,
+        )
+    }
+
+    /// Settle an event market. The transaction must be signed by the
+    /// pubkey recorded in the market's `ResolverAuthority` PDA. The
+    /// resolver passes the outcome it observed off-chain; the on-chain
+    /// logic only verifies the signer is the registered authority.
+    pub fn resolve_event(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
+        instructions::resolve_event::handler(ctx, outcome)
+    }
+
+    /// Buy YES or NO shares in an event market (kinds 7/8/9). Mirrors
+    /// `buy_shares` but signs with the `event_market` PDA seed prefix.
+    /// `event_id_hash` is the sha256 of the canonical event_id slug from
+    /// `scripts/resolvers/sources.json` — clients pass the same hash they
+    /// used to derive the market PDA.
+    pub fn buy_event_shares(
+        ctx: Context<BuyEventShares>,
+        event_id_hash: [u8; 32],
+        outcome: Outcome,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::buy_event_shares::handler(ctx, event_id_hash, outcome, amount)
+    }
+
+    /// Sell YES or NO shares back to an event market.
+    pub fn sell_event_shares(
+        ctx: Context<SellEventShares>,
+        event_id_hash: [u8; 32],
+        outcome: Outcome,
+        shares: u64,
+    ) -> Result<()> {
+        instructions::sell_event_shares::handler(ctx, event_id_hash, outcome, shares)
+    }
+
+    /// Redeem winning shares in a resolved event market for a pro-rata
+    /// claim on the vault.
+    pub fn redeem_event(ctx: Context<RedeemEvent>, event_id_hash: [u8; 32]) -> Result<()> {
+        instructions::redeem_event::handler(ctx, event_id_hash)
+    }
 }

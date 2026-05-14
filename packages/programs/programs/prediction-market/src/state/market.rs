@@ -71,6 +71,86 @@ pub const MARKET_KIND_RATE_BARRIER: u8 = 5;
 /// DEPRECATED — kept as ABI marker only. See Phase C migration.
 pub const MARKET_KIND_AGENT_VS_BENCHMARK: u8 = 6;
 
+// ───────────────────────────────────────────────────────────────────────
+// Event-market kinds (primary Bundie product surface, locked 2026-05-14).
+//
+// The v1/v2 kinds above all measure agent / strategy NAV and are
+// retained for zerion-agent backward compatibility. The kinds below
+// generalise the market primitive to ANY measurable event — DeFi-native
+// and beyond. All event kinds share the same 64-byte payload buffer;
+// only the layout differs per kind. The resolver-side dispatch lives
+// in `resolve_event`.
+//
+// Numeric values are part of the on-chain ABI — MUST stay stable once a
+// market is deployed on mainnet.
+
+/// (kind=7) EventThreshold — a Pyth (or other signed price feed)
+/// value crosses a threshold and stays past it for a minimum duration.
+///
+///   payload[0..8]   = threshold (u64 LE, price in 1e-8 units)
+///   payload[8..16]  = comparator (u64 LE; 0=lt, 1=lte, 2=gt, 3=gte, 4=eq)
+///   payload[16..24] = min_duration_seconds (u64 LE)
+///   payload[24..32] = window_end_unix_ts (u64 LE) — UNIX seconds
+///   payload[32..64] = price_feed_pubkey (32-byte Pubkey) — the feed
+///                     account the resolver reads each tick.
+///
+/// Outcome YES iff: feed value satisfies (comparator, threshold) for at
+/// least `min_duration_seconds` continuous seconds anywhere in the window
+/// from market open to `window_end_unix_ts`. Otherwise NO.
+///
+/// Example: USDC depeg <$0.99 for >30 min in next 30 days.
+pub const MARKET_KIND_EVENT_THRESHOLD: u8 = 7;
+
+/// (kind=8) ProtocolTvlDrop — a protocol's on-chain TVL falls by
+/// more than `drop_threshold` in any rolling `rolling_window_seconds`
+/// window.
+///
+///   payload[0..8]   = drop_threshold (u64 LE, 1e-6 USD — i.e. micro-dollars)
+///   payload[8..16]  = rolling_window_seconds (u64 LE)
+///   payload[16..24] = window_end_unix_ts (u64 LE) — UNIX seconds
+///   payload[24..32] = reserved (zero)
+///   payload[32..64] = tvl_source_pubkey (32-byte Pubkey) — the account
+///                     the resolver reads. Resolver class is responsible
+///                     for valuing the account in USD (e.g. Kamino main
+///                     lending pool balance × USDC price).
+///
+/// Outcome YES iff: there exists any rolling window of length
+/// `rolling_window_seconds` within the outcome window where the TVL
+/// dropped by more than `drop_threshold` micro-dollars. Otherwise NO.
+///
+/// Example: Kamino TVL drops >$50M in any 24h window over next 90 days.
+pub const MARKET_KIND_PROTOCOL_TVL_DROP: u8 = 8;
+
+/// (kind=9) PublicStatusPoll — a public status page or health API
+/// reports an incident exceeding `min_duration_seconds` within the
+/// outcome window. The resolver class encodes which feed to poll; the
+/// signed resolution attests the incident occurred.
+///
+///   payload[0..8]   = min_duration_seconds (u64 LE)
+///   payload[8..16]  = rolling_window_seconds (u64 LE)
+///                     (0 means: check entire outcome window as a flat range)
+///   payload[16..24] = window_end_unix_ts (u64 LE) — UNIX seconds
+///   payload[24..32] = resolver_class_id (u64 LE) — selects which status
+///                     poller is responsible (statuspage_v2, aws_health,
+///                     etc.); off-chain registry maps id -> implementation
+///   payload[32..64] = resolver_config_hash (32 bytes) — blake3 of the
+///                     resolver's config JSON entry; pins which event the
+///                     market is bound to so the resolver can't be
+///                     repointed silently.
+///
+/// Outcome YES iff: the registered resolver reports a qualifying incident
+/// within the outcome window. The resolver itself is in resolver_registry
+/// (or an event-market-specific extension) and signs the resolution.
+///
+/// Example: Anthropic API downtime >5 min in any rolling 7-day window;
+///          AWS us-east-1 incident >30 min in next 30 days.
+pub const MARKET_KIND_PUBLIC_STATUS_POLL: u8 = 9;
+
+/// Highest event-market kind discriminant currently defined. Update
+/// when adding new event kinds; `resolve_event` uses this to bound its
+/// dispatch.
+pub const MARKET_KIND_EVENT_MAX: u8 = MARKET_KIND_PUBLIC_STATUS_POLL;
+
 /// Length of the per-kind payload, in bytes. Fixed-size array so we never
 /// need to Borsh-decode a variable enum payload — keeps deserialisation
 /// straight and the Market account size stable.

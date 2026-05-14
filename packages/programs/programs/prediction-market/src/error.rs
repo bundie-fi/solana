@@ -56,4 +56,10 @@ pub enum MarketError {
     DeprecatedMarketKind,
     #[msg("Caller is not the vault owner_wallet — cannot close")]
     UnauthorizedVaultClose,
+    #[msg("Resolver signer does not match the registered ResolverAuthority pubkey")]
+    ResolverMismatch,
+    #[msg("ResolverAuthority PDA's market field does not match the supplied market account")]
+    WrongResolverMarket,
+    #[msg("Invalid resolver pubkey (default Pubkey not allowed)")]
+    InvalidResolver,
 }

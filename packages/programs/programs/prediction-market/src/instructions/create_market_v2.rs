@@ -121,24 +121,21 @@ pub fn handler(
 ) -> Result<()> {
     require!(question.len() <= 128, MarketError::QuestionTooLong);
     require!(initial_subsidy > 0, MarketError::InvalidSubsidy);
-    require!(
-        kind <= MARKET_KIND_AGENT_VS_BENCHMARK,
-        MarketError::InvalidKind
-    );
+    // create_market_v2 is the legacy agent-NAV path. Only kinds 1
+    // (NavTarget), 2 (Relative), and 3 (Drawdown) are reachable. The
+    // earlier ApyThreshold (0), BackerCount (4), RateBarrier (5), and
+    // AgentVsBenchmark (6) kinds were retired during the event-market
+    // migration — clients use `create_event` for new markets.
     require!(
         matches!(kind, 1 | 2 | 3),
         crate::error::MarketError::DeprecatedMarketKind
     );
 
     // Per-kind invariants. Catch obviously-broken configs at create time
-    // so resolve never has to inspect a malformed payload.
+    // so resolve never has to inspect a malformed payload. Only kinds
+    // 1/2/3 are reachable (require! above rejects the rest).
     let strategy_b_key = ctx.accounts.strategy_b.key();
     let market_type = match kind {
-        MARKET_KIND_APY_THRESHOLD => {
-            // payload[0..8] = threshold_bps must be > 0 to be meaningful
-            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
-            MarketType::Absolute
-        }
         MARKET_KIND_NAV_TARGET => {
             require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
             // On-chain insider guard — creator MUST NOT be the authority of
@@ -195,59 +192,6 @@ pub fn handler(
             );
             MarketType::Absolute
         }
-        MARKET_KIND_BACKER_COUNT => {
-            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
-            MarketType::Absolute
-        }
-        MARKET_KIND_RATE_BARRIER => {
-            // payload[0..8]   = threshold_bps          (must be > 0)
-            // payload[8..16]  = window_start_slot
-            // payload[16..24] = window_end_slot        (must be > start)
-            // payload[24..32] = rate_reader_selector   (must be > 0)
-            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
-            require!(
-                payload_u64(&payload, 8) < payload_u64(&payload, 16),
-                MarketError::InvalidPayload
-            );
-            require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
-            MarketType::Absolute
-        }
-        MARKET_KIND_AGENT_VS_BENCHMARK => {
-            // payload[0..8]   = spread_bps                (must be > 0)
-            // payload[8..16]  = window_start_slot
-            // payload[16..24] = window_end_slot           (must be > start)
-            // payload[24..32] = benchmark_reader_selector (must be > 0)
-            // payload[32..64] = target_agent (Pubkey)     (the vault whose NAV
-            //                   is being measured). MUST be != default and
-            //                   MUST be != creator.
-            //
-            // NOTE: displaces the old `initial_agent_nav` u64 at 32..40.
-            // The resolver now computes growth from the current vault balance
-            // alone (NAV-from-zero), so no create-time snapshot is stored.
-            require!(payload_u64(&payload, 0) > 0, MarketError::InvalidPayload);
-            require!(
-                payload_u64(&payload, 8) < payload_u64(&payload, 16),
-                MarketError::InvalidPayload
-            );
-            require!(payload_u64(&payload, 24) > 0, MarketError::InvalidPayload);
-
-            // Extract target_agent and enforce the on-chain insider-trading
-            // guard: an agent cannot create a kind=6 market on its own
-            // strategy. Separation is mathematical, not social — a judge
-            // reading this program sees the guard; no policy convention to
-            // audit. Encoded as a 32-byte Pubkey in payload[32..64].
-            let target_agent_bytes: [u8; 32] = payload[32..64].try_into().unwrap();
-            let target_agent = Pubkey::new_from_array(target_agent_bytes);
-            require!(
-                target_agent != Pubkey::default(),
-                MarketError::InvalidPayload
-            );
-            require!(
-                target_agent != ctx.accounts.creator.key(),
-                MarketError::InsiderMarketForbidden
-            );
-            MarketType::Absolute
-        }
         _ => unreachable!(),
     };
 
@@ -297,23 +241,15 @@ pub fn handler(
     market.strategy = ctx.accounts.strategy.key();
     market.strategy_b = strategy_b;
     market.authority = ctx.accounts.creator.key();
-    // Record the v2 signer as `created_by`. For agent markets this is the
-    // Zerion-managed agent vault; for `MARKET_KIND_AGENT_VS_BENCHMARK` it
-    // is the vault whose NAV is compared against the benchmark (no extra
-    // field — the agent identity rides on `created_by`).
+    // Record the v2 signer as `created_by` — the Zerion-managed agent vault
+    // for kinds 1/2/3.
     market.created_by = ctx.accounts.creator.key();
     market.subsidy_provider = ctx.accounts.creator.key();
     market.question = question;
     market.market_type = market_type;
     market.market_id = market_id;
-    // For ApyThreshold, mirror payload[0..8] into threshold_bps so v1
-    // tooling that introspects the field still sees a useful value. For
-    // other kinds it is unused and zeroed.
-    market.threshold_bps = if kind == MARKET_KIND_APY_THRESHOLD {
-        payload_u64(&payload, 0)
-    } else {
-        0
-    };
+    // threshold_bps is unused for the reachable kinds (1/2/3); zeroed.
+    market.threshold_bps = 0;
     market.resolution_slot = resolution_slot;
     market.yes_shares = 0;
     market.no_shares = 0;
