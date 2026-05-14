@@ -20,11 +20,48 @@ import "dotenv/config";
 import { AnchorProvider, Program, Wallet, type Idl } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import idlJson from "../idl/prediction_market.json" with { type: "json" };
 import { loadRegistry, listDemoEvents } from "./registry.js";
 import { findMarketForEvent } from "./onchain.js";
 import { PythThresholdDurationResolver } from "./resolvers/pyth-threshold-duration.js";
 import type { Resolver } from "./types.js";
+
+/**
+ * sha256(JSON.stringify(config)) — same algorithm as the deploy script's
+ * `configHash` helper. Used to verify that the resolver_config loaded
+ * from sources.json on this process matches what was pinned on-chain
+ * at market-creation time. A mismatch means someone edited sources.json
+ * after deploy — REFUSE to sign.
+ */
+function configHash(config: unknown): Buffer {
+  return createHash("sha256").update(JSON.stringify(config)).digest();
+}
+
+async function verifyOnchainConfigHash(
+  program: Program,
+  marketPda: PublicKey,
+  loadedConfig: unknown,
+): Promise<boolean> {
+  const [resolverAuthorityPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("resolver_auth"), marketPda.toBuffer()],
+    program.programId,
+  );
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const account = (await (program.account as any).resolverAuthority.fetch(
+      resolverAuthorityPda,
+    )) as { configHash: number[] };
+    const onchain = Buffer.from(account.configHash);
+    const local = configHash(loadedConfig);
+    return onchain.equals(local);
+  } catch (err) {
+    console.warn(
+      `[runner] config_hash verify failed (treating as mismatch): ${(err as Error).message}`,
+    );
+    return false;
+  }
+}
 
 const TICK_INTERVAL_MS = Number(process.env.BUNDIE_RUNNER_TICK_MS ?? "60000");
 const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
@@ -122,6 +159,22 @@ async function tick(
         if (!marketPda) {
           console.warn(
             `[runner] ${event.event_id} resolved to '${result}' but no on-chain market — skip`,
+          );
+          return;
+        }
+
+        // Safety check: refuse to sign if the loaded resolver_config
+        // doesn't match what was pinned on-chain at market-creation
+        // time. Drift = potentially-wrong resolution = potentially-lost
+        // user money. Better to skip and alert than to settle bad data.
+        const hashOk = await verifyOnchainConfigHash(
+          program,
+          marketPda,
+          event.resolver_config,
+        );
+        if (!hashOk) {
+          console.error(
+            `[runner] REFUSING to resolve ${event.event_id}: on-chain config_hash != local. Redeploy needed or sources.json drifted.`,
           );
           return;
         }

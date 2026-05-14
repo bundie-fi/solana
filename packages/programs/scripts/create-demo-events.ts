@@ -37,7 +37,13 @@ import {
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
+import { Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
@@ -204,6 +210,41 @@ async function main() {
   console.log(`Resolver:  ${resolver.toBase58()}`);
   console.log(`RPC:       ${rpcUrl}`);
   console.log(`Markets:   ${demoEvents.length} demo events`);
+  console.log("");
+
+  // Ensure the creator's USDC ATA exists. Without it, every create_event
+  // call below fails with "subsidy_source not found" because the ix
+  // expects the creator to already hold devnet USDC. We create the ATA
+  // on the fly if absent; the user still needs to FAUCET the USDC (see
+  // https://spl-token-faucet.com/?token-name=USDC-Dev) — the script
+  // can't print devnet USDC for them.
+  const creatorUsdcAta = await getAssociatedTokenAddress(
+    DEVNET_USDC,
+    creator.publicKey,
+  );
+  const ataInfo = await connection.getAccountInfo(creatorUsdcAta);
+  if (!ataInfo) {
+    console.log(`Creating creator's USDC ATA (${creatorUsdcAta.toBase58()})…`);
+    const ataIx = createAssociatedTokenAccountInstruction(
+      creator.publicKey, // payer
+      creatorUsdcAta, // ata
+      creator.publicKey, // owner
+      DEVNET_USDC, // mint
+    );
+    const tx = new Transaction().add(ataIx);
+    const sig = await sendAndConfirmTransaction(connection, tx, [creator]);
+    console.log(`  ✓ ATA created: ${sig}`);
+    console.log(
+      `  → Fund this ATA with devnet USDC at https://spl-token-faucet.com/?token-name=USDC-Dev`,
+    );
+    console.log(
+      `  → Re-run this script once the ATA holds at least ${
+        INITIAL_SUBSIDY_USDC * demoEvents.length
+      } USDC.`,
+    );
+    process.exit(0);
+  }
+  console.log(`USDC ATA:  ${creatorUsdcAta.toBase58()} (exists)`);
   console.log("");
 
   for (let i = 0; i < demoEvents.length; i++) {

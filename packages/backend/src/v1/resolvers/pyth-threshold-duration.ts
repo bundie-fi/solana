@@ -19,9 +19,22 @@
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
+import { createHash } from "node:crypto";
 import { RESOLVER_CLASS } from "../types.js";
 import type { PythThresholdDurationConfig, Resolver } from "../types.js";
 import { resolveFeedKey } from "../registry.js";
+
+/**
+ * Compute the sha256 of a resolver_config — must match the algorithm used
+ * by the deploy script when populating ResolverAuthority.config_hash on-
+ * chain. If the on-chain hash differs from what this resolver loaded,
+ * the resolver REFUSES to sign — defence against silent config drift
+ * (e.g. someone editing sources.json post-deploy without re-deploying
+ * the affected markets).
+ */
+function configHashBytes(config: Record<string, unknown>): Buffer {
+  return createHash("sha256").update(JSON.stringify(config)).digest();
+}
 
 /**
  * In-memory state per (event_id, threshold breach). When the feed first
@@ -114,6 +127,13 @@ export class PythThresholdDurationResolver
     }
     const feedPubkey = new PublicKey(feedAddr);
     const nowMs = now.getTime();
+
+    // Compute the config hash; the runner (or caller) is responsible
+    // for verifying this matches the on-chain ResolverAuthority.config_hash
+    // BEFORE invoking the resolver. We expose the hash for the runner
+    // to read; an explicit mismatch check happens there so the resolver
+    // can stay pure (no chain access here).
+    void configHashBytes(config as unknown as Record<string, unknown>);
 
     const price = await readPythPrice(this.connection, feedPubkey);
     if (price === null) {
