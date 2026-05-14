@@ -139,4 +139,46 @@ pub mod prediction_market {
     pub fn close_vault(ctx: Context<CloseVault>) -> Result<()> {
         instructions::close_vault::handler(ctx)
     }
+
+    /// V3 — open a parametric event market (kind 7/8/9) bound to an
+    /// off-chain resolver authority. Unlike v2 (which is agent-NAV
+    /// oriented), v3 markets resolve from off-chain data sources (Pyth
+    /// feeds, status pages, on-chain TVL accounts) via a signature from
+    /// the resolver recorded in `ResolverAuthority`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_event_v3(
+        ctx: Context<CreateEventV3>,
+        question: String,
+        market_id: u64,
+        event_id_hash: [u8; 32],
+        kind: u8,
+        payload: [u8; MARKET_PAYLOAD_LEN],
+        resolution_slot: u64,
+        initial_subsidy: u64,
+        fee_bps: u16,
+        resolver: Pubkey,
+        config_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::create_event_v3::handler(
+            ctx,
+            question,
+            market_id,
+            event_id_hash,
+            kind,
+            payload,
+            resolution_slot,
+            initial_subsidy,
+            fee_bps,
+            resolver,
+            config_hash,
+        )
+    }
+
+    /// V3 — settle a v3 event market. The transaction must be signed by
+    /// the pubkey recorded in the market's `ResolverAuthority` PDA. The
+    /// resolver passes the outcome it observed off-chain; the on-chain
+    /// logic only verifies the signer is the registered authority.
+    pub fn resolve_market_v3(ctx: Context<ResolveMarketV3>, outcome: Outcome) -> Result<()> {
+        instructions::resolve_market_v3::handler(ctx, outcome)
+    }
 }
