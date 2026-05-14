@@ -211,10 +211,7 @@ pub mod prediction_market {
 
     /// Redeem winning shares in a resolved event market for a pro-rata
     /// claim on the vault.
-    pub fn redeem_event(
-        ctx: Context<RedeemEvent>,
-        event_id_hash: [u8; 32],
-    ) -> Result<()> {
+    pub fn redeem_event(ctx: Context<RedeemEvent>, event_id_hash: [u8; 32]) -> Result<()> {
         instructions::redeem_event::handler(ctx, event_id_hash)
     }
 }

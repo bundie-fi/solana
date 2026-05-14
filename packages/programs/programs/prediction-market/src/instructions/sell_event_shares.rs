@@ -153,11 +153,17 @@ pub fn handler(
     let market = &mut ctx.accounts.market;
     match outcome {
         Outcome::Yes => {
-            market.yes_shares = market.yes_shares.checked_sub(shares).ok_or(MarketError::MathOverflow)?;
+            market.yes_shares = market
+                .yes_shares
+                .checked_sub(shares)
+                .ok_or(MarketError::MathOverflow)?;
             market.total_yes_cost = market.total_yes_cost.saturating_sub(gross_payout);
         }
         Outcome::No => {
-            market.no_shares = market.no_shares.checked_sub(shares).ok_or(MarketError::MathOverflow)?;
+            market.no_shares = market
+                .no_shares
+                .checked_sub(shares)
+                .ok_or(MarketError::MathOverflow)?;
             market.total_no_cost = market.total_no_cost.saturating_sub(gross_payout);
         }
     }

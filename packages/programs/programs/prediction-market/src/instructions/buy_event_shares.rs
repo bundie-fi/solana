@@ -111,7 +111,9 @@ pub fn handler(
             .checked_mul(market.fee_bps as u128)
             .ok_or(MarketError::MathOverflow)?
             / 10_000;
-        let total_cost = cost.checked_add(fee as u64).ok_or(MarketError::MathOverflow)?;
+        let total_cost = cost
+            .checked_add(fee as u64)
+            .ok_or(MarketError::MathOverflow)?;
         require!(
             ctx.accounts.buyer_collateral.amount >= total_cost,
             MarketError::InsufficientShares
