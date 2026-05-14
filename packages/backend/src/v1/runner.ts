@@ -25,6 +25,8 @@ import idlJson from "../idl/prediction_market.json" with { type: "json" };
 import { loadRegistry, listDemoEvents } from "./registry.js";
 import { findMarketForEvent } from "./onchain.js";
 import { PythThresholdDurationResolver } from "./resolvers/pyth-threshold-duration.js";
+import { StatuspageIncidentResolver } from "./resolvers/statuspage-incident.js";
+import { AwsHealthIncidentResolver } from "./resolvers/aws-health-incident.js";
 import type { Resolver } from "./types.js";
 
 /**
@@ -103,8 +105,15 @@ function buildResolvers(
     "pyth_threshold_duration",
     new PythThresholdDurationResolver(connection),
   );
-  // TODO: onchain_tvl_rolling_window, statuspage_v2_incident_duration,
-  // aws_health_dashboard_incident. Each is a separate impl of Resolver<T>.
+  map.set(
+    "statuspage_v2_incident_duration",
+    new StatuspageIncidentResolver(),
+  );
+  map.set("aws_health_dashboard_incident", new AwsHealthIncidentResolver());
+  // TODO: onchain_tvl_rolling_window resolver requires per-protocol TVL
+  // readers (Kamino, MarginFi, Save). Each protocol publishes its TVL
+  // through a different account layout. Lands as protocol-specific
+  // readers ship alongside their NAV oracles.
   return map;
 }
 

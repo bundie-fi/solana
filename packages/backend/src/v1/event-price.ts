@@ -23,6 +23,7 @@ import { loadRegistry, getEvent } from "./registry.js";
 import { readMarketSnapshot } from "./onchain.js";
 import { yesPrice, confidenceScore } from "./lmsr.js";
 import { signResponse, publicKeyBase58 } from "./attestation.js";
+import { getMarketStats } from "./indexer.js";
 import type { EventPriceResponse, EventSummary } from "./types.js";
 
 export const v1 = new Hono();
@@ -75,12 +76,12 @@ async function livePriceResponse(eventId: string): Promise<EventPriceResponse> {
 
   const price = yesPrice(snapshot.yesShares, snapshot.noShares, snapshot.liquidityParam);
   const depthUsd = snapshot.totalVolumeUsd;
-  // Trade-count / unique-trader stats require an indexer; v1 surfaces 0
-  // until packages/backend/src/indexer/ is wired. Confidence still works
-  // off depth alone — thin markets self-report low confidence.
-  const tradeCount24h = 0;
-  const uniqueTraders24h = 0;
-  const confidence = confidenceScore(depthUsd, tradeCount24h, uniqueTraders24h);
+  const stats = await getMarketStats(snapshot.marketAddress);
+  const confidence = confidenceScore(
+    depthUsd,
+    stats.tradeCount24h,
+    stats.uniqueTraders24h,
+  );
 
   const now = new Date();
   return {
@@ -91,14 +92,14 @@ async function livePriceResponse(eventId: string): Promise<EventPriceResponse> {
     price,
     confidence,
     depth_usd: depthUsd,
-    trade_count_24h: tradeCount24h,
-    unique_traders_24h: uniqueTraders24h,
-    twap_24h: price, // TWAP requires history; same as spot until indexer ships
-    last_change_24h: 0,
-    spot_vs_twap_pct: 0,
+    trade_count_24h: stats.tradeCount24h,
+    unique_traders_24h: stats.uniqueTraders24h,
+    twap_24h: price, // TWAP requires price history; same as spot until that ships
+    last_change_24h: stats.lastChange24h,
+    spot_vs_twap_pct: stats.spotVsTwapPct,
     resolver_class: event.resolver_class,
     resolver_track_record: { total: 0, disputed: 0, lost: 0 },
-    signed_attestation: "", // signer wires in v1.5
+    signed_attestation: "", // filled by signResponse() before serialisation
     as_of: now.toISOString(),
   };
 }

@@ -10,6 +10,7 @@ import {
   type EventPrice,
 } from "@/lib/events";
 import { TradeButtons } from "./TradeButtons";
+import { PositionDisplay } from "./PositionDisplay";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 5;
@@ -86,11 +87,12 @@ export default async function EventPage(props: EventPageProps) {
           <OutcomeCard label="YES" value={yesPct} accent="mint" highlighted />
           <OutcomeCard label="NO" value={noPct} accent="lavender" />
         </div>
-        <div className="mx-auto mt-6 max-w-5xl">
+        <div className="mx-auto mt-6 grid max-w-5xl gap-4 sm:grid-cols-[1fr_1fr]">
           <TradeButtons
             eventId={eventId}
             marketAddress={detail.market_address ?? undefined}
           />
+          <PositionDisplay marketAddress={detail.market_address ?? undefined} />
         </div>
       </section>
 
