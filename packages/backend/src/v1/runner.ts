@@ -69,13 +69,27 @@ const TICK_INTERVAL_MS = Number(process.env.BUNDIE_RUNNER_TICK_MS ?? "60000");
 const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
 
 function loadResolverKeypair(): Keypair {
-  const path = process.env.BUNDIE_RESOLVER_KEY;
-  if (!path) {
+  const raw = process.env.BUNDIE_RESOLVER_KEY;
+  if (!raw) {
     throw new Error(
-      "BUNDIE_RESOLVER_KEY env var (path to JSON keypair file) is required",
+      "BUNDIE_RESOLVER_KEY env var required — either a path to a Solana keypair JSON file, or the keypair JSON content inline (64-byte array literal).",
     );
   }
-  const secret = JSON.parse(readFileSync(path, "utf-8"));
+  // Two accepted formats:
+  //   1. File path (e.g. ~/.config/solana/id.json) — used locally
+  //   2. Inline JSON array (the file contents pasted into the env) — used on
+  //      Railway / Vercel / any host where dropping a keypair file isn't
+  //      practical. Detect inline by checking for a leading "[".
+  const trimmed = raw.trim();
+  const isInline = trimmed.startsWith("[");
+  const secret = JSON.parse(isInline ? trimmed : readFileSync(trimmed, "utf-8"));
+  if (!Array.isArray(secret) || secret.length !== 64) {
+    throw new Error(
+      `BUNDIE_RESOLVER_KEY must be a 64-byte JSON array; got ${
+        Array.isArray(secret) ? `array of ${secret.length}` : typeof secret
+      }`,
+    );
+  }
   return Keypair.fromSecretKey(new Uint8Array(secret));
 }
 
