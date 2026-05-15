@@ -13,18 +13,16 @@ const WalletButton = dynamic(
   { ssr: false },
 );
 
-// Desktop primary nav. Updated 2026-05-15 for the oracle-positioning
-// overhaul: Markets (event markets), Build (agent API at /api),
-// Portfolio, Wallet. Retired the old Discover/agents/strategists
-// surfaces — see PR-1 + PR-2 for the migration history.
+// Desktop primary nav. The webapp is the trader surface: anyone landing
+// here is here to bet YES/NO on event markets. Agent-developer docs live
+// on the marketing surface (solana.bundie.fi has a "For agents" section);
+// the Build nav slot was removed because it was confusing the audience.
 const LINKS: {
   href: string;
   label: string;
   activePrefix?: string;
-  disabled?: boolean;
 }[] = [
   { href: "/markets",   label: "Markets" },
-  { href: "/api",       label: "Build" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/wallet",    label: "Wallet" },
 ];
@@ -93,25 +91,6 @@ export function TopNav() {
               ? pathname?.startsWith(l.activePrefix) ?? false
               : l.href !== "/" && (pathname?.startsWith(l.href) ?? false));
           const numLabel = String(i + 1).padStart(2, "0");
-          // Disabled links (the Build slot until /api ships in PR-2)
-          // render as static text — same chrome, no href, soon-tag.
-          if (l.disabled) {
-            return (
-              <span
-                key={l.href}
-                className="topnav-link is-disabled"
-                aria-disabled="true"
-              >
-                <span className="topnav-link-num">{numLabel}</span>
-                <span className="topnav-link-label">
-                  {l.label}
-                  <span className="topnav-link-soon" aria-hidden="true">
-                    Soon
-                  </span>
-                </span>
-              </span>
-            );
-          }
           return (
             <Link
               key={l.href}
@@ -194,22 +173,6 @@ export function TopNav() {
         .topnav-link.is-active .topnav-link-num { color: var(--de-lavender); }
         .topnav-link.is-active .topnav-link-rule { transform: scaleX(1); }
 
-        .topnav-link.is-disabled { cursor: default; color: var(--de-ink-5); }
-        .topnav-link.is-disabled:hover { color: var(--de-ink-5); }
-        .topnav-link.is-disabled .topnav-link-num { color: var(--de-ink-5); }
-        .topnav-link-soon {
-          margin-left: 8px;
-          padding: 2px 6px;
-          border: 1px solid var(--de-line-2);
-          border-radius: 4px;
-          background: var(--de-bg-raised);
-          font-size: 8.5px;
-          font-weight: 700;
-          letter-spacing: 0.16em;
-          color: var(--de-ink-4);
-          text-transform: uppercase;
-          vertical-align: middle;
-        }
       `}</style>
 
       {/* Right cluster: Devnet pill + Wallet. The "+ Launch agent" gold

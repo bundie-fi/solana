@@ -37,6 +37,11 @@ const nextConfig = {
       // to /markets so the nav slot and IA match the new product story.
       { source: "/events", destination: "/markets", permanent: true },
       { source: "/events/:id", destination: "/markets/:id", permanent: true },
+      // /api was briefly a dev-docs page inside the trader app. Moved
+      // back to the marketing surface (solana.bundie.fi has a "For
+      // agents" section) so the app is unambiguously the trader surface.
+      // External 302 (not permanent) because we may reshape this later.
+      { source: "/api", destination: "https://solana.bundie.fi/#for-agents", permanent: false },
       // Retired strategy-token routes. Everything lands on /markets so
       // the user sees the live product instead of a 404.
       { source: "/agents", destination: "/markets", permanent: true },

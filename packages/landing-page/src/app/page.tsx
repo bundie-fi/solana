@@ -3,7 +3,7 @@ import { MotionSection } from '../components/motion-section'
 import { StaggerChildren, StaggerItem } from '../components/stagger-children'
 import { RevealText } from '../components/reveal-text'
 
-// Static marketing surface. 5min ISR is plenty — copy doesn't move minute
+// Static marketing surface. 5min ISR is plenty, copy doesn't move minute
 // to minute, and the live data lives in the app, not here.
 export const revalidate = 300
 
@@ -56,7 +56,7 @@ export default function Home() {
         {/* Ghost equity curve. Same hand-tuned bezier as before, but the
             waypoint labels now name EVENTS rather than DeFi protocols.
             Argues "this is the trace of consensus moving through
-            events" — the through-line of every market on Bundie. */}
+            events", the through-line of every market on Bundie. */}
         <svg
           className="hero-equity-ghost"
           aria-hidden="true"
@@ -84,7 +84,7 @@ export default function Home() {
             strokeLinejoin="round"
           />
           {/* Event waypoints. Each is a small dot on the curve plus an
-              italic label above it — the kind of event Bundie prices.
+              italic label above it, the kind of event Bundie prices.
               Y-values are computed exactly on the cubic via
               getPointAtLength so the dots sit on the line. */}
           {[
@@ -115,7 +115,7 @@ export default function Home() {
               </text>
             </g>
           ))}
-          {/* Peak tick — same point as the second waypoint from the
+          {/* Peak tick, same point as the second waypoint from the
               right. Kept separate so the HTML annotation label sits
               on top of it. */}
           <g
@@ -137,7 +137,7 @@ export default function Home() {
         </svg>
 
         {/* Margin note. Reframed from agent PnL to a live consensus
-            price — the trace of a market moving. Tiny, like a trader's
+            price, the trace of a market moving. Tiny, like a trader's
             pencil annotation. */}
         <span className="hero-equity-note hero-equity-note-animate" aria-hidden="true">
           <span className="hero-equity-note-num">0.78 YES</span>
@@ -159,7 +159,7 @@ export default function Home() {
 
           <div className="hero-sub">
             <p>
-              Existing oracles price the present — BTC right now, ETH right now. Bundie prices what&apos;s
+              Existing oracles price the present, BTC right now, ETH right now. Bundie prices what&apos;s
               <em className="hero-sub-accent"> about to happen.</em>
             </p>
             <p>Depegs, outages, TVL drops, network incidents. Every measurable event has a live consensus price, settled on-chain.</p>
@@ -200,7 +200,7 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">
               <span className="eyebrow-num">01</span>
-              <span className="eyebrow-sep">—</span>
+              <span className="eyebrow-sep">·</span>
               What you can price
             </span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
@@ -209,7 +209,7 @@ export default function Home() {
             </h2>
             <p className="section-sub" style={{ margin: '20px 0 0' }}>
               Four domains live on devnet today. Every market resolves from on-chain or attested
-              off-chain data — never from a committee vote.
+              off-chain data, never from a committee vote.
             </p>
           </div>
 
@@ -234,7 +234,7 @@ export default function Home() {
               </div>
               <h3 className="validation-title">Protocol TVL</h3>
               <p className="validation-body">
-                TVL drops past a threshold — fast withdrawals, depositor exits. Settles from
+                TVL drops past a threshold. Fast withdrawals, depositor exits. Settles from
                 on-chain account state, not a committee.
               </p>
             </StaggerItem>
@@ -279,17 +279,19 @@ export default function Home() {
             <StaggerItem>
               <span className="eyebrow">
                 <span className="eyebrow-num">02</span>
-                <span className="eyebrow-sep">—</span>
+                <span className="eyebrow-sep">·</span>
                 How it works
               </span>
             </StaggerItem>
             <StaggerItem>
               <h2 className="section" style={{ marginTop: 16 }}>
-                A loop, not a feed.{' '}
+                A loop, not a feed.
+              </h2>
+              <p className="section-display-sub">
                 <RevealText className="text-reveal text-reveal-italic text-reveal-on-light">
                   Traders price it. Agents read it.
                 </RevealText>
-              </h2>
+              </p>
             </StaggerItem>
           </StaggerChildren>
 
@@ -301,7 +303,7 @@ export default function Home() {
               </h3>
               <p>
                 Anyone can open a market. Anyone can take a side. Skin in the game is the
-                signal — opinions cost nothing, positions cost capital.
+                signal. Opinions cost nothing, positions cost capital.
               </p>
             </div>
             <div className="step">
@@ -321,7 +323,7 @@ export default function Home() {
               </h3>
               <p>
                 One HTTP call gets a signed price an agent can act on. Settlement happens
-                on-chain at the resolution slot — no oracle to game, no committee to lobby.
+                on-chain at the resolution slot. No oracle to game, no committee to lobby.
               </p>
             </div>
           </div>
@@ -340,7 +342,7 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">
               <span className="eyebrow-num">03</span>
-              <span className="eyebrow-sep">—</span>
+              <span className="eyebrow-sep">·</span>
               For agents
             </span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
@@ -380,7 +382,7 @@ export default function Home() {
                 <code style={{ fontFamily: 'var(--font-sans)' }}>@bundie/sol-cli</code>
               </h3>
               <p className="validation-body">
-                Write side. Open markets, post liquidity, settle from on-chain data — all from a
+                Write side. Open markets, post liquidity, settle from on-chain data, all from a
                 terminal. The same SDK powers the app.
               </p>
             </StaggerItem>
@@ -401,7 +403,7 @@ export default function Home() {
           <div className="section-head" style={{ marginBottom: 32 }}>
             <span className="eyebrow">
               <span className="eyebrow-num">04</span>
-              <span className="eyebrow-sep">—</span>
+              <span className="eyebrow-sep">·</span>
               Pricing
             </span>
             <h2 className="section" style={{ marginTop: 16 }}>
@@ -410,64 +412,60 @@ export default function Home() {
             </h2>
             <p className="section-sub" style={{ margin: '20px 0 0', maxWidth: 720 }}>
               An oracle&apos;s value is the capital backing its signal. A 10x deeper market is harder
-              to game, so the read costs more — but the curve is logarithmic, not linear, so depth
+              to game, so the read costs more, but the curve is logarithmic, not linear, so depth
               never runs away from the agent paying for it.
             </p>
           </div>
 
-          <div className="pricing-table-wrap">
-            <table className="pricing-table">
-              <thead>
-                <tr>
-                  <th>Market depth</th>
-                  <th>Read price</th>
-                  <th>Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>$0 (stub)</td>
-                  <td>$0.0001</td>
-                  <td className="pricing-meta">Floor — covers the Solana tx cost.</td>
-                </tr>
-                <tr>
-                  <td>$500</td>
-                  <td>$0.0001</td>
-                  <td className="pricing-meta">Floor — sub-meaningful liquidity.</td>
-                </tr>
-                <tr>
-                  <td>$1,000</td>
-                  <td>$0.001</td>
-                  <td className="pricing-meta">Anchor — the old hardcoded price.</td>
-                </tr>
-                <tr>
-                  <td>$5,000</td>
-                  <td>$0.0041</td>
-                  <td className="pricing-meta">Real liquidity, real signal.</td>
-                </tr>
-                <tr>
-                  <td>$10,000</td>
-                  <td>$0.0055</td>
-                  <td className="pricing-meta">Mid curve.</td>
-                </tr>
-                <tr>
-                  <td>$50,000</td>
-                  <td>$0.0086</td>
-                  <td className="pricing-meta">Approaching the ceiling.</td>
-                </tr>
-                <tr>
-                  <td>$100,000+</td>
-                  <td>$0.01</td>
-                  <td className="pricing-meta">Ceiling — no whale gaming.</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="price-tier-grid">
+            <div className="price-tier-card">
+              <div className="price-tier-tag">Floor</div>
+              <div className="price-tier-amount">
+                <span className="price-tier-num">$0.0001</span>
+                <span className="price-tier-unit">/ call</span>
+              </div>
+              <div className="price-tier-depth">Markets under $500 depth</div>
+              <ul className="price-tier-list">
+                <li>Just-opened markets</li>
+                <li>Stubs and bootstrapping liquidity</li>
+                <li>Pays for the Solana tx, nothing else</li>
+              </ul>
+            </div>
+
+            <div className="price-tier-card price-tier-card-mid">
+              <div className="price-tier-tag">Standard</div>
+              <div className="price-tier-amount">
+                <span className="price-tier-num">$0.001</span>
+                <span className="price-tier-unit">/ call</span>
+              </div>
+              <div className="price-tier-depth">Markets around $1,000 depth</div>
+              <ul className="price-tier-list">
+                <li>The everyday read</li>
+                <li>Real traders, real positions</li>
+                <li>Signal you can act on</li>
+              </ul>
+            </div>
+
+            <div className="price-tier-card">
+              <div className="price-tier-tag">Deep</div>
+              <div className="price-tier-amount">
+                <span className="price-tier-num">$0.01</span>
+                <span className="price-tier-unit">/ call</span>
+              </div>
+              <div className="price-tier-depth">Markets at $100,000+ depth</div>
+              <ul className="price-tier-list">
+                <li>Consensus carried by serious capital</li>
+                <li>The hardest signal to fake</li>
+                <li>Hard cap, no whale gaming</li>
+              </ul>
+            </div>
           </div>
 
-          <p className="section-sub" style={{ margin: '24px 0 0', maxWidth: 720, fontSize: 14 }}>
-            Every <code style={{ fontFamily: 'var(--font-sans)' }}>/v1/event-price</code> response
-            includes <code style={{ fontFamily: 'var(--font-sans)' }}>read_price_usdc_micro</code>{' '}
-            so retries bid the right amount automatically.
+          <p className="section-sub" style={{ margin: '28px auto 0', maxWidth: 720, fontSize: 14, textAlign: 'center' }}>
+            Pay only when you read. Logarithmic curve, every market lands on its own point between
+            floor and ceiling. The response includes{' '}
+            <code style={{ fontFamily: 'var(--font-sans)' }}>read_price_usdc_micro</code> so retries
+            bid the right amount automatically.
           </p>
         </div>
       </MotionSection>
@@ -484,7 +482,7 @@ export default function Home() {
           <div className="section-head">
             <span className="eyebrow">
               <span className="eyebrow-num">05</span>
-              <span className="eyebrow-sep">—</span>
+              <span className="eyebrow-sep">·</span>
               Why Bundie
             </span>
             <h2 className="section" style={{ marginTop: 16, maxWidth: 820 }}>
@@ -497,22 +495,22 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <h3 className="validation-title">vs Pyth / Chainlink</h3>
               <p className="validation-body">
-                They price the present — BTC right now, ETH right now. Bundie prices the future —
+                They price the present, BTC right now, ETH right now. Bundie prices the future,
                 the conditions that move portfolios before the price does.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
               <h3 className="validation-title">vs Polymarket / Kalshi</h3>
               <p className="validation-body">
-                Consumer products built for traders. Bundie is infrastructure — every market has an
+                Consumer products built for traders. Bundie is infrastructure; every market has an
                 API, an attestation, and an SLA an agent can rely on.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
-              <h3 className="validation-title">vs Proof</h3>
+              <h3 className="validation-title">vs the news</h3>
               <p className="validation-body">
-                Different axis. Proof builds derivatives for traders. Bundie builds oracles for AI
-                agents — same primitive, opposite end of the stack.
+                Headlines lag. Markets move first. By the time a story prints, the price has already
+                said it. Bundie surfaces the move while it&apos;s happening.
               </p>
             </StaggerItem>
           </StaggerChildren>
@@ -661,14 +659,48 @@ function MarketPreview() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
-   Curl example for agents — shows the actual response shape including
-   the new read_price_usdc_micro field. Inline-styled so it doesn't
-   need new CSS. Brand teal background, mono type, comments dimmed.
+   Curl example for agents. Live-typing animation: each line reveals in
+   sequence (request lines first, brief pause, then the response). Mimics
+   a terminal session, anchors the abstract claim of "one HTTP call →
+   signed price" in something the reader can watch happen.
+
+   Each .ct-line carries its own animation-delay so the cascade is purely
+   CSS, no JS needed. The trailing caret blinks on the last response line.
    ────────────────────────────────────────────────────────────────────── */
 
-function CurlExample() {
+interface CurlLineProps {
+  pad?: number;
+  delay: number; // ms
+  comment?: boolean;
+  pause?: boolean; // adds margin-top before the line, used for the request → response break
+  caret?: boolean; // shows a blinking caret at end of line
+  children: React.ReactNode;
+}
+
+function CurlLine({ pad = 0, delay, comment, pause, caret, children }: CurlLineProps) {
   return (
     <div
+      className="ct-line"
+      data-pause={pause ? 'response' : undefined}
+      style={{
+        paddingLeft: pad,
+        color: comment ? 'rgba(219,233,226,0.5)' : undefined,
+        animationDelay: `${delay}ms`,
+      }}
+    >
+      {children}
+      {caret ? <span className="ct-caret" /> : null}
+    </div>
+  );
+}
+
+function CurlExample() {
+  const KEY = { color: '#9ad0b7' };
+  const VAL = { color: '#f0c474' };
+  const URL = { color: '#dbe9e2' };
+  return (
+    <div
+      className="ct-shell"
       style={{
         marginTop: 40,
         background: 'rgb(18,68,58)',
@@ -682,47 +714,50 @@ function CurlExample() {
         boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset',
       }}
     >
-      <div style={{ color: 'rgba(219,233,226,0.5)', marginBottom: 10 }}>
+      <CurlLine delay={0} comment>
         # one HTTP call, signed response, micro-USDC over x402
-      </div>
-      <div>
-        <span style={{ color: '#f0c474' }}>curl</span> -X POST{' '}
-        <span style={{ color: '#dbe9e2' }}>https://app.solana.bundie.fi/api/v1/event-price</span>
-      </div>
-      <div style={{ paddingLeft: 14 }}>
-        -H <span style={{ color: '#f0c474' }}>&quot;X-PAYMENT: $$x402_token$$&quot;</span> \
-      </div>
-      <div style={{ paddingLeft: 14 }}>
-        -d <span style={{ color: '#f0c474' }}>&apos;{'{'}&quot;market&quot;:&quot;aws-us-east-1-may&quot;{'}'}&apos;</span>
-      </div>
-      <div style={{ marginTop: 18, color: 'rgba(219,233,226,0.5)' }}># response</div>
-      <div>{'{'}</div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;market&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>&quot;aws-us-east-1-may&quot;</span>,
-      </div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;yes_price&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>0.78</span>,
-      </div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;depth_usdc&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>4210</span>,
-      </div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;read_price_usdc_micro&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>3900</span>,{' '}
+      </CurlLine>
+      <CurlLine delay={260}>
+        <span style={VAL}>curl</span> -X POST{' '}
+        <span style={URL}>https://backend.solana.bundie.fi/v1/event-price</span>
+      </CurlLine>
+      <CurlLine delay={520} pad={14}>
+        -H <span style={VAL}>&quot;X-PAYMENT: $x402_token$&quot;</span> \
+      </CurlLine>
+      <CurlLine delay={780} pad={14}>
+        -d <span style={VAL}>&apos;{'{'}&quot;id&quot;:&quot;aws_us_east_1_incident_30min_30d&quot;{'}'}&apos;</span>
+      </CurlLine>
+
+      <CurlLine delay={1280} comment pause>
+        # response
+      </CurlLine>
+      <CurlLine delay={1440}>{'{'}</CurlLine>
+      <CurlLine delay={1560} pad={18}>
+        <span style={KEY}>&quot;event_id&quot;</span>:{' '}
+        <span style={VAL}>&quot;aws_us_east_1_incident_30min_30d&quot;</span>,
+      </CurlLine>
+      <CurlLine delay={1680} pad={18}>
+        <span style={KEY}>&quot;price&quot;</span>:{' '}
+        <span style={VAL}>0.78</span>,
+      </CurlLine>
+      <CurlLine delay={1800} pad={18}>
+        <span style={KEY}>&quot;depth_usd&quot;</span>:{' '}
+        <span style={VAL}>4210</span>,
+      </CurlLine>
+      <CurlLine delay={1920} pad={18}>
+        <span style={KEY}>&quot;read_price_usdc_micro&quot;</span>:{' '}
+        <span style={VAL}>3900</span>,{' '}
         <span style={{ color: 'rgba(219,233,226,0.5)' }}>// next read costs $0.0039</span>
-      </div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;attestation&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>&quot;ed25519:0x…&quot;</span>,
-      </div>
-      <div style={{ paddingLeft: 18 }}>
-        <span style={{ color: '#9ad0b7' }}>&quot;resolves_at&quot;</span>:{' '}
-        <span style={{ color: '#f0c474' }}>&quot;2026-05-09T00:00:00Z&quot;</span>
-      </div>
-      <div>{'}'}</div>
+      </CurlLine>
+      <CurlLine delay={2040} pad={18}>
+        <span style={KEY}>&quot;signed_attestation&quot;</span>:{' '}
+        <span style={VAL}>&quot;ed25519:0x…&quot;</span>,
+      </CurlLine>
+      <CurlLine delay={2160} pad={18}>
+        <span style={KEY}>&quot;resolver_track_record&quot;</span>:{' '}
+        <span style={VAL}>{'{ '}&quot;total&quot;: 27, &quot;disputed&quot;: 0, &quot;lost&quot;: 0{' }'}</span>
+      </CurlLine>
+      <CurlLine delay={2280} caret>{'}'}</CurlLine>
     </div>
   )
 }

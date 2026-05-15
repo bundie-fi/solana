@@ -8,7 +8,6 @@ import {
 import {
   formatPriceUsd,
   READ_PRICE_FLOOR_USDC_MICRO,
-  READ_PRICE_CEILING_USDC_MICRO,
 } from "@/lib/pricing";
 
 // 30s ISR. Five-band editorial home page:
@@ -45,7 +44,6 @@ export default async function Home() {
       <Hero />
       <ConsensusStrip markets={byDepth.slice(0, 4)} error={fetchError} />
       <ByDomain markets={active} />
-      <AgentPanel topEvent={byDepth[0]} />
       <Footer />
     </main>
   );
@@ -82,14 +80,14 @@ function Hero() {
             href="/markets"
             className="inline-flex items-center gap-2 rounded-full bg-[var(--de-ink)] px-6 py-3 text-sm font-medium text-[var(--de-bg)] transition-transform duration-150 ease-out hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-lavender)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg)]"
           >
-            Browse markets
+            Trade markets
             <span aria-hidden="true">→</span>
           </Link>
           <Link
-            href="/api"
+            href="/portfolio"
             className="inline-flex items-center gap-2 rounded-full border border-[var(--de-line-3)] px-6 py-3 text-sm font-medium text-[var(--de-ink)] transition-colors duration-150 ease-out hover:border-[var(--de-ink)] focus-visible:outline-none focus-visible:underline"
           >
-            Build with the oracle
+            My positions
             <span aria-hidden="true">→</span>
           </Link>
         </div>
@@ -252,83 +250,6 @@ function DomainGroup({
   );
 }
 
-function AgentPanel({ topEvent }: { topEvent?: EventSummary }) {
-  const sampleId = topEvent?.event_id ?? "usdc_depeg_99c_30min_30d";
-  return (
-    <section
-      id="agents"
-      className="border-b border-[var(--de-line)] px-6 py-16 sm:px-12"
-    >
-      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_1fr]">
-        <div>
-          <SectionEyebrow title="For agents" accent="machine-readable consensus" />
-          <h2 className="font-serif text-4xl leading-tight tracking-tight text-[var(--de-ink)] sm:text-5xl">
-            Your agent sees what&rsquo;s coming,{" "}
-            <span className="italic text-[var(--de-lavender)]">
-              before the news does
-            </span>
-            .
-          </h2>
-          <p className="mt-5 max-w-lg text-base text-[var(--de-ink-2)]">
-            Read live consensus over x402.{" "}
-            <span className="font-medium text-[var(--de-ink)]">
-              Pricing is dynamic
-            </span>{" "}
-            — markets with deeper liquidity cost more to read, because
-            the signal is worth more. Floor{" "}
-            <span className="font-mono">
-              {formatPriceUsd(READ_PRICE_FLOOR_USDC_MICRO)}
-            </span>{" "}
-            on thin markets, ceiling{" "}
-            <span className="font-mono">
-              {formatPriceUsd(READ_PRICE_CEILING_USDC_MICRO)}
-            </span>{" "}
-            on whale-depth.
-          </p>
-          <Link
-            href="/api"
-            className="mt-8 inline-flex items-center gap-2 rounded-full border border-[var(--de-line-3)] px-5 py-2.5 text-sm font-medium text-[var(--de-ink)] transition-colors duration-150 ease-out hover:border-[var(--de-ink)]"
-          >
-            Read the build docs
-            <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-        <CurlBlock eventId={sampleId} />
-      </div>
-    </section>
-  );
-}
-
-function CurlBlock({ eventId }: { eventId: string }) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-3)]">
-      <div className="flex items-center justify-between border-b border-[var(--de-line)] px-4 py-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
-          GET /v1/event-price
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
-          x402
-        </span>
-      </div>
-      <pre className="overflow-x-auto px-4 py-4 font-mono text-[11.5px] leading-relaxed text-[var(--de-ink-2)]">
-        <code>{`$ curl -H "X-PAYMENT: $SIGNED_USDC_TRANSFER" \\
-    "https://backend.solana.bundie.fi/v1/event-price?id=${eventId}"
-
-{
-  "event_id":              "${eventId}",
-  "price":                 0.073,
-  "confidence":            0.61,
-  "depth_usd":             4_280.50,
-  "twap_24h":              0.071,
-  "resolver_track_record": { "total": 27, "disputed": 0, "lost": 0 },
-  "signed_attestation":    "...",
-  "read_price_usdc_micro": 2400
-}`}</code>
-      </pre>
-    </div>
-  );
-}
-
 function Footer() {
   return (
     <footer className="px-6 py-12 sm:px-12">
@@ -348,17 +269,17 @@ function Footer() {
             Markets
           </Link>
           <Link
-            href="/api"
-            className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
-          >
-            Build
-          </Link>
-          <Link
             href="/portfolio"
             className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
           >
             Portfolio
           </Link>
+          <a
+            href="https://solana.bundie.fi/#for-agents"
+            className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
+          >
+            For agents ↗
+          </a>
           <span>Cluster: solana:devnet</span>
         </div>
       </div>

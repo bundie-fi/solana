@@ -34,7 +34,7 @@
   --violet:        #3D6796;
   --violet-tint:   rgba(61, 103, 150, 0.12);
 
-  /* --font-mono aliased to sans — JetBrains removed, two-font system only */
+  /* --font-mono aliased to sans, JetBrains removed, two-font system only */
   --font-mono:     var(--font-sans);
 
   --ease:          cubic-bezier(0.25, 0.4, 0.25, 1);
@@ -184,7 +184,7 @@ nav.top .inner {
 /* Chapter-number prefix on the eyebrow. The number sits in tabular
    nums so 01–09 align cleanly, the em-dash separator gets its own
    muted colour, and the section name continues at the eyebrow's
-   default colour. Lets `01 — INSIDE BUNDIE` read as a magazine TOC
+   default colour. Lets `01, INSIDE BUNDIE` read as a magazine TOC
    without extra wrapping. */
 .eyebrow-num {
   color: var(--ink-2);
@@ -200,7 +200,7 @@ nav.top .inner {
    Hairline rule with a centered glyph between sections. Editorial
    pattern from print broadsheets ("───  ·  ───"). Sits in its own
    thin band so consecutive sections don't bleed into each other.
-   The rule is static decoration — no scroll animation; it's the
+   The rule is static decoration, no scroll animation; it's the
    hand-off between two sections, not content. */
 .section-rule {
   display: flex;
@@ -329,7 +329,7 @@ section.hero .wrap { position: relative; z-index: 2; }
 
 /* Peak annotation. Tiny label sitting just above the curve's high
    point. The peak lives in the upper-right corner of the hero so the
-   annotation reads as a margin note in clear space — out of the body
+   annotation reads as a margin note in clear space, out of the body
    subline's path. The percentages here must match the SVG's tick at
    translate(1260, 105) on a 1600×500 viewBox; both stretch in lockstep
    with `preserveAspectRatio="none"`. */
@@ -482,7 +482,7 @@ section.content {
   padding: clamp(56px, 6vw, 88px) 0;
 }
 .section-head {
-  /* Left-aligned by default — the editorial standard for chapter-style
+  /* Left-aligned by default, the editorial standard for chapter-style
      sections (FT, NYT, Bloomberg). Hero and final CTA opt into
      centered alignment via their own scoped class names; body
      chapters all share this rhythm. */
@@ -493,7 +493,7 @@ section.content {
 
 /* Two-column section header: headline on the left, masthead block
    on the right. Aligned to the bottom so the masthead reads as a
-   margin note next to where the headline ends — print-broadsheet
+   margin note next to where the headline ends, print-broadsheet
    pattern. Wraps to a single column on narrow viewports. */
 .section-head-split {
   display: flex;
@@ -507,7 +507,7 @@ section.content {
   min-width: 0;
 }
 
-/* Live agents masthead — small editorial status block. Counts of
+/* Live agents masthead, small editorial status block. Counts of
    active / paused agents in serif numerals, with a tiny supporting
    line about refresh cadence. Auto-hides if the backend fetch fails
    (component returns null). */
@@ -1632,7 +1632,7 @@ footer .row-2 {
 /* ── Recent-activity tail ─────────────────────────────────────────────── */
 /* A peek-of-more-content underneath the leaderboard. Real-shaped trade
    ledger rows that progressively blur and fade to transparent at the
-   bottom edge — implies "this is one slice; the app has the full
+   bottom edge, implies "this is one slice; the app has the full
    ledger" without ever pasting in a screenshot. Compressed to two
    rows + a tight bottom fade so the whole tail occupies < ~80px. */
 .mkt-a-tail {
@@ -1643,7 +1643,7 @@ footer .row-2 {
   /* Static blur on the whole region. Combined with the mask-image
      fade below, this reads as out-of-focus background content. */
   filter: blur(1.4px);
-  /* Fade aggressively — the tail's job is to suggest more content,
+  /* Fade aggressively, the tail's job is to suggest more content,
      not to take real estate from the leaderboard above. */
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -1752,7 +1752,7 @@ footer .row-2 {
 .market-preview-agent {
   color: #a899f5;
 }
-/* Stacked outcome rows — Polymarket-style asymmetric layout */
+/* Stacked outcome rows, Polymarket-style asymmetric layout */
 .market-preview-outcomes {
   display: flex;
   flex-direction: column;
@@ -2355,7 +2355,7 @@ h1.hero .hero-line-2 {
     radial-gradient(circle at 100% 0%, rgba(18, 68, 58, 0.14), transparent 55%),
     linear-gradient(135deg, rgba(18, 68, 58, 0.05), rgba(18, 68, 58, 0.02) 60%, transparent 100%),
     var(--bg-raised);
-  /* Breathing teal halo — telegraphs that step 3 is the resolution
+  /* Breathing teal halo, telegraphs that step 3 is the resolution
      moment. Opacity bumped from 8/12% to 14/22% so the glow reads at
      normal viewing distance, not just on close inspection. */
   animation: ps-flow-breathe 4.2s ease-in-out infinite;
@@ -2423,7 +2423,7 @@ h1.hero .hero-line-2 {
   .ps-flow-step-final {
     animation: none;
     /* Without the breathing halo, lean on a static teal box-shadow so
-       the card still reads as elevated — reduced-motion users still
+       the card still reads as elevated, reduced-motion users still
        get the highlight, just without movement. */
     box-shadow:
       0 0 0 4px rgba(18, 68, 58, 0.10),
@@ -2447,7 +2447,7 @@ h1.hero .hero-line-2 {
 }
 .ps-flow-step-final .ps-flow-label {
   color: var(--amber-3);
-  /* Step 3 is the payoff — bumping weight + size by half a step
+  /* Step 3 is the payoff, bumping weight + size by half a step
      anchors it visually against the breathing halo and accent bar. */
   font-size: 19px;
   letter-spacing: -0.012em;
@@ -2559,7 +2559,7 @@ h1.hero .hero-line-2 {
 /* Tab change → fade up. The component keys both columns on activeId so
    React unmounts/remounts them on tab change, which retriggers the
    keyframe. The visual lags the copy by 80ms so they don't land in
-   lockstep — copy reads first, then the data card resolves underneath
+   lockstep, copy reads first, then the data card resolves underneath
    it. Easing is the standard "ease-out-expo" cousin: fast start, slow
    tail, content settles deliberately rather than bouncing. */
 .features-fade {
@@ -2769,7 +2769,7 @@ h1.hero .hero-line-2 {
 /* ---------- Fees · three confident figures --------------------------- */
 /* No card chrome, no table. Three columns, each a single oversized
    serif numeral with a small label and one supporting line. The
-   typography does the work — the implicit assertion is "these are the
+   typography does the work, the implicit assertion is "these are the
    only three numbers you need to know about Bundie's pricing". */
 .fees-trio {
   display: grid;
@@ -2886,7 +2886,7 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
    Generic text-reveal effect. The element renders transparent text on
    top of a 200%-wide horizontal gradient (bright on the left half, dim
    on the right). At rest the gradient sits at background-position
-   100% — bright is offscreen left, only dim shows. When the wrapping
+   100%, bright is offscreen left, only dim shows. When the wrapping
    <RevealText> client component flips `is-revealed` (via
    IntersectionObserver, fires once per page), the gradient slides to
    0% so the bright half occupies the element from left to right.
@@ -2996,7 +2996,7 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   .ps-stats { grid-template-columns: 1fr; }
 }
 
-/* Pricing table — used by the dynamic-pricing section. Editorial table:
+/* Pricing table, used by the dynamic-pricing section. Editorial table:
    serif numerals carry the weight, hairline rules separate rows, and the
    trailing "note" column dims so the eye lands on (depth → price). */
 .pricing-table-wrap {
@@ -3053,3 +3053,144 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   .pricing-table tbody td { padding: 14px 16px; }
 }
 
+
+/* SaaS-style pricing tier cards. Three cards, side-by-side at desktop,
+   stacked on mobile. Mid card lifts slightly with a teal hairline to
+   read as the recommended slot. */
+.price-tier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-top: 8px;
+}
+.price-tier-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px 26px 26px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 200ms ease, border-color 200ms ease;
+}
+.price-tier-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(18, 68, 58, 0.28);
+}
+.price-tier-card-mid {
+  border-color: rgba(18, 68, 58, 0.5);
+  box-shadow: 0 14px 38px -28px rgba(18, 68, 58, 0.32);
+  transform: translateY(-4px);
+}
+.price-tier-card-mid:hover { transform: translateY(-6px); }
+.price-tier-tag {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgb(18, 68, 58);
+}
+.price-tier-card-mid .price-tier-tag { color: rgb(18, 68, 58); }
+.price-tier-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+.price-tier-num {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink-1);
+}
+.price-tier-unit {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-4);
+}
+.price-tier-depth {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-3);
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.price-tier-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.price-tier-list li {
+  position: relative;
+  padding-left: 18px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.price-tier-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 8px;
+  height: 1.5px;
+  background: rgba(18, 68, 58, 0.55);
+}
+@media (max-width: 900px) {
+  .price-tier-grid { grid-template-columns: 1fr; }
+  .price-tier-card-mid { transform: none; }
+  .price-tier-card-mid:hover { transform: translateY(-2px); }
+}
+
+/* Code-block live-typing animation. Each .ct-line reveals in order
+   (line-by-line, mimicking a terminal typing the request, pausing, then
+   printing the response). One-shot animation; runs when the section
+   first comes into view via the MotionSection wrapper. The caret blinks
+   on the last visible line by default. */
+.ct-shell {
+  position: relative;
+}
+.ct-line {
+  opacity: 0;
+  transform: translateY(2px);
+  animation: ct-line-in 320ms ease-out forwards;
+}
+.ct-line[data-pause="response"] {
+  margin-top: 12px;
+}
+@keyframes ct-line-in {
+  to { opacity: 1; transform: none; }
+}
+.ct-caret {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  vertical-align: -2px;
+  background: currentColor;
+  margin-left: 2px;
+  opacity: 0.7;
+  animation: ct-caret-blink 1100ms steps(1) infinite;
+}
+@keyframes ct-caret-blink {
+  0%, 50% { opacity: 0.7; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Sub-headline that sits directly under a .section h2 and reads as a
+   second movement of the title rather than wrapped overflow. Same
+   left-align, distinct hierarchy. */
+.section-display-sub {
+  margin: 8px 0 0;
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: rgba(18, 68, 58, 0.85);
+}

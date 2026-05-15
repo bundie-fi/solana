@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Bundie · The oracle agents read to price the future",
   description:
-    "Bundie is an oracle that agents read to price the future. Every measurable event — depegs, outages, TVL drops, network incidents — has a live consensus price, settled on-chain.",
+    "Bundie is an oracle that agents read to price the future. Every measurable event, depegs, outages, TVL drops, network incidents, has a live consensus price, settled on-chain.",
   metadataBase: new URL("https://bundie.fi"),
   icons: { icon: "/assets/favicon-32.png" },
   openGraph: {
