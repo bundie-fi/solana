@@ -292,9 +292,21 @@ function encodePayload(
 
 async function main() {
   const registry = loadRegistry();
-  const demoEvents = registry.events.filter((e) => e.demo_eligible);
+  // BUNDIE_EVENT_FILTER restricts the run to a single event_id — used when
+  // re-creating one stale market (e.g. after a sources.json config drift
+  // changes its on-chain config_hash). Empty / unset means "all demo_eligible".
+  const eventFilter = process.env.BUNDIE_EVENT_FILTER;
+  const demoEvents = registry.events.filter(
+    (e) => e.demo_eligible && (!eventFilter || e.event_id === eventFilter),
+  );
   if (demoEvents.length === 0) {
-    console.error("No demo_eligible events in sources.json");
+    if (eventFilter) {
+      console.error(
+        `No demo_eligible event matches BUNDIE_EVENT_FILTER=${eventFilter}`,
+      );
+    } else {
+      console.error("No demo_eligible events in sources.json");
+    }
     process.exit(1);
   }
 

@@ -49,6 +49,13 @@ interface LastWrite {
 }
 const lastWriteByEvent = new Map<string, LastWrite>();
 
+// Events whose on-chain ResolverAuthority pins a different config_hash
+// than what we currently load from sources.json. Once detected we stop
+// ticking the on-chain feed for these — the ix will keep failing until
+// the market is re-created with the new config. One log line per
+// process lifetime instead of per-tick noise.
+const skippedForConfigDrift = new Set<string>();
+
 /**
  * Derive the EventPrice PDA from the program ID + event id hash. Matches
  * the on-chain seed: `[b"event_price", event_id_hash]`.
@@ -96,6 +103,10 @@ export async function maybeTickOnchainEventPrice(
   input: TickInput,
 ): Promise<TickResult> {
   if (!ENABLED) return { status: "skipped_disabled" };
+
+  if (skippedForConfigDrift.has(input.eventId)) {
+    return { status: "skipped_gated", reason: "config_hash_drift" };
+  }
 
   const snapshot = await readMarketSnapshot(input.eventId);
   if (!snapshot) {
@@ -159,27 +170,46 @@ export async function maybeTickOnchainEventPrice(
     eventIdHashBuf,
   );
 
-  // The `update_event_price` ix isn't in the deployed IDL yet — Anchor's
-  // type-level codegen rejects unknown method names. The existing runner
-  // uses the same `as any` escape hatch for `resolveEvent`; matched here so
-  // this code typechecks before the program upgrade lands.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sig: string = await (input.program.methods as any)
-    .updateEventPrice(
-      Array.from(eventIdHashBuf),
-      Array.from(input.configHash),
-      new BN(priceQ9.toString()),
-      new BN(confidenceQ9.toString()),
-      new BN(depthUsdU64.toString()),
-    )
-    .accounts({
-      resolver: input.resolverKp.publicKey,
-      market: input.marketPda,
-      resolverAuthority: input.resolverAuthorityPda,
-      eventPrice: eventPricePda,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc();
+  let sig: string;
+  try {
+    // The `update_event_price` ix uses the `as any` escape hatch since
+    // anchor's type-level codegen for new methods only refreshes after
+    // an IDL rebuild + redeploy. Mirrors the existing `resolveEvent`
+    // shape in the runner.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sig = await (input.program.methods as any)
+      .updateEventPrice(
+        Array.from(eventIdHashBuf),
+        Array.from(input.configHash),
+        new BN(priceQ9.toString()),
+        new BN(confidenceQ9.toString()),
+        new BN(depthUsdU64.toString()),
+      )
+      .accounts({
+        resolver: input.resolverKp.publicKey,
+        market: input.marketPda,
+        resolverAuthority: input.resolverAuthorityPda,
+        eventPrice: eventPricePda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+  } catch (err) {
+    // ResolverMismatch (6025) on update_event_price means EITHER the
+    // signer pubkey OR the config_hash doesn't match the on-chain
+    // ResolverAuthority. When it's hash drift (sources.json edited
+    // post-create_event), there's no way to recover without recreating
+    // the market. Latch it so we don't burn RPC on every tick.
+    const msg = (err as Error).message ?? "";
+    if (msg.includes("ResolverMismatch") || msg.includes("6025")) {
+      skippedForConfigDrift.add(input.eventId);
+      console.warn(
+        `[event-price-onchain] ${input.eventId}: config_hash drift detected — sources.json differs from on-chain ResolverAuthority pin. ` +
+          `Stopping on-chain ticks for this event. Re-create the market to refresh the pin.`,
+      );
+      return { status: "skipped_gated", reason: "config_hash_drift" };
+    }
+    throw err;
+  }
 
   lastWriteByEvent.set(input.eventId, { priceQ9, writtenAtMs: now });
   return { status: "wrote", signature: sig, priceQ9 };
