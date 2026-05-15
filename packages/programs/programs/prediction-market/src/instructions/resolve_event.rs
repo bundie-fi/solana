@@ -24,8 +24,10 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(outcome: Outcome, event_id_hash: [u8; 32])]
 pub struct ResolveEvent<'info> {
     /// Must match `resolver_authority.resolver` — checked via constraint.
+    #[account(mut)]
     pub resolver: Signer<'info>,
 
     #[account(
@@ -46,20 +48,61 @@ pub struct ResolveEvent<'info> {
             @ MarketError::ResolverMismatch,
     )]
     pub resolver_authority: Box<Account<'info, ResolverAuthority>>,
+
+    /// CPI-readable price feed. `init_if_needed` so a market that
+    /// resolves before `update_event_price` has ever been called still
+    /// produces a terminal feed account for consumers to read.
+    /// Keyed on `event_id_hash` to match the public PDA derivation.
+    #[account(
+        init_if_needed,
+        payer = resolver,
+        space = EventPrice::ACCOUNT_SIZE,
+        seeds = [EVENT_PRICE_SEED, event_id_hash.as_ref()],
+        bump,
+    )]
+    pub event_price: Box<Account<'info, EventPrice>>,
+
+    pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
-    let now = Clock::get()?.unix_timestamp;
+pub fn handler(
+    ctx: Context<ResolveEvent>,
+    outcome: Outcome,
+    event_id_hash: [u8; 32],
+) -> Result<()> {
+    let clock = Clock::get()?;
+    let now = clock.unix_timestamp;
+    let market_key = ctx.accounts.market.key();
     let market = &mut ctx.accounts.market;
 
     market.outcome = Some(outcome);
     market.status = MarketStatus::Resolved;
     market.resolved_at = Some(now);
 
+    // Freeze the CPI-readable price feed at the terminal outcome.
+    // YES → PRICE_SCALE (1.0), NO → 0. Consumers polling the feed see
+    // a settled status + terminal price; no further `update_event_price`
+    // calls will be accepted.
+    let event_price = &mut ctx.accounts.event_price;
+    event_price.event_id_hash = event_id_hash;
+    event_price.market = market_key;
+    event_price.exponent = EVENT_PRICE_EXPONENT;
+    event_price.bump = ctx.bumps.event_price;
+    event_price.price = match outcome {
+        Outcome::Yes => PRICE_SCALE,
+        Outcome::No => 0,
+    };
+    event_price.confidence = 0; // terminal — zero uncertainty
+    event_price.status = STATUS_RESOLVED;
+    event_price.updated_at_slot = clock.slot;
+    event_price.updated_at_ts = now;
+    // depth_usd_u64 + _reserved retained from the last live tick (or
+    // left zero if no `update_event_price` ever fired).
+
     msg!(
-        "resolve_event: kind={} market={} outcome_yes={}",
+        "resolve_event: kind={} market={} outcome_yes={} price_feed_frozen=1",
         market.kind,
-        market.key(),
+        market_key,
         outcome == Outcome::Yes
     );
 

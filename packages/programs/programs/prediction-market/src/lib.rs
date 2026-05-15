@@ -181,8 +181,44 @@ pub mod prediction_market {
     /// pubkey recorded in the market's `ResolverAuthority` PDA. The
     /// resolver passes the outcome it observed off-chain; the on-chain
     /// logic only verifies the signer is the registered authority.
-    pub fn resolve_event(ctx: Context<ResolveEvent>, outcome: Outcome) -> Result<()> {
-        instructions::resolve_event::handler(ctx, outcome)
+    ///
+    /// Also freezes the CPI-readable `EventPrice` feed at the terminal
+    /// outcome (0 for NO, PRICE_SCALE for YES) and flips its status to
+    /// `STATUS_RESOLVED`. `event_id_hash` is passed explicitly so the
+    /// EventPrice PDA can be derived without reading market payload.
+    pub fn resolve_event(
+        ctx: Context<ResolveEvent>,
+        outcome: Outcome,
+        event_id_hash: [u8; 32],
+    ) -> Result<()> {
+        instructions::resolve_event::handler(ctx, outcome, event_id_hash)
+    }
+
+    /// Tick the CPI-readable price feed for an event market. Called
+    /// each resolver loop with the latest LMSR mid-price + confidence +
+    /// depth. First call creates the `EventPrice` PDA; subsequent calls
+    /// bump fields. Same auth model as `resolve_event` (resolver signer
+    /// + config_hash gating).
+    ///
+    /// Consumers (external Solana programs) derive the PDA from
+    /// `[b"event_price", event_id_hash]` and read the account directly —
+    /// no CPI back into this program required.
+    pub fn update_event_price(
+        ctx: Context<UpdateEventPrice>,
+        event_id_hash: [u8; 32],
+        config_hash: [u8; 32],
+        price: u64,
+        confidence: u64,
+        depth_usd: u64,
+    ) -> Result<()> {
+        instructions::update_event_price::handler(
+            ctx,
+            event_id_hash,
+            config_hash,
+            price,
+            confidence,
+            depth_usd,
+        )
     }
 
     /// Buy YES or NO shares in an event market (kinds 7/8/9). Mirrors

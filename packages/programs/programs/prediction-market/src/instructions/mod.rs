@@ -14,6 +14,7 @@ pub mod resolve_event;
 pub mod resolve_market_v2;
 pub mod sell_event_shares;
 pub mod sell_shares;
+pub mod update_event_price;
 
 pub use buy_event_shares::*;
 pub use buy_shares::*;
@@ -31,3 +32,4 @@ pub use resolve_event::*;
 pub use resolve_market_v2::*;
 pub use sell_event_shares::*;
 pub use sell_shares::*;
+pub use update_event_price::*;
