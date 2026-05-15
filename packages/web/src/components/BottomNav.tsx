@@ -4,22 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * BottomNav — mobile-first 3-tab nav matching the Seeker redesign.
+ * BottomNav — mobile-first 3-tab nav.
  *
- * Tabs: Discover (◐) · Portfolio (▤) · Wallet (◇)
- * Routes: /, /portfolio, /wallet
+ * Tabs: Markets · Portfolio · Wallet
  *
- * Discover absorbed the /agents leaderboard + the /feed activity stream
- * (both surfaced in scrolling sections on the home page now). The Create
- * tab (launch wizard at /strategists) was removed when the product
- * pivoted to bettor-first — the wizard URL still works, just no nav link.
- * Wallet is a new top-level surface — see packages/web/src/app/wallet/.
+ * Updated 2026-05-15 for the oracle-positioning overhaul: Markets points
+ * at the live event-market list (the old /events surface, renamed). The
+ * Build slot from TopNav is intentionally omitted here — agent devs read
+ * docs on desktop, not on mobile. The launch-wizard / Discover / agents
+ * surfaces from the prior strategy-token product are retired.
  */
 const NAV_ITEMS = [
   {
-    href: "/",
-    label: "Discover",
-    activePrefix: "/markets",
+    href: "/markets",
+    label: "Markets",
     icon: () => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="9" />
@@ -61,9 +59,8 @@ export function BottomNav() {
       {NAV_ITEMS.map((item) => {
         const active =
           pathname === item.href ||
-          (item.activePrefix
-            ? (pathname?.startsWith(item.activePrefix) ?? false)
-            : item.href !== "/" && (pathname?.startsWith(item.href) ?? false));
+          (item.href !== "/" &&
+            (pathname?.startsWith(item.href) ?? false));
         return (
           <Link
             key={item.href}

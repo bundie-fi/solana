@@ -6,7 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { toast } from "sonner";
 import { BUSD_MINT } from "@bundie/common";
-import { claimFaucet } from "@/app/strategists/lib/api";
+import { claimFaucet } from "@/lib/faucet";
 
 /**
  * Lightweight bUSD-balance + claim widget for bettors on /markets and

@@ -6,7 +6,6 @@ import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
-import { PostConnectRedirect } from "@/components/PostConnectRedirect";
 import {
   DeferredOnboardingTour,
   DeferredToaster,
@@ -110,7 +109,6 @@ export default function RootLayout({
           <BottomNav />
           {/* First-run UX surfaces, must sit inside ClientProviders so
               they can read wallet state via useWallet(). */}
-          <PostConnectRedirect />
           <DeferredOnboardingTour />
         </ClientProviders>
         <DeferredToaster />

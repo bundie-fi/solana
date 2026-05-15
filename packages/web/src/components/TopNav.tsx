@@ -13,15 +13,22 @@ const WalletButton = dynamic(
   { ssr: false },
 );
 
-// Desktop primary nav mirrors the mobile BottomNav (Discover · Portfolio
-// · Wallet) so labels + routes match across breakpoints. Discover is the
-// bettor surface at /; Wallet is the new wallet hub at /wallet. The Create
-// entry (launch wizard at /strategists) was removed when the product
-// pivoted to bettor-first — the wizard URL still works, just no nav link.
-const LINKS: { href: string; label: string; activePrefix?: string }[] = [
-  { href: "/",            label: "Discover",   activePrefix: "/markets" },
-  { href: "/portfolio",   label: "Portfolio" },
-  { href: "/wallet",      label: "Wallet" },
+// Desktop primary nav mirrors the mobile BottomNav so labels + routes
+// match across breakpoints. The 2026-05 oracle-positioning overhaul
+// retired Discover (which led to the old NAV/strategy index) in favour
+// of Markets (event markets) + Build (agent API surface, /api lands in
+// PR-2; the slot is reserved here so PR-1 doesn't reshuffle the nav
+// twice). When /api ships, flip Build's `disabled` flag.
+const LINKS: {
+  href: string;
+  label: string;
+  activePrefix?: string;
+  disabled?: boolean;
+}[] = [
+  { href: "/markets",   label: "Markets" },
+  { href: "/api",       label: "Build", disabled: true },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/wallet",    label: "Wallet" },
 ];
 
 function truncateAddress(address: string): string {
@@ -82,14 +89,31 @@ export function TopNav() {
           without chrome. */}
       <nav className="topnav-links" aria-label="Primary">
         {LINKS.map((l, i) => {
-          // The Markets tab points at `/` but should also light up on
-          // `/markets`, so treat an explicit `activePrefix` as "also
-          // match this path family" , independent of href === "/".
           const active =
             pathname === l.href ||
             (l.activePrefix
               ? pathname?.startsWith(l.activePrefix) ?? false
               : l.href !== "/" && (pathname?.startsWith(l.href) ?? false));
+          const numLabel = String(i + 1).padStart(2, "0");
+          // Disabled links (the Build slot until /api ships in PR-2)
+          // render as static text — same chrome, no href, soon-tag.
+          if (l.disabled) {
+            return (
+              <span
+                key={l.href}
+                className="topnav-link is-disabled"
+                aria-disabled="true"
+              >
+                <span className="topnav-link-num">{numLabel}</span>
+                <span className="topnav-link-label">
+                  {l.label}
+                  <span className="topnav-link-soon" aria-hidden="true">
+                    Soon
+                  </span>
+                </span>
+              </span>
+            );
+          }
           return (
             <Link
               key={l.href}
@@ -97,9 +121,7 @@ export function TopNav() {
               aria-current={active ? "page" : undefined}
               className={`topnav-link ${active ? "is-active" : ""}`}
             >
-              <span className="topnav-link-num">
-                {String(i + 1).padStart(2, "0")}
-              </span>
+              <span className="topnav-link-num">{numLabel}</span>
               <span className="topnav-link-label">
                 {l.label}
                 <span className="topnav-link-rule" aria-hidden="true" />
@@ -173,6 +195,23 @@ export function TopNav() {
         .topnav-link.is-active { color: var(--de-ink); }
         .topnav-link.is-active .topnav-link-num { color: var(--de-lavender); }
         .topnav-link.is-active .topnav-link-rule { transform: scaleX(1); }
+
+        .topnav-link.is-disabled { cursor: default; color: var(--de-ink-5); }
+        .topnav-link.is-disabled:hover { color: var(--de-ink-5); }
+        .topnav-link.is-disabled .topnav-link-num { color: var(--de-ink-5); }
+        .topnav-link-soon {
+          margin-left: 8px;
+          padding: 2px 6px;
+          border: 1px solid var(--de-line-2);
+          border-radius: 4px;
+          background: var(--de-bg-raised);
+          font-size: 8.5px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          color: var(--de-ink-4);
+          text-transform: uppercase;
+          vertical-align: middle;
+        }
       `}</style>
 
       {/* Right cluster: Devnet pill + Wallet. The "+ Launch agent" gold

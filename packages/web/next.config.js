@@ -26,22 +26,29 @@ const nextConfig = {
     ],
   },
   transpilePackages: ["@bundie/common"],
-  // /create-agent was renamed to /strategists when we repositioned the
-  // app as bettor-first. Permanent redirect keeps any external deep links
-  // (docs, social posts, the portfolio "Resume wizard" link cached in
-  // bookmarks) pointing at the new route.
+  // 2026-05-15: oracle-positioning overhaul. The strategy-token product
+  // (agents, strategists, NAV markets, activity feed) was retired in
+  // favour of the event-oracle surface (live event markets + x402 reads
+  // for AI agents). Permanent redirects keep external links, social
+  // posts, and bookmarks pointing somewhere useful instead of 404ing.
   async redirects() {
     return [
-      {
-        source: "/create-agent",
-        destination: "/strategists",
-        permanent: true,
-      },
-      {
-        source: "/create-agent/:path*",
-        destination: "/strategists/:path*",
-        permanent: true,
-      },
+      // /events was the old route for the event-market surface; renamed
+      // to /markets so the nav slot and IA match the new product story.
+      { source: "/events", destination: "/markets", permanent: true },
+      { source: "/events/:id", destination: "/markets/:id", permanent: true },
+      // Retired strategy-token routes. Everything lands on /markets so
+      // the user sees the live product instead of a 404.
+      { source: "/agents", destination: "/markets", permanent: true },
+      { source: "/agent/:path*", destination: "/markets", permanent: true },
+      { source: "/strategists", destination: "/markets", permanent: true },
+      { source: "/strategists/:path*", destination: "/markets", permanent: true },
+      { source: "/feed", destination: "/markets", permanent: true },
+      { source: "/market/:id", destination: "/markets", permanent: true },
+      // Earlier rename, pre-overhaul. Kept so /create-agent → /strategists
+      // → /markets follows the redirect chain to the right destination.
+      { source: "/create-agent", destination: "/markets", permanent: true },
+      { source: "/create-agent/:path*", destination: "/markets", permanent: true },
     ];
   },
   // Public devnet config — baked in at build time (not secrets)

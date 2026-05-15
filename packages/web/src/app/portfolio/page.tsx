@@ -16,10 +16,22 @@ import {
 } from "@/lib/markets";
 import { PROGRAM_IDS } from "@/lib/constants";
 import { PositionCard, type Position } from "@/components/position-card";
-import {
-  fetchPendingAgents,
-  type AgentRowFull,
-} from "@/app/strategists/lib/api";
+
+// PendingAgents section was tied to the retired strategist wizard. The
+// 2026-05-15 oracle-positioning overhaul (PR-1) stubbed it out — PR-3
+// will rebuild this page around event-market positions only. For now,
+// `fetchPendingAgents` returns [] so the PendingAgentCard never renders;
+// the type retains the field names the dead code below still references.
+interface AgentRowFull {
+  sns: string;
+  seed_amount_busd: number;
+  emoji: string | null;
+  display_name: string | null;
+  vault_pda: string;
+}
+async function fetchPendingAgents(_wallet: string): Promise<AgentRowFull[]> {
+  return [];
+}
 
 /**
  * My Bets, shows the connected wallet's YES/NO positions across every
