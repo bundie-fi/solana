@@ -19,7 +19,10 @@
  * prediction-market program upgrade lands on devnet.
  */
 
-import { BN, type Program } from "@coral-xyz/anchor";
+import anchor, { type Program } from "@coral-xyz/anchor";
+// `@coral-xyz/anchor` is CJS; named-importing BN under ESM throws
+// "Named export 'BN' not found" at runtime. Pull it off the default export.
+const { BN } = anchor;
 import {
   type Keypair,
   PublicKey,
