@@ -207,7 +207,11 @@ nav.top .inner {
   align-items: center;
   gap: 18px;
   max-width: 1160px;
-  margin: 96px auto 0;
+  /* Tightened 2026-05-15: was 96px. Combined with the trimmed
+     section.content padding, total rest gap between two sections is
+     now ~96-128px (was ~152-272px) — still gives the page breathing
+     room without feeling padded-out. */
+  margin: clamp(40px, 4vw, 56px) auto 0;
   padding: 0 32px;
 }
 .section-rule-line {
@@ -479,7 +483,10 @@ section.hero .wrap { position: relative; z-index: 2; }
 /* ---------- Sections --------------------------------------------------- */
 section.content {
   position: relative;
-  padding: clamp(56px, 6vw, 88px) 0;
+  /* Tightened 2026-05-15: was clamp(56px, 6vw, 88px). The section-rule
+     dividers between sections already carry visual rhythm; padding this
+     wide doubled the rest gap and made the page feel padded-out. */
+  padding: clamp(40px, 4vw, 64px) 0;
 }
 .section-head {
   /* Left-aligned by default, the editorial standard for chapter-style
@@ -487,7 +494,7 @@ section.content {
      centered alignment via their own scoped class names; body
      chapters all share this rhythm. */
   text-align: left;
-  margin-bottom: clamp(32px, 4vw, 56px);
+  margin-bottom: clamp(24px, 3vw, 40px);
 }
 .section-head .eyebrow { margin-bottom: 20px; display: inline-block; }
 
