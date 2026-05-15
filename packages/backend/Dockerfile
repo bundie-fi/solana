@@ -57,6 +57,12 @@ COPY --from=deps /app/packages/zerion-agent/node_modules ./packages/zerion-agent
 COPY --from=builder /app/packages/backend/dist ./packages/backend/dist
 COPY --from=builder /app/packages/backend/package.json ./packages/backend/package.json
 COPY packages/common ./packages/common
+# The /v1/event-price registry loader reads sources.json from the
+# programs package at runtime (see backend/src/v1/registry.ts). Copy
+# just the resolvers subdir so the backend image carries the live
+# event definitions; mirrors what Dockerfile.resolver does for the
+# resolver-runner service.
+COPY packages/programs/scripts/resolvers ./packages/programs/scripts/resolvers
 COPY packages/zerion-agent ./packages/zerion-agent
 COPY package.json pnpm-workspace.yaml ./
 
