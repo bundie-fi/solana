@@ -13,7 +13,9 @@ import { stats } from "./routes/stats.js";
 import { v1 } from "./v1/event-price.js";
 import { x402 } from "./v1/x402.js";
 import { proposals } from "./v1/market-proposals.js";
+import { admin } from "./v1/admin.js";
 import { rateLimit, startRateLimitGc } from "./v1/rate-limit.js";
+import { ensureSchema } from "./lib/migrations.js";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { buildStreamRouter } from "./v1/event-price-stream.js";
 
@@ -97,6 +99,7 @@ app.route("/", stats);
 app.use("/v1/*", x402());
 app.route("/v1", v1);
 app.route("/v1", proposals);
+app.route("/v1/admin", admin);
 
 // WS live price stream. createNodeWebSocket returns an `upgradeWebSocket`
 // helper bound to this Hono app; the matching `injectWebSocket(server)`
@@ -108,6 +111,11 @@ app.route("/v1/event-price", buildStreamRouter(upgradeWebSocket));
 const port = Number(process.env.PORT) || 3001;
 
 console.log(`Bundie backend listening on port ${port}`);
+
+// Idempotent schema bootstrap. Runs once on cold start so a fresh deploy
+// against an empty DB just works. Fire-and-forget — failures log but
+// don't gate the listen() since the backend's db queries are fail-open.
+void ensureSchema();
 
 const server = serve({ fetch: app.fetch, port });
 injectWebSocket(server);
