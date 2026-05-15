@@ -10,7 +10,6 @@ import {
 } from "@/lib/events";
 import { TradeButtons } from "./TradeButtons";
 import { PositionDisplay } from "./PositionDisplay";
-import { AgentPanel } from "./AgentPanel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 5;
@@ -19,35 +18,17 @@ interface EventPageProps {
   params: Promise<{ id: string }>;
 }
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://backend.solana.bundie.fi";
-
-async function getAttestationKey(): Promise<string | undefined> {
-  try {
-    const res = await fetch(`${BACKEND_URL}/v1/attestation-key`, {
-      next: { revalidate: 600, tags: ["attestation-key"] },
-    });
-    if (!res.ok) return undefined;
-    const body = (await res.json()) as { public_key_base58?: string };
-    return body.public_key_base58;
-  } catch {
-    return undefined;
-  }
-}
-
 export default async function EventPage(props: EventPageProps) {
   const { id } = await props.params;
   const eventId = decodeURIComponent(id);
 
   let price: EventPrice | null = null;
   let detail: EventDetail | null = null;
-  let attestationKey: string | undefined;
 
   try {
-    [price, detail, attestationKey] = await Promise.all([
+    [price, detail] = await Promise.all([
       getEventPrice(eventId),
       getEventDetail(eventId),
-      getAttestationKey(),
     ]);
   } catch {
     notFound();
@@ -108,31 +89,27 @@ export default async function EventPage(props: EventPageProps) {
         </div>
       </section>
 
-      {/* Hero band: prices on the left, agent panel on the right. */}
+      {/* Hero band: YES / NO outcome prices, full width.
+          The right-side AgentPanel was removed in the 2026-05-15 PR-3
+          polish — this is the trader surface; agent-facing affordances
+          live on the marketing landing. */}
       <section className="border-b border-[var(--de-line)] px-6 py-10 sm:px-12">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
-          <div className="grid grid-cols-2 gap-4">
-            <OutcomeCard
-              label="YES"
-              value={yesPct}
-              accent="mint"
-              caption={
-                detail.outcome_yes ? humanResolution(detail.outcome_yes) : null
-              }
-            />
-            <OutcomeCard
-              label="NO"
-              value={noPct}
-              accent="rose"
-              caption={
-                detail.outcome_no ? humanResolution(detail.outcome_no) : null
-              }
-            />
-          </div>
-          <AgentPanel
-            eventId={eventId}
-            attestationKey={attestationKey}
-            backendUrl={BACKEND_URL}
+        <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4">
+          <OutcomeCard
+            label="YES"
+            value={yesPct}
+            accent="mint"
+            caption={
+              detail.outcome_yes ? humanResolution(detail.outcome_yes) : null
+            }
+          />
+          <OutcomeCard
+            label="NO"
+            value={noPct}
+            accent="rose"
+            caption={
+              detail.outcome_no ? humanResolution(detail.outcome_no) : null
+            }
           />
         </div>
       </section>

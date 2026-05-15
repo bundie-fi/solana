@@ -17,22 +17,6 @@ import {
 import { PROGRAM_IDS } from "@/lib/constants";
 import { PositionCard, type Position } from "@/components/position-card";
 
-// PendingAgents section was tied to the retired strategist wizard. The
-// 2026-05-15 oracle-positioning overhaul (PR-1) stubbed it out — PR-3
-// will rebuild this page around event-market positions only. For now,
-// `fetchPendingAgents` returns [] so the PendingAgentCard never renders;
-// the type retains the field names the dead code below still references.
-interface AgentRowFull {
-  sns: string;
-  seed_amount_busd: number;
-  emoji: string | null;
-  display_name: string | null;
-  vault_pda: string;
-}
-async function fetchPendingAgents(_wallet: string): Promise<AgentRowFull[]> {
-  return [];
-}
-
 /**
  * My Bets, shows the connected wallet's YES/NO positions across every
  * Bundie prediction market.
@@ -50,7 +34,6 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [pendingAgents, setPendingAgents] = useState<AgentRowFull[]>([]);
   // Captured from the load() pass and surfaced in the page header as
   // the issue's "publish slot" — the editorial date stamp.
   const [currentSlot, setCurrentSlot] = useState<number | null>(null);
@@ -158,22 +141,6 @@ export default function PortfolioPage() {
     load();
   }, [load]);
 
-  // Pending registrations live in Postgres, not on-chain, fetched
-  // separately from the markets/positions load so a transient backend
-  // hiccup doesn't break the rest of the page.
-  useEffect(() => {
-    if (!publicKey || !connected) {
-      setPendingAgents([]);
-      return;
-    }
-    let cancelled = false;
-    fetchPendingAgents(publicKey.toBase58()).then((rows) => {
-      if (!cancelled) setPendingAgents(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [publicKey, connected]);
 
   const { open, pending, resolved } = useMemo(() => {
     const open: Position[] = [];
@@ -249,7 +216,6 @@ export default function PortfolioPage() {
               <QuickstartChecklist
                 hasSol={(solBalance ?? 0) > 0}
                 hasBet={positions.length > 0}
-                hasAgent={pendingAgents.length > 0}
               />
             ) : (
               <>
@@ -280,7 +246,6 @@ export default function PortfolioPage() {
               address={publicKey?.toBase58() ?? null}
               sol={solBalance}
             />
-            <PendingAgentsSection agents={pendingAgents} />
           </aside>
         </div>
       </div>
@@ -412,11 +377,9 @@ function IdentityCard({
 function QuickstartChecklist({
   hasSol,
   hasBet,
-  hasAgent,
 }: {
   hasSol: boolean;
   hasBet: boolean;
-  hasAgent: boolean;
 }) {
   const steps: Array<{
     label: string;
@@ -436,23 +399,16 @@ function QuickstartChecklist({
     },
     {
       label: "Place your first bet on a market",
-      detail: "Pick a side on any open prediction market. LS-LMSR pool, no spread.",
+      detail: "Pick a side on any open event market. LS-LMSR pool, no spread.",
       href: "/markets",
       cta: "Browse markets",
       done: hasBet,
     },
     {
-      label: "Launch your own strategy",
-      detail: "Mint a .bundie.sol identity for an agent that trades real Solana DeFi.",
-      href: "/strategists",
-      cta: "Start a strategy",
-      done: hasAgent,
-    },
-    {
-      label: "Watch settlement on-chain",
-      detail: "Once a market reaches its resolution slot, NAV decides the winner.",
-      href: "/feed",
-      cta: "Open the feed",
+      label: "Watch resolution land on-chain",
+      detail: "When the trigger condition fires, the market self-resolves from a signed feed and your position settles automatically.",
+      href: "/markets",
+      cta: "View open markets",
       done: false,
     },
   ];
@@ -529,94 +485,6 @@ function PositionSection({
         ))}
       </div>
     </section>
-  );
-}
-
-function PendingAgentsSection({ agents }: { agents: AgentRowFull[] }) {
-  if (agents.length === 0) return null;
-  return (
-    <section style={{ marginBottom: 24 }}>
-      <div style={{ marginBottom: 10 }}>
-        <div
-          className="mono"
-          style={{
-            fontSize: 10,
-            textTransform: "uppercase",
-            letterSpacing: "0.18em",
-            color: "var(--de-lavender)",
-            fontWeight: 500,
-          }}
-        >
-          Pending registrations · {agents.length}
-        </div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
-          Agents whose vault is on-chain but the $50 seed deposit hasn&rsquo;t cleared.
-        </div>
-      </div>
-      <div className="card-stack">
-        {agents.map((a) => (
-          <PendingAgentCard key={a.sns} agent={a} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function PendingAgentCard({ agent }: { agent: AgentRowFull }) {
-  const seedDollars = Number(agent.seed_amount_busd) / 1_000_000;
-  return (
-    <div
-      className="card hairline"
-      style={{
-        padding: 14,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        borderColor: "var(--de-lavender)",
-      }}
-    >
-      <div style={{ fontSize: 28, lineHeight: 1 }}>{agent.emoji ?? "🤖"}</div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 16,
-            color: "var(--de-ink)",
-            letterSpacing: "-0.015em",
-          }}
-        >
-          {agent.display_name || agent.sns}
-        </div>
-        <div className="mono gold" style={{ fontSize: 11 }}>
-          {agent.sns}
-        </div>
-        <div className="muted mono-tiny" style={{ fontSize: 10.5, marginTop: 4 }}>
-          ${seedDollars.toFixed(2)} bUSD seed pending · vault {agent.vault_pda.slice(0, 6)}…{agent.vault_pda.slice(-4)}
-        </div>
-      </div>
-      <Link
-        href={`/strategists?resume=${encodeURIComponent(agent.sns)}`}
-        style={{
-          height: 36,
-          padding: "0 14px",
-          background: "var(--de-lavender)",
-          color: "#fff",
-          border: "1px solid var(--de-lavender)",
-          borderRadius: 8,
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: "0.12em",
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          flexShrink: 0,
-        }}
-      >
-        Resume →
-      </Link>
-    </div>
   );
 }
 
