@@ -287,9 +287,7 @@ export default function Home() {
               <h2 className="section" style={{ marginTop: 16 }}>
                 A loop, not a feed.
                 <span className="section-coda">
-                  <RevealText className="text-reveal text-reveal-italic text-reveal-on-light">
-                    Traders price it. Agents read it.
-                  </RevealText>
+                  Traders price it. Agents read it.
                 </span>
               </h2>
             </StaggerItem>

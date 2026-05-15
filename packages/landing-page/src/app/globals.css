@@ -3196,8 +3196,19 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
    line at the same left edge as the headline (not wrapped overflow).
    Removes the visual mismatch between an h2 headline and a smaller
    <p> subtitle that was reading as "two separate things". */
+/* The coda used to wrap the text in a RevealText span which applies
+   `color: transparent + background-clip: text` for a gradient wipe
+   animation. Result: coda started invisible on first paint and only
+   filled in after IntersectionObserver fired, which read as a misaligned
+   second line because the user saw the headline alone with a faint
+   ghost beneath it. RevealText wrapper is gone now; the !important +
+   background reset below is defensive against any reveal class
+   accidentally landing on this element in the future. */
 h2.section .section-coda {
   display: block;
   font-style: italic;
-  color: rgba(18, 68, 58, 0.85);
+  color: rgba(18, 68, 58, 0.85) !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
 }
