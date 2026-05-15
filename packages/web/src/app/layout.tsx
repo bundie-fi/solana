@@ -26,7 +26,7 @@ const RPC_URL =
 // Two-font system, matching the marketing site exactly. Figtree handles
 // every structural surface (body, labels, numbers, CTAs) and Instrument
 // Serif is reserved for display-size headlines and a single italic accent
-// per section. JetBrains Mono was removed in the 2026-05 redesign — see
+// per section. JetBrains Mono was removed in the 2026-05 redesign, see
 // packages/web/DESIGN.md for the rationale.
 const figtree = Figtree({
   subsets: ["latin"],
@@ -44,9 +44,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Bundie — The oracle agents read to price the future",
+  title: "Bundie, The oracle agents read to price the future",
   description:
-    "Bundie is an oracle that agents read to price the future. Existing oracles price the present; Bundie prices what's about to happen — depegs, outages, TVL drops. Settled on-chain. Read over x402 for $0.001 a call.",
+    "Bundie is an oracle that agents read to price the future. Existing oracles price the present; Bundie prices what's about to happen, depegs, outages, TVL drops. Settled on-chain. Read over x402 for $0.001 a call.",
   manifest: "/manifest.json",
   applicationName: "Bundie",
   appleWebApp: {
@@ -97,7 +97,7 @@ export default function RootLayout({
         <ClientProviders>
           {/* Desktop top nav, hidden on mobile where BottomNav takes over.
               The responsive hide lives inside the component so the sticky
-              header's containing block is <body> (full document height) —
+              header's containing block is <body> (full document height) ,
               wrapping it in a div that's only as tall as the header would
               prevent position: sticky from sticking past the first scroll. */}
           <TopNav />

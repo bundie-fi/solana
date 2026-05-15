@@ -86,7 +86,7 @@ export function Footer() {
             >
               The index of DeFi performance you can trade on. AI agents
               run real strategies on Solana; markets settle from on-chain
-              NAV — no oracle, no committee.
+              NAV, no oracle, no committee.
             </p>
           </div>
 

@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * /wallet — connected-wallet hub.
+ * /wallet, connected-wallet hub.
  *
  * Hero: SOL + bUSD balance summary (USD-equivalent), truncated address
  * with copy. ActionRow: Send · Receive · Swap · Buy. Tabs: Tokens (live
  * SPL token balances), Domains (.bundie SNS list), Connected apps
  * (placeholder for the future MWA session list).
  *
- * Reads live state from wallet-adapter. No auto-poll — re-renders on
+ * Reads live state from wallet-adapter. No auto-poll, re-renders on
  * connection events. SOL price is fetched from Pyth; bUSD is treated as
  * USD-pegged (matches treasury sync semantics).
  */
@@ -58,7 +58,7 @@ export default function WalletPage() {
 
   const [solLamports, setSolLamports] = useState<number | null>(null);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
-  // Single-surface wallet — Domains + Connected apps tabs were dropped
+  // Single-surface wallet, Domains + Connected apps tabs were dropped
   // (the .bundie SNS list lives on the agent profile / identity flow,
   // and there's no MWA session list to surface yet). The tokens view is
   // the only relevant content, so we render it inline.
@@ -110,8 +110,8 @@ export default function WalletPage() {
     };
   }, [publicKey, connected, connection]);
 
-  // SOL price — best-effort, falls back to a static ref. Pyth is
-  // server-side in this codebase; for the demo, a static is fine — the
+  // SOL price, best-effort, falls back to a static ref. Pyth is
+  // server-side in this codebase; for the demo, a static is fine, the
   // wallet hero is approximate by definition.
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +163,7 @@ export default function WalletPage() {
             Connect to view your wallet
           </h1>
           <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 24 }}>
-            Bundie reads your SOL + bUSD balance directly from devnet — nothing leaves
+            Bundie reads your SOL + bUSD balance directly from devnet, nothing leaves
             your device.
           </p>
           <WalletButton />
@@ -208,7 +208,7 @@ export default function WalletPage() {
         </button>
       </div>
 
-      {/* Action row — Send opens the in-app SOL/SPL transfer modal,
+      {/* Action row, Send opens the in-app SOL/SPL transfer modal,
           Receive opens an in-app QR modal. Swap + Buy deep-links removed
           since they're not relevant for the devnet bUSD demo flow (no
           Jupiter route exists for bUSD, no fiat onramp for testnet). */}
@@ -237,7 +237,7 @@ export default function WalletPage() {
         />
       )}
 
-      {/* Tokens — only surface left after Domains + Connected apps were
+      {/* Tokens, only surface left after Domains + Connected apps were
           removed. Heading kept so the section has a visible label. */}
       <div style={{ borderBottom: "1px solid var(--de-line)", padding: "10px 16px" }}>
         <span style={{
@@ -269,7 +269,7 @@ export default function WalletPage() {
         )}
       </div>
 
-      {/* Disconnect — last action, not loud */}
+      {/* Disconnect, last action, not loud */}
       <div style={{ padding: "32px 16px 16px" }}>
         <button
           type="button"
@@ -350,7 +350,7 @@ function TokenRow({
             fontVariantNumeric: "tabular-nums", marginTop: 2, whiteSpace: "nowrap",
           }}
         >
-          {usdValue != null ? fmtUsd(usdValue) : "—"}
+          {usdValue != null ? fmtUsd(usdValue) : "·"}
         </div>
       </div>
     </div>
@@ -362,7 +362,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
   // The backend's /api/agents?ownerWallet= filter already supports this
   // (powers the wizard's "resume" flow); we re-use it for an honest
   // domain list. SNS verification status surfaces as a small ✓ next to
-  // verified names — same indicator as the agent profile uses.
+  // verified names, same indicator as the agent profile uses.
   const [domains, setDomains] = useState<
     { sns: string; verified: boolean; vaultPda: string }[]
   >([]);
@@ -390,7 +390,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
           }[];
         };
         const list = (body.agents ?? [])
-          // Drop pending_init rows — they don't have a live name yet
+          // Drop pending_init rows, they don't have a live name yet
           .filter((a) => a.status !== "pending_init")
           .map((a) => ({
             sns: a.sns,
@@ -479,7 +479,7 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
 }
 
 function fmtUsd(n: number): string {
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return "·";
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
   return `$${n.toFixed(2)}`;
@@ -545,7 +545,7 @@ function ActionTile({
 // ─── Receive modal ────────────────────────────────────────────────────────
 
 function ReceiveModal({ addr, onClose }: { addr: string; onClose: () => void }) {
-  // Lightweight QR generator: build a Google Charts URL — works offline-
+  // Lightweight QR generator: build a Google Charts URL, works offline-
   // friendly enough for a TWA wrapper (chrome will cache after first load),
   // and avoids pulling in a 30KB QR library for a single use case.
   const qrUrl = useMemo(
@@ -607,7 +607,7 @@ function ReceiveModal({ addr, onClose }: { addr: string; onClose: () => void }) 
       <p style={{ fontSize: 11, color: "var(--de-ink-4)", textAlign: "center", marginTop: 12, lineHeight: 1.4 }}>
         Send SOL or any SPL token to this address.
         <br />
-        Devnet only — do not send mainnet funds.
+        Devnet only, do not send mainnet funds.
       </p>
     </ModalShell>
   );
@@ -663,7 +663,7 @@ function SendModal({
         );
       } else {
         // bUSD = SPL token. Resolve recipient ATA, create if missing
-        // (signed by the sender — recipient pays no rent).
+        // (signed by the sender, recipient pays no rent).
         const mint = new PublicKey(BUSD_MINT);
         const fromAta = await getAssociatedTokenAddress(mint, publicKey);
         const toAta = await getAssociatedTokenAddress(mint, to);
@@ -824,7 +824,7 @@ function ModalShell({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  // Esc to close — stops the user from getting stuck in a modal on
+  // Esc to close, stops the user from getting stuck in a modal on
   // desktop (mobile users tap the backdrop or back button).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

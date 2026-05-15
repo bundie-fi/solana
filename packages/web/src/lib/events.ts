@@ -59,7 +59,7 @@ export interface EventDetail {
   market_address: string | null;
 }
 
-/** GET /v1/events — list all registered events. */
+/** GET /v1/events, list all registered events. */
 export async function listEvents(): Promise<EventSummary[]> {
   const res = await fetch(`${BACKEND_URL}/v1/events`, {
     next: { revalidate: 30, tags: ["events"] },
@@ -71,7 +71,7 @@ export async function listEvents(): Promise<EventSummary[]> {
   return body.events;
 }
 
-/** GET /v1/event-price?id=... — live market price. */
+/** GET /v1/event-price?id=..., live market price. */
 export async function getEventPrice(eventId: string): Promise<EventPrice> {
   const res = await fetch(
     `${BACKEND_URL}/v1/event-price?id=${encodeURIComponent(eventId)}`,
@@ -83,7 +83,7 @@ export async function getEventPrice(eventId: string): Promise<EventPrice> {
   return (await res.json()) as EventPrice;
 }
 
-/** GET /v1/event-detail?id=... — full event metadata. */
+/** GET /v1/event-detail?id=..., full event metadata. */
 export async function getEventDetail(eventId: string): Promise<EventDetail> {
   const res = await fetch(
     `${BACKEND_URL}/v1/event-detail?id=${encodeURIComponent(eventId)}`,
@@ -97,13 +97,13 @@ export async function getEventDetail(eventId: string): Promise<EventDetail> {
 
 /** Render a probability as a percentage string. */
 export function formatPrice(price: number): string {
-  if (price < 0 || price > 1) return "—";
+  if (price < 0 || price > 1) return "·";
   return `${(price * 100).toFixed(1)}%`;
 }
 
 /** Render USD depth with a thousand-separator. */
 export function formatDepth(usd: number): string {
-  if (usd === 0) return "—";
+  if (usd === 0) return "·";
   if (usd < 1000) return `$${usd.toFixed(0)}`;
   if (usd < 1_000_000) return `$${(usd / 1000).toFixed(1)}k`;
   return `$${(usd / 1_000_000).toFixed(2)}M`;
@@ -119,7 +119,7 @@ export function marketKindLabel(kind: MarketKind): string {
     case 9:
       return "Status Poll";
     default:
-      return "—";
+      return "·";
   }
 }
 

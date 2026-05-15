@@ -35,7 +35,7 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Captured from the load() pass and surfaced in the page header as
-  // the issue's "publish slot" — the editorial date stamp.
+  // the issue's "publish slot", the editorial date stamp.
   const [currentSlot, setCurrentSlot] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -164,7 +164,7 @@ export default function PortfolioPage() {
               <div className="po-card-eyebrow">No wallet</div>
               <p style={{ margin: "4px 0 16px", fontSize: 13.5, color: "var(--de-ink-2)", lineHeight: 1.55 }}>
                 Connect a Solana wallet to publish your portfolio. Bundie reads
-                balances directly from devnet — nothing leaves your device.
+                balances directly from devnet, nothing leaves your device.
               </p>
               <WalletMultiButton
                 style={{
@@ -265,7 +265,7 @@ function PortfolioHeader({
   slot: number | null;
   address: string | null;
 }) {
-  const slotStr = slot != null ? slot.toLocaleString("en-US") : "—";
+  const slotStr = slot != null ? slot.toLocaleString("en-US") : "·";
   const truncated = address
     ? `${address.slice(0, 4)}…${address.slice(-4)}`
     : null;
@@ -310,7 +310,7 @@ function BalanceStrip({
 }) {
   return (
     <div className="po-stats">
-      <Stat label="SOL balance" value={sol == null ? "—" : sol.toFixed(4)} accent />
+      <Stat label="SOL balance" value={sol == null ? "," : sol.toFixed(4)} accent />
       <Stat label="Open" value={String(openCount)} />
       <Stat label="Pending" value={String(pendingCount)} />
       <Stat label="Resolved" value={String(resolvedCount)} />
@@ -359,7 +359,7 @@ function IdentityCard({
       <div className="po-identity-row">
         <span className="po-identity-label">SOL</span>
         <span className="po-identity-value">
-          {sol == null ? "—" : `${sol.toFixed(4)} SOL`}
+          {sol == null ? "," : `${sol.toFixed(4)} SOL`}
         </span>
       </div>
       <div className="po-identity-row">

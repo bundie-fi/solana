@@ -10,6 +10,7 @@ import {
 } from "@/lib/events";
 import { TradeButtons } from "./TradeButtons";
 import { PositionDisplay } from "./PositionDisplay";
+import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 5;
@@ -91,7 +92,7 @@ export default async function EventPage(props: EventPageProps) {
 
       {/* Hero band: YES / NO outcome prices, full width.
           The right-side AgentPanel was removed in the 2026-05-15 PR-3
-          polish — this is the trader surface; agent-facing affordances
+          polish, this is the trader surface; agent-facing affordances
           live on the marketing landing. */}
       <section className="border-b border-[var(--de-line)] px-6 py-10 sm:px-12">
         <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4">
@@ -114,9 +115,14 @@ export default async function EventPage(props: EventPageProps) {
         </div>
       </section>
 
-      {/* Trade panel + position strip. Visually one panel, two layers. */}
+      {/* Trade panel + position strip. Visually one panel, two layers.
+          The faucet CTA renders above only when the connected wallet has
+          0 bUSD; that's the gating resource for placing a bet and a
+          deep-linker to /markets/[id] won't have seen the faucet on
+          /markets first. */}
       <section className="border-b border-[var(--de-line)] px-6 py-10 sm:px-12">
         <div className="mx-auto max-w-5xl">
+          <BettorFaucetCTA />
           <h2 className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
             Trade
           </h2>

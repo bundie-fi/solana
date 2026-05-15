@@ -13,7 +13,7 @@ import { claimFaucet } from "@/lib/faucet";
  * /market/:id. Exists so a user who wants to predict (but not launch
  * an agent) doesn't have to walk through the full wizard just to get
  * collateral. Hides itself entirely while the wallet is disconnected
- * — the empty hero already nudges visitors to connect.
+ *, the empty hero already nudges visitors to connect.
  */
 export function BettorFaucetCTA() {
   const { publicKey, connected } = useWallet();
@@ -53,7 +53,7 @@ export function BettorFaucetCTA() {
       // to ingest the mint then reread.
       await new Promise((r) => setTimeout(r, 1500));
       await refresh();
-      toast.success("Claimed $100 bUSD — you're ready to bet.");
+      toast.success("Claimed $100 bUSD, you're ready to bet.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(msg.includes("429") ? "Faucet busy, try again in a moment." : `Faucet error: ${msg}`);

@@ -11,20 +11,20 @@ import {
 } from "@/lib/pricing";
 
 // 30s ISR. Five-band editorial home page:
-//   1. Hero — oracle one-liner, two CTAs, devnet chips
-//   2. Live consensus strip — 4-up of the highest-depth active markets
-//   3. By domain — category cards grouped by resolver_class
-//   4. Agent panel — curl + JSON response example + dynamic-pricing note
-//   5. Footer — brand line + nav links
+//   1. Hero, oracle one-liner, two CTAs, devnet chips
+//   2. Live consensus strip, 4-up of the highest-depth active markets
+//   3. By domain, category cards grouped by resolver_class
+//   4. Agent panel, curl + JSON response example + dynamic-pricing note
+//   5. Footer, brand line + nav links
 //
 // All cards reuse the same cream/serif system as /markets so the surfaces
 // feel like one publication. See packages/web/DESIGN.md for the rationale.
 export const revalidate = 30;
 
 export const metadata = {
-  title: "Bundie — The oracle agents read to price the future",
+  title: "Bundie, The oracle agents read to price the future",
   description:
-    "Bundie is an oracle that agents read to price the future. Existing oracles price the present; Bundie prices what's about to happen — depegs, outages, TVL drops. Settled on-chain. Read over x402, priced dynamically by market depth.",
+    "Bundie is an oracle that agents read to price the future. Existing oracles price the present; Bundie prices what's about to happen, depegs, outages, TVL drops. Settled on-chain. Read over x402, priced dynamically by market depth.",
 };
 
 export default async function Home() {
@@ -69,7 +69,7 @@ function Hero() {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-snug text-[var(--de-ink-2)]">
-          Existing oracles price the present — BTC right now, ETH right now.
+          Existing oracles price the present, BTC right now, ETH right now.
           Bundie prices what&rsquo;s about to happen: depegs, outages, TVL
           drops. Every measurable event has a live consensus price, settled
           on-chain.
@@ -347,7 +347,7 @@ const DOMAIN_TITLES: Record<DomainKey, string> = {
 
 const DOMAIN_BLURBS: Record<DomainKey, string> = {
   stablecoin: "Will a stablecoin lose its peg, and for how long?",
-  tvl: "TVL drops past a threshold — fast withdrawals, depositor exits.",
+  tvl: "TVL drops past a threshold, fast withdrawals, depositor exits.",
   cloud: "API and service outages on AWS, Anthropic, OpenAI, Cloudflare.",
   incident: "Region-level outages and validator-level events.",
   other: "Markets that don't fit a single category yet.",

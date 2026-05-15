@@ -51,7 +51,7 @@ export function TopNav() {
         alignItems: "center",
         padding: "12px 20px 10px",
         // Light editorial nav. Cream translucency over the cream
-        // paper body — the blur ensures it still reads as elevated
+        // paper body, the blur ensures it still reads as elevated
         // when content scrolls underneath. Mirrors the landing-page
         // top nav so the two surfaces feel like one publication.
         background: "rgba(244, 241, 234, 0.82)",
@@ -76,7 +76,7 @@ export function TopNav() {
         </span>
       </Link>
 
-      {/* Nav links — editorial pattern. No pills, no rounded backgrounds.
+      {/* Nav links, editorial pattern. No pills, no rounded backgrounds.
           Contrast comes from typography (active = full cream, inactive =
           dim cream) and a single lavender hairline beneath the active
           label, sized to the text width, not to the padding. The leading
