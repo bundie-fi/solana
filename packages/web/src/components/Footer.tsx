@@ -204,7 +204,7 @@ export function Footer() {
             letterSpacing: "0.08em",
           }}
         >
-          <span>© 2026 bundie.fi</span>
+          <span>© 2026 solana.bundie.fi</span>
           <span>Solana · Devnet</span>
         </div>
       </div>

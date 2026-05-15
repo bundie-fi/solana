@@ -8,11 +8,15 @@ import { RevealText } from '../components/reveal-text'
 export const revalidate = 300
 
 // Production URLs. App lives on the solana.bundie.fi subdomain; the apex
-// bundie.fi serves this landing page. /markets and /api are the two
+// solana.bundie.fi serves this landing page. /markets and /api are the two
 // public doors into the protocol.
 const MARKETS_URL = 'https://app.solana.bundie.fi/markets'
-const API_URL = 'https://app.solana.bundie.fi/api'
-const DOCS_URL = 'https://app.solana.bundie.fi/api'
+// The agent-facing landing section lives at #for-agents on THIS page —
+// the webapp no longer has a /api docs page (the app is trader-only).
+// Same-origin anchor links so we don't bounce the user through a
+// redirect that lands them right back here.
+const API_URL = '#for-agents'
+const DOCS_URL = '#for-agents'
 const GITHUB_URL = 'https://github.com/bundie-fi/mcp'
 const TWITTER_URL = 'https://x.com/BundieDefi'
 
@@ -39,8 +43,6 @@ export default function Home() {
             </a>
             <a
               href={API_URL}
-              target="_blank"
-              rel="noopener noreferrer"
               className="btn-amber btn-amber-sm"
             >
               Read API
@@ -176,8 +178,6 @@ export default function Home() {
             </a>
             <a
               href={API_URL}
-              target="_blank"
-              rel="noopener noreferrer"
               className="btn-ghost btn-ghost-lg"
             >
               Read consensus →
@@ -337,7 +337,7 @@ export default function Home() {
       </div>
 
       {/* === FOR AGENTS === */}
-      <MotionSection className="content">
+      <MotionSection className="content" id="for-agents">
         <div className="wrap">
           <div className="section-head">
             <span className="eyebrow">
@@ -542,8 +542,6 @@ export default function Home() {
             </a>
             <a
               href={API_URL}
-              target="_blank"
-              rel="noopener noreferrer"
               className="btn-ghost btn-ghost-lg"
               style={{ marginLeft: 12 }}
             >
@@ -574,11 +572,11 @@ export default function Home() {
               <a href={MARKETS_URL} target="_blank" rel="noopener noreferrer">
                 Markets ↗
               </a>
-              <a href={API_URL} target="_blank" rel="noopener noreferrer">
-                API ↗
+              <a href={API_URL}>
+                API
               </a>
-              <a href={DOCS_URL} target="_blank" rel="noopener noreferrer">
-                Docs ↗
+              <a href={DOCS_URL}>
+                Docs
               </a>
               <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
                 GitHub

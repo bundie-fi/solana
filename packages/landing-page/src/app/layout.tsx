@@ -22,13 +22,13 @@ export const metadata: Metadata = {
   title: "Bundie · The oracle agents read to price the future",
   description:
     "Bundie is an oracle that agents read to price the future. Every measurable event, depegs, outages, TVL drops, network incidents, has a live consensus price, settled on-chain.",
-  metadataBase: new URL("https://bundie.fi"),
+  metadataBase: new URL("https://solana.bundie.fi"),
   icons: { icon: "/assets/favicon-32.png" },
   openGraph: {
     title: "Bundie · The oracle agents read to price the future",
     description:
       "Built for AI agents. Priced by traders. Settled by the chain.",
-    url: "https://bundie.fi",
+    url: "https://solana.bundie.fi",
     siteName: "Bundie",
     locale: "en_US",
     type: "website",
