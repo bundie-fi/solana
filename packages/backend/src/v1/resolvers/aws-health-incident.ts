@@ -71,11 +71,18 @@ export class AwsHealthIncidentResolver
         console.warn(`[aws-health] ${eventId} fetch failed: ${res.status}`);
         return null;
       }
-      // AWS serves data.json with a UTF-8 BOM. fetch's res.json() chokes
-      // on it ("Unexpected token '﻿'"), so we read text and strip
-      // the BOM before parsing.
-      const raw = await res.text();
-      payload = JSON.parse(raw.replace(/^﻿/, "")) as AwsHealthPayload;
+      // AWS Health's data.json comes back UTF-16 BE encoded (leading
+      // bytes 0xFE 0xFF, then every other byte 0x00). Node's fetch
+      // res.text() assumes UTF-8 and produces garbage; res.json() chokes
+      // on the BOM. Inspect the first bytes, pick the right decoder, and
+      // belt-and-suspenders strip any residual U+FEFF after decoding —
+      // covers UTF-16 BE/LE and UTF-8 BOM uniformly.
+      const buf = new Uint8Array(await res.arrayBuffer());
+      let encoding: "utf-16be" | "utf-16le" | "utf-8" = "utf-8";
+      if (buf[0] === 0xfe && buf[1] === 0xff) encoding = "utf-16be";
+      else if (buf[0] === 0xff && buf[1] === 0xfe) encoding = "utf-16le";
+      const text = new TextDecoder(encoding).decode(buf).replace(/^﻿/, "");
+      payload = JSON.parse(text) as AwsHealthPayload;
     } catch (err) {
       console.warn(
         `[aws-health] ${eventId} fetch error: ${(err as Error).message}`,
