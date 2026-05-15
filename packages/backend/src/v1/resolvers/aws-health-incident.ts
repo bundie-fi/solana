@@ -5,18 +5,27 @@
  * trigger is "AWS reported a regional incident exceeding
  * min_duration_seconds within the outcome window".
  *
- * AWS exposes the Health Dashboard JSON at
- * `https://status.aws.amazon.com/data.json` with a different shape than
- * Statuspage — uses `service_region` rather than component IDs. We
- * filter on the region_filter list.
+ * The legacy `status.aws.amazon.com/data.json` endpoint now redirects to
+ * `health.aws.amazon.com/public/currentevents` and returns a different
+ * shape: a flat array of per-incident objects, each carrying its own
+ * `event_log[]` timeline. The body is also UTF-16 BE encoded with a
+ * leading BOM; the decode dance lives in the `fetch` block below.
  *
- * Payload shape (current observed format):
+ * Per-incident shape:
  *   {
- *     "archive": [...historical events...],
- *     "current": [...active events...]
+ *     date: "1772369485",        // unix seconds (start of incident)
+ *     arn: "arn:aws:health:<region>::event/...",
+ *     region_name: "UAE",        // friendly name, NOT the canonical region id
+ *     status: "3",               // numeric string: 0=ok 1=info 2=degraded 3=outage
+ *     service: "<svc>-<region>", // contains canonical region id
+ *     event_log: [               // ascending timeline
+ *       { timestamp: 1772369485, status: 1, message: "...", summary: "..." },
+ *       { timestamp: 1772370000, status: 0, message: "...", summary: "..." },
+ *     ],
  *   }
- * Each event has: service_name, service_region, summary, date,
- * status (0=ok, 1=informational, 2=degraded, 3=outage), details.
+ *
+ * Region matching uses the canonical id (e.g. `us-east-1`) extracted from
+ * the `arn` field, NOT the human-readable `region_name`.
  */
 
 import { RESOLVER_CLASS } from "../types.js";
@@ -30,18 +39,32 @@ export interface AwsHealthIncidentConfig {
   poll_interval_seconds: number;
 }
 
-interface AwsHealthEvent {
-  service_name: string;
-  summary: string;
-  date: string;
-  status: number;
-  service_region?: string;
-  details?: string;
+interface AwsHealthLogEntry {
+  timestamp: number; // unix seconds
+  status: number; // 0=ok, 1=info, 2=degraded, 3=outage
+  message?: string;
+  summary?: string;
 }
 
-interface AwsHealthPayload {
-  archive?: AwsHealthEvent[];
-  current?: AwsHealthEvent[];
+interface AwsHealthEvent {
+  date: string;
+  arn?: string;
+  region_name?: string;
+  service?: string;
+  service_name?: string;
+  summary?: string;
+  status?: string | number;
+  event_log?: AwsHealthLogEntry[];
+}
+
+type AwsHealthPayload = AwsHealthEvent[];
+
+/** Extract the canonical AWS region id (e.g. "us-east-1") from an arn string. */
+function regionFromArn(arn: string | undefined): string | null {
+  if (!arn) return null;
+  // arn:aws:health:<region>::event/...
+  const parts = arn.split(":");
+  return parts[3] || null;
 }
 
 const launchTimes = new Map<string, number>();
@@ -90,71 +113,71 @@ export class AwsHealthIncidentResolver
       return null;
     }
 
-    const events = [...(payload.archive ?? []), ...(payload.current ?? [])];
+    const events: AwsHealthPayload = Array.isArray(payload) ? payload : [];
     const regionFilter = config.region_filter.map((r) => r.toLowerCase());
 
-    // The AWS Health JSON doesn't always include a structured duration.
-    // We treat status >= 2 (degraded/outage) events as "the incident
-    // started at .date and is ongoing until the next event for the same
-    // service flips status back to 0 (ok)". This is approximate — for a
-    // tighter signal, use the AWS Health API (requires AWS creds).
-    const sortedEvents = events
-      .filter((e) => {
-        const eventTime = Date.parse(e.date);
-        if (isNaN(eventTime)) return false;
-        if (eventTime < startMs || eventTime > windowEndMs) return false;
-        if (!e.service_region) return false;
-        return regionFilter.some((r) =>
-          e.service_region!.toLowerCase().includes(r),
-        );
-      })
-      .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
-
-    // Walk the timeline per service+region, accumulating durations of
-    // degraded/outage periods.
-    interface OpenIncident {
-      startMs: number;
-      serviceKey: string;
-    }
-    const open = new Map<string, OpenIncident>();
+    // Each incident already carries its own timeline in `event_log[]`. We
+    // walk that per-incident, accumulating degraded/outage durations.
+    // Trigger as soon as ANY incident in scope exceeds the threshold.
     let triggered = false;
+    let triggerNote = "";
 
-    for (const e of sortedEvents) {
-      const t = Date.parse(e.date);
-      const key = `${e.service_name}|${e.service_region}`;
-      if (e.status >= 2) {
-        if (!open.has(key)) {
-          open.set(key, { startMs: t, serviceKey: key });
-        }
-      } else if (e.status === 0) {
-        // status=0 closes an open incident.
-        const o = open.get(key);
-        if (o) {
-          const durationSec = (t - o.startMs) / 1000;
-          if (durationSec >= config.min_duration_seconds) {
+    for (const e of events) {
+      const region = regionFromArn(e.arn);
+      if (!region) continue;
+      const regionLc = region.toLowerCase();
+      const matches = regionFilter.some((r) => regionLc === r || regionLc.includes(r));
+      if (!matches) continue;
+
+      const log = (e.event_log ?? [])
+        .slice()
+        .sort((a, b) => a.timestamp - b.timestamp);
+      if (log.length === 0) continue;
+
+      // Ignore incidents that started after our window OR that ended
+      // before our window began. Cheap pre-filter; the per-segment loop
+      // below also clips to [startMs, windowEndMs].
+      const incidentStartMs = log[0].timestamp * 1000;
+      const incidentEndMs = log[log.length - 1].timestamp * 1000;
+      if (incidentStartMs > windowEndMs) continue;
+      if (incidentEndMs < startMs && log[log.length - 1].status === 0) continue;
+
+      // Walk transitions: a contiguous run with status>=2 is a
+      // "degraded/outage segment". We sum segment durations within the
+      // outcome window; if any single segment ≥ min_duration → trigger.
+      let segOpenAt: number | null = null;
+      for (const entry of log) {
+        const tMs = entry.timestamp * 1000;
+        if (entry.status >= 2 && segOpenAt === null) {
+          segOpenAt = Math.max(tMs, startMs);
+        } else if (entry.status < 2 && segOpenAt !== null) {
+          const closeMs = Math.min(tMs, windowEndMs);
+          const durSec = (closeMs - segOpenAt) / 1000;
+          if (durSec >= config.min_duration_seconds) {
             triggered = true;
-            console.log(
-              `[aws-health] YES trigger: event=${eventId} service=${key} duration=${durationSec.toFixed(0)}s`,
-            );
+            triggerNote = `arn=${e.arn} segment_duration=${durSec.toFixed(0)}s`;
             break;
           }
-          open.delete(key);
+          segOpenAt = null;
         }
       }
-    }
+      if (triggered) break;
 
-    // Any still-open incident that has already exceeded the duration counts.
-    if (!triggered) {
-      for (const o of open.values()) {
-        const durationSec = (nowMs - o.startMs) / 1000;
-        if (durationSec >= config.min_duration_seconds) {
+      // Segment still open at the end of the log → treat as ongoing.
+      // Clip to min(now, windowEndMs) and check duration.
+      if (segOpenAt !== null) {
+        const closeMs = Math.min(nowMs, windowEndMs);
+        const durSec = (closeMs - segOpenAt) / 1000;
+        if (durSec >= config.min_duration_seconds) {
           triggered = true;
-          console.log(
-            `[aws-health] YES trigger (ongoing): event=${eventId} service=${o.serviceKey} duration=${durationSec.toFixed(0)}s`,
-          );
+          triggerNote = `arn=${e.arn} ongoing_duration=${durSec.toFixed(0)}s`;
           break;
         }
       }
+    }
+
+    if (triggered) {
+      console.log(`[aws-health] YES trigger: event=${eventId} ${triggerNote}`);
     }
 
     if (triggered) return "yes";
