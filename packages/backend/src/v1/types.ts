@@ -93,6 +93,13 @@ export interface EventPriceResponse {
    * aggregates cover the available subset and not a full 24h.
    */
   window_truncated?: boolean;
+  /**
+   * Read price for this event in USDC base units (6dp). Dynamic — scales
+   * with market depth via the curve in pricing.ts. Agents reading the
+   * response see what their NEXT call to this event will cost and can
+   * bid the right amount in their x402 X-PAYMENT.
+   */
+  read_price_usdc_micro: number;
 }
 
 /** Summary entry returned by GET /v1/events. */

@@ -27,10 +27,21 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import nacl from "tweetnacl";
+import {
+  getCachedReadPrice,
+  READ_PRICE_FLOOR_USDC_MICRO,
+} from "./pricing.js";
 
-/** Endpoint → required payment amount in USDC base units (6dp). */
+/**
+ * Endpoint → required payment amount in USDC base units (6dp).
+ *
+ * `/v1/event-price` is now priced dynamically per event_id based on the
+ * market's depth — the value in this map is the floor used when an
+ * event_id is missing or has no cached price yet. The actual amount is
+ * looked up via `getCachedReadPrice(event_id)` below.
+ */
 export const ENDPOINT_PRICES: Record<string, number> = {
-  "/v1/event-price": 1_000, // $0.001
+  "/v1/event-price": READ_PRICE_FLOOR_USDC_MICRO,
   "/v1/event-history": 5_000, // $0.005
   "/v1/event-detail": 2_000, // $0.002
   "/v1/hedge-quote": 10_000, // $0.01
@@ -128,10 +139,24 @@ function verifyPaymentTx(
 export function x402(): MiddlewareHandler {
   return async (c: Context, next) => {
     const path = c.req.path;
-    const price = ENDPOINT_PRICES[path];
+    const basePrice = ENDPOINT_PRICES[path];
 
-    if (price === undefined) {
+    if (basePrice === undefined) {
       return next();
+    }
+
+    // Dynamic pricing for /v1/event-price: each event_id has its own price
+    // computed from market depth. The cache is populated by the route
+    // handler on every served request, so a market under active demand
+    // stays priced correctly. First read for a fresh event lands at the
+    // floor — overcharge protection is the response's `read_price_usdc_micro`
+    // field which agents can use to bid the right amount on retry.
+    let price = basePrice;
+    if (path === "/v1/event-price") {
+      const eventId = c.req.query("id");
+      if (eventId) {
+        price = getCachedReadPrice(eventId);
+      }
     }
 
     const paymentHeader = c.req.header("X-PAYMENT") ?? c.req.header("x-payment");
@@ -139,6 +164,7 @@ export function x402(): MiddlewareHandler {
     if (!ENFORCE) {
       c.header("X-X402-Tier", "free");
       c.header("X-X402-Would-Charge-Base-Units", String(price));
+      c.header("X-X402-Pricing-Mode", "dynamic");
       if (paymentHeader) c.header("X-X402-Note", "payment-header-ignored-in-dev");
       return next();
     }
@@ -149,6 +175,7 @@ export function x402(): MiddlewareHandler {
         error: "Payment required",
         endpoint: path,
         price_usdc_base_units: price,
+        pricing_mode: "dynamic_by_depth",
         accepted_methods: ["x402"],
         treasury: TREASURY,
       });

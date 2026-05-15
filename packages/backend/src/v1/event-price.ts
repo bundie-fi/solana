@@ -35,6 +35,7 @@ import { yesPrice, confidenceScore } from "./lmsr.js";
 import { signResponse, publicKeyBase58 } from "./attestation.js";
 import { getMarketStats, getHistoricalMarketStats } from "./indexer.js";
 import { getTrackRecord } from "./track-record.js";
+import { recordReadPrice, READ_PRICE_FLOOR_USDC_MICRO } from "./pricing.js";
 import type { EventPriceResponse, EventSummary } from "./types.js";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +71,9 @@ async function stubPriceResponse(eventId: string): Promise<EventPriceResponse> {
     resolver_track_record: await getTrackRecord(event.resolver_class),
     signed_attestation: "", // filled by signResponse() before serialisation
     as_of: now.toISOString(),
+    // Stub markets have $0 depth → floor price ($0.0001). Record so the
+    // x402 middleware quotes consistently on the next request.
+    read_price_usdc_micro: recordReadPrice(eventId, 0),
   };
 }
 
@@ -117,6 +121,7 @@ async function livePriceResponse(eventId: string): Promise<EventPriceResponse> {
     resolver_track_record: trackRecord,
     signed_attestation: "", // filled by signResponse() before serialisation
     as_of: now.toISOString(),
+    read_price_usdc_micro: recordReadPrice(eventId, depthUsd),
   };
 }
 
@@ -239,6 +244,11 @@ async function historicalPriceResponse(
     at: new Date(atMs).toISOString(),
     window_truncated:
       histStats.windowTruncated || histStats.tickBlockTimeMs === null,
+    // Historical reads don't mutate the live x402 price cache — agents
+    // querying the past should pay for the CURRENT signal value, not
+    // whatever depth the market had at `at`. Surface the dynamic price
+    // for transparency but compute without recording.
+    read_price_usdc_micro: READ_PRICE_FLOOR_USDC_MICRO,
   };
   return { ok: true, response };
 }

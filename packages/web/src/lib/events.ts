@@ -42,6 +42,8 @@ export interface EventPrice {
   resolver_track_record: { total: number; disputed: number; lost: number };
   signed_attestation: string;
   as_of: string;
+  /** Dynamic read price in USDC base units (6dp). Scales with market depth. */
+  read_price_usdc_micro: number;
 }
 
 export interface EventDetail {

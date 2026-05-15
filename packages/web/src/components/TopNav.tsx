@@ -13,12 +13,10 @@ const WalletButton = dynamic(
   { ssr: false },
 );
 
-// Desktop primary nav mirrors the mobile BottomNav so labels + routes
-// match across breakpoints. The 2026-05 oracle-positioning overhaul
-// retired Discover (which led to the old NAV/strategy index) in favour
-// of Markets (event markets) + Build (agent API surface, /api lands in
-// PR-2; the slot is reserved here so PR-1 doesn't reshuffle the nav
-// twice). When /api ships, flip Build's `disabled` flag.
+// Desktop primary nav. Updated 2026-05-15 for the oracle-positioning
+// overhaul: Markets (event markets), Build (agent API at /api),
+// Portfolio, Wallet. Retired the old Discover/agents/strategists
+// surfaces — see PR-1 + PR-2 for the migration history.
 const LINKS: {
   href: string;
   label: string;
@@ -26,7 +24,7 @@ const LINKS: {
   disabled?: boolean;
 }[] = [
   { href: "/markets",   label: "Markets" },
-  { href: "/api",       label: "Build", disabled: true },
+  { href: "/api",       label: "Build" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/wallet",    label: "Wallet" },
 ];
