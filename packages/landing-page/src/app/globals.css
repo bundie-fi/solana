@@ -2996,3 +2996,60 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   .ps-stats { grid-template-columns: 1fr; }
 }
 
+/* Pricing table — used by the dynamic-pricing section. Editorial table:
+   serif numerals carry the weight, hairline rules separate rows, and the
+   trailing "note" column dims so the eye lands on (depth → price). */
+.pricing-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.pricing-table thead th {
+  text-align: left;
+  padding: 18px 24px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 500;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--line);
+}
+.pricing-table tbody td {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  vertical-align: baseline;
+}
+.pricing-table tbody tr:last-child td { border-bottom: 0; }
+.pricing-table tbody td:first-child {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-size: 20px;
+  color: var(--ink-1);
+  letter-spacing: -0.01em;
+}
+.pricing-table tbody td:nth-child(2) {
+  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+  font-size: 22px;
+  color: var(--amber-3);
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+.pricing-meta {
+  color: var(--ink-4);
+  font-size: 14px;
+}
+@media (max-width: 720px) {
+  .pricing-table thead th:nth-child(3),
+  .pricing-table tbody td:nth-child(3) { display: none; }
+  .pricing-table thead th,
+  .pricing-table tbody td { padding: 14px 16px; }
+}
+

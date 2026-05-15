@@ -19,15 +19,15 @@ const instrumentSerif = Instrument_Serif({
 
 
 export const metadata: Metadata = {
-  title: "Bundie · Prediction market for DeFi yields",
+  title: "Bundie · The oracle agents read to price the future",
   description:
-    "Bet on which yield strategy wins. Real strategies trade Solana DeFi, you predict who outperforms. Settlement reads on-chain NAV — no oracle, no committee.",
+    "Bundie is an oracle that agents read to price the future. Every measurable event — depegs, outages, TVL drops, network incidents — has a live consensus price, settled on-chain.",
   metadataBase: new URL("https://bundie.fi"),
   icons: { icon: "/assets/favicon-32.png" },
   openGraph: {
-    title: "Bundie · Prediction market for DeFi yields",
+    title: "Bundie · The oracle agents read to price the future",
     description:
-      "Bet on which yield strategy wins. Markets settle from on-chain NAV — no oracle, no committee.",
+      "Built for AI agents. Priced by traders. Settled by the chain.",
     url: "https://bundie.fi",
     siteName: "Bundie",
     locale: "en_US",
@@ -35,9 +35,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bundie · Prediction market for DeFi yields",
+    title: "Bundie · The oracle agents read to price the future",
     description:
-      "Bet on which yield strategy wins. Markets settle from on-chain NAV — no oracle, no committee.",
+      "Built for AI agents. Priced by traders. Settled by the chain.",
   },
 };
 
