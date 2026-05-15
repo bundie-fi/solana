@@ -8,7 +8,7 @@
       "pyth_feeds": {
         "USDC_USD": "5SSkXsEKQepHHAewytPVwdej4epN1nxgLVM84L4KXgy7",
         "USDT_USD": "38xoQ4oeJCBrcVvca2cGk7iV1dAfrmTR1kmhSCJQ8Jto",
-        "SOL_USD":  "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
+        "SOL_USD": "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
       }
     },
     "mainnet": {
@@ -16,7 +16,7 @@
       "pyth_feeds": {
         "USDC_USD": "Gnt27xtC473ZT2Mw5u8wZ68Z3gULkSTb5DuxJy7eJotD",
         "USDT_USD": "3vxLXJqLqF3JG5TCbYycbKWRBbCJQLxQmBGCkyqEEefL",
-        "SOL_USD":  "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"
+        "SOL_USD": "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG"
       },
       "_verify_note": "Pyth migrated to Pyth Pull (sponsored feeds via Wormhole). [VERIFY] these are still the active feed accounts on mainnet at deploy time; if migrated, swap for the Pyth Lazer / Pull equivalents."
     }
@@ -37,7 +37,8 @@
       },
       "outcome_yes": "trigger_met_within_window",
       "outcome_no": "window_expired_without_trigger",
-      "demo_eligible": true
+      "demo_eligible": true,
+      "category": "stablecoin"
     },
     {
       "event_id": "usdt_depeg_99c_30min_30d",
@@ -54,7 +55,8 @@
       },
       "outcome_yes": "trigger_met_within_window",
       "outcome_no": "window_expired_without_trigger",
-      "demo_eligible": true
+      "demo_eligible": true,
+      "category": "stablecoin"
     },
     {
       "event_id": "kamino_main_tvl_drop_50m_24h_90d",
@@ -74,7 +76,8 @@
       "outcome_no": "no_24h_window_breaches",
       "demo_eligible": true,
       "verify_before_mainnet": true,
-      "notes": "tvl_account is the verified Kamino devnet klend Reserve PDA (USDC pool, matches probes/probe-kamino-reserve.ts fixture). price_usd=1.0 is a devnet-only stub for USDC's $1 peg — mainnet MUST swap this for a Pyth feed read, see onchain-tvl-rolling-window.ts file docstring."
+      "notes": "tvl_account is the verified Kamino devnet klend Reserve PDA (USDC pool, matches probes/probe-kamino-reserve.ts fixture). price_usd=1.0 is a devnet-only stub for USDC's $1 peg \u2014 mainnet MUST swap this for a Pyth feed read, see onchain-tvl-rolling-window.ts file docstring.",
+      "category": "tvl"
     },
     {
       "event_id": "anthropic_api_downtime_5min_weekly",
@@ -88,12 +91,15 @@
         "rolling_window_seconds": 604800,
         "outcome_window_seconds": 604800,
         "poll_interval_seconds": 60,
-        "component_filter": ["API"]
+        "component_filter": [
+          "API"
+        ]
       },
       "outcome_yes": "any_7d_window_breaches_downtime_threshold",
       "outcome_no": "no_7d_window_breaches",
       "demo_eligible": true,
-      "notes": "Anthropic uses Statuspage v2 JSON API. Component filter limits to API surface (vs marketing site)."
+      "notes": "Anthropic uses Statuspage v2 JSON API. Component filter limits to API surface (vs marketing site).",
+      "category": "ai"
     },
     {
       "event_id": "aws_us_east_1_incident_30min_30d",
@@ -102,7 +108,9 @@
       "resolver_class": "aws_health_dashboard_incident",
       "resolver_config": {
         "feed_url": "https://status.aws.amazon.com/data.json",
-        "region_filter": ["us-east-1"],
+        "region_filter": [
+          "us-east-1"
+        ],
         "min_duration_seconds": 1800,
         "outcome_window_seconds": 2592000,
         "poll_interval_seconds": 60
@@ -110,27 +118,242 @@
       "outcome_yes": "any_incident_exceeds_duration",
       "outcome_no": "no_incidents_exceed_duration",
       "demo_eligible": true,
-      "notes": "AWS Health Dashboard exposes data.json with current + historical incidents. Region filter is on the 'service_region' field. [VERIFY] feed URL still public-readable; AWS occasionally rotates this."
+      "notes": "AWS Health Dashboard exposes data.json with current + historical incidents. Region filter is on the 'service_region' field. [VERIFY] feed URL still public-readable; AWS occasionally rotates this.",
+      "category": "cloud"
+    },
+    {
+      "event_id": "btc_above_100k_90d",
+      "description": "BTC price above $100,000 at any point in the next 90 days",
+      "category": "price",
+      "market_kind_proposed": "EventThreshold",
+      "resolver_class": "pyth_threshold_duration",
+      "resolver_config": {
+        "feed_network_key": "pyth_feeds.BTC_USD",
+        "threshold_price": 100000,
+        "comparator": "gt",
+        "min_duration_seconds": 60,
+        "window_seconds": 7776000,
+        "poll_interval_seconds": 30
+      },
+      "outcome_yes": "trigger_met_within_window",
+      "outcome_no": "window_expired_without_trigger",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "sol_drops_below_120_24h_30d",
+      "description": "SOL price below $120 for >15 minutes in the next 30 days",
+      "category": "price",
+      "market_kind_proposed": "EventThreshold",
+      "resolver_class": "pyth_threshold_duration",
+      "resolver_config": {
+        "feed_network_key": "pyth_feeds.SOL_USD",
+        "threshold_price": 120,
+        "comparator": "lt",
+        "min_duration_seconds": 900,
+        "window_seconds": 2592000,
+        "poll_interval_seconds": 30
+      },
+      "outcome_yes": "trigger_met_within_window",
+      "outcome_no": "window_expired_without_trigger",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "openai_api_downtime_5min_weekly",
+      "description": "OpenAI API has >5 min downtime in any rolling 7-day window",
+      "category": "ai",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://status.openai.com/api/v2/summary.json",
+        "incidents_url": "https://status.openai.com/api/v2/incidents.json",
+        "min_downtime_seconds": 300,
+        "rolling_window_seconds": 604800,
+        "outcome_window_seconds": 604800,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "API"
+        ]
+      },
+      "outcome_yes": "any_7d_window_breaches",
+      "outcome_no": "no_7d_window_breaches",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "gemini_api_downtime_5min_weekly",
+      "description": "Google Gemini API has >5 min downtime in any rolling 7-day window",
+      "category": "ai",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://status.cloud.google.com/api/v2/summary.json",
+        "incidents_url": "https://status.cloud.google.com/api/v2/incidents.json",
+        "min_downtime_seconds": 300,
+        "rolling_window_seconds": 604800,
+        "outcome_window_seconds": 604800,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "Vertex AI"
+        ]
+      },
+      "outcome_yes": "any_7d_window_breaches",
+      "outcome_no": "no_7d_window_breaches",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "cloudflare_global_incident_15min_30d",
+      "description": "Cloudflare has a global incident >15 min in the next 30 days",
+      "category": "cloud",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://www.cloudflarestatus.com/api/v2/summary.json",
+        "incidents_url": "https://www.cloudflarestatus.com/api/v2/incidents.json",
+        "min_downtime_seconds": 900,
+        "rolling_window_seconds": 2592000,
+        "outcome_window_seconds": 2592000,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "Cloudflare DNS",
+          "Cloudflare CDN"
+        ]
+      },
+      "outcome_yes": "incident_exceeds_duration",
+      "outcome_no": "no_incidents_exceed_duration",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "github_actions_downtime_30min_30d",
+      "description": "GitHub Actions has >30 min downtime in the next 30 days",
+      "category": "cloud",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://www.githubstatus.com/api/v2/summary.json",
+        "incidents_url": "https://www.githubstatus.com/api/v2/incidents.json",
+        "min_downtime_seconds": 1800,
+        "rolling_window_seconds": 2592000,
+        "outcome_window_seconds": 2592000,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "Actions"
+        ]
+      },
+      "outcome_yes": "incident_exceeds_duration",
+      "outcome_no": "no_incidents_exceed_duration",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "marginfi_main_tvl_drop_30m_24h_90d",
+      "description": "MarginFi main lending TVL drops >$30M in any 24h window over next 90 days",
+      "category": "tvl",
+      "market_kind_proposed": "ProtocolTvlDrop",
+      "resolver_class": "onchain_tvl_rolling_window",
+      "resolver_config": {
+        "protocol": "marginfi_main",
+        "tvl_account": "[VERIFY]",
+        "drop_threshold_usd": 30000000,
+        "rolling_window_seconds": 86400,
+        "outcome_window_seconds": 7776000,
+        "poll_interval_seconds": 60
+      },
+      "outcome_yes": "any_24h_window_breaches_drop_threshold",
+      "outcome_no": "no_24h_window_breaches",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "drift_tvl_drop_50m_24h_90d",
+      "description": "Drift TVL drops >$50M in any 24h window over next 90 days",
+      "category": "tvl",
+      "market_kind_proposed": "ProtocolTvlDrop",
+      "resolver_class": "onchain_tvl_rolling_window",
+      "resolver_config": {
+        "protocol": "drift_main",
+        "tvl_account": "[VERIFY]",
+        "drop_threshold_usd": 50000000,
+        "rolling_window_seconds": 86400,
+        "outcome_window_seconds": 7776000,
+        "poll_interval_seconds": 60
+      },
+      "outcome_yes": "any_24h_window_breaches_drop_threshold",
+      "outcome_no": "no_24h_window_breaches",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "solana_network_outage_1h_90d",
+      "description": "Solana mainnet has a network outage >1 hour in the next 90 days",
+      "category": "network",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://status.solana.com/api/v2/summary.json",
+        "incidents_url": "https://status.solana.com/api/v2/incidents.json",
+        "min_downtime_seconds": 3600,
+        "rolling_window_seconds": 7776000,
+        "outcome_window_seconds": 7776000,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "Mainnet Beta"
+        ]
+      },
+      "outcome_yes": "outage_exceeds_duration",
+      "outcome_no": "no_outages_exceed_duration",
+      "demo_eligible": false
+    },
+    {
+      "event_id": "base_sequencer_down_30min_30d",
+      "description": "Base sequencer has >30 min downtime in the next 30 days",
+      "category": "network",
+      "market_kind_proposed": "PublicStatusPoll",
+      "resolver_class": "statuspage_v2_incident_duration",
+      "resolver_config": {
+        "status_url": "https://status.base.org/api/v2/summary.json",
+        "incidents_url": "https://status.base.org/api/v2/incidents.json",
+        "min_downtime_seconds": 1800,
+        "rolling_window_seconds": 2592000,
+        "outcome_window_seconds": 2592000,
+        "poll_interval_seconds": 60,
+        "component_filter": [
+          "Sequencer"
+        ]
+      },
+      "outcome_yes": "outage_exceeds_duration",
+      "outcome_no": "no_outages_exceed_duration",
+      "demo_eligible": false
     }
   ],
-  "next_to_add": [
-    "openai_api_downtime_5min_weekly",
-    "gemini_api_downtime_5min_weekly",
-    "marginfi_tvl_drop_30m_24h_90d",
-    "drift_tvl_drop_50m_24h_90d",
-    "save_tvl_drop_30m_24h_90d",
-    "pyth_sol_deviation_50bps_5min_30d",
-    "cloudflare_global_incident_15min_30d",
-    "stripe_incident_15min_30d",
-    "vercel_deploy_affecting_incident_30min_30d",
-    "solana_network_outage_1h_90d"
-  ],
+  "next_to_add": [],
   "schema_notes": {
-    "market_kind_proposed": "Maps to a new MARKET_KIND_* constant to be added in state/market.rs. Each kind has its own 64-byte payload layout — see state/market.rs docstring.",
+    "market_kind_proposed": "Maps to a new MARKET_KIND_* constant to be added in state/market.rs. Each kind has its own 64-byte payload layout \u2014 see state/market.rs docstring.",
     "resolver_class": "Routes to a specific resolver worker implementation in packages/backend/src/resolvers/. Each class consumes resolver_config and emits signed resolutions on trigger.",
     "comparator": "One of: lt, lte, gt, gte, eq. Applied to feed value vs threshold.",
     "rolling_window_seconds": "Resolver checks every poll if ANY contiguous window of this length within outcome_window_seconds breached the threshold.",
     "outcome_window_seconds": "Total time window during which the event can resolve. After this, market resolves NO unless YES triggered earlier.",
     "demo_eligible": "If true, this event is included in the Day-1 demo set (5 markets). Other events get added in subsequent days."
+  },
+  "categories": {
+    "stablecoin": {
+      "label": "Stablecoin price",
+      "blurb": "Will a stablecoin lose its peg, and for how long?"
+    },
+    "price": {
+      "label": "Asset prices",
+      "blurb": "Major-token price thresholds. Powered by Pyth feeds."
+    },
+    "tvl": {
+      "label": "Protocol TVL",
+      "blurb": "Capital flight from a protocol, fast withdrawals, depositor exits."
+    },
+    "ai": {
+      "label": "AI infrastructure",
+      "blurb": "Downtime on OpenAI, Anthropic, Gemini, and other LLM APIs."
+    },
+    "cloud": {
+      "label": "Cloud uptime",
+      "blurb": "Region-level outages on AWS, GCP, Cloudflare, GitHub."
+    },
+    "network": {
+      "label": "Network health",
+      "blurb": "L1 + L2 sequencer health, mainnet outages, validator events."
+    }
   }
 }

@@ -44,7 +44,6 @@ export default async function Home() {
       <Hero />
       <ConsensusStrip markets={byDepth.slice(0, 4)} error={fetchError} />
       <ByDomain markets={active} />
-      <Footer />
     </main>
   );
 }
@@ -247,43 +246,6 @@ function DomainGroup({
         ))}
       </ul>
     </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="px-6 py-12 sm:px-12">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 sm:flex-row sm:items-baseline sm:justify-between">
-        <p className="font-serif text-xl tracking-tight text-[var(--de-ink)]">
-          Built for AI agents.{" "}
-          <span className="italic text-[var(--de-lavender)]">
-            Priced by traders.
-          </span>{" "}
-          Settled by the chain.
-        </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
-          <Link
-            href="/markets"
-            className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
-          >
-            Markets
-          </Link>
-          <Link
-            href="/portfolio"
-            className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
-          >
-            Portfolio
-          </Link>
-          <a
-            href="https://solana.bundie.fi/#for-agents"
-            className="transition-colors duration-150 ease-out hover:text-[var(--de-ink)]"
-          >
-            For agents ↗
-          </a>
-          <span>Cluster: solana:devnet</span>
-        </div>
-      </div>
-    </footer>
   );
 }
 

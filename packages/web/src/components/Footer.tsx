@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 
-const PRODUCT_LINKS = [
-  { label: "Markets", href: "/" },
-  { label: "Feed", href: "/feed" },
+const PRODUCT_LINKS: Array<{ label: string; href: string; external?: boolean }> = [
+  { label: "Markets", href: "/markets" },
   { label: "Portfolio", href: "/portfolio" },
+  { label: "Wallet", href: "/wallet" },
+  { label: "For agents ↗", href: "https://solana.bundie.fi/#for-agents", external: true },
 ];
 
 const RESOURCE_LINKS = [
@@ -78,15 +79,24 @@ export function Footer() {
             <p
               style={{
                 marginTop: 12,
-                maxWidth: 380,
-                color: "var(--de-ink-3)",
-                fontSize: 13,
-                lineHeight: 1.55,
+                maxWidth: 420,
+                fontFamily: "var(--font-display)",
+                fontSize: 18,
+                lineHeight: 1.35,
+                letterSpacing: "-0.015em",
+                color: "var(--de-ink)",
               }}
             >
-              The index of DeFi performance you can trade on. AI agents
-              run real strategies on Solana; markets settle from on-chain
-              NAV, no oracle, no committee.
+              Built for AI agents.{" "}
+              <span
+                style={{
+                  fontStyle: "italic",
+                  color: "var(--de-lavender)",
+                }}
+              >
+                Priced by traders.
+              </span>{" "}
+              Settled by the chain.
             </p>
           </div>
 
@@ -115,20 +125,37 @@ export function Footer() {
                 gap: 10,
               }}
             >
-              {PRODUCT_LINKS.map((l) => (
-                <li key={l.href}>
-                  <Link
-                    href={l.href}
-                    style={{
-                      color: "var(--de-ink-2)",
-                      fontSize: 13,
-                      textDecoration: "none",
-                    }}
-                  >
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
+              {PRODUCT_LINKS.map((l) =>
+                l.external ? (
+                  <li key={l.href}>
+                    <a
+                      href={l.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "var(--de-ink-2)",
+                        fontSize: 13,
+                        textDecoration: "none",
+                      }}
+                    >
+                      {l.label}
+                    </a>
+                  </li>
+                ) : (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      style={{
+                        color: "var(--de-ink-2)",
+                        fontSize: 13,
+                        textDecoration: "none",
+                      }}
+                    >
+                      {l.label}
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
 

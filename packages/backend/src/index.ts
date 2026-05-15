@@ -12,6 +12,7 @@ import { pnl } from "./routes/pnl.js";
 import { stats } from "./routes/stats.js";
 import { v1 } from "./v1/event-price.js";
 import { x402 } from "./v1/x402.js";
+import { proposals } from "./v1/market-proposals.js";
 import { rateLimit, startRateLimitGc } from "./v1/rate-limit.js";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { buildStreamRouter } from "./v1/event-price-stream.js";
@@ -95,6 +96,7 @@ app.route("/", stats);
 // x402 middleware logs would-charge amounts in dev; enforces payment in prod.
 app.use("/v1/*", x402());
 app.route("/v1", v1);
+app.route("/v1", proposals);
 
 // WS live price stream. createNodeWebSocket returns an `upgradeWebSocket`
 // helper bound to this Hono app; the matching `injectWebSocket(server)`

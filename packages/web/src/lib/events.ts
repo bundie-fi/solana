@@ -23,6 +23,8 @@ export interface EventSummary {
   depth_usd: number;
   window_end: string;
   status: "active" | "resolved" | "scheduled";
+  /** Product category: stablecoin / price / tvl / ai / cloud / network. */
+  category?: string;
 }
 
 export interface EventPrice {
@@ -107,6 +109,48 @@ export function formatDepth(usd: number): string {
   if (usd < 1000) return `$${usd.toFixed(0)}`;
   if (usd < 1_000_000) return `$${(usd / 1000).toFixed(1)}k`;
   return `$${(usd / 1_000_000).toFixed(2)}M`;
+}
+
+/** Product categories shown on /launch and used to group /markets. */
+export const CATEGORIES = [
+  {
+    key: "stablecoin",
+    label: "Stablecoin price",
+    blurb: "Will a stablecoin lose its peg, and for how long?",
+  },
+  {
+    key: "price",
+    label: "Asset prices",
+    blurb: "Major-token price thresholds. Powered by Pyth feeds.",
+  },
+  {
+    key: "tvl",
+    label: "Protocol TVL",
+    blurb: "Capital flight from a protocol. Fast withdrawals, depositor exits.",
+  },
+  {
+    key: "ai",
+    label: "AI infrastructure",
+    blurb: "Downtime on OpenAI, Anthropic, Gemini, and other LLM APIs.",
+  },
+  {
+    key: "cloud",
+    label: "Cloud uptime",
+    blurb: "Region-level outages on AWS, GCP, Cloudflare, GitHub.",
+  },
+  {
+    key: "network",
+    label: "Network health",
+    blurb: "L1 + L2 sequencer health, mainnet outages, validator events.",
+  },
+] as const;
+
+export type CategoryKey = (typeof CATEGORIES)[number]["key"];
+
+export function categoryLabel(key: string | undefined): string {
+  if (!key) return "Other";
+  const c = CATEGORIES.find((c) => c.key === key);
+  return c ? c.label : "Other";
 }
 
 /** Human-friendly market-kind label. */

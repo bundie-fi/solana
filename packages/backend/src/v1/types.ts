@@ -114,6 +114,12 @@ export interface EventSummary {
   window_end: string;
   /** "active" | "resolved" | "scheduled" */
   status: "active" | "resolved" | "scheduled";
+  /**
+   * Product category from `sources.json` (`stablecoin`, `price`, `tvl`,
+   * `ai`, `cloud`, `network`). The webapp groups + filters by this.
+   * Optional because legacy events may not have it tagged yet.
+   */
+  category?: string;
 }
 
 /**

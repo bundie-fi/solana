@@ -59,7 +59,6 @@ export default async function EventsPage() {
       </section>
 
       <QuickRules />
-      <Footer />
     </main>
   );
 }
@@ -242,9 +241,15 @@ function QuickRules() {
             with no spread.
           </Rule>
           <Rule q="Who creates the markets?">
-            Bundie seeds the current set of 5 markets on devnet. Public market
-            creation is on the roadmap so anyone can launch a market on a
-            verifiable trigger.
+            Bundie seeds today&rsquo;s set, but anyone can propose a new one. If
+            it has a verifiable on-chain or public-data trigger we deploy it
+            within 24-48 hours.{" "}
+            <Link
+              href="/launch"
+              className="text-[var(--de-lavender)] underline-offset-2 hover:underline"
+            >
+              Suggest a market →
+            </Link>
           </Rule>
           <Rule q="How do payouts work?">
             Every market settles itself from a signed on-chain feed (Pyth,
@@ -271,22 +276,3 @@ function Rule({ q, children }: { q: string; children: React.ReactNode }) {
   );
 }
 
-function Footer() {
-  return (
-    <footer
-      className="border-t border-[var(--de-line)] px-6 py-8 sm:px-12"
-    >
-      <div className="mx-auto max-w-6xl">
-        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-4)]">
-          <span>Devnet beta · cluster: solana:devnet</span>
-          <Link
-            href="/"
-            className="hover:text-[var(--de-ink)] focus-visible:outline-none focus-visible:underline"
-          >
-            ← home
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}

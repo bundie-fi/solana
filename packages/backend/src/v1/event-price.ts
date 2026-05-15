@@ -148,6 +148,7 @@ v1.get("/events", async (c) => {
           Date.now() + 30 * 24 * 60 * 60 * 1000,
         ).toISOString(),
         status: (snapshot?.status ?? "scheduled") as EventSummary["status"],
+        category: (e as { category?: string }).category,
       };
     }),
   );
