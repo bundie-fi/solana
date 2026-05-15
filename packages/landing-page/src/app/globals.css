@@ -636,24 +636,29 @@ section.content {
 .steps {
   display: grid;
   gap: 0;
-  max-width: 900px;
+  max-width: 760px;
   margin: 0 auto;
 }
+/* Single-column layout. The old 88px-number + 1fr-content grid put the
+   number in a separate left column far from the supporting body copy,
+   which read as misaligned (the user saw "small descriptive text far
+   left, main point far right"). Magazine chapter pattern instead:
+   number sits as an eyebrow directly above the headline, body copy
+   flows under both at the same x-axis start. */
 .step {
-  display: grid;
-  grid-template-columns: 88px 1fr;
-  gap: 28px;
-  padding: 24px 0;
+  padding: 22px 0;
   border-top: 1px solid var(--line);
-  align-items: start;
 }
 .step:last-child { border-bottom: 1px solid var(--line); }
 .step-num {
+  display: block;
   font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--ink-4);
-  letter-spacing: 0.04em;
-  padding-top: 8px;
+  font-size: 11px;
+  color: var(--amber-3);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
 .step h3 {
   font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
@@ -669,10 +674,11 @@ section.content {
 .step p {
   margin: 0;
   color: var(--ink-2);
-  font-size: 15.5px;
-  line-height: 1.6;
+  font-size: 17px;
+  line-height: 1.55;
   max-width: 62ch;
 }
+.step p + p { margin-top: 8px; }
 .step p .mono-inline { font-family: var(--font-sans); color: var(--ink-2); }
 
 /* ---------- Difference grid ------------------------------------------- */
@@ -3211,4 +3217,17 @@ h2.section .section-coda {
   background: none !important;
   -webkit-background-clip: border-box !important;
   background-clip: border-box !important;
+}
+
+/* Lede paragraph that sits between an h2.section + its coda and the
+   first body section. Same x-axis start as the headline, slightly
+   softer color than body copy, capped width so it reads as a real
+   subhead instead of a continuation of the title. */
+.section-lede {
+  margin: 16px 0 0;
+  max-width: 60ch;
+  font-family: var(--font-sans);
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.55;
+  color: var(--ink-3);
 }

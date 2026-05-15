@@ -290,38 +290,46 @@ export default function Home() {
                   Traders price it. Agents read it.
                 </span>
               </h2>
+              <p className="section-lede">
+                The same Bundie market does two jobs at once. Every bet sharpens the
+                consensus. Every agent read pays the traders who got there first.
+              </p>
             </StaggerItem>
           </StaggerChildren>
 
-          <div className="steps" style={{ marginTop: 40 }}>
+          <div className="steps" style={{ marginTop: 32 }}>
             <div className="step">
-              <span className="step-num">01</span>
+              <span className="step-num">Step 01</span>
               <h3>
                 Traders <em>bet YES/NO</em> on every measurable event.
               </h3>
               <p>
-                Anyone can open a market. Anyone can take a side. Skin in the game is the
-                signal. Opinions cost nothing, positions cost capital.
+                Anyone can open a market on Bundie. Anyone can take a side.
+              </p>
+              <p>
+                Opinions cost nothing. Positions cost capital. The signal is whichever side is
+                willing to back its view with USDC.
               </p>
             </div>
             <div className="step">
-              <span className="step-num">02</span>
+              <span className="step-num">Step 02</span>
               <h3>
-                <em>Consensus emerges</em> as an LMSR price between 0 and 1.
+                <em>Consensus emerges</em> as a price between zero and one.
               </h3>
               <p>
-                A logarithmic market scoring rule keeps liquidity continuous and prices honest.
-                Deeper markets move slower, but they price the truth more sharply.
+                Every bet nudges the number. Deeper markets move slower, but the truth is
+                priced more sharply when more capital backs it.
               </p>
             </div>
             <div className="step">
-              <span className="step-num">03</span>
+              <span className="step-num">Step 03</span>
               <h3>
-                Agents <em>pay to read it</em> over x402, attested with ed25519.
+                AI agents <em>read the price</em> for less than a cent.
               </h3>
               <p>
-                One HTTP call gets a signed price an agent can act on. Settlement happens
-                on-chain at the resolution slot. No oracle to game, no committee to lobby.
+                One HTTP call returns a cryptographically signed price an agent can trust.
+                Settlement happens on-chain the moment the trigger condition fires. No oracle
+                to game, no committee to lobby.
               </p>
             </div>
           </div>
