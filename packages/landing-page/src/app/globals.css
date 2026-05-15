@@ -3182,15 +3182,15 @@ section.final-cta-band .wrap { position: relative; z-index: 2; }
   51%, 100% { opacity: 0; }
 }
 
-/* Sub-headline that sits directly under a .section h2 and reads as a
-   second movement of the title rather than wrapped overflow. Same
-   left-align, distinct hierarchy. */
-.section-display-sub {
-  margin: 8px 0 0;
-  font-family: var(--font-serif), 'Instrument Serif', Georgia, serif;
+/* A second clause that lives INSIDE an h2.section and reads as a coda
+   to the headline, not a subtitle below it. Same font-size, same line-
+   height, same baseline grid — just italic + teal so the eye reads it
+   as the natural continuation. Block-displayed so it sits on its own
+   line at the same left edge as the headline (not wrapped overflow).
+   Removes the visual mismatch between an h2 headline and a smaller
+   <p> subtitle that was reading as "two separate things". */
+h2.section .section-coda {
+  display: block;
   font-style: italic;
-  font-size: clamp(24px, 3vw, 36px);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
   color: rgba(18, 68, 58, 0.85);
 }
