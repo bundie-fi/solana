@@ -1983,7 +1983,12 @@
         "Settle an event market. The transaction must be signed by the",
         "pubkey recorded in the market's `ResolverAuthority` PDA. The",
         "resolver passes the outcome it observed off-chain; the on-chain",
-        "logic only verifies the signer is the registered authority."
+        "logic only verifies the signer is the registered authority.",
+        "",
+        "Also freezes the CPI-readable `EventPrice` feed at the terminal",
+        "outcome (0 for NO, PRICE_SCALE for YES) and flips its status to",
+        "`STATUS_RESOLVED`. `event_id_hash` is passed explicitly so the",
+        "EventPrice PDA can be derived without reading market payload."
       ],
       "discriminator": [
         184,
@@ -2001,6 +2006,7 @@
           "docs": [
             "Must match `resolver_authority.resolver` — checked via constraint."
           ],
+          "writable": true,
           "signer": true
         },
         {
@@ -2035,6 +2041,44 @@
               }
             ]
           }
+        },
+        {
+          "name": "event_price",
+          "docs": [
+            "CPI-readable price feed. `init_if_needed` so a market that",
+            "resolves before `update_event_price` has ever been called still",
+            "produces a terminal feed account for consumers to read.",
+            "Keyed on `event_id_hash` to match the public PDA derivation."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  105,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -2044,6 +2088,15 @@
             "defined": {
               "name": "Outcome"
             }
+          }
+        },
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
           }
         }
       ]
@@ -2323,6 +2376,141 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "update_event_price",
+      "docs": [
+        "Tick the CPI-readable price feed for an event market. Called",
+        "each resolver loop with the latest LMSR mid-price + confidence +",
+        "depth. First call creates the `EventPrice` PDA; subsequent calls",
+        "bump fields. Same auth model as `resolve_event` (resolver signer",
+        "+ config_hash gating).",
+        "",
+        "Consumers (external Solana programs) derive the PDA from",
+        "`[b\"event_price\", event_id_hash]` and read the account directly —",
+        "no CPI back into this program required."
+      ],
+      "discriminator": [
+        74,
+        70,
+        209,
+        160,
+        146,
+        164,
+        111,
+        146
+      ],
+      "accounts": [
+        {
+          "name": "resolver",
+          "docs": [
+            "Must match `resolver_authority.resolver` — checked via constraint."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "resolver_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  115,
+                  111,
+                  108,
+                  118,
+                  101,
+                  114,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "event_price",
+          "docs": [
+            "CPI-readable price feed. Created on first call, mutated on",
+            "subsequent ticks. Keyed on `event_id_hash` (not market.key()) so",
+            "foreign programs can derive the PDA from just the event slug."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  105,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "config_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "price",
+          "type": "u64"
+        },
+        {
+          "name": "confidence",
+          "type": "u64"
+        },
+        {
+          "name": "depth_usd",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2337,6 +2525,19 @@
         8,
         108,
         152
+      ]
+    },
+    {
+      "name": "EventPrice",
+      "discriminator": [
+        54,
+        55,
+        53,
+        50,
+        48,
+        218,
+        164,
+        147
       ]
     },
     {
@@ -2570,6 +2771,126 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EventPrice",
+      "docs": [
+        "CPI-readable price feed for a single event market.",
+        "",
+        "Layout is intentionally flat + fixed-size: every consumer can parse",
+        "it with a single `borsh::from_slice(&data[8..])` after the Anchor",
+        "discriminator. No `Option`s, no `Vec`s, no `String`s — the field",
+        "order is the wire format and is part of Bundie's published ABI."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "event_id_hash",
+            "docs": [
+              "blake3 hash of the canonical event_id slug from",
+              "`scripts/resolvers/sources.json`. Same hash used as the market",
+              "PDA seed; consumers verify the price feed matches the event",
+              "they expect."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "market",
+            "docs": [
+              "The Market account this price tracks. Defence-in-depth — a",
+              "consumer that already has the market pubkey can cross-check."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "price",
+            "docs": [
+              "YES-share probability in Q9 fixed-point (exponent = -9).",
+              "Range: [0, PRICE_SCALE]. After resolution this is frozen at",
+              "either 0 (NO won) or PRICE_SCALE (YES won)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "exponent",
+            "docs": [
+              "Fixed-point exponent for `price` and `confidence`. Always",
+              "`EVENT_PRICE_EXPONENT` for v1, but stored explicitly so",
+              "consumers can parse without hardcoding the scale."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "confidence",
+            "docs": [
+              "Confidence interval (Q9). Smaller = higher confidence.",
+              "Computed off-chain from LMSR depth + spread; see",
+              "`packages/backend/src/v1/lmsr.ts::confidenceScore`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "depth_usd_u64",
+            "docs": [
+              "Market depth in USDC base units (6 decimals). NOT Q9-scaled —",
+              "matches the collateral mint's native units. Consumers use this",
+              "to weight the price (thin markets ⇒ low trust)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "updated_at_slot",
+            "docs": [
+              "Solana slot of the last `update_event_price` call. Consumers",
+              "reject feeds older than their staleness threshold."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "updated_at_ts",
+            "docs": [
+              "`Clock::unix_timestamp` of the last update. Mirrors",
+              "`updated_at_slot` in wall-clock domain for off-chain consumers."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "docs": [
+              "`STATUS_ACTIVE` (0) while the market is live; `STATUS_RESOLVED`",
+              "(1) once `resolve_event` has settled. Once resolved, `price` is",
+              "frozen and consumers can treat it as a terminal value."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "_reserved",
+            "docs": [
+              "Reserved for forward-compatible additions (TWAP, decimals,",
+              "confidence_lo/hi, ...). Zero-initialised; consumers ignore."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
           }
         ]
       }

@@ -71,7 +71,11 @@ export class AwsHealthIncidentResolver
         console.warn(`[aws-health] ${eventId} fetch failed: ${res.status}`);
         return null;
       }
-      payload = (await res.json()) as AwsHealthPayload;
+      // AWS serves data.json with a UTF-8 BOM. fetch's res.json() chokes
+      // on it ("Unexpected token '﻿'"), so we read text and strip
+      // the BOM before parsing.
+      const raw = await res.text();
+      payload = JSON.parse(raw.replace(/^﻿/, "")) as AwsHealthPayload;
     } catch (err) {
       console.warn(
         `[aws-health] ${eventId} fetch error: ${(err as Error).message}`,

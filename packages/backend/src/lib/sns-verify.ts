@@ -18,6 +18,10 @@
  * is "passport stamp", not "border control".
  */
 import { Connection } from "@solana/web3.js";
+// Pinned to @bonfida/spl-name-service 2.5.4 in package.json — v3.x ships a
+// split-bundle ESM build whose generated files import { serialize } from
+// borsh's ESM (which doesn't re-export it), crashing tsx/node at boot under
+// `type: "module"`. 2.5.4 is a single-file ESM bundle that loads cleanly.
 import {
   getDomainKeySync,
   NameRegistryState,

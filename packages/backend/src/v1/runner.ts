@@ -27,6 +27,15 @@ import { findMarketForEvent } from "./onchain.js";
 import { PythThresholdDurationResolver } from "./resolvers/pyth-threshold-duration.js";
 import { StatuspageIncidentResolver } from "./resolvers/statuspage-incident.js";
 import { AwsHealthIncidentResolver } from "./resolvers/aws-health-incident.js";
+import { OnchainTvlRollingWindowResolver } from "./resolvers/onchain-tvl-rolling-window.js";
+import { incrementTrackRecord } from "./track-record.js";
+import {
+  maybeTickOnchainEventPrice,
+  isOnchainEventPriceEnabled,
+  deriveEventPricePda,
+} from "./event-price-onchain.js";
+import { eventIdHash } from "./onchain.js";
+import { SystemProgram } from "@solana/web3.js";
 import type { Resolver } from "./types.js";
 
 /**
@@ -124,10 +133,10 @@ function buildResolvers(
     new StatuspageIncidentResolver(),
   );
   map.set("aws_health_dashboard_incident", new AwsHealthIncidentResolver());
-  // TODO: onchain_tvl_rolling_window resolver requires per-protocol TVL
-  // readers (Kamino, MarginFi, Save). Each protocol publishes its TVL
-  // through a different account layout. Lands as protocol-specific
-  // readers ship alongside their NAV oracles.
+  map.set(
+    "onchain_tvl_rolling_window",
+    new OnchainTvlRollingWindowResolver(connection),
+  );
   return map;
 }
 
@@ -135,6 +144,7 @@ async function submitResolveEvent(
   program: Program,
   resolverKp: Keypair,
   marketAddress: PublicKey,
+  eventId: string,
   outcome: "yes" | "no",
 ): Promise<string> {
   const [resolverAuthorityPda] = PublicKey.findProgramAddressSync(
@@ -142,6 +152,30 @@ async function submitResolveEvent(
     program.programId,
   );
   const outcomeObj = outcome === "yes" ? { yes: {} } : { no: {} };
+
+  // Post-EventPrice-upgrade path: the on-chain `resolve_event` now also
+  // takes the event_id_hash + the event-price PDA so the feed can be
+  // frozen at the terminal outcome in the same tx. Pre-upgrade we use the
+  // narrower signature. Both call sites share the `.rpc()` shape.
+  if (isOnchainEventPriceEnabled()) {
+    const eventIdHashBuf = eventIdHash(eventId);
+    const eventPricePda = deriveEventPricePda(
+      program.programId,
+      eventIdHashBuf,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return await (program.methods as any)
+      .resolveEvent(outcomeObj, Array.from(eventIdHashBuf))
+      .accounts({
+        resolver: resolverKp.publicKey,
+        market: marketAddress,
+        resolverAuthority: resolverAuthorityPda,
+        eventPrice: eventPricePda,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sig = await (program.methods as any)
     .resolveEvent(outcomeObj)
@@ -176,6 +210,42 @@ async function tick(
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await resolver.poll(event.event_id, event.resolver_config as any, now);
+
+        // ---- On-chain EventPrice tick (gated by BUNDIE_EVENT_PRICE_ONCHAIN) ----
+        // Runs regardless of whether the resolver fired this tick — we want
+        // the feed to be ticked even on quiet markets. Failures here MUST NOT
+        // block the settlement path, so we wrap in our own try/catch and only
+        // log. The epsilon+heartbeat gate inside the helper means we don't
+        // burn SOL when price is flat.
+        if (isOnchainEventPriceEnabled()) {
+          try {
+            const marketPdaForTick = await findMarketForEvent(event.event_id);
+            if (marketPdaForTick) {
+              const [resolverAuthPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from("resolver_auth"), marketPdaForTick.toBuffer()],
+                program.programId,
+              );
+              const tickResult = await maybeTickOnchainEventPrice({
+                program,
+                resolverKp,
+                eventId: event.event_id,
+                marketPda: marketPdaForTick,
+                resolverAuthorityPda: resolverAuthPda,
+                configHash: configHash(event.resolver_config),
+              });
+              if (tickResult.status === "wrote") {
+                console.log(
+                  `[runner] event_price tick ${event.event_id} priceQ9=${tickResult.priceQ9} sig=${tickResult.signature}`,
+                );
+              }
+            }
+          } catch (err) {
+            console.warn(
+              `[runner] event_price tick failed for ${event.event_id}: ${(err as Error).message}`,
+            );
+          }
+        }
+
         if (!result) return; // trigger not met yet — wait for next tick
 
         const marketPda = await findMarketForEvent(event.event_id);
@@ -205,8 +275,17 @@ async function tick(
         console.log(
           `[runner] resolving ${event.event_id} (${marketPda.toBase58()}) → ${result.toUpperCase()}`,
         );
-        const sig = await submitResolveEvent(program, resolverKp, marketPda, result);
+        const sig = await submitResolveEvent(
+          program,
+          resolverKp,
+          marketPda,
+          event.event_id,
+          result,
+        );
         console.log(`[runner] resolved: ${sig}`);
+        // Bump the resolver's total-resolutions counter. disputed/lost stay
+        // at zero until an override mechanism exists on-chain.
+        await incrementTrackRecord(event.resolver_class, "total");
       } catch (err) {
         console.error(
           `[runner] ${event.event_id} failed: ${(err as Error).message}`,
@@ -226,6 +305,9 @@ async function main() {
   console.log(`[runner] resolver pubkey: ${resolverKp.publicKey.toBase58()}`);
   console.log(`[runner] rpc: ${RPC_URL}`);
   console.log(`[runner] tick interval: ${TICK_INTERVAL_MS}ms`);
+  console.log(
+    `[runner] onchain event_price: ${isOnchainEventPriceEnabled() ? "ENABLED" : "disabled"} (set BUNDIE_EVENT_PRICE_ONCHAIN=true to flip)`,
+  );
   console.log("");
 
   // Initial tick immediately, then schedule recurring.

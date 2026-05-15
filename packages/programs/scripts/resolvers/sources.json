@@ -63,16 +63,18 @@
       "resolver_class": "onchain_tvl_rolling_window",
       "resolver_config": {
         "protocol": "kamino_main_lending",
-        "tvl_account": "[VERIFY] Kamino main lending market account — devnet uses different deployment; populate from existing nav_reader_offsets memory entry which has live-verified Kamino offsets",
+        "tvl_account": "9uKMtFU9UJ9DfbwzCReGENb31appi79KTEeDGdCnvMjy",
         "drop_threshold_usd": 50000000,
         "rolling_window_seconds": 86400,
         "outcome_window_seconds": 7776000,
-        "poll_interval_seconds": 60
+        "poll_interval_seconds": 60,
+        "price_usd": 1.0
       },
       "outcome_yes": "any_24h_window_breaches_drop_threshold",
       "outcome_no": "no_24h_window_breaches",
       "demo_eligible": true,
-      "verify_before_mainnet": true
+      "verify_before_mainnet": true,
+      "notes": "tvl_account is the verified Kamino devnet klend Reserve PDA (USDC pool, matches probes/probe-kamino-reserve.ts fixture). price_usd=1.0 is a devnet-only stub for USDC's $1 peg — mainnet MUST swap this for a Pyth feed read, see onchain-tvl-rolling-window.ts file docstring."
     },
     {
       "event_id": "anthropic_api_downtime_5min_weekly",

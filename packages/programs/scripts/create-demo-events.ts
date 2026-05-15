@@ -17,11 +17,30 @@
  *   3. The resolver pubkey is the entity that will sign `resolve_event`
  *      for these markets. For v1 demo it's typically the same wallet.
  *
- * Idempotency:
- *   Markets are PDA-derived from `["event_market", event_id_hash, market_id]`,
- *   so re-running the script with the same `MARKET_ID_PREFIX` will fail at
- *   `init` with "account already exists". To create a fresh demo set,
- *   bump `MARKET_ID_PREFIX` or pass via env var.
+ * ──────────────────────────────────────────────────────────────────────
+ * MARKET_ID_PREFIX collision-avoidance contract
+ * ──────────────────────────────────────────────────────────────────────
+ * Each market PDA is derived from:
+ *     ["event_market", sha256(event_id), market_id_le_u64]
+ * where `market_id = MARKET_ID_PREFIX + i` for the i-th demo_eligible event.
+ *
+ * The same `event_id` from sources.json is always paired with the same
+ * `MARKET_ID_PREFIX + i` slot, so re-running with a prefix that has been
+ * used before will hit "account already exists" on the first overlapping
+ * slot. To prevent partial / inconsistent demo state, the script probes
+ * every planned market PDA on devnet BEFORE submitting any tx. If any
+ * PDA is already initialized, it aborts and prints the smallest safe
+ * MARKET_ID_PREFIX value to use for the next run.
+ *
+ * Devnet prefix history (keep this current):
+ *   - 100..199 : initial bring-up runs (Apr-May 2026)
+ *   - 200..299 : reserved for ad-hoc debug runs
+ *   - 300..    : feat/rate-prediction-markets-v2 demo set (current)
+ *
+ * Mainnet: not yet deployed. Before going to mainnet, replace this
+ * deploy-script-only check with an on-chain MarketIdCounter PDA so
+ * collision is structurally impossible.
+ * ──────────────────────────────────────────────────────────────────────
  */
 import {
   AnchorProvider,
@@ -105,6 +124,87 @@ function eventIdHash(eventId: string): Buffer {
 
 function configHash(config: Record<string, unknown>): Buffer {
   return createHash("sha256").update(JSON.stringify(config)).digest();
+}
+
+function deriveMarketPda(
+  programId: PublicKey,
+  eventIdHashBuf: Buffer,
+  marketId: number,
+): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("event_market"),
+      eventIdHashBuf,
+      new BN(marketId).toArrayLike(Buffer, "le", 8),
+    ],
+    programId,
+  );
+  return pda;
+}
+
+/**
+ * Probe every market PDA the run would initialize. If ANY are already
+ * live on-chain, abort and tell the operator the smallest safe prefix
+ * to use on the next run. Runs BEFORE any tx submission so a half-used
+ * prefix can never leave the demo set in a torn state.
+ */
+async function assertPrefixIsClean(
+  connection: Connection,
+  programId: PublicKey,
+  prefix: number,
+  events: RegistryEvent[],
+): Promise<void> {
+  const plannedPdas = events.map((event, i) => ({
+    eventId: event.event_id,
+    marketId: prefix + i,
+    pda: deriveMarketPda(programId, eventIdHash(event.event_id), prefix + i),
+  }));
+
+  const infos = await connection.getMultipleAccountsInfo(
+    plannedPdas.map((p) => p.pda),
+  );
+  const collisions = plannedPdas.filter((_, i) => infos[i] !== null);
+  if (collisions.length === 0) {
+    console.log(
+      `Prefix ${prefix} is clean (${plannedPdas.length} slots probed).`,
+    );
+    console.log("");
+    return;
+  }
+
+  // Find the smallest safe next prefix by scanning forward. Bound the
+  // search to keep this cheap on devnet RPC.
+  let safePrefix = prefix + events.length;
+  const maxScan = 50; // covers ~50 re-deploys; bump if you ever hit this
+  for (let attempt = 0; attempt < maxScan; attempt++) {
+    const probePdas = events.map((event, i) =>
+      deriveMarketPda(
+        programId,
+        eventIdHash(event.event_id),
+        safePrefix + i,
+      ),
+    );
+    const probeInfos = await connection.getMultipleAccountsInfo(probePdas);
+    if (probeInfos.every((info) => info === null)) break;
+    safePrefix += events.length;
+  }
+
+  const collisionSummary = collisions
+    .slice(0, 5)
+    .map((c) => `    market_id=${c.marketId} (event=${c.eventId})`)
+    .join("\n");
+  const more =
+    collisions.length > 5 ? `\n    …and ${collisions.length - 5} more` : "";
+  console.error(
+    `\n✗ MARKET_ID_PREFIX collision: prefix ${prefix} already used through ${prefix}_${String(
+      Math.max(...collisions.map((c) => c.marketId - prefix)),
+    ).padStart(3, "0")}.\n` +
+      `  ${collisions.length} of ${plannedPdas.length} planned market PDAs already exist on-chain:\n` +
+      `${collisionSummary}${more}\n\n` +
+      `  → Bump MARKET_ID_PREFIX to ${safePrefix} and re-run:\n` +
+      `      MARKET_ID_PREFIX=${safePrefix} pnpm tsx packages/programs/scripts/create-demo-events.ts\n`,
+  );
+  process.exit(1);
 }
 
 function resolveFeedKey(
@@ -259,6 +359,15 @@ async function main() {
   console.log(`USDC ATA:  ${creatorUsdcAta.toBase58()} (exists)`);
   console.log("");
 
+  // Collision pre-check: ensure no planned market PDA already exists.
+  // Aborts with a clear remediation message if the current prefix is dirty.
+  await assertPrefixIsClean(
+    connection,
+    program.programId,
+    MARKET_ID_PREFIX,
+    demoEvents,
+  );
+
   for (let i = 0; i < demoEvents.length; i++) {
     const event = demoEvents[i];
     const marketId = MARKET_ID_PREFIX + i;
@@ -267,14 +376,7 @@ async function main() {
     const kind = KIND_FROM_PROPOSED[event.market_kind_proposed];
     const payload = encodePayload(registry, event);
 
-    const [marketPda] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("event_market"),
-        eventIdHashBuf,
-        new BN(marketId).toArrayLike(Buffer, "le", 8),
-      ],
-      program.programId,
-    );
+    const marketPda = deriveMarketPda(program.programId, eventIdHashBuf, marketId);
 
     const [resolverAuthorityPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("resolver_auth"), marketPda.toBuffer()],

@@ -15,6 +15,9 @@
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
+import { emitPriceUpdate } from "./price-emitter.js";
+import { loadRegistry } from "./registry.js";
+import { findMarketForEvent } from "./onchain.js";
 
 const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
 const PROGRAM_ID = new PublicKey(
@@ -131,6 +134,12 @@ async function refresh(): Promise<void> {
         const arr = tradesByMarket.get(trade.marketAddress) ?? [];
         arr.push(trade);
         tradesByMarket.set(trade.marketAddress, arr);
+        // Fire a price-update notification keyed by the event_id that
+        // owns this market. Resolved via the reverse map below; cached.
+        const eventId = await eventIdForMarket(trade.marketAddress).catch(
+          () => null,
+        );
+        if (eventId) emitPriceUpdate(eventId);
       }
     }
 
@@ -162,8 +171,89 @@ export async function getMarketStats(marketAddress: string): Promise<MarketStats
   };
 }
 
+/**
+ * Historical variant of {@link getMarketStats}: aggregates trades over the
+ * 24h window ending at `atMs` rather than the live `[now - 24h, now]`. Used
+ * by /v1/event-price?at=... for agent backtesting.
+ *
+ * Returns the same MarketStats shape, plus:
+ *  - tickBlockTimeMs: the block-time of the closest trade at-or-before
+ *    `atMs`, or null if no trade is in scope. Callers use this as the
+ *    `as_of` for the historical response (rounded to the nearest sample
+ *    in the buffer).
+ *  - windowTruncated: true if the buffer doesn't extend back to `atMs - 24h`
+ *    (i.e. the available subset is shorter than 24h).
+ *  - earliestBufferedMs: the oldest trade block-time currently in the
+ *    buffer for this market (used to format 400-error bounds).
+ */
+export interface HistoricalMarketStats extends MarketStats {
+  tickBlockTimeMs: number | null;
+  windowTruncated: boolean;
+  earliestBufferedMs: number | null;
+}
+
+export async function getHistoricalMarketStats(
+  marketAddress: string,
+  atMs: number,
+): Promise<HistoricalMarketStats> {
+  // Best-effort refresh on each call; rate-limited internally.
+  refresh().catch(() => undefined);
+  const trades = tradesByMarket.get(marketAddress) ?? [];
+  const earliestBufferedMs =
+    trades.length > 0
+      ? trades.reduce((m, t) => Math.min(m, t.blockTimeMs), Infinity)
+      : null;
+  const windowStartMs = atMs - WINDOW_MS;
+  const inWindow = trades.filter(
+    (t) => t.blockTimeMs >= windowStartMs && t.blockTimeMs <= atMs,
+  );
+  const tradeCount24h = inWindow.length;
+  const uniqueTraders24h = new Set(inWindow.map((t) => t.trader)).size;
+  // Closest tick at-or-before `atMs`. We use the trade event's block-time
+  // as the sample timestamp; ties resolve to the latest.
+  const atOrBefore = trades.filter((t) => t.blockTimeMs <= atMs);
+  const tickBlockTimeMs =
+    atOrBefore.length > 0
+      ? atOrBefore.reduce((m, t) => Math.max(m, t.blockTimeMs), -Infinity)
+      : null;
+  const windowTruncated =
+    earliestBufferedMs !== null && earliestBufferedMs > windowStartMs;
+  return {
+    tradeCount24h,
+    uniqueTraders24h,
+    // Same v1 limitation as live reads: last_change_24h and spot_vs_twap_pct
+    // require per-trade price snapshots which the trade-event buffer does
+    // not carry. They stay 0 until the price-history table ships.
+    lastChange24h: 0,
+    spotVsTwapPct: 0,
+    tickBlockTimeMs,
+    windowTruncated,
+    earliestBufferedMs: earliestBufferedMs === Infinity ? null : earliestBufferedMs,
+  };
+}
+
 /** Force a refresh — useful for tests / cold starts. */
 export async function indexerRefresh(): Promise<void> {
   lastRefresh = 0;
   await refresh();
+}
+
+/**
+ * Reverse map: given a market PDA address, return the event_id that owns
+ * it. Built lazily by scanning the registry's known events. Cached so the
+ * indexer doesn't re-scan on every trade.
+ */
+const marketToEventCache = new Map<string, string>();
+async function eventIdForMarket(marketAddress: string): Promise<string | null> {
+  const cached = marketToEventCache.get(marketAddress);
+  if (cached) return cached;
+  const registry = loadRegistry();
+  for (const e of registry.events) {
+    const pda = await findMarketForEvent(e.event_id).catch(() => null);
+    if (pda && pda.toBase58() === marketAddress) {
+      marketToEventCache.set(marketAddress, e.event_id);
+      return e.event_id;
+    }
+  }
+  return null;
 }

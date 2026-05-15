@@ -80,6 +80,19 @@ export interface EventPriceResponse {
   signed_attestation: string;
   /** ISO-8601 UTC timestamp of the on-chain state read. */
   as_of: string;
+  /**
+   * Echoed `at` query parameter (ISO-8601 UTC) when the response was
+   * served by the historical read path (`GET /v1/event-price?at=...`).
+   * Absent on live reads. Included in the signed-attestation canonical
+   * form so historical signatures are not replayable as live ones.
+   */
+  at?: string;
+  /**
+   * Only present on historical reads. `true` when the trade-event buffer
+   * does not extend back to `at - 24h`, in which case the 24h-window
+   * aggregates cover the available subset and not a full 24h.
+   */
+  window_truncated?: boolean;
 }
 
 /** Summary entry returned by GET /v1/events. */

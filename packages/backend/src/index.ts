@@ -13,6 +13,8 @@ import { stats } from "./routes/stats.js";
 import { v1 } from "./v1/event-price.js";
 import { x402 } from "./v1/x402.js";
 import { rateLimit, startRateLimitGc } from "./v1/rate-limit.js";
+import { createNodeWebSocket } from "@hono/node-ws";
+import { buildStreamRouter } from "./v1/event-price-stream.js";
 
 const app = new Hono();
 
@@ -58,6 +60,18 @@ app.use(
     label: "event-detail",
   }),
 );
+// WS stream gets the same bucket config as the REST event-price path
+// since each connect is roughly equivalent to one REST hit. Bucket is
+// consumed on the HTTP upgrade request (before the WS handshake completes),
+// so a flood of connect attempts from one IP gets 429'd just like REST.
+app.use(
+  "/v1/event-price/stream",
+  rateLimit("v1.event-price", {
+    capacity: 600,
+    refillPerSecond: 5,
+    label: "event-price-stream",
+  }),
+);
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
@@ -82,10 +96,18 @@ app.route("/", stats);
 app.use("/v1/*", x402());
 app.route("/v1", v1);
 
+// WS live price stream. createNodeWebSocket returns an `upgradeWebSocket`
+// helper bound to this Hono app; the matching `injectWebSocket(server)`
+// call below attaches the underlying `ws` server to the same HTTP server
+// that serves REST. Single port, no separate WS process.
+const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
+app.route("/v1/event-price", buildStreamRouter(upgradeWebSocket));
+
 const port = Number(process.env.PORT) || 3001;
 
 console.log(`Bundie backend listening on port ${port}`);
 
-serve({ fetch: app.fetch, port });
+const server = serve({ fetch: app.fetch, port });
+injectWebSocket(server);
 
 export default app;

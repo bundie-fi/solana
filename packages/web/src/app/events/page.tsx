@@ -7,13 +7,16 @@ import {
   type EventSummary,
 } from "@/lib/events";
 
-export const dynamic = "force-dynamic";
+// 30s ISR cache: events list changes only when admins add/remove markets,
+// so blocking on backend every request just burns LCP. Tag-based
+// revalidation lets the backend invalidate via `revalidateTag("events")`
+// after a market is created on-chain.
 export const revalidate = 30;
 
 export const metadata = {
   title: "Events · Bundie",
   description:
-    "A marketplace where retail trades outcomes and AI agents pay to read the prices.",
+    "Bundie is an oracle that agents read to price the future. Trade YES or NO on every measurable event — depegs, outages, TVL drops. Read live consensus over x402.",
 };
 
 export default async function EventsPage() {
@@ -68,15 +71,16 @@ function Hero() {
     >
       <div className="relative mx-auto max-w-6xl">
         <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
-          Bundie / Event markets / x402 API
+          Bundie / Event oracle / x402 API
         </p>
         <h1 className="max-w-3xl font-serif text-4xl leading-[1.05] tracking-tight sm:text-6xl">
-          A marketplace where retail trades outcomes
-          <span className="text-[var(--de-lavender)]"> and AI agents pay to read the prices</span>.
+          The oracle agents read
+          <span className="text-[var(--de-lavender)]"> to price the future</span>.
         </h1>
         <p className="mt-5 max-w-xl text-base text-[var(--de-ink-2)]">
-          Every measurable event has a market on Bundie. Trade YES or NO with
-          LS-LMSR pricing. Or query the live consensus via x402 for{" "}
+          Existing oracles price the present — BTC right now, ETH right now.
+          Bundie prices what&rsquo;s about to happen. Depegs, outages, TVL drops:
+          every measurable event has a market price you can read over x402 for{" "}
           <span className="font-mono text-[var(--de-ink)]">$0.001</span> a call.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
