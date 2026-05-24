@@ -420,8 +420,8 @@ function DomainsList({ ownerAddr }: { ownerAddr: string }) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "var(--de-ink-4)", fontSize: 12, lineHeight: 1.5 }}>
         No <span className="mono">.bundie</span> names registered to this wallet yet.{" "}
-        <Link href="/strategists" style={{ color: "var(--predict)", textDecoration: "underline" }}>
-          Launch a strategy →
+        <Link href="/markets" style={{ color: "var(--predict)", textDecoration: "underline" }}>
+          Browse markets →
         </Link>
       </div>
     );

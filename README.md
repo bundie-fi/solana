@@ -1,6 +1,6 @@
 # Bundie
 
-> The index of DeFi performance you can trade on.
+> The oracle agents read to price the future.
 
 **Live app:** [app.solana.bundie.fi](https://app.solana.bundie.fi) · **Landing:** [solana.bundie.fi](https://solana.bundie.fi)
 
@@ -10,22 +10,28 @@
 
 ## What it does
 
-Bundie hosts AI trading agents that execute real DeFi strategies on Solana, and runs binary prediction markets on their NAV performance. Bettors browse a leaderboard of agents ranked by realized 30-day return, drill into agent detail pages with live NAV charts, and place YES/NO bets on whether an agent's NAV will cross a target by a resolution date. Markets settle automatically by reading on-chain NAV at the resolution slot. **No oracle, no committee, no off-chain attestation.**
+Bundie is a market that prices **on-chain DeFi outcomes** and settles by **reading Solana state** — no oracle, no committee, no off-chain attestation.
 
-Six trading agents are live on devnet at launch. Each runs autonomously through a chaos-sim daemon: an LLM brain reasons over live mainnet rate surfaces (Kamino utilization, Marinade mSOL above-par, Jupiter Perps funding) and emits on-chain actions. Strategies execute on a Solana mainnet fork (surfpool); markets and NAV settlement live on devnet.
+Existing oracles price the *present*: what a token is worth right now. Bundie prices what's about to *happen* — will this pool's utilization spike, will this LST lose its peg, will this stablecoin slip this week — and resolves it from the same chain the outcome lives on.
+
+One primitive, two paying customers:
+
+- **Retail traders** buy YES or NO on a DeFi-outcome market (~1% spread). That price *is* the market's implied probability.
+- **External AI agents** pay $0.001 over **x402** to read the signed price before they act. Same market, two sides: traders provide the signal, agents consume it.
+
+Market supply is live on-chain DeFi state — TVL, utilization, LST par, funding, depeg. There are no agents to create and nothing for users to launch; the supply is infinite and chain-readable.
+
+> **Note:** AI-agent strategy performance is just *one example* market category. A live house strategy's NAV is another on-chain metric to price — relatable, and what Colosseum flagged. It runs on 1–2 house agents and is not a user-facing feature.
 
 ---
 
-## The six agents at launch
+## Why on-chain settlement is the moat
 
-| SNS handle | Display | Strategy |
-|---|---|---|
-| `kamino-stacker` | Kaito | Kamino USDC supply — maximally simple lending |
-| `apy-rotator` | Maya | Yield rotation between Kamino and Solend USDC reserves |
-| `funding-shorter` | Felix | Funding-rate carry: short SOL perp on Jupiter when funding is positive |
-| `stable-arber` | Stella | Stablecoin yield aggregation across lending venues |
-| `barbell` | Asher | 50% Kamino USDC + 50% jupiter-perps SOL long |
-| `lst-shopper` | Leo | Compares Marinade vs Jito above-par rates each epoch |
+A market like *"will Kamino USDC utilization cross 90% this week?"* settles by reading Kamino's account directly on Solana at the resolution slot. No Pyth, no Switchboard, no committee.
+
+That closes the loop every other prediction market leaves open: the price that prices a DeFi outcome settles from the exact same chain the outcome lives on. It only works on Solana — that's the whole moat.
+
+`InsiderMarketForbidden` is enforced at the program level (`target_agent != creator`) — a constraint, not a convention.
 
 ---
 
@@ -35,31 +41,29 @@ Six trading agents are live on devnet at launch. Each runs autonomously through 
                  ┌─────────────────────────────────────┐
                  │  Discover · Markets · Portfolio     │
                  │  Web app + Seeker TWA               │
-                 └────────────────┬────────────────────┘
-                                  │ YES / NO bets
-                                  │ in bUSD
-                 ┌────────────────▼────────────────────┐
-                 │  LS-LMSR prediction market program  │
-                 │  Anchor · devnet · oracle-free      │
-                 └────────────────┬────────────────────┘
-                                  │ commit_nav per slot
-                 ┌────────────────▼────────────────────┐
-                 │  AI trading agent (Redpill brain)   │
-                 │  observe → reason → execute         │
-                 └────────────────┬────────────────────┘
-                                  │ direct SDK calls
-                 ┌────────────────▼────────────────────┐
-                 │  Kamino · Marinade · Solend ·       │
-                 │  Jito · Jupiter · Jupiter Perps     │
-                 │  on a Solana mainnet fork (surfpool)│
-                 └─────────────────────────────────────┘
+                 └──────────┬──────────────┬───────────┘
+                 YES/NO bets │              │ x402 price read
+                 in bUSD     │              │ ($0.001 / query)
+              (retail trader)│              │  (external AI agent)
+                 ┌───────────▼──────────────▼───────────┐
+                 │  LS-LMSR prediction market program   │
+                 │  Anchor · devnet · oracle-free       │
+                 │  signed price = implied probability  │
+                 └────────────────┬─────────────────────┘
+                                  │ resolves by reading chain state
+                 ┌────────────────▼─────────────────────┐
+                 │  Live Solana DeFi state               │
+                 │  Kamino · Marinade · Solend · Jito ·  │
+                 │  Jupiter — TVL, utilization, LST par, │
+                 │  funding, depeg (direct SDK reads)    │
+                 └───────────────────────────────────────┘
 ```
 
-**Two-chain split.** Strategy actions land on **surfpool** (mainnet fork) so agents read live protocol state and execute against real reserves. The prediction-market program lives on **devnet** — every `create_market_v2`, `buy_shares`, and `commit_nav` is on-chain and persistent. The bUSD treasury balance tracks each agent's surfpool NAV via per-tick performance sync.
+**On-chain resolution.** Every `create_event`, `buy_shares`, and `resolve_event` is on-chain and persistent on devnet. At the resolution slot, the program reads protocol state directly and settles — no external resolver in the loop.
 
-**Insider-trading prevention.** The `create_market_v2` instruction enforces `InsiderMarketForbidden` at the program level — `target_agent != creator`. Not a convention.
+**The x402 read.** Agents query `/v1/event-price?id=<market>` with an `X-PAYMENT` header and receive signed JSON `{price, depth, attestation}`. This is the literal "oracle agents read" moment — a machine-readable forward price priced by the live market.
 
-**Demo speed.** From wallet connect to placed bet in under 30 seconds. Agent ticks land at 15s cadence; the warmup loop runs a deterministic first action so a newly-active agent shows visible activity in <5s.
+**Demo speed.** From wallet connect to placed bet in under 30 seconds.
 
 ---
 
@@ -68,10 +72,10 @@ Six trading agents are live on devnet at launch. Each runs autonomously through 
 ```
 packages/
 ├── web/            Next.js 14 PWA  (app.solana.bundie.fi)
-├── backend/        Hono API + faucet + agents registry on Railway
-├── programs/       Anchor program + chaos-sim agent daemon
-│   ├── programs/prediction-market/   LS-LMSR + oracle-free resolution
-│   └── scripts/chaos-sim/            Daemon: tick supervisor + warmup loop
+├── backend/        Hono API + faucet + x402 price-read endpoint on Railway
+├── programs/       Anchor program + chaos-sim daemon (house agents)
+│   ├── programs/prediction-market/   LS-LMSR + oracle-free on-chain resolution
+│   └── scripts/chaos-sim/            Daemon for the 1–2 house strategy agents
 ├── common/         Shared TypeScript types, IDLs, constants
 └── landing-page/   Marketing site  (solana.bundie.fi)
 ```
@@ -82,18 +86,31 @@ packages/
 
 | Program | Address | Purpose |
 |---|---|---|
-| Prediction Market | `Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4` | LS-LMSR markets + NAV-based resolution (devnet) |
+| Prediction Market | `Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4` | LS-LMSR markets + oracle-free on-chain resolution (devnet) |
 
-**Market kinds:**
-- `kind=1` — NAV target: agent X's NAV will exceed Y bUSD by slot Z
-- `kind=2` — Head-to-head: agent A's NAV growth will beat agent B's
-- `kind=3` — Drawdown: agent X's NAV will fall by Y bps within window
+**Market subjects** are live on-chain DeFi metrics — protocol TVL, pool utilization, LST par, perp funding, stablecoin depeg. *(Strategy-NAV markets on house agents — `commit_nav` / `resolve_market_v2` — exist as one example category.)*
+
+> Lead with **on-chain-resolvable** subjects (TVL / utilization / depeg / LST par). Off-chain-resolved markets (e.g. status-page pollers) contradict "oracle-free" and stay out of the headline.
+
+---
+
+## Read API (x402)
+
+```bash
+# An external agent pays $0.001 to read the signed forward price
+curl https://backend.solana.bundie.fi/v1/event-price?id=kamino_util_90 \
+  -H "X-PAYMENT: <x402-payment>"
+
+# → { "price": 0.41, "depth": 12500, "attestation": "..." }
+```
+
+Priced dynamically by market depth. WSS billed per minute. The query side scales with the agent economy.
 
 ---
 
 ## Wired DeFi protocols
 
-The chaos-sim executor has direct SDK integrations with these mainnet programs (read via surfpool fork):
+Market subjects are sourced from real on-chain state via direct SDK reads (no third-party CPI middleware):
 
 | Category | Protocols |
 |---|---|
@@ -102,7 +119,7 @@ The chaos-sim executor has direct SDK integrations with these mainnet programs (
 | Perps | Jupiter Perps |
 | Swap | Jupiter v6 router |
 
-No third-party CPI middleware. Each agent's positions are read directly from chain state for NAV computation.
+State is read directly from chain for both market resolution and the house-agent NAV example.
 
 ---
 
@@ -114,13 +131,13 @@ pnpm install
 # Web app (port 3000)
 pnpm --filter @bundie/web dev
 
-# Backend (port 3001)
+# Backend (port 3001) — API + faucet + x402 read endpoint
 pnpm --filter @bundie/backend dev
 
 # Build + test Solana programs
 cd packages/programs && anchor build && anchor test
 
-# Run the agent daemon (polls Postgres for active agents)
+# Run the house-agent daemon (provides the strategy-NAV example markets)
 pnpm chaos:agent-daemon
 ```
 
@@ -138,10 +155,10 @@ bash start-surfpool.sh
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 14 PWA, Solana Wallet Adapter, Seeker TWA wrapper |
-| Backend | Hono on Railway, Postgres agent registry, bUSD faucet |
+| Backend | Hono on Railway, Postgres, bUSD faucet, x402 price-read API |
 | On-chain | Anchor (prediction-market), pinocchio (utility programs) |
-| Agent brain | Redpill → Claude Sonnet 4.5 |
-| Strategy execution | Surfpool mainnet fork, direct DeFi SDK calls |
+| Resolution | Oracle-free — reads Solana DeFi state at the resolution slot |
+| House-agent example | Surfpool mainnet fork, direct DeFi SDK calls, Redpill → Claude Sonnet 4.5 |
 | Identity | SNS — `bundie.sol` (mainnet) + `.bundie` SNS root (devnet) |
 | Deployment | Railway: web · backend · chaos-sim daemon · surfpool · Postgres |
 
@@ -177,8 +194,8 @@ BUSD_MINT_AUTHORITY_SECRET=
 
 | Person | Owns |
 |---|---|
-| **Yudhishthra** | Anchor programs, on-chain NAV streaming, Solana protocol SDK integrations |
-| **Yee Chian** | Positioning, partnerships, agent operator outreach |
+| **Yudhishthra** | Anchor programs, on-chain resolution, Solana protocol SDK integrations |
+| **Yee Chian** | Positioning, partnerships, x402 / agent-consumer outreach |
 | **Junheng** | Frontend, Seeker TWA, demo experience |
 
 ---

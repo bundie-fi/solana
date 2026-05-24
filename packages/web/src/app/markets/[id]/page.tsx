@@ -5,6 +5,7 @@ import {
   formatPrice,
   getEventDetail,
   getEventPrice,
+  isOnchainResolved,
   type EventDetail,
   type EventPrice,
 } from "@/lib/events";
@@ -68,9 +69,12 @@ export default async function EventPage(props: EventPageProps) {
         }}
       >
         <div className="relative mx-auto max-w-5xl">
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
-            {detail.market_kind_proposed.replace(/([A-Z])/g, " $1").trim()}
-            {lowConfidence ? " · low confidence" : ""}
+          <p className="mb-3 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)]">
+            <span>
+              {detail.market_kind_proposed.replace(/([A-Z])/g, " $1").trim()}
+              {lowConfidence ? " · low confidence" : ""}
+            </span>
+            {isOnchainResolved(detail.resolver_class) && <OnchainBadge />}
           </p>
           <h1 className="font-serif text-3xl leading-tight tracking-tight sm:text-5xl">
             {price.description}
@@ -228,10 +232,10 @@ function TopNav({ eventId }: { eventId: string }) {
     <nav className="sticky top-0 z-10 border-b border-[var(--de-line)] bg-[var(--de-bg)]/85 px-6 py-3 backdrop-blur sm:px-12">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <Link
-          href="/events"
+          href="/markets"
           className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--de-ink-3)] transition-colors duration-150 ease-out hover:text-[var(--de-ink)] focus-visible:outline-none focus-visible:underline"
         >
-          ← All events
+          ← All markets
         </Link>
         <code
           className="truncate font-mono text-[10px] text-[var(--de-ink-4)]"
@@ -241,6 +245,20 @@ function TopNav({ eventId }: { eventId: string }) {
         </code>
       </div>
     </nav>
+  );
+}
+
+// Settlement badge for markets that resolve by reading Solana state directly
+// (no off-chain webhook, no committee). Driven by resolver_class.
+function OnchainBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--de-mint)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--de-mint)] normal-case"
+      title="Settles by reading Solana state, no oracle, no committee."
+    >
+      <span aria-hidden="true">⛓</span>
+      Settles on-chain
+    </span>
   );
 }
 

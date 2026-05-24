@@ -3,6 +3,8 @@ import {
   listEvents,
   formatPrice,
   formatDepth,
+  isOnchainResolved,
+  compareOnchainFirst,
   type EventSummary,
 } from "@/lib/events";
 import {
@@ -37,7 +39,12 @@ export default async function Home() {
   }
 
   const active = events.filter((e) => e.status === "active");
-  const byDepth = [...active].sort((a, b) => b.depth_usd - a.depth_usd);
+  // Hero the on-chain-resolved markets: rank them first (the "settles on-chain"
+  // moat), then order by depth within each group. Off-chain markets (statuspage
+  // / aws health) still appear, just below the on-chain set.
+  const byDepth = [...active].sort(
+    (a, b) => compareOnchainFirst(a, b) || b.depth_usd - a.depth_usd,
+  );
 
   return (
     <main className="min-h-screen bg-[var(--de-bg)] text-[var(--de-ink)]">
@@ -146,8 +153,9 @@ function ConsensusCard({ event }: { event: EventSummary }) {
       className="group block rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-5 transition-[transform,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-[var(--de-line-3)] hover:bg-[var(--de-bg-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-lavender)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg)]"
     >
       <div className="mb-4 flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+        <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
           {domainLabel(event.resolver_class)}
+          {isOnchainResolved(event.resolver_class) && <OnchainBadge />}
         </span>
         <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-mint)]">
           <span className="relative inline-flex size-1.5 items-center justify-center">
@@ -250,6 +258,21 @@ function DomainGroup({
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
+
+// Settlement badge: marks markets that resolve by reading Solana state
+// directly (no off-chain webhook, no committee). Driven by resolver_class
+// via isOnchainResolved() so it stays data-driven, never hardcoded per id.
+function OnchainBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--de-mint)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--de-mint)]"
+      title="Settles by reading Solana state, no oracle, no committee."
+    >
+      <span aria-hidden="true">⛓</span>
+      On-chain
+    </span>
+  );
+}
 
 function SectionEyebrow({
   title,

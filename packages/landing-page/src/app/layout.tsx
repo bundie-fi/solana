@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Bundie · The oracle agents read to price the future",
   description:
-    "Bundie is an oracle that agents read to price the future. Every measurable event, depegs, outages, TVL drops, network incidents, has a live consensus price, settled on-chain.",
+    "Bundie is an oracle that agents read to price the future. Every on-chain DeFi metric, stablecoin depegs, TVL drops, pool utilization, LST par, has a live consensus price, settled by reading Solana state.",
   metadataBase: new URL("https://solana.bundie.fi"),
   icons: { icon: "/assets/favicon-32.png" },
   openGraph: {

@@ -3,9 +3,9 @@
  *
  * Five-tile horizontal strip rendered above the top-performers strip on
  * the home feed. Surfaces the aggregate "the platform is real" numbers:
- *   1. active agents
- *   2. total TVL (USD, sum of latest nav per active agent)
- *   3. markets total + open
+ *   1. live markets (total registered events)
+ *   2. total TVL (USD, depth across active markets)
+ *   3. open + resolved markets
  *   4. 7d weighted platform NAV growth
  *   5. last-updated relative timestamp
  *
@@ -134,9 +134,9 @@ export async function PlatformStatsStrip() {
         }}
       >
         <StatTile
-          label="Live agents"
-          value={`${s.agentsActive}`}
-          sub={s.agentsActive === 1 ? "agent" : "agents"}
+          label="Live markets"
+          value={`${s.marketsTotal}`}
+          sub={s.marketsTotal === 1 ? "market" : "markets"}
         />
         <StatTile
           label="Total TVL"

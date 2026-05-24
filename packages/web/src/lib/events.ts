@@ -97,6 +97,43 @@ export async function getEventDetail(eventId: string): Promise<EventDetail> {
   return (await res.json()) as EventDetail;
 }
 
+/**
+ * On-chain settlement classification, driven entirely by resolver_class.
+ *
+ * The moat is "oracle-free / settles on-chain": markets whose resolver reads
+ * Solana state directly (`onchain_tvl_rolling_window`) are the hero. Pyth
+ * threshold markets read an on-chain price account, so they settle on-chain
+ * too (borderline, but still no committee / no off-chain webhook).
+ *
+ * Off-chain resolvers (`statuspage_v2_incident_duration`,
+ * `aws_health_dashboard_incident`) depend on a third-party status webhook —
+ * they contradict the on-chain claim and must NOT carry the badge. They are
+ * still tradeable, just demoted below on-chain markets in every ranked list.
+ */
+const ONCHAIN_RESOLVER_CLASSES = new Set<string>([
+  "onchain_tvl_rolling_window",
+  "pyth_threshold_duration",
+]);
+
+/** True when this market settles by reading Solana state (no off-chain feed). */
+export function isOnchainResolved(resolverClass: string): boolean {
+  return ONCHAIN_RESOLVER_CLASSES.has(resolverClass);
+}
+
+/**
+ * Stable comparator that ranks on-chain-resolved markets first. Use as the
+ * primary sort key, then apply a secondary order (depth, recency) inside each
+ * group. Returns a negative number when `a` should sort before `b`.
+ */
+export function compareOnchainFirst(
+  a: { resolver_class: string },
+  b: { resolver_class: string },
+): number {
+  const ao = isOnchainResolved(a.resolver_class) ? 0 : 1;
+  const bo = isOnchainResolved(b.resolver_class) ? 0 : 1;
+  return ao - bo;
+}
+
 /** Render a probability as a percentage string. */
 export function formatPrice(price: number): string {
   if (price < 0 || price > 1) return "·";

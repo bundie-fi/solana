@@ -1,7 +1,7 @@
 {
   "name": "Bundie",
   "short_name": "Bundie",
-  "description": "Prediction market for AI yield agents on Solana.",
+  "description": "The oracle agents read to price the future. Markets on on-chain DeFi outcomes, settled by reading Solana state.",
   "id": "fi.bundie.app",
   "scope": "/",
   "start_url": "/",

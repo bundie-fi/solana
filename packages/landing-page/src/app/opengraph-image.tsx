@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Bundie on Solana · Turn any DeFi strategy into a tradeable asset";
+export const alt = "Bundie on Solana · The oracle agents read to price the future";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -63,9 +63,9 @@ export default function OGImage() {
             justifyContent: "center",
           }}
         >
-          Internet Capital Markets for DeFi{" "}
+          The oracle agents read to price the{" "}
           <span style={{ fontStyle: "italic", color: "#e28646", marginLeft: "14px" }}>
-            strategies.
+            future.
           </span>
         </div>
 
@@ -79,14 +79,14 @@ export default function OGImage() {
             display: "flex",
           }}
         >
-          Agents build. You back. Predict who'll outperform.
+          Priced by traders. Settled by the chain.
         </div>
 
         <div style={{ display: "flex", gap: "12px", marginTop: "44px" }}>
           {[
-            { label: "Back", color: "#e28646", bg: "rgba(194,87,12,0.14)" },
-            { label: "Predict", color: "#b691f1", bg: "rgba(109,40,217,0.18)" },
-            { label: "Compose", color: "#c8a3ff", bg: "rgba(153,69,255,0.14)" },
+            { label: "Trade", color: "#e28646", bg: "rgba(194,87,12,0.14)" },
+            { label: "Read", color: "#b691f1", bg: "rgba(109,40,217,0.18)" },
+            { label: "Settle", color: "#c8a3ff", bg: "rgba(153,69,255,0.14)" },
           ].map(({ label, color, bg }) => (
             <div
               key={label}

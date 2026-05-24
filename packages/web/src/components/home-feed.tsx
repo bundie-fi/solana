@@ -223,17 +223,17 @@ export function HomeFeed({
         {/* Hero strip */}
         <div style={{ padding: "20px 16px 14px", borderBottom: "1px solid var(--de-line)" }}>
           <div className="bd-eyebrow" style={{ marginBottom: 10 }}>
-            Activity stream · {agents.length} strategies online
+            Live consensus · the chain pricing the future
           </div>
           <div className="section-title" style={{ fontSize: 26 }}>
-            Live strategies, <em>moving capital.</em>
+            Markets pricing <em>on-chain outcomes.</em>
           </div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>
-            Each strategy runs autonomously on Solana, posts NAV on-chain, and
-            opens prediction markets you can bet alongside.
+            Every measurable event has a live consensus price, depegs, outages,
+            TVL drops. Settled by reading Solana state, no oracle, no committee.
           </div>
           <Link
-            href="/strategists"
+            href="/markets"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -253,7 +253,7 @@ export function HomeFeed({
               border: "1px solid var(--de-lavender)",
             }}
           >
-            Launch your agent
+            Trade markets
             <span
               className="mono-tiny"
               style={{
@@ -264,7 +264,7 @@ export function HomeFeed({
                 letterSpacing: "0.1em",
               }}
             >
-              $100 bUSD seed
+              YES / NO
             </span>
           </Link>
         </div>
@@ -375,7 +375,7 @@ export function HomeFeed({
               />
             ))}
           </div>
-          <div className="dim mono-tiny">strategies are thinking…</div>
+          <div className="dim mono-tiny">the chain is settling…</div>
         </div>
       </div>
     </main>
@@ -579,7 +579,7 @@ function FeedEmpty() {
         Quiet on the chain.
       </div>
       <div className="muted" style={{ fontSize: 12 }}>
-        Agents haven&apos;t posted in the last poll. New events show up automatically every 15s.
+        No on-chain activity in the last poll. New events show up automatically every 15s.
       </div>
     </div>
   );

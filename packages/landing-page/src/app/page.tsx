@@ -92,9 +92,9 @@ export default function Home() {
           {[
             { x: 240, y: 421.4, name: 'USDC depeg' },
             { x: 540, y: 376.2, name: 'Kamino TVL' },
-            { x: 880, y: 278.2, name: 'AWS outage' },
+            { x: 880, y: 278.2, name: 'mSOL par' },
             { x: 1140, y: 155.5, name: 'SOL drift' },
-            { x: 1500, y: 185.1, name: 'Anthropic uptime' },
+            { x: 1500, y: 185.1, name: 'Pool utilization' },
           ].map((pt) => (
             <g
               key={pt.name}
@@ -164,7 +164,7 @@ export default function Home() {
               Existing oracles price the present, BTC right now, ETH right now. Bundie prices what&apos;s
               <em className="hero-sub-accent"> about to happen.</em>
             </p>
-            <p>Depegs, outages, TVL drops, network incidents. Every measurable event has a live consensus price, settled on-chain.</p>
+            <p>Stablecoin depegs, TVL drops, pool utilization, LST par. Every on-chain DeFi metric has a live consensus price, settled by reading Solana state.</p>
           </div>
 
           <div className="hero-ctas">
@@ -208,8 +208,8 @@ export default function Home() {
               <em> before the news does.</em>
             </h2>
             <p className="section-sub" style={{ margin: '20px 0 0' }}>
-              Four domains live on devnet today. Every market resolves from on-chain or attested
-              off-chain data, never from a committee vote.
+              Four on-chain DeFi metrics live on devnet today. Every market resolves by reading
+              Solana state at the resolution slot, never from a committee vote.
             </p>
           </div>
 
@@ -241,13 +241,13 @@ export default function Home() {
             <StaggerItem className="validation-card">
               <div className="validation-logo" aria-hidden="true">
                 <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 18 }}>
-                  ☁
+                  ◇
                 </span>
               </div>
-              <h3 className="validation-title">Cloud uptime</h3>
+              <h3 className="validation-title">LST par</h3>
               <p className="validation-body">
-                API and service outages on AWS, Anthropic, OpenAI, Cloudflare. Resolves from
-                attested status-page snapshots over the resolution window.
+                Will mSOL or JitoSOL trade below par, and for how long? Resolves from the on-chain
+                stake-pool exchange rate at the resolution slot.
               </p>
             </StaggerItem>
             <StaggerItem className="validation-card">
@@ -256,10 +256,10 @@ export default function Home() {
                   ◉
                 </span>
               </div>
-              <h3 className="validation-title">Network incidents</h3>
+              <h3 className="validation-title">Pool utilization</h3>
               <p className="validation-body">
-                Region outages, validator events, oracle deviations. The conditions that move
-                portfolios before they hit a dashboard.
+                Lending utilization spiking past a threshold. The on-chain condition that moves
+                rates and liquidations before it hits a dashboard.
               </p>
             </StaggerItem>
           </StaggerChildren>
@@ -603,7 +603,7 @@ export default function Home() {
 
 /* ──────────────────────────────────────────────────────────────────────
    Market preview (newspaper leaderboard, with a blurred-fade tail)
-   Reframed: the market is now an event-priced market (AWS outage),
+   Reframed: the market prices an on-chain DeFi metric (LST par),
    not an agent-vs-agent matchup. Same component, different content.
    ────────────────────────────────────────────────────────────────────── */
 
@@ -617,17 +617,17 @@ function MarketPreview() {
     <article className="mkt-a">
       <div className="mkt-a-eyebrow">Live market · example</div>
       <h3 className="mkt-a-question">
-        Will <em>AWS us-east-1</em> report an incident before Friday?
+        Will <em>mSOL</em> trade below par before Friday?
       </h3>
       <div className="mkt-a-table">
         <div className="mkt-a-row">
           <span className="mkt-a-side mkt-a-side-yes">YES</span>
-          <span className="mkt-a-name">Incident reported</span>
+          <span className="mkt-a-name">Drops below par</span>
           <span className="mkt-a-pct">78%</span>
         </div>
         <div className="mkt-a-row">
           <span className="mkt-a-side mkt-a-side-no">NO</span>
-          <span className="mkt-a-name">Clean window</span>
+          <span className="mkt-a-name">Holds par</span>
           <span className="mkt-a-pct mkt-a-pct-dim">22%</span>
         </div>
       </div>
@@ -729,7 +729,7 @@ function CurlExample() {
         -H <span style={VAL}>&quot;X-PAYMENT: $x402_token$&quot;</span> \
       </CurlLine>
       <CurlLine delay={780} pad={14}>
-        -d <span style={VAL}>&apos;{'{'}&quot;id&quot;:&quot;aws_us_east_1_incident_30min_30d&quot;{'}'}&apos;</span>
+        -d <span style={VAL}>&apos;{'{'}&quot;id&quot;:&quot;msol_below_par_30min_7d&quot;{'}'}&apos;</span>
       </CurlLine>
 
       <CurlLine delay={1280} comment pause>
@@ -738,7 +738,7 @@ function CurlExample() {
       <CurlLine delay={1440}>{'{'}</CurlLine>
       <CurlLine delay={1560} pad={18}>
         <span style={KEY}>&quot;event_id&quot;</span>:{' '}
-        <span style={VAL}>&quot;aws_us_east_1_incident_30min_30d&quot;</span>,
+        <span style={VAL}>&quot;msol_below_par_30min_7d&quot;</span>,
       </CurlLine>
       <CurlLine delay={1680} pad={18}>
         <span style={KEY}>&quot;price&quot;</span>:{' '}

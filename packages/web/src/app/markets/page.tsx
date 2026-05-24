@@ -4,6 +4,8 @@ import {
   formatPrice,
   listEvents,
   marketKindLabel,
+  isOnchainResolved,
+  compareOnchainFirst,
   type EventSummary,
 } from "@/lib/events";
 import { BettorFaucetCTA } from "@/components/BettorFaucetCTA";
@@ -29,6 +31,15 @@ export default async function EventsPage() {
   } catch (err) {
     error = (err as Error).message;
   }
+
+  // Surface the on-chain-resolved markets first (the "settles on-chain" moat),
+  // then keep a live-before-scheduled order within each group. Off-chain
+  // markets remain listed, just demoted. Data-driven off resolver_class.
+  events = [...events].sort(
+    (a, b) =>
+      compareOnchainFirst(a, b) ||
+      Number(b.status === "active") - Number(a.status === "active"),
+  );
 
   return (
     <main className="min-h-screen bg-[var(--de-bg)] text-[var(--de-ink)]">
@@ -125,12 +136,13 @@ function EventCard({ event }: { event: EventSummary }) {
   const isLive = event.status === "active";
   return (
     <Link
-      href={`/events/${encodeURIComponent(event.event_id)}`}
+      href={`/markets/${encodeURIComponent(event.event_id)}`}
       className="group block rounded-2xl border border-[var(--de-line-2)] bg-[var(--de-bg-raised)] p-6 transition-[transform,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-[var(--de-line-3)] hover:bg-[var(--de-bg-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--de-lavender)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--de-bg)]"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
+        <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]">
           {humanKind(event.market_kind, event.resolver_class)}
+          {isOnchainResolved(event.resolver_class) && <OnchainBadge />}
         </span>
         <StatusPill live={isLive} />
       </div>
@@ -161,6 +173,20 @@ function EventCard({ event }: { event: EventSummary }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+// Settlement badge for markets that resolve by reading Solana state directly
+// (no off-chain webhook, no committee). Data-driven via isOnchainResolved().
+function OnchainBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--de-mint)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--de-mint)]"
+      title="Settles by reading Solana state, no oracle, no committee."
+    >
+      <span aria-hidden="true">⛓</span>
+      On-chain
+    </span>
   );
 }
 

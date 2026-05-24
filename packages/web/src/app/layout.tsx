@@ -6,10 +6,7 @@ import { ClientProviders } from "@/components/ClientProviders";
 import { TopNav } from "@/components/TopNav";
 import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
-import {
-  DeferredOnboardingTour,
-  DeferredToaster,
-} from "@/components/DeferredClientMounts";
+import { DeferredToaster } from "@/components/DeferredClientMounts";
 import "./globals.css";
 
 // Network priming. preconnect opens TCP + TLS to backend / RPC before the
@@ -107,9 +104,6 @@ export default function RootLayout({
           <Footer />
           {/* Bottom nav, mobile only */}
           <BottomNav />
-          {/* First-run UX surfaces, must sit inside ClientProviders so
-              they can read wallet state via useWallet(). */}
-          <DeferredOnboardingTour />
         </ClientProviders>
         <DeferredToaster />
       </body>
