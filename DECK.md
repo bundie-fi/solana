@@ -26,23 +26,27 @@
 
 ## The 2-minute spoken script (rehearse to this)
 
-> ~290 words. Flip slides on the cues. This is the deliverable that has to fit — the slides serve it.
+> ~330 words, complete sentences, full pitch — now narrates all 11 slides. Runs a touch over 2:00 at a brisk pace; trim levers are the team-and-model line (1:55) and the S7 sizing line (1:34). Flip slides on the cues.
 
-**[S1 Cover · 0:00]** Bundie is an oracle that prices the future using prediction markets. Existing oracles price the *present* — what a token is worth right now. Bundie prices what's about to *happen*, and settles it on-chain.
+**[S1 Cover · 0:00]** Bundie is an oracle that prices the future using prediction markets. Today's oracles, like Pyth and Chainlink, tell you what an asset is worth right now. Bundie tells you the probability of what's about to happen on-chain, and it settles that bet by reading Solana directly.
 
-**[S2 Problem · 0:12]** DeFi has a spot price for everything and a forward price for nothing. Will this pool's utilization spike? Will this LST lose its peg? Will this stablecoin slip this week? There's no tradeable probability — and the AI agents now moving real money on Solana have no way to price that risk before they act.
+**[S2 Problem · 0:17]** The problem is that DeFi has a spot price for everything and a forward price for nothing. There's no tradeable price for whether a pool's utilization spikes, a stablecoin loses its peg, or a protocol's TVL drains this week. And the AI agents now moving real money on Solana have no way to price that risk before they act.
 
-**[S3 How it works · 0:32]** Bundie opens a market on any on-chain DeFi metric. Retail trades YES or NO — that price *is* the market's implied probability. Agents pay a tenth of a cent over x402 to read it. Same primitive, two paying customers: traders provide the signal, agents consume it.
+**[S3 How it works · 0:38]** Here is how it works. Bundie opens a prediction market on any on-chain DeFi outcome. Retail traders buy YES or NO, and that price becomes the market's live probability. AI agents then pay a tenth of a cent over x402 to read that price as a signal. It is one primitive with two paying customers: traders supply the signal, and agents consume it.
 
-**[S4 Moat · 0:55]** Here's what nobody else does. This market — *will Kamino USDC utilization cross 90% this week* — settles by reading Kamino's account directly on Solana. No Pyth, no committee, no off-chain attestation. And here's an agent about to enter that pool: it queries Bundie, pays a tenth of a cent, reads the probability, routes around the risk. The oracle, being read, live.
+**[S4 Moat · 1:00]** This is what nobody else does. A market on Kamino's utilization settles by reading Kamino's own account on Solana, with no Pyth, no committee, and no off-chain attestation. The price an agent reads is settled by the exact same chain the outcome lives on. That is our moat, and it only works on Solana.
 
-**[S5–S6 Why now + edge · 1:25]** Jupiter just put Polymarket on Solana. The agent economy is here. But every market still trusts an external oracle to resolve. We read the chain instead — that's the whole moat, and it only works on Solana.
+**[S5–S6 Why now + edge · 1:24]** The timing is right. Jupiter just brought Polymarket to Solana and the agent economy is here, but every existing market still trusts an external oracle to resolve. We read the chain instead.
 
-**[S8 Traction · 1:42]** Live on devnet: LMSR engine, on-chain settlement, x402 read API. One of 44 standouts from 2,857 Colosseum submissions. Backed by Superteam Malaysia.
+**[S7 Market · 1:34]** And the prize is large: prediction-market volume is projected at $240 billion this year and a trillion by 2030, and Bundie owns the DeFi-native, self-settling corner of it.
 
-**[S11 Close · 1:55]** Bundie. The oracle agents read to price the future.
+**[S8 Traction · 1:45]** And it is already live on devnet: the LMSR engine, oracle-free settlement, and the x402 read API, sourcing from six DeFi protocols. We were one of 44 standouts from 2,857 Colosseum submissions, and we are backed by Superteam Malaysia.
 
-> At 2:00 you've spoken S1, S2, S3, S4, S5/6, S8, S11. S7 (market) / S9 (model) / S10 (team) are **flip-past / leave-behind** slides — judges read them, you don't narrate them. Don't try to speak all 11.
+**[S10 + S9 Team & model · 1:55]** We are a returning team that already shipped this on EVM, and we earn two ways: a spread on every trade, and a per-query fee from the agents that read our prices.
+
+**[S11 Close · 2:00]** Bundie. An oracle that prices the future.
+
+> This now narrates all 11 slides. It runs a touch over 2:00 — to claw back time, the two trim levers are the team-and-model line (1:55) and the S7 sizing line (1:34). Cut either and you're back under 2:00.
 
 ---
 
