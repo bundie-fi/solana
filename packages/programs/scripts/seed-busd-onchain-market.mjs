@@ -123,6 +123,9 @@ const DEFAULT_RPC =
   "https://sol-devnet-rpc.rpcfast.com?api_key=0QW9Zx1DgikISDpXoZrfjohjDWs0EYKegoxyq7lc1PfI3tMPvCNOaYPGjlBSoumr";
 
 const MARKET_ID_PREFIX = Number(process.env.MARKET_ID_PREFIX ?? "105");
+// TRADE_ONLY: market already exists — skip create_event, just add fresh trades
+// (so the live backend indexer observes them and trade_count/confidence go nonzero).
+const TRADE_ONLY = process.env.TRADE_ONLY === "true";
 const INITIAL_SUBSIDY_BUSD = Number(process.env.INITIAL_SUBSIDY_BUSD ?? "100");
 const FEE_BPS = Number(process.env.FEE_BPS ?? "100"); // 1%
 const BUY_BUSD_PER_TRADE = Number(process.env.BUY_BUSD_PER_TRADE ?? "5");
@@ -303,7 +306,11 @@ async function main() {
 
   // ── collision pre-check ─────────────────────────────────────────────
   const existing = await connection.getAccountInfo(marketPda);
-  if (existing) {
+  if (existing && TRADE_ONLY) {
+    console.log(
+      `↻ TRADE_ONLY: market ${marketId} exists (${marketPda.toBase58()}) — skipping create_event, adding fresh trades only.`,
+    );
+  } else if (existing) {
     // Find smallest safe id still inside the backend scan window.
     let next = null;
     for (let id = marketId + 1; id < BACKEND_SCAN_END; id++) {
@@ -404,8 +411,8 @@ async function main() {
     console.log(`✓ minted bUSD: ${sig}`);
   }
 
-  // (b) create_event collateralized in bUSD.
-  {
+  // (b) create_event collateralized in bUSD. Skipped in TRADE_ONLY mode.
+  if (!existing) {
     const initialSubsidy = new BN(Math.round(INITIAL_SUBSIDY_BUSD * 1e6));
     const currentSlot = await connection.getSlot();
     const resolutionSlot = new BN(currentSlot + 2 * 24 * 60 * 60 * 2.5); // ~2 days

@@ -107,6 +107,16 @@ async function refresh(): Promise<void> {
       for (const t of trades) seen.add(t.signature);
     }
 
+    // Build the set of market PDAs we track. The market account is NOT at a
+    // fixed index in the tx (account order varies per tx), so we identify it
+    // by matching against known market PDAs rather than assuming accountKeys[1].
+    const knownMarkets = new Map<string, string>(); // market PDA -> event_id
+    for (const e of loadRegistry().events) {
+      // eslint-disable-next-line no-await-in-loop
+      const pda = await findMarketForEvent(e.event_id).catch(() => null);
+      if (pda) knownMarkets.set(pda.toBase58(), e.event_id);
+    }
+
     for (const info of sigInfos) {
       if (seen.has(info.signature)) continue;
       const tx = await connection.getTransaction(info.signature, {
@@ -115,12 +125,22 @@ async function refresh(): Promise<void> {
       if (!tx || !tx.meta?.logMessages) continue;
 
       const blockTimeMs = (tx.blockTime ?? 0) * 1000;
-      const feePayer =
-        tx.transaction.message.staticAccountKeys?.[0]?.toBase58() ?? "unknown";
+      const accountKeys = tx.transaction.message.staticAccountKeys ?? [];
+      const feePayer = accountKeys[0]?.toBase58() ?? "unknown";
 
-      // The market PDA is the second account in our event-market ix layouts.
-      const accountKeys = tx.transaction.message.staticAccountKeys;
-      const marketAddress = accountKeys?.[1]?.toBase58() ?? "unknown";
+      // Identify the market PDA among this tx's accounts (order is not fixed).
+      let marketAddress: string | null = null;
+      let eventId: string | null = null;
+      for (const k of accountKeys) {
+        const b = k.toBase58();
+        const ev = knownMarkets.get(b);
+        if (ev) {
+          marketAddress = b;
+          eventId = ev;
+          break;
+        }
+      }
+      if (!marketAddress) continue; // not a tracked market
 
       for (const log of tx.meta.logMessages) {
         const trade = parseLogLine(
@@ -134,11 +154,6 @@ async function refresh(): Promise<void> {
         const arr = tradesByMarket.get(trade.marketAddress) ?? [];
         arr.push(trade);
         tradesByMarket.set(trade.marketAddress, arr);
-        // Fire a price-update notification keyed by the event_id that
-        // owns this market. Resolved via the reverse map below; cached.
-        const eventId = await eventIdForMarket(trade.marketAddress).catch(
-          () => null,
-        );
         if (eventId) emitPriceUpdate(eventId);
       }
     }
@@ -238,22 +253,3 @@ export async function indexerRefresh(): Promise<void> {
   await refresh();
 }
 
-/**
- * Reverse map: given a market PDA address, return the event_id that owns
- * it. Built lazily by scanning the registry's known events. Cached so the
- * indexer doesn't re-scan on every trade.
- */
-const marketToEventCache = new Map<string, string>();
-async function eventIdForMarket(marketAddress: string): Promise<string | null> {
-  const cached = marketToEventCache.get(marketAddress);
-  if (cached) return cached;
-  const registry = loadRegistry();
-  for (const e of registry.events) {
-    const pda = await findMarketForEvent(e.event_id).catch(() => null);
-    if (pda && pda.toBase58() === marketAddress) {
-      marketToEventCache.set(marketAddress, e.event_id);
-      return e.event_id;
-    }
-  }
-  return null;
-}
