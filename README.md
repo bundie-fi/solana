@@ -2,7 +2,7 @@
 
 > The oracle agents read to price the future.
 
-**Live app:** [app.solana.bundie.fi](https://app.solana.bundie.fi) · **Landing:** [solana.bundie.fi](https://solana.bundie.fi)
+**Live app:** [app.solana.bundie.fi](https://app.solana.bundie.fi) · **Landing:** [solana.bundie.fi](https://solana.bundie.fi) · **Agent MCP:** `npx -y @bundie/sol-mcp` ([repo](https://github.com/bundie-fi/mcp))
 
 **Colosseum Frontier Hackathon** — DeFi (primary) + Consumer Apps (secondary)
 
@@ -73,12 +73,13 @@ That closes the loop every other prediction market leaves open: the price that p
 packages/
 ├── web/            Next.js 14 PWA  (app.solana.bundie.fi)
 ├── backend/        Hono API + faucet + x402 price-read endpoint on Railway
-├── programs/       Anchor program + chaos-sim daemon (house agents)
-│   ├── programs/prediction-market/   LS-LMSR + oracle-free on-chain resolution
-│   └── scripts/chaos-sim/            Daemon for the 1–2 house strategy agents
+├── programs/       Anchor program + market-seeding scripts
+│   └── programs/prediction-market/   LS-LMSR + oracle-free on-chain resolution
 ├── common/         Shared TypeScript types, IDLs, constants
 └── landing-page/   Marketing site  (solana.bundie.fi)
 ```
+
+> The agent-facing **MCP server** lives in a separate repo: [github.com/bundie-fi/mcp](https://github.com/bundie-fi/mcp) (`@bundie/sol-mcp`).
 
 ---
 
@@ -105,6 +106,20 @@ curl https://backend.solana.bundie.fi/v1/event-price?id=kamino_util_90 \
 ```
 
 Priced dynamically by market depth. WSS billed per minute. The query side scales with the agent economy.
+
+---
+
+## For agents: read the oracle over MCP
+
+The oracle is consumable by any AI agent over the **Model Context Protocol** — this is the agent-facing product. Drop it into Claude Code, Cursor, or any MCP client:
+
+```bash
+npx -y @bundie/sol-mcp        # Smithery-listed; defaults to backend.solana.bundie.fi
+```
+
+Tools: `list_events`, **`read_price`** (x402-gated signed price), **`verify_attestation`** (ed25519, on-chain-verifiable), `get_event_detail`, `resolver_track_record`. The MCP is a stateless passthrough — the Solana backend runs the x402 dance.
+
+A typical agent flow: query the probability of a DeFi outcome → receive a signed price → verify the attestation → gate its decision on the result. Source: [github.com/bundie-fi/mcp](https://github.com/bundie-fi/mcp).
 
 ---
 
@@ -136,17 +151,9 @@ pnpm --filter @bundie/backend dev
 
 # Build + test Solana programs
 cd packages/programs && anchor build && anchor test
-
-# Run the house-agent daemon (provides the strategy-NAV example markets)
-pnpm chaos:agent-daemon
 ```
 
-### Surfpool mainnet fork
-
-```bash
-cd packages/programs/scripts/chaos-sim
-bash start-surfpool.sh
-```
+The agent-facing MCP server is in its own repo — see [github.com/bundie-fi/mcp](https://github.com/bundie-fi/mcp) or just `npx -y @bundie/sol-mcp`.
 
 ---
 
@@ -158,9 +165,9 @@ bash start-surfpool.sh
 | Backend | Hono on Railway, Postgres, bUSD faucet, x402 price-read API |
 | On-chain | Anchor (prediction-market), pinocchio (utility programs) |
 | Resolution | Oracle-free — reads Solana DeFi state at the resolution slot |
-| House-agent example | Surfpool mainnet fork, direct DeFi SDK calls, Redpill → Claude Sonnet 4.5 |
+| Agent interface | MCP (`@bundie/sol-mcp`) — stateless passthrough to the x402 read API |
 | Identity | SNS — `bundie.sol` (mainnet) + `.bundie` SNS root (devnet) |
-| Deployment | Railway: web · backend · chaos-sim daemon · surfpool · Postgres |
+| Deployment | Railway: web · backend · resolver · Postgres |
 
 ---
 
@@ -177,15 +184,7 @@ DATABASE_URL=
 DEVNET_RPC=
 BUSD_MINT=
 BUSD_MINT_AUTHORITY_SECRET=         # JSON byte array
-AGENT_FUNDING_SECRET=               # JSON byte array
-
-# chaos-sim daemon (Railway secrets, same DB)
-DATABASE_URL=
-SURFPOOL_RPC_URL=                   # surfpool fork
-MAINNET_RPC_URL=                    # for live rate-surface reads
-REDPILL_API_KEY=
-BUSD_MINT=
-BUSD_MINT_AUTHORITY_SECRET=
+AGENT_FUNDING_SECRET=               # JSON byte array (wallet SNS provisioning)
 ```
 
 ---
