@@ -16,15 +16,20 @@ import {
 } from "@solana/spl-token";
 import { isMobileWalletAdapter, sendTxViaMwa } from "@/lib/mwa-tx";
 import { computeEventIdHash } from "@/lib/events";
+import { BUSD_MINT } from "@bundie/common";
 
 const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PREDICTION_PROGRAM_ID ??
     "Bun4h9qr4NnQNa5qPePK48cP63R59hHSQDt8ipge4fT4",
 );
 
+// Markets are bUSD-collateralized (the faucet mints bUSD, and `buy_event_shares`
+// enforces `buyer_collateral.mint == market.collateral_mint`). This MUST be the
+// same mint the faucet dispenses — sourced from @bundie/common like BettorFaucetCTA.
+// Using a different "USDC" mint here makes every buy/sell/redeem revert with
+// ConstraintRaw (2003), which Phantom surfaces as "Unexpected error".
 const USDC_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_DEVNET_USDC ??
-    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  process.env.NEXT_PUBLIC_BUSD_MINT ?? BUSD_MINT,
 );
 
 // Anchor discriminators — sha256("global:<ix_name>")[..8].
@@ -120,12 +125,11 @@ export function TradeButtons({
   const parsedAmount = parseFloat(amount);
   const validAmount = !isNaN(parsedAmount) && parsedAmount > 0;
   const noPrice = 1 - yesPrice;
-  // Cost preview: shares-per-dollar at current LMSR price, ignoring fee/slippage.
-  // The on-chain LMSR will price the trade with slippage; this is the headline.
-  const previewYesShares =
-    validAmount && yesPrice > 0 ? parsedAmount / yesPrice : 0;
-  const previewNoShares =
-    validAmount && noPrice > 0 ? parsedAmount / noPrice : 0;
+  // The on-chain `amount` is the number of SHARES to mint (not USDC to spend).
+  // Approximate cost ≈ shares × price, ignoring LMSR slippage + fee; the
+  // program prices the exact cost on execution.
+  const previewYesCost = validAmount ? parsedAmount * yesPrice : 0;
+  const previewNoCost = validAmount ? parsedAmount * noPrice : 0;
 
   async function buildBuyIx(
     signer: PublicKey,
@@ -331,7 +335,7 @@ export function TradeButtons({
             htmlFor="amount"
             className="mb-1.5 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--de-ink-3)]"
           >
-            <span>{mode === "buy" ? "Spend (USDC)" : "Sell (shares)"}</span>
+            <span>{mode === "buy" ? "Buy (shares)" : "Sell (shares)"}</span>
             <span className="text-[var(--de-ink-4)] normal-case tracking-normal">
               LS-LMSR · slippage applies
             </span>
@@ -352,13 +356,13 @@ export function TradeButtons({
               id="amount-hint"
               className="mt-2 font-mono text-[11px] tabular-nums text-[var(--de-ink-3)]"
             >
-              ≈{" "}
+              {parsedAmount} shares ≈{" "}
               <span className="text-[var(--de-mint)]">
-                {previewYesShares.toFixed(2)} YES
+                ${previewYesCost.toFixed(2)} YES
               </span>{" "}
               <span className="text-[var(--de-ink-5)]">/</span>{" "}
               <span className="text-[var(--de-rose)]">
-                {previewNoShares.toFixed(2)} NO
+                ${previewNoCost.toFixed(2)} NO
               </span>{" "}
               at current price
             </p>
